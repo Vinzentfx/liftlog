@@ -1,0 +1,229 @@
+// Strength standards and the rating engine.
+//
+// Ratings compare an estimated 1RM against published strength standards,
+// normalised by bodyweight, sex and age. Two deliberate limits:
+//
+//  1. Height is NOT an input. No published standard uses it — it affects
+//     leverages but isn't part of any normalisation. Including it would be
+//     invented precision.
+//  2. Only benchmark lifts are rated. There is no meaningful standard for a
+//     cable lateral raise, and machine lifts vary too much between
+//     manufacturers to compare. Everything else falls back to personal
+//     progress instead of a tier.
+//
+// The numbers below are an approximate consensus of commonly published
+// standards. They are a useful yardstick, not a precise measurement.
+
+export const TIERS = [
+  { key: 'beginner',     label: 'Beginner',     short: 'Beg' },
+  { key: 'novice',       label: 'Novice',       short: 'Nov' },
+  { key: 'intermediate', label: 'Intermediate', short: 'Int' },
+  { key: 'advanced',     label: 'Advanced',     short: 'Adv' },
+  { key: 'elite',        label: 'Elite',        short: 'Eli' },
+];
+
+/** Body-map regions. Finer than the coarse `muscle` field on an exercise. */
+export const REGIONS = {
+  chest:       'Chest',
+  'delts-front': 'Front Delts',
+  'delts-rear':  'Rear Delts',
+  traps:       'Traps',
+  lats:        'Lats',
+  biceps:      'Biceps',
+  triceps:     'Triceps',
+  forearms:    'Forearms',
+  abs:         'Abs',
+  obliques:    'Obliques',
+  'lower-back': 'Lower Back',
+  glutes:      'Glutes',
+  quads:       'Quads',
+  hamstrings:  'Hamstrings',
+  calves:      'Calves',
+};
+
+/**
+ * Bodyweight multiples marking entry into Novice / Intermediate / Advanced /
+ * Elite. Below the first value is Beginner.
+ */
+const BOUNDS = {
+  male: {
+    'Barbell Bench Press':      [0.75, 1.25, 1.75, 2.25],
+    'Incline Barbell Bench Press': [0.60, 1.00, 1.45, 1.90],
+    'Close-Grip Bench Press':   [0.60, 1.00, 1.45, 1.85],
+    'Back Squat':               [1.00, 1.50, 2.25, 3.00],
+    'Front Squat':              [0.80, 1.20, 1.80, 2.40],
+    'Deadlift':                 [1.25, 1.90, 2.65, 3.40],
+    'Sumo Deadlift':            [1.25, 1.90, 2.65, 3.40],
+    'Romanian Deadlift':        [1.00, 1.50, 2.10, 2.75],
+    'Overhead Press':           [0.50, 0.75, 1.05, 1.35],
+    'Barbell Row':              [0.70, 1.05, 1.45, 1.85],
+    'Pendlay Row':              [0.70, 1.05, 1.45, 1.85],
+    'Hip Thrust':               [1.25, 2.00, 2.75, 3.60],
+    'Lat Pulldown':             [0.70, 1.00, 1.35, 1.70],
+    'Leg Press':                [2.00, 3.00, 4.25, 5.50],
+    'Pull-Up':                  [1.00, 1.25, 1.55, 1.95],
+    'Chin-Up':                  [1.00, 1.28, 1.60, 2.00],
+    'Dip':                      [1.00, 1.30, 1.65, 2.10],
+  },
+  female: {
+    'Barbell Bench Press':      [0.45, 0.75, 1.05, 1.40],
+    'Incline Barbell Bench Press': [0.35, 0.60, 0.85, 1.15],
+    'Close-Grip Bench Press':   [0.35, 0.60, 0.85, 1.15],
+    'Back Squat':               [0.70, 1.15, 1.65, 2.25],
+    'Front Squat':              [0.55, 0.90, 1.30, 1.80],
+    'Deadlift':                 [0.90, 1.40, 2.00, 2.60],
+    'Sumo Deadlift':            [0.90, 1.40, 2.00, 2.60],
+    'Romanian Deadlift':        [0.70, 1.10, 1.55, 2.05],
+    'Overhead Press':           [0.30, 0.48, 0.68, 0.90],
+    'Barbell Row':              [0.45, 0.70, 1.00, 1.30],
+    'Pendlay Row':              [0.45, 0.70, 1.00, 1.30],
+    'Hip Thrust':               [1.00, 1.65, 2.35, 3.10],
+    'Lat Pulldown':             [0.50, 0.75, 1.05, 1.35],
+    'Leg Press':                [1.50, 2.30, 3.30, 4.30],
+    'Pull-Up':                  [0.85, 1.05, 1.30, 1.65],
+    'Chin-Up':                  [0.85, 1.08, 1.34, 1.70],
+    'Dip':                      [0.85, 1.10, 1.40, 1.80],
+  },
+};
+
+/** Lifts where the load is bodyweight plus any added weight. */
+const BODYWEIGHT_INCLUSIVE = new Set(['Pull-Up', 'Chin-Up', 'Dip']);
+
+/** Which regions a benchmark lift trains, and how strongly (0–1). */
+export const CONTRIB = {
+  'Barbell Bench Press':      { chest: 1, 'delts-front': 0.55, triceps: 0.55 },
+  'Incline Barbell Bench Press': { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
+  'Close-Grip Bench Press':   { triceps: 1, chest: 0.7, 'delts-front': 0.5 },
+  'Back Squat':               { quads: 1, glutes: 0.75, 'lower-back': 0.4, hamstrings: 0.35 },
+  'Front Squat':              { quads: 1, glutes: 0.6, abs: 0.45, 'lower-back': 0.35 },
+  'Deadlift':                 { 'lower-back': 1, hamstrings: 0.85, glutes: 0.85, traps: 0.55, lats: 0.45, forearms: 0.5 },
+  'Sumo Deadlift':            { glutes: 1, quads: 0.7, 'lower-back': 0.8, hamstrings: 0.6, forearms: 0.45 },
+  'Romanian Deadlift':        { hamstrings: 1, glutes: 0.8, 'lower-back': 0.6 },
+  'Overhead Press':           { 'delts-front': 1, triceps: 0.6, traps: 0.4, abs: 0.3 },
+  'Barbell Row':              { lats: 1, traps: 0.65, biceps: 0.55, 'delts-rear': 0.55 },
+  'Pendlay Row':              { lats: 1, traps: 0.7, biceps: 0.5, 'delts-rear': 0.55 },
+  'Hip Thrust':               { glutes: 1, hamstrings: 0.55 },
+  'Lat Pulldown':             { lats: 1, biceps: 0.55, 'delts-rear': 0.35 },
+  'Leg Press':                { quads: 1, glutes: 0.6 },
+  'Pull-Up':                  { lats: 1, biceps: 0.6, forearms: 0.4, 'delts-rear': 0.3 },
+  'Chin-Up':                  { lats: 0.9, biceps: 0.85, forearms: 0.4 },
+  'Dip':                      { triceps: 1, chest: 0.8, 'delts-front': 0.5 },
+};
+
+export const BENCHMARKS = Object.keys(CONTRIB);
+export const isBenchmark = (name) => Object.hasOwn(CONTRIB, name);
+
+/**
+ * Strength peaks roughly 20–35. Older lifters get a proportionally easier
+ * standard; under-20s a slightly easier one too.
+ */
+export function ageFactor(age) {
+  const a = Number(age);
+  if (!a || a <= 0) return 1;
+  if (a < 20) return 0.95;
+  if (a <= 35) return 1;
+  return Math.max(0.72, 1 - (a - 35) * 0.006);
+}
+
+/**
+ * Continuous 0–100 score. Tier bands are 20 points wide, so the score encodes
+ * both the tier and how far through it you are.
+ */
+export function scoreFor(liftName, oneRepMax, profile) {
+  const sex = profile.sex === 'female' ? 'female' : 'male';
+  const bw = Number(profile.bodyweight);
+  if (!bw || bw <= 0 || !oneRepMax) return null;
+
+  const table = BOUNDS[sex][liftName];
+  if (!table) return null;
+
+  const load = BODYWEIGHT_INCLUSIVE.has(liftName) ? oneRepMax + bw : oneRepMax;
+  const ratio = load / bw;
+
+  // Easier standard for masters / juniors => divide the bar, not the lifter.
+  const f = ageFactor(profile.age);
+  const b = table.map((v) => v * f);
+
+  let score;
+  if (ratio < b[0]) score = 20 * (ratio / b[0]);
+  else if (ratio < b[1]) score = 20 + 20 * (ratio - b[0]) / (b[1] - b[0]);
+  else if (ratio < b[2]) score = 40 + 20 * (ratio - b[1]) / (b[2] - b[1]);
+  else if (ratio < b[3]) score = 60 + 20 * (ratio - b[2]) / (b[3] - b[2]);
+  else score = 80 + 20 * Math.min(1, (ratio - b[3]) / (b[3] * 0.3));
+
+  return Math.max(0, Math.min(100, score));
+}
+
+export const tierIndex = (score) =>
+  score === null || score === undefined ? null : Math.min(4, Math.floor(score / 20));
+
+export const tierOf = (score) => {
+  const i = tierIndex(score);
+  return i === null ? null : TIERS[i];
+};
+
+/** kg still needed on the bar to reach the next tier, or null at Elite. */
+export function toNextTier(liftName, score, profile) {
+  const i = tierIndex(score);
+  if (i === null || i >= 4) return null;
+  const sex = profile.sex === 'female' ? 'female' : 'male';
+  const table = BOUNDS[sex][liftName];
+  if (!table) return null;
+  const bw = Number(profile.bodyweight);
+  const f = ageFactor(profile.age);
+  const needRatio = table[i] * f;
+  let need = needRatio * bw;
+  if (BODYWEIGHT_INCLUSIVE.has(liftName)) need -= bw;
+  return { tier: TIERS[i + 1], weight: need };
+}
+
+/**
+ * Per-region and overall rating.
+ *
+ * A region's score is the best (lift score × how strongly that lift trains it)
+ * across the benchmark lifts the user actually performs. Taking the max rather
+ * than an average means skipping one lift doesn't drag a region down — but a
+ * region you never train stays unrated rather than scoring zero.
+ *
+ * @param bestByLift Map of lift name -> best estimated 1RM
+ */
+export function buildRating(bestByLift, profile) {
+  const regions = {};
+  const lifts = [];
+
+  for (const [name, orm] of bestByLift) {
+    if (!isBenchmark(name)) continue;
+    const score = scoreFor(name, orm, profile);
+    if (score === null) continue;
+    lifts.push({ name, oneRepMax: orm, score, tier: tierOf(score), next: toNextTier(name, score, profile) });
+
+    for (const [region, weight] of Object.entries(CONTRIB[name])) {
+      const value = score * weight;
+      if (!regions[region] || value > regions[region].score) {
+        regions[region] = { score: value, via: name };
+      }
+    }
+  }
+
+  lifts.sort((a, b) => b.score - a.score);
+
+  const rated = Object.values(regions);
+  // Overall is the mean of rated regions — an unrated region isn't a zero,
+  // it's an absence of data, and averaging in zeros would be misleading.
+  const overall = rated.length
+    ? rated.reduce((n, r) => n + r.score, 0) / rated.length
+    : null;
+
+  return {
+    regions,
+    lifts,
+    overall,
+    overallTier: overall === null ? null : tierOf(overall),
+    ratedRegions: rated.length,
+    totalRegions: Object.keys(REGIONS).length,
+  };
+}
+
+export function hasProfile(profile) {
+  return !!(profile && Number(profile.bodyweight) > 0 && profile.sex);
+}

@@ -1,0 +1,372 @@
+// Single source of truth. Screens read `state` and call actions; actions persist
+// to IndexedDB and notify subscribers.
+
+import * as db from './db.js';
+import {
+  DEFAULT_SETTINGS, seedExercises, newSession, newEntry, newSet,
+  LIBRARY_VERSION, normName,
+} from './models.js';
+import { buildPlanDays, REP_TARGET } from './plan-builder.js';
+
+export const state = {
+  ready: false,
+  exercises: [],
+  routines: [],
+  plans: [],
+  sessions: [],       // newest first, includes the in-progress one
+  bodyweight: [],     // newest first
+  settings: { ...DEFAULT_SETTINGS },
+  exerciseById: new Map(),
+};
+
+const listeners = new Set();
+export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+function emit() { listeners.forEach((fn) => fn()); }
+
+function reindex() {
+  state.exerciseById = new Map(state.exercises.map((e) => [e.id, e]));
+  state.exercises.sort((a, b) => a.name.localeCompare(b.name));
+  state.sessions.sort((a, b) => b.startedAt - a.startedAt);
+  state.bodyweight.sort((a, b) => b.date - a.date);
+}
+
+export async function load() {
+  const [exercises, routines, plans, sessions, bodyweight, settingsRows] = await Promise.all([
+    db.getAll(db.STORES.exercises),
+    db.getAll(db.STORES.routines),
+    db.getAll(db.STORES.plans),
+    db.recentSessions(0),
+    db.getAll(db.STORES.bodyweight),
+    db.getAll(db.STORES.settings),
+  ]);
+
+  state.exercises = exercises;
+  state.routines = routines;
+  state.plans = plans;
+  state.sessions = sessions;
+  state.bodyweight = bodyweight;
+  state.settings = { ...DEFAULT_SETTINGS };
+  for (const row of settingsRows) state.settings[row.key] = row.value;
+
+  if (!state.exercises.length) {
+    state.exercises = seedExercises(db.uid);
+    await db.putMany(db.STORES.exercises, state.exercises);
+    await db.put(db.STORES.settings, { key: 'libraryVersion', value: LIBRARY_VERSION });
+    state.settings.libraryVersion = LIBRARY_VERSION;
+  } else if ((state.settings.libraryVersion || 1) < LIBRARY_VERSION) {
+    // Existing install: top up with catalogue entries it doesn't have yet.
+    // Matched by name so nothing the user edited or logged against is touched.
+    const have = new Set(state.exercises.map((e) => normName(e.name)));
+    const added = seedExercises(db.uid).filter((e) => !have.has(normName(e.name)));
+    if (added.length) {
+      state.exercises.push(...added);
+      await db.putMany(db.STORES.exercises, added);
+    }
+    // Backfill body-map regions on the original curated rows.
+    const missing = state.exercises.filter((e) => !e.primary);
+    if (missing.length) {
+      const byName = new Map(seedExercises(db.uid).map((e) => [normName(e.name), e]));
+      for (const e of missing) {
+        const match = byName.get(normName(e.name));
+        e.primary = match ? match.primary : [];
+        e.secondary = match ? match.secondary : [];
+        e.instructions = e.instructions || (match ? match.instructions : []);
+      }
+      await db.putMany(db.STORES.exercises, missing);
+    }
+    await db.put(db.STORES.settings, { key: 'libraryVersion', value: LIBRARY_VERSION });
+    state.settings.libraryVersion = LIBRARY_VERSION;
+    console.info(`[liftlog] library topped up: +${added.length} exercises`);
+  }
+
+  reindex();
+  state.ready = true;
+  emit();
+}
+
+export function activeSession() {
+  return state.sessions.find((s) => !s.finishedAt) || null;
+}
+
+export const units = () => state.settings.units;
+
+// ---------- settings ----------
+
+export async function setSetting(key, value) {
+  state.settings[key] = value;
+  await db.put(db.STORES.settings, { key, value });
+  emit();
+}
+
+// ---------- exercises ----------
+
+export async function addExercise({ name, muscle, equipment }) {
+  const ex = {
+    id: db.uid('ex_'),
+    name: name.trim(), muscle, equipment: equipment || 'Other',
+    isCustom: true, createdAt: Date.now(),
+  };
+  state.exercises.push(ex);
+  await db.put(db.STORES.exercises, ex);
+  reindex(); emit();
+  return ex;
+}
+
+export async function toggleFavourite(id) {
+  const ex = state.exerciseById.get(id);
+  if (!ex) return null;
+  ex.favourite = !ex.favourite;
+  await db.put(db.STORES.exercises, ex);
+  emit();
+  return ex.favourite;
+}
+
+/** Favourites first, then the caller's own order. */
+export function favouriteFirst(list) {
+  return [...list].sort((a, b) => (b.favourite ? 1 : 0) - (a.favourite ? 1 : 0));
+}
+
+export async function updateExercise(id, patch) {
+  const ex = state.exerciseById.get(id);
+  if (!ex) return null;
+  Object.assign(ex, patch);
+  await db.put(db.STORES.exercises, ex);
+  reindex(); emit();
+  return ex;
+}
+
+export function exerciseUsageCount(id) {
+  return state.sessions.reduce(
+    (n, s) => n + (s.entries.some((e) => e.exerciseId === id) ? 1 : 0), 0);
+}
+
+export async function deleteExercise(id) {
+  state.exercises = state.exercises.filter((e) => e.id !== id);
+  await db.remove(db.STORES.exercises, id);
+  // Drop it from routines too, or they'd render blank rows.
+  for (const r of state.routines) {
+    const before = r.items.length;
+    r.items = r.items.filter((i) => i.exerciseId !== id);
+    if (r.items.length !== before) await db.put(db.STORES.routines, r);
+  }
+  reindex(); emit();
+}
+
+// ---------- routines ----------
+
+export async function saveRoutine(routine) {
+  const existing = state.routines.find((r) => r.id === routine.id);
+  const rec = {
+    id: routine.id || db.uid('r_'),
+    name: routine.name.trim() || 'Routine',
+    items: routine.items || [],
+    createdAt: existing ? existing.createdAt : Date.now(),
+    updatedAt: Date.now(),
+  };
+  if (existing) Object.assign(existing, rec);
+  else state.routines.push(rec);
+  await db.put(db.STORES.routines, rec);
+  emit();
+  return rec;
+}
+
+export async function deleteRoutine(id) {
+  state.routines = state.routines.filter((r) => r.id !== id);
+  await db.remove(db.STORES.routines, id);
+  emit();
+}
+
+// ---------- plans ----------
+
+export function activePlan() {
+  const id = state.settings.activePlanId;
+  return (id && state.plans.find((p) => p.id === id)) || null;
+}
+
+/**
+ * Build a plan from a blueprint.
+ * @param opts { empty } — true keeps the day layout but adds no exercises,
+ *   so the user fills it in themselves.
+ */
+export async function createPlanFromBlueprint(blueprint, { empty = false } = {}) {
+  const days = buildPlanDays(blueprint, state.exercises, { empty });
+
+  const plan = {
+    id: db.uid('p_'),
+    name: blueprint.name,
+    presetKey: blueprint.key || null,
+    repTarget: REP_TARGET,
+    // how many times the whole cycle runs per week — the rating scales by this
+    perWeek: blueprint.perWeek || 1,
+    days,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  state.plans.push(plan);
+  await db.put(db.STORES.plans, plan);
+  await setSetting('activePlanId', plan.id);
+  return plan;
+}
+
+export async function savePlan(plan) {
+  const existing = state.plans.find((p) => p.id === plan.id);
+  const rec = {
+    id: plan.id || db.uid('p_'),
+    name: (plan.name || 'Plan').trim(),
+    presetKey: plan.presetKey ?? (existing ? existing.presetKey : null),
+    repTarget: plan.repTarget ?? (existing ? existing.repTarget : REP_TARGET),
+    perWeek: plan.perWeek ?? (existing ? existing.perWeek : 1),
+    days: plan.days || [],
+    createdAt: existing ? existing.createdAt : Date.now(),
+    updatedAt: Date.now(),
+  };
+  if (existing) Object.assign(existing, rec);
+  else state.plans.push(rec);
+  await db.put(db.STORES.plans, rec);
+  if (!state.settings.activePlanId) await setSetting('activePlanId', rec.id);
+  else emit();
+  return rec;
+}
+
+export async function deletePlan(id) {
+  state.plans = state.plans.filter((p) => p.id !== id);
+  await db.remove(db.STORES.plans, id);
+  if (state.settings.activePlanId === id) {
+    await setSetting('activePlanId', state.plans.length ? state.plans[0].id : null);
+  } else {
+    emit();
+  }
+}
+
+// ---------- sessions ----------
+
+async function persistSession(session) {
+  await db.put(db.STORES.sessions, session);
+  emit();
+}
+
+export async function startSession({ routineId = null, planId = null, dayId = null, name } = {}) {
+  const existing = activeSession();
+  if (existing) return existing;
+
+  // A session can be seeded from a plan day or a standalone routine.
+  let items = null;
+  let label = null;
+
+  if (planId && dayId) {
+    const plan = state.plans.find((p) => p.id === planId);
+    const day = plan && plan.days.find((d) => d.id === dayId);
+    if (day) { items = day.items; label = `${day.name}`; }
+  } else if (routineId) {
+    const routine = state.routines.find((r) => r.id === routineId);
+    if (routine) { items = routine.items; label = routine.name; }
+  }
+
+  const entries = (items || []).map((item) => {
+    const sets = [];
+    const target = Math.max(1, Number(item.targetSets) || 3);
+    for (let i = 0; i < target; i++) sets.push(newSet());
+    return { ...newEntry(item.exerciseId, sets), note: item.note || '' };
+  });
+
+  const session = newSession(db.uid, {
+    routineId,
+    planId,
+    dayId,
+    name: name || label || 'Quick Workout',
+    entries,
+  });
+  state.sessions.unshift(session);
+  await persistSession(session);
+  return session;
+}
+
+export async function updateSession(id, mutate) {
+  const s = state.sessions.find((x) => x.id === id);
+  if (!s) return null;
+  mutate(s);
+  await persistSession(s);
+  return s;
+}
+
+/**
+ * Persist without notifying subscribers. Used for keystroke-level edits — a
+ * re-render mid-typing would blow away the focused input and the caret.
+ */
+export async function saveSessionQuiet(session) {
+  await db.put(db.STORES.sessions, session);
+}
+
+export async function finishSession(id) {
+  const s = state.sessions.find((x) => x.id === id);
+  if (!s) return null;
+  // Drop empty sets and exercises so history stays clean.
+  s.entries = s.entries
+    .map((e) => ({ ...e, sets: e.sets.filter((st) => st.done && Number(st.reps) > 0) }))
+    .filter((e) => e.sets.length > 0);
+  s.finishedAt = Date.now();
+  await persistSession(s);
+  return s;
+}
+
+export async function discardSession(id) {
+  state.sessions = state.sessions.filter((s) => s.id !== id);
+  await db.remove(db.STORES.sessions, id);
+  emit();
+}
+
+// ---------- bodyweight ----------
+
+export async function logBodyweight(weight, date = Date.now()) {
+  const day = new Date(date); day.setHours(12, 0, 0, 0);
+  const existing = state.bodyweight.find(
+    (b) => new Date(b.date).toDateString() === day.toDateString());
+  const rec = existing
+    ? { ...existing, weight: Number(weight) }
+    : { id: db.uid('bw_'), date: day.getTime(), weight: Number(weight) };
+  if (existing) Object.assign(existing, rec);
+  else state.bodyweight.push(rec);
+  await db.put(db.STORES.bodyweight, rec);
+  reindex(); emit();
+  return rec;
+}
+
+export async function deleteBodyweight(id) {
+  state.bodyweight = state.bodyweight.filter((b) => b.id !== id);
+  await db.remove(db.STORES.bodyweight, id);
+  emit();
+}
+
+// ---------- backup ----------
+
+export function exportData() {
+  return {
+    format: 'liftlog-backup',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    settings: state.settings,
+    exercises: state.exercises,
+    routines: state.routines,
+    sessions: state.sessions,
+    bodyweight: state.bodyweight,
+  };
+}
+
+export async function importData(payload, { replace = true } = {}) {
+  if (!payload || payload.format !== 'liftlog-backup') {
+    throw new Error('Not a LiftLog backup file.');
+  }
+  if (replace) {
+    await Promise.all(Object.values(db.STORES).map((s) => db.clear(s)));
+  }
+  const settingRows = Object.entries(payload.settings || {}).map(([key, value]) => ({ key, value }));
+  await Promise.all([
+    db.putMany(db.STORES.exercises, payload.exercises || []),
+    db.putMany(db.STORES.routines, payload.routines || []),
+    db.putMany(db.STORES.sessions, payload.sessions || []),
+    db.putMany(db.STORES.bodyweight, payload.bodyweight || []),
+    db.putMany(db.STORES.settings, settingRows),
+  ]);
+  await load();
+}

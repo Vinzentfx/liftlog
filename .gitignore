@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+._*
+
+# editors
+.vscode/
+.idea/
+*.swp
+
+# local backups exported from the app
+liftlog-backup-*.json
+
+# build scratch (the generators read from /tmp)
+*.tar.gz

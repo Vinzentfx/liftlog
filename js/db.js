@@ -1,0 +1,123 @@
+// Minimal promise wrapper over IndexedDB. No dependencies so the app works offline.
+
+const DB_NAME = 'liftlog';
+const DB_VERSION = 2;
+
+export const STORES = {
+  exercises: 'exercises',
+  routines: 'routines',
+  plans: 'plans',
+  sessions: 'sessions',
+  bodyweight: 'bodyweight',
+  settings: 'settings',
+};
+
+let _db = null;
+
+export function open() {
+  if (_db) return Promise.resolve(_db);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+
+    req.onupgradeneeded = (ev) => {
+      const db = req.result;
+
+      if (!db.objectStoreNames.contains(STORES.exercises)) {
+        const s = db.createObjectStore(STORES.exercises, { keyPath: 'id' });
+        s.createIndex('name', 'name', { unique: false });
+        s.createIndex('muscle', 'muscle', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORES.routines)) {
+        db.createObjectStore(STORES.routines, { keyPath: 'id' });
+      }
+      // v2: multi-day workout plans (a routine is a single day; a plan groups them)
+      if (!db.objectStoreNames.contains(STORES.plans)) {
+        db.createObjectStore(STORES.plans, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORES.sessions)) {
+        const s = db.createObjectStore(STORES.sessions, { keyPath: 'id' });
+        s.createIndex('startedAt', 'startedAt', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORES.bodyweight)) {
+        const s = db.createObjectStore(STORES.bodyweight, { keyPath: 'id' });
+        s.createIndex('date', 'date', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORES.settings)) {
+        db.createObjectStore(STORES.settings, { keyPath: 'key' });
+      }
+      void ev;
+    };
+
+    req.onsuccess = () => { _db = req.result; resolve(_db); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function tx(store, mode = 'readonly') {
+  return open().then((db) => db.transaction(store, mode).objectStore(store));
+}
+
+function wrap(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getAll(store) {
+  return wrap((await tx(store)).getAll());
+}
+
+export async function get(store, key) {
+  return wrap((await tx(store)).get(key));
+}
+
+export async function put(store, value) {
+  await wrap((await tx(store, 'readwrite')).put(value));
+  return value;
+}
+
+export async function putMany(store, values) {
+  const db = await open();
+  const t = db.transaction(store, 'readwrite');
+  const os = t.objectStore(store);
+  values.forEach((v) => os.put(v));
+  return new Promise((resolve, reject) => {
+    t.oncomplete = () => resolve(values);
+    t.onerror = () => reject(t.error);
+  });
+}
+
+export async function remove(store, key) {
+  return wrap((await tx(store, 'readwrite')).delete(key));
+}
+
+export async function clear(store) {
+  return wrap((await tx(store, 'readwrite')).clear());
+}
+
+export async function count(store) {
+  return wrap((await tx(store)).count());
+}
+
+/** Sessions newest-first. `limit` of 0 means all. */
+export async function recentSessions(limit = 0) {
+  const db = await open();
+  const idx = db.transaction(STORES.sessions).objectStore(STORES.sessions).index('startedAt');
+  const out = [];
+  return new Promise((resolve, reject) => {
+    const req = idx.openCursor(null, 'prev');
+    req.onsuccess = () => {
+      const cur = req.result;
+      if (!cur || (limit && out.length >= limit)) return resolve(out);
+      out.push(cur.value);
+      cur.continue();
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export function uid(prefix = '') {
+  const r = crypto.getRandomValues(new Uint32Array(2));
+  return `${prefix}${Date.now().toString(36)}${r[0].toString(36)}${r[1].toString(36)}`;
+}

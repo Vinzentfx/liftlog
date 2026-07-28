@@ -1,0 +1,58 @@
+LiftLog
+Personal workout tracker.
+
+This product bundles third-party assets and data:
+
+--------------------------------------------------------------------------------
+body-muscles — muscle map artwork
+--------------------------------------------------------------------------------
+https://github.com/vulovix/body-muscles
+Licensed under the Apache License, Version 2.0.
+
+  Copyright (c) body-muscles contributors
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+CHANGES MADE: the source ships ~90 fine-grained muscle paths as TypeScript data
+(muscles.front.ts / muscles.back.ts). Those paths were extracted and emitted as
+two standalone SVG files (assets/body-front.svg, assets/body-back.svg), with the
+fine-grained muscles collapsed onto the 15 regions this app rates and tagged with
+`data-region` attributes. No path geometry was altered. See tools/build_bodymap.py.
+
+--------------------------------------------------------------------------------
+everkinetic — exercise illustrations
+--------------------------------------------------------------------------------
+https://github.com/everkinetic/data
+Licensed under Creative Commons Attribution-ShareAlike 4.0 International
+(CC BY-SA 4.0): https://creativecommons.org/licenses/by-sa/4.0/
+
+Images sourced via the community mirror at
+https://github.com/lczarnec/everkinetic_modifications (the original CDN is
+offline).
+
+CHANGES MADE: resized to 320px wide, re-rendered as white line art carried in the
+alpha channel, alpha quantised to 8 levels, encoded as lossless WebP. No linework
+was redrawn. See tools/build_exercise_images.py.
+
+Because CC BY-SA 4.0 is a copyleft licence, these derived images
+(assets/exercises/*.webp) remain under CC BY-SA 4.0.
+
+--------------------------------------------------------------------------------
+free-exercise-db — exercise metadata
+--------------------------------------------------------------------------------
+https://github.com/yuhonas/free-exercise-db
+Public domain (Unlicense).
+
+Only the metadata (names, muscles, equipment, instructions) is used. The images
+in that repository are deliberately NOT bundled: their licensing was never
+resolved by the maintainer.
