@@ -2,6 +2,7 @@
 
 import { $, clear, el, initSheet, closeSheet, toast } from './ui.js';
 import * as store from './store.js';
+import * as db from './db.js';
 import * as rest from './rest.js';
 
 import renderHome from './screens/home.js';
@@ -99,6 +100,12 @@ async function boot() {
   initSheet();
   rest.init();
   wireChrome();
+
+  // Fire and forget — the app must not wait on a storage permission to render,
+  // and there is nothing useful to do if it is refused.
+  db.requestPersistence().then((state) => {
+    if (state !== 'granted') console.info(`[liftlog] persistent storage: ${state}`);
+  });
 
   try {
     await store.load();

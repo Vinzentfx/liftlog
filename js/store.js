@@ -4,7 +4,7 @@
 import * as db from './db.js';
 import {
   DEFAULT_SETTINGS, seedExercises, newSession, newEntry, newSet,
-  LIBRARY_VERSION, normName, regionsForMuscle,
+  LIBRARY_VERSION, DATA_VERSION, normName, regionsForMuscle,
 } from './models.js';
 import { buildPlanDays, REP_TARGET } from './plan-builder.js';
 
@@ -79,9 +79,54 @@ export async function load() {
     console.info(`[liftlog] library topped up: +${added.length} exercises`);
   }
 
+  await migrate();
+
   reindex();
   state.ready = true;
   emit();
+}
+
+/**
+ * One-off repairs to stored records.
+ *
+ * v2 — exercises with no body-map regions. Anything the user created themselves
+ * was stored without `primary`/`secondary` at all, and the catalogue top-up only
+ * ever fixed rows it could match against the bundled seed by name — a custom
+ * exercise matches nothing and was left with an empty array. The effect was
+ * silent and total: no colour on the muscle map, no volume in a plan's rating,
+ * and a zero-muscle score in the exercise rating. Fixed at creation time now;
+ * this repairs what is already stored.
+ */
+async function migrate() {
+  const from = Number(state.settings.dataVersion) || 1;
+  if (from >= DATA_VERSION) return;
+
+  if (from < 2) {
+    const seedByName = new Map(seedExercises(db.uid).map((e) => [normName(e.name), e]));
+    const repaired = [];
+
+    for (const ex of state.exercises) {
+      if ((ex.primary || []).length) continue;
+      // Catalogue entries get their curated regions back; anything else falls to
+      // the coarse muscle mapping, which is rough but is the difference between
+      // counting and not counting at all.
+      const match = seedByName.get(normName(ex.name));
+      const primary = match && match.primary.length ? match.primary : regionsForMuscle(ex.muscle);
+      if (!primary.length) continue;      // "Other" genuinely has no region
+
+      ex.primary = primary;
+      ex.secondary = match ? match.secondary : [];
+      repaired.push(ex);
+    }
+
+    if (repaired.length) {
+      await db.putMany(db.STORES.exercises, repaired);
+      console.info(`[liftlog] migration v2: regions restored on ${repaired.length} exercises`);
+    }
+  }
+
+  state.settings.dataVersion = DATA_VERSION;
+  await db.put(db.STORES.settings, { key: 'dataVersion', value: DATA_VERSION });
 }
 
 export function activeSession() {
@@ -390,6 +435,37 @@ export async function deleteBodyweight(id) {
 }
 
 // ---------- backup ----------
+
+/**
+ * Whether it is time to nag about a backup, and why.
+ *
+ * The export has always existed; what was missing was the reminder. On an
+ * installed home-screen web app the data is reasonably safe from eviction —
+ * what it is not safe from is deleting the app, losing the phone, or a restore
+ * going sideways, and none of those give you a warning first.
+ */
+export const BACKUP_AFTER_WORKOUTS = 10;
+export const BACKUP_AFTER_DAYS = 28;
+
+export function backupStatus() {
+  const last = Number(state.settings.lastExportAt) || 0;
+  const finished = state.sessions.filter((s) => s.finishedAt);
+  if (!finished.length) return { due: false, since: 0, days: 0, last };
+
+  const since = finished.filter((s) => s.finishedAt > last).length;
+  const days = last ? Math.floor((Date.now() - last) / 86400000) : null;
+
+  if (!last) {
+    return { due: finished.length >= 3, since, days, last, reason: 'never' };
+  }
+  if (since >= BACKUP_AFTER_WORKOUTS) return { due: true, since, days, last, reason: 'workouts' };
+  if (days >= BACKUP_AFTER_DAYS && since > 0) return { due: true, since, days, last, reason: 'time' };
+  return { due: false, since, days, last };
+}
+
+export async function markExported() {
+  await setSetting('lastExportAt', Date.now());
+}
 
 export function exportData() {
   return {

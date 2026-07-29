@@ -124,6 +124,14 @@ export function regionsForMuscle(muscle) {
 export const LIBRARY_VERSION = 7;
 
 /**
+ * Bumped for one-off repairs to *stored* records, independently of the
+ * catalogue. Separate from LIBRARY_VERSION on purpose: a data fix must run even
+ * when the exercise list itself has not changed, and bumping the catalogue
+ * version to trigger a migration would re-run the top-up for no reason.
+ */
+export const DATA_VERSION = 2;
+
+/**
  * The curated list first — the strength standards are keyed by those exact
  * names, so they stay canonical — then everything from the imported catalogue
  * whose name doesn't already exist.

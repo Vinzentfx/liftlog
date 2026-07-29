@@ -117,6 +117,43 @@ export async function recentSessions(limit = 0) {
   });
 }
 
+/**
+ * Ask the browser to exempt this origin from storage eviction.
+ *
+ * WebKit evicts on three triggers: quota exceeded, system storage pressure, and
+ * a long stretch without user interaction. Persistent mode removes all three.
+ * A home-screen web app that gets opened several times a week is already a
+ * strong signal, so this usually just gets granted — but "usually" is not a
+ * backup strategy, which is why the export nudge exists as well.
+ *
+ * Safe to call on every boot: it is idempotent, and unsupported browsers simply
+ * report `unsupported` rather than throwing.
+ */
+export async function requestPersistence() {
+  if (!navigator.storage || !navigator.storage.persist) return 'unsupported';
+  try {
+    if (await navigator.storage.persisted()) return 'granted';
+    return (await navigator.storage.persist()) ? 'granted' : 'denied';
+  } catch {
+    return 'unsupported';
+  }
+}
+
+/** Current persistence state and rough usage, for an honest Settings readout. */
+export async function storageStatus() {
+  const out = { persisted: null, usage: null, quota: null };
+  if (!navigator.storage) return out;
+  try {
+    if (navigator.storage.persisted) out.persisted = await navigator.storage.persisted();
+    if (navigator.storage.estimate) {
+      const est = await navigator.storage.estimate();
+      out.usage = est.usage ?? null;
+      out.quota = est.quota ?? null;
+    }
+  } catch { /* reporting only — never block the UI on it */ }
+  return out;
+}
+
 export function uid(prefix = '') {
   const r = crypto.getRandomValues(new Uint32Array(2));
   return `${prefix}${Date.now().toString(36)}${r[0].toString(36)}${r[1].toString(36)}`;

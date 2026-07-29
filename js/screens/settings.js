@@ -1,6 +1,6 @@
 // Settings sheet — units, rest defaults, and backup/restore.
 
-import { el, openSheet, closeSheet, confirmSheet, toast, fmtClock } from '../ui.js';
+import { el, openSheet, closeSheet, confirmSheet, toast, fmtClock, fmtDate } from '../ui.js';
 import * as store from '../store.js';
 import * as db from '../db.js';
 import { hasProfile } from '../standards.js';
@@ -177,8 +177,10 @@ export function renderSettings() {
 
     el('div.section-head', {}, [el('h2', { text: 'Backup' })]),
     el('div.small.muted', { style: { marginBottom: '10px' },
-      text: 'Your data lives only on this device. Export regularly — clearing Safari data or deleting the app will wipe it.' }),
+      text: 'Your data lives only on this device. Deleting the app, losing the phone or a restore going wrong takes it with you — none of which gives you a warning first.' }),
+    storageLine(),
     counts,
+    lastExportLine(),
     el('div.stack', { style: { marginTop: '12px' } }, [
       el('button.btn.ghost.full', { onclick: doExport }, ['Export backup (.json)']),
       el('button.btn.ghost.full', { onclick: doImport }, ['Restore from backup']),
@@ -229,7 +231,41 @@ export function renderSettings() {
   openSheet('Settings', body);
 }
 
-function doExport() {
+/**
+ * The real storage state, filled in asynchronously.
+ *
+ * This replaces a blanket warning that was wrong for the way this app is
+ * actually used: an installed home-screen web app is exempt from Safari's
+ * seven-day eviction and gets a browser-sized quota. Saying "Safari will wipe
+ * this" when it will not just teaches you to ignore the warnings that matter.
+ */
+function storageLine() {
+  const node = el('div.small.faint', { style: { marginBottom: '8px' }, text: 'Checking storage…' });
+  db.storageStatus().then(({ persisted, usage }) => {
+    const size = usage ? `${(usage / 1048576).toFixed(1)} MB used` : null;
+    node.textContent = [
+      persisted === true
+        ? 'Storage is marked persistent — iOS will not evict it to reclaim space.'
+        : persisted === false
+          ? 'Storage is best-effort: iOS may reclaim it under heavy storage pressure.'
+          : 'This browser does not report a storage guarantee.',
+      size,
+    ].filter(Boolean).join(' · ');
+  });
+  return node;
+}
+
+function lastExportLine() {
+  const { last, since } = store.backupStatus();
+  return el('div.small.faint', {
+    style: { marginTop: '4px' },
+    text: last
+      ? `Last backup ${fmtDate(last)}${since ? ` · ${since} workout${since === 1 ? '' : 's'} since` : ' · up to date'}`
+      : 'Never backed up.',
+  });
+}
+
+export async function doExport() {
   const data = store.exportData();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -239,6 +275,10 @@ function doExport() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // Marked optimistically: the browser gives no callback for "the user actually
+  // kept the file", and nagging someone who just exported is worse than missing
+  // one cancelled download.
+  await store.markExported();
   toast('Backup downloaded');
 }
 

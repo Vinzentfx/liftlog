@@ -17,7 +17,7 @@ import { analyseWeek, compareToPlan, weekVerdict } from '../log-analysis.js';
 import { analysePlan } from '../plan-rating.js';
 import { THRESHOLDS } from '../evidence.js';
 import { navigate } from '../app.js';
-import { profileForm } from './settings.js';
+import { profileForm, doExport } from './settings.js';
 
 export default function renderHome({ actions }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': 'Settings' }, ['⚙']));
@@ -37,6 +37,28 @@ export default function renderHome({ actions }) {
             el('div.small.muted', { text: active.name }),
           ]),
           el('button.btn.primary.sm', { onclick: () => navigate('train') }, ['Resume']),
+        ]),
+      ])
+    );
+  }
+
+  // ---------- backup nudge ----------
+  const backup = store.backupStatus();
+  if (backup.due) {
+    root.append(
+      el('div.card', { style: { borderColor: 'color-mix(in srgb, var(--warn) 32%, transparent)' } }, [
+        el('div.row.between', { style: { gap: '12px' } }, [
+          el('div.grow', {}, [
+            el('div', { style: { fontWeight: '680', color: 'var(--warn)' }, text: 'Back up your training' }),
+            el('div.small.muted', {
+              text: backup.reason === 'never'
+                ? `${done.length} workouts logged and no backup yet. The file goes to your Downloads — put it in iCloud Drive and it survives this phone.`
+                : backup.reason === 'workouts'
+                  ? `${backup.since} workouts since your last backup.`
+                  : `${backup.days} days since your last backup.`,
+            }),
+          ]),
+          el('button.btn.sm.ghost', { onclick: () => doExport() }, ['Export']),
         ]),
       ])
     );

@@ -105,7 +105,18 @@ iOS can also evict storage for web apps that go unused for long stretches.
 
 **⚙ → Export backup** writes a `.json` file. Do it every few weeks; AirDrop it to
 your Mac or drop it in iCloud Drive. **⚙ → Restore from backup** reads it back,
-which is also how you'd move to a new phone.
+which is also how you'd move to a new phone. Home nags after 10 workouts or four
+weeks without one, because the export was never the missing part — remembering
+was.
+
+**On eviction, precisely.** An installed home-screen web app is *not* subject to
+Safari's seven-day cap on script-writable storage: it has its own usage counter
+and a browser-sized quota. It can still be evicted under real storage pressure,
+which is what `navigator.storage.persist()` on boot asks to prevent — Settings
+reports whether iOS granted it. What none of that protects against is deleting
+the app, losing the phone, or a restore going wrong, so the export still matters.
+Saying "Safari will wipe this" when it will not just teaches you to ignore the
+warnings that do matter.
 
 ---
 
@@ -173,6 +184,12 @@ To swap in different artwork entirely, keep the contract:
 **Adding a new JS module?** Add it to the `SHELL` array in `sw.js`, or the app
 breaks offline while working fine online — the failure won't show up in normal
 testing.
+
+**Repairing stored records?** Bump `DATA_VERSION` in `models.js` and add a branch
+to `migrate()` in `store.js` — not `LIBRARY_VERSION`. They are separate because a
+data fix has to run even when the catalogue hasn't changed, and the catalogue
+top-up only ever repairs rows it can match against the bundled seed by name,
+which a user's own exercise never will.
 
 **The service worker precaches with `cache: 'reload'`.** A plain `cache.add()` can
 satisfy itself from the browser's HTTP cache, pinning a stale build into the
