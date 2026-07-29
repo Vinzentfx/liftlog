@@ -153,6 +153,7 @@ warnings that do matter.
 | `js/swaps.js` | "Same muscle, better position" alternatives |
 | `js/history.js` | Strength, tonnage and per-lift trends over time |
 | `js/nutrition.js` | Protein targets, daily totals, bodyweight direction |
+| `js/foodlookup.js` | Open Food Facts barcode lookup — the only networked module |
 
 ### The body map
 
@@ -344,6 +345,35 @@ never your history (the same rule the exercise library follows for sessions).
 **Unlogged days are excluded from averages, not counted as zero.** A day you
 forgot is missing data, not a day you ate no protein; averaging in zeroes would
 make a good week with two gaps look like a failure.
+
+### Barcode lookup — the one networked feature
+
+`js/foodlookup.js` is the only module that touches the network, kept separate so
+the boundary is obvious: everything else works in flight mode. A failed lookup
+falls back to typing the numbers, which is what you'd have done anyway.
+
+**You type the digits; there is no camera.** No browser on iOS implements
+`BarcodeDetector`, and a WebAssembly scanner would cost the app its "no
+dependencies, no build step" property — for something you do once per product.
+The code is stored on the food, so looking the same product up again answers
+from your own list and logs it without a request.
+
+**Per 100 g is the ground truth, and you supply the portion.** Every Open Food
+Facts record has per-100 g values; `serving_size` is missing on most and, where
+present, is whatever the manufacturer felt like calling a serving. So the form
+asks how many grams *you* eat and scales live — which is also the honest place
+for that decision, since only you saw the plate.
+
+**Licensing.** The database is ODbL (structure) and DbCL (contents). Querying
+the live API and keeping what you personally looked up is not redistributing a
+database — the case their terms explicitly support ("1 API call = 1 real scan by
+a user"). Bundling a dump into the repo *would* create a derived database and
+carry share-alike obligations, which is why nothing is mirrored. Attribution is
+in Settings → Credits, in the lookup sheet, and in `NOTICE`.
+
+**`User-Agent` can't be set from a browser** — it's on the Fetch spec's
+forbidden list. Open Food Facts also accepts `X-User-Agent`, and it's in their
+CORS allow-list, so that's what identifies the app.
 
 ### The plan doctor
 

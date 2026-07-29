@@ -278,7 +278,7 @@ export function newEntry(exerciseId, sets = []) {
  * as the same record, so where the numbers came from never constrains what the
  * app can do with them. `source` is recorded for honesty, not for logic.
  */
-export function newFood(uid, { name, portion, portionGrams, protein, kcal, source = 'manual' }) {
+export function newFood(uid, { name, portion, portionGrams, protein, kcal, source = 'manual', barcode = null, per100 = null }) {
   return {
     id: uid('f_'),
     name: String(name).trim(),
@@ -287,6 +287,11 @@ export function newFood(uid, { name, portion, portionGrams, protein, kcal, sourc
     protein: Math.max(0, Number(protein) || 0),
     kcal: Math.max(0, Number(kcal) || 0),
     source,                                     // 'manual' | 'barcode' | 'photo'
+    // Kept so a second lookup of the same product answers from this list
+    // instead of the network, and so the portion can be re-scaled later without
+    // asking Open Food Facts again.
+    barcode,
+    per100,
     uses: 0,
     createdAt: Date.now(),
   };

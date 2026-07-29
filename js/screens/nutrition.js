@@ -19,6 +19,7 @@ import {
   weightTrend, trendVerdict,
 } from '../nutrition.js';
 import { THRESHOLDS, SOURCES } from '../evidence.js';
+import { lookupBarcode, scaleToPortion, ATTRIBUTION } from '../foodlookup.js';
 import { barChart } from '../charts.js';
 import { navigate } from '../app.js';
 
@@ -198,14 +199,20 @@ function quickAdd(day) {
 
   wrap.append(el('div.section-head', {}, [
     el('h2', { text: 'My foods' }),
-    el('button.btn.quiet.sm', { onclick: () => foodForm(null, day) }, ['+ New']),
+    el('div.row', { style: { gap: '4px' } }, [
+      el('button.btn.quiet.sm', { onclick: () => barcodeSheet(day) }, ['Barcode']),
+      el('button.btn.quiet.sm', { onclick: () => foodForm(null, day) }, ['+ New']),
+    ]),
   ]));
 
   if (!foods.length) {
     wrap.append(emptyState(
       'Your list is empty',
       'Add the things you actually eat — protein and calories per portion. Thirty entries covers almost everyone, and after that logging is one tap.',
-      el('button.btn.primary', { style: { marginTop: '14px' }, onclick: () => foodForm(null, day) }, ['Add your first food'])
+      el('div.stack', { style: { marginTop: '14px' } }, [
+        el('button.btn.primary', { onclick: () => foodForm(null, day) }, ['Add your first food']),
+        el('button.btn.ghost', { onclick: () => barcodeSheet(day) }, ['Look up a barcode']),
+      ])
     ));
     return wrap;
   }
@@ -253,11 +260,43 @@ function quickAdd(day) {
   return wrap;
 }
 
-function foodForm(existing = null, day = dayKey()) {
-  const name = el('input', { type: 'text', value: existing ? existing.name : '', placeholder: 'e.g. Magerquark 250 g' });
-  const portion = el('input', { type: 'text', value: existing ? existing.portion : '', placeholder: 'e.g. 250 g, 1 Scoop, 1 Riegel' });
+/**
+ * @param draft  an Open Food Facts result, which carries per-100 g values and
+ *               therefore needs a grams field the manual path does not.
+ */
+function foodForm(existing = null, day = dayKey(), draft = null) {
+  const name = el('input', {
+    type: 'text', placeholder: 'e.g. Magerquark',
+    value: existing ? existing.name : draft ? draft.name : '',
+  });
+  const portion = el('input', {
+    type: 'text', placeholder: 'e.g. 250 g, 1 Scoop, 1 Riegel',
+    value: existing ? existing.portion : draft ? `${draft.suggestedGrams} g` : '',
+  });
   const protein = el('input', { type: 'number', inputmode: 'decimal', step: '0.1', min: '0', value: existing ? existing.protein : '' });
   const kcal = el('input', { type: 'number', inputmode: 'numeric', step: '1', min: '0', value: existing ? existing.kcal : '' });
+
+  // Only the barcode path gets this: the database stores per 100 g, and how
+  // much of that you actually eat is the one thing it cannot know. Putting the
+  // decision here — rather than trusting a manufacturer "serving" — is also the
+  // honest place for it.
+  let grams = null;
+  if (draft) {
+    grams = el('input', {
+      type: 'number', inputmode: 'numeric', step: '1', min: '1',
+      value: String(draft.suggestedGrams),
+    });
+    const sync = () => {
+      const scaled = scaleToPortion(draft.per100, grams.value);
+      protein.value = String(scaled.protein);
+      kcal.value = String(scaled.kcal);
+      if (/^\d+\s*g$/.test(portion.value.trim()) || !portion.value.trim()) {
+        portion.value = `${grams.value} g`;
+      }
+    };
+    grams.addEventListener('input', sync);
+    sync();
+  }
 
   async function submit(alsoLog) {
     const value = name.value.trim();
@@ -270,6 +309,15 @@ function foodForm(existing = null, day = dayKey()) {
       protein: Number(protein.value),
       kcal: Number(kcal.value) || 0,
     };
+    if (draft) {
+      // Keep the barcode so a re-lookup answers from your own list, and the
+      // per-100 g basis so the portion can be re-scaled later without asking
+      // the network again.
+      fields.barcode = draft.code;
+      fields.per100 = draft.per100;
+      fields.portionGrams = Number(grams.value) || null;
+      fields.source = 'barcode';
+    }
 
     const food = existing
       ? await store.updateFood(existing.id, fields)
@@ -284,8 +332,29 @@ function foodForm(existing = null, day = dayKey()) {
     }
   }
 
-  openSheet(existing ? 'Edit food' : 'New food', el('div', {}, [
+  openSheet(existing ? 'Edit food' : draft ? 'From barcode' : 'New food', el('div', {}, [
+    draft
+      ? el('div.card.tight', { style: { marginBottom: '14px' } }, [
+          el('div.small', { style: { fontWeight: '650' }, text: 'Found in Open Food Facts' }),
+          el('div.small.faint', { style: { marginTop: '2px' },
+            text: `Per 100 g: ${draft.per100.protein ?? '?'} g protein${draft.per100.kcal ? `, ${Math.round(draft.per100.kcal)} kcal` : ''}${draft.quantity ? ` · Packung ${draft.quantity}` : ''}` }),
+          el('div.small.faint', { style: { marginTop: '4px' },
+            text: 'Community data — worth a glance at the packet before you trust it.' }),
+        ])
+      : null,
+
     el('label.field', {}, [el('span', { text: 'Name' }), name]),
+
+    grams
+      ? el('div', {}, [
+          el('label.field', {}, [el('span', { text: 'How much do you eat? (g)' }), grams]),
+          el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '12px' },
+            text: draft.servingLabel
+              ? `The packet calls ${draft.servingLabel} a serving. Use what you actually eat — the numbers below follow along.`
+              : 'No serving size on record, so this starts at 100 g. The numbers below follow along.' }),
+        ])
+      : null,
+
     el('label.field', {}, [el('span', { text: 'Portion' }), portion]),
     el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '12px' },
       text: 'Whatever unit you actually eat it in — a weight, a scoop, a bar. The numbers below are per one of those.' }),
@@ -301,6 +370,76 @@ function foodForm(existing = null, day = dayKey()) {
           el('button.btn.ghost.full', { onclick: () => submit(false) }, ['Just add to my list']),
         ]),
   ]));
+}
+
+/* ======================= barcode ======================= */
+
+/**
+ * Type the number under the stripes. No camera: no browser on iOS implements
+ * BarcodeDetector, and a WebAssembly scanner would cost the app its "no
+ * dependencies, no build step" property for something you do once per product.
+ */
+function barcodeSheet(day) {
+  const input = el('input', {
+    type: 'text', inputmode: 'numeric', autocomplete: 'off',
+    placeholder: 'z. B. 4008400202037',
+  });
+  const status = el('div.small.faint', { style: { marginTop: '10px' } });
+  const go = el('button.btn.primary.full', { style: { marginTop: '12px' } }, ['Look it up']);
+
+  async function run() {
+    const code = input.value.trim();
+    if (!code) { input.focus(); return; }
+
+    // Your own list wins over the network — a product you already added is
+    // already correct for the portion you actually eat.
+    const known = store.state.foods.find((f) => f.barcode && f.barcode === code.replace(/\D/g, ''));
+    if (known) {
+      closeSheet();
+      await store.logMeal(known.id, { day });
+      toast(`${known.name} logged`);
+      return;
+    }
+
+    go.disabled = true;
+    status.style.color = 'var(--text-faint)';
+    status.textContent = 'Asking Open Food Facts…';
+
+    const res = await lookupBarcode(code);
+    go.disabled = false;
+
+    if (!res.ok) {
+      status.style.color = res.reason === 'notfound' ? 'var(--text-dim)' : 'var(--warn)';
+      status.textContent = res.detail;
+      // A hit with no protein value still saves you typing the name.
+      if (res.draft) {
+        closeSheet();
+        foodForm(null, day, res.draft);
+      }
+      return;
+    }
+
+    closeSheet();
+    foodForm(null, day, res.draft);
+  }
+
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
+  go.addEventListener('click', run);
+
+  openSheet('Barcode', el('div', {}, [
+    el('div.small.muted', {
+      text: 'Type the number printed under the barcode. Once per product — after that it is in your list and works offline forever.',
+    }),
+    el('label.field', { style: { marginTop: '12px' } }, [el('span', { text: 'Barcode (EAN)' }), input]),
+    go,
+    status,
+    el('div.small.faint', { style: { marginTop: '16px' } }, [
+      'Data from ',
+      el('a', { href: ATTRIBUTION.url, target: '_blank', rel: 'noopener', style: { color: 'var(--accent-hi)' } }, [ATTRIBUTION.name]),
+      `, licensed ${ATTRIBUTION.licence}. It is community-maintained, so coverage is patchy and the numbers are only as good as whoever typed them in — check them against the packet.`,
+    ]),
+  ]));
+  setTimeout(() => input.focus(), 60);
 }
 
 function manageSheet() {

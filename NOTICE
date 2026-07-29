@@ -56,3 +56,18 @@ Public domain (Unlicense).
 Only the metadata (names, muscles, equipment, instructions) is used. The images
 in that repository are deliberately NOT bundled: their licensing was never
 resolved by the maintainer.
+
+--------------------------------------------------------------------------------
+Open Food Facts — barcode nutrition data
+--------------------------------------------------------------------------------
+https://world.openfoodfacts.org
+Database: Open Database License (ODbL) v1.0
+Contents: Database Contents License (DbCL) v1.0
+
+Queried live, one request per barcode the user looks up, and only the fields
+this app stores are requested. No part of the database is bundled, mirrored or
+redistributed, so no derived database is created and the ODbL share-alike
+obligation is not triggered. Product images (CC BY-SA 4.0) are not used at all.
+
+Attribution is shown in the app under Settings -> Credits and in the barcode
+lookup sheet itself.
