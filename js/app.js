@@ -11,19 +11,21 @@ import renderPlans from './screens/plans.js';
 import renderLibrary from './screens/library.js';
 import renderCalendar from './screens/calendar.js';
 import renderProgress from './screens/progress.js';
+import renderNutrition from './screens/nutrition.js';
 import { renderSettings } from './screens/settings.js';
 
 /**
- * Five tabs plus `progress`, which is reachable from Home, Library and a
- * session detail but does not occupy a tab slot.
+ * Five tabs plus `progress` and `nutrition`, both reachable from Home but
+ * without a tab slot — five is already the most a thumb wants to aim at.
  */
 const ROUTES = {
-  home:     { title: 'Home',     render: renderHome },
-  train:    { title: 'Train',    render: renderTrain },
-  plans:    { title: 'Plans',    render: renderPlans },
-  library:  { title: 'Library',  render: renderLibrary },
-  calendar: { title: 'Calendar', render: renderCalendar },
-  progress: { title: 'Progress', render: renderProgress },
+  home:      { title: 'Home',      render: renderHome },
+  train:     { title: 'Train',     render: renderTrain },
+  plans:     { title: 'Plans',     render: renderPlans },
+  library:   { title: 'Library',   render: renderLibrary },
+  calendar:  { title: 'Calendar',  render: renderCalendar },
+  progress:  { title: 'Progress',  render: renderProgress },
+  nutrition: { title: 'Nutrition', render: renderNutrition },
 };
 
 /** Parsed from location.hash: `#/route/param`. */

@@ -14,6 +14,7 @@ import {
 import { bodyMap, tierLegend } from '../bodymap.js';
 import { barChart, lineChart } from '../charts.js';
 import { analyseWeek, compareToPlan, weekVerdict } from '../log-analysis.js';
+import { proteinTarget, dayTotals, proteinVerdict, weightTrend, trendVerdict } from '../nutrition.js';
 import { analysePlan } from '../plan-rating.js';
 import { THRESHOLDS } from '../evidence.js';
 import { navigate } from '../app.js';
@@ -96,6 +97,9 @@ export default function renderHome({ actions }) {
 
   // ---------- done vs planned ----------
   root.append(weekVsPlan(done));
+
+  // ---------- nutrition ----------
+  root.append(nutritionCard());
 
   // ---------- weekly workload ----------
   const buckets = weeklyMuscleSets(done, store.state.exerciseById, 10);
@@ -238,6 +242,62 @@ function weekVsPlan(done) {
 }
 
 const trimNum = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+
+/* ======================= nutrition ======================= */
+
+/**
+ * Today's protein and where bodyweight is heading — the two nutrition numbers
+ * that mean anything next to training data. Everything else lives on its own
+ * screen; this is the glance.
+ */
+function nutritionCard() {
+  const wrap = el('div');
+  const target = proteinTarget(store.state.settings);
+  const meals = store.mealsOn();
+  const totals = dayTotals(meals);
+  const verdict = proteinVerdict(totals.protein, target);
+  const trend = weightTrend(store.state.bodyweight, 4);
+
+  wrap.append(el('div.section-head', {}, [
+    el('h2', { text: 'Nutrition' }),
+    el('button.btn.quiet.sm', { onclick: () => navigate('nutrition') }, ['Log ›']),
+  ]));
+
+  const card = el('div.card', {}, [
+    el('div.row.between', { style: { alignItems: 'flex-end' } }, [
+      el('div', {}, [
+        el('div', { style: { fontSize: '24px', fontWeight: '740', letterSpacing: '-0.02em', lineHeight: '1' },
+          text: `${totals.protein} g` }),
+        el('div.small.faint', { style: { marginTop: '2px' },
+          text: target ? `protein today · target ${target.low}–${target.high} g` : 'protein today' }),
+      ]),
+      totals.kcal
+        ? el('div', { style: { textAlign: 'right' } }, [
+            el('div', { style: { fontSize: '16px', fontWeight: '650' }, text: fmtNum(totals.kcal) }),
+            el('div.small.faint', { text: 'kcal' }),
+          ])
+        : null,
+    ]),
+  ]);
+
+  if (!meals.length) {
+    card.append(el('div.small.muted', { style: { marginTop: '8px' },
+      text: store.state.foods.length
+        ? 'Nothing logged today.'
+        : 'Build a short list of what you actually eat and logging becomes one tap.' }));
+  } else {
+    const tone = { hit: 'var(--good)', over: 'var(--text-dim)', under: 'var(--warn)', unknown: 'var(--text-faint)' }[verdict.state];
+    card.append(el('div.small', { style: { marginTop: '8px', color: tone }, text: verdict.text }));
+  }
+
+  if (trend) {
+    card.append(el('div.small.faint', { style: { marginTop: '6px' },
+      text: `${trendVerdict(trend).text} over ${trend.spanWeeks} weeks` }));
+  }
+
+  wrap.append(card);
+  return wrap;
+}
 
 /* ======================= rating ======================= */
 

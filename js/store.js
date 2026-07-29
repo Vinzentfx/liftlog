@@ -4,6 +4,7 @@
 import * as db from './db.js';
 import {
   DEFAULT_SETTINGS, seedExercises, newSession, newEntry, newSet,
+  newFood, newMeal, dayKey,
   LIBRARY_VERSION, DATA_VERSION, normName, regionsForMuscle,
 } from './models.js';
 import { buildPlanDays, REP_TARGET } from './plan-builder.js';
@@ -15,6 +16,8 @@ export const state = {
   plans: [],
   sessions: [],       // newest first, includes the in-progress one
   bodyweight: [],     // newest first
+  foods: [],          // the user's own food list
+  meals: [],          // newest first
   settings: { ...DEFAULT_SETTINGS },
   exerciseById: new Map(),
 };
@@ -28,15 +31,21 @@ function reindex() {
   state.exercises.sort((a, b) => a.name.localeCompare(b.name));
   state.sessions.sort((a, b) => b.startedAt - a.startedAt);
   state.bodyweight.sort((a, b) => b.date - a.date);
+  state.meals.sort((a, b) => b.at - a.at);
+  // Most-eaten first: the list you pick from should put your staples on top,
+  // because 95% of what anyone eats is the same 30 things.
+  state.foods.sort((a, b) => (b.uses || 0) - (a.uses || 0) || a.name.localeCompare(b.name));
 }
 
 export async function load() {
-  const [exercises, routines, plans, sessions, bodyweight, settingsRows] = await Promise.all([
+  const [exercises, routines, plans, sessions, bodyweight, foods, meals, settingsRows] = await Promise.all([
     db.getAll(db.STORES.exercises),
     db.getAll(db.STORES.routines),
     db.getAll(db.STORES.plans),
     db.recentSessions(0),
     db.getAll(db.STORES.bodyweight),
+    db.getAll(db.STORES.foods),
+    db.getAll(db.STORES.meals),
     db.getAll(db.STORES.settings),
   ]);
 
@@ -45,6 +54,8 @@ export async function load() {
   state.plans = plans;
   state.sessions = sessions;
   state.bodyweight = bodyweight;
+  state.foods = foods;
+  state.meals = meals;
   state.settings = { ...DEFAULT_SETTINGS };
   for (const row of settingsRows) state.settings[row.key] = row.value;
 
@@ -412,6 +423,61 @@ export async function discardSession(id) {
   emit();
 }
 
+// ---------- nutrition ----------
+
+export async function addFood(fields) {
+  const food = newFood(db.uid, fields);
+  state.foods.push(food);
+  await db.put(db.STORES.foods, food);
+  reindex(); emit();
+  return food;
+}
+
+export async function updateFood(id, patch) {
+  const food = state.foods.find((f) => f.id === id);
+  if (!food) return null;
+  Object.assign(food, patch);
+  await db.put(db.STORES.foods, food);
+  reindex(); emit();
+  return food;
+}
+
+export async function deleteFood(id) {
+  state.foods = state.foods.filter((f) => f.id !== id);
+  await db.remove(db.STORES.foods, id);
+  // Logged meals deliberately survive. They carry their own copy of the name
+  // and numbers (see newMeal), so deleting a food edits your list, never your
+  // history — the same rule the exercise library follows for logged sessions.
+  emit();
+}
+
+/** Log a portion. Values are snapshotted so editing the food never rewrites the past. */
+export async function logMeal(foodId, { amount = 1, day = dayKey(), at = Date.now() } = {}) {
+  const food = state.foods.find((f) => f.id === foodId);
+  if (!food) return null;
+
+  const meal = newMeal(db.uid, food, { amount, day, at });
+  state.meals.unshift(meal);
+  food.uses = (food.uses || 0) + 1;
+
+  await Promise.all([
+    db.put(db.STORES.meals, meal),
+    db.put(db.STORES.foods, food),
+  ]);
+  reindex(); emit();
+  return meal;
+}
+
+export async function deleteMeal(id) {
+  state.meals = state.meals.filter((m) => m.id !== id);
+  await db.remove(db.STORES.meals, id);
+  emit();
+}
+
+export function mealsOn(day = dayKey()) {
+  return state.meals.filter((m) => m.day === day).sort((a, b) => a.at - b.at);
+}
+
 // ---------- bodyweight ----------
 
 export async function logBodyweight(weight, date = Date.now()) {
@@ -475,8 +541,11 @@ export function exportData() {
     settings: state.settings,
     exercises: state.exercises,
     routines: state.routines,
+    plans: state.plans,
     sessions: state.sessions,
     bodyweight: state.bodyweight,
+    foods: state.foods,
+    meals: state.meals,
   };
 }
 
@@ -488,11 +557,18 @@ export async function importData(payload, { replace = true } = {}) {
     await Promise.all(Object.values(db.STORES).map((s) => db.clear(s)));
   }
   const settingRows = Object.entries(payload.settings || {}).map(([key, value]) => ({ key, value }));
+  // `plans` was missing from both sides of this until now: exportData never
+  // wrote it and importData never read it, so restoring a backup silently
+  // dropped every training plan. Older backup files simply have no `plans` key
+  // and fall through to the empty array.
   await Promise.all([
     db.putMany(db.STORES.exercises, payload.exercises || []),
     db.putMany(db.STORES.routines, payload.routines || []),
+    db.putMany(db.STORES.plans, payload.plans || []),
     db.putMany(db.STORES.sessions, payload.sessions || []),
     db.putMany(db.STORES.bodyweight, payload.bodyweight || []),
+    db.putMany(db.STORES.foods, payload.foods || []),
+    db.putMany(db.STORES.meals, payload.meals || []),
     db.putMany(db.STORES.settings, settingRows),
   ]);
   await load();

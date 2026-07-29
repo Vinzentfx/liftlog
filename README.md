@@ -152,6 +152,7 @@ warnings that do matter.
 | `js/plan-doctor.js` | Turns rating complaints into one-tap plan edits |
 | `js/swaps.js` | "Same muscle, better position" alternatives |
 | `js/history.js` | Strength, tonnage and per-lift trends over time |
+| `js/nutrition.js` | Protein targets, daily totals, bodyweight direction |
 
 ### The body map
 
@@ -314,6 +315,35 @@ answers three different questions:
 
 None of it is cached. A stored trend goes stale the moment a session is edited,
 and the recompute is trivial at personal-log sizes.
+
+### Nutrition, and what it deliberately isn't
+
+Three numbers: protein, calories, bodyweight. No food database, no barcode, no
+network — you build a list of what you actually eat, and after that logging is
+one tap. Thirty entries covers almost anyone, which is less work than fighting a
+catalogue of three million products forever.
+
+**Protein is shown as a range, never a number.** 1.6 g/kg is the famous
+breakpoint from Morton et al., but its own confidence interval reaches 2.2 and
+later work argues the breakpoint may not exist at all. A single target would be
+inventing a precision the literature doesn't have — the same reason height stays
+out of the strength standards.
+
+**Calories are optional throughout.** A protein-only log is a complete log here:
+it answers the one question the training data can be compared against. What the
+module deliberately does *not* track is micronutrients, macro splits, and meal
+timing — total daily intake dominates timing, and the rest would be numbers for
+their own sake.
+
+**Food entries are source-agnostic** — name, portion, protein, calories. An item
+typed by hand, filled from a barcode lookup, or drafted from a photo all become
+the same record, so adding a source later changes nothing downstream. Logged
+meals snapshot their own values, so editing or deleting a food edits your list,
+never your history (the same rule the exercise library follows for sessions).
+
+**Unlogged days are excluded from averages, not counted as zero.** A day you
+forgot is missing data, not a day you ate no protein; averaging in zeroes would
+make a good week with two gaps look like a failure.
 
 ### The plan doctor
 

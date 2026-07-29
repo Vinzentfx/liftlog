@@ -270,6 +270,50 @@ export function newEntry(exerciseId, sets = []) {
   return { exerciseId, sets, note: '' };
 }
 
+/**
+ * One entry in your own food list.
+ *
+ * Deliberately source-agnostic: name, portion, protein, calories. An item typed
+ * by hand, filled in from a barcode lookup, or drafted from a photo all end up
+ * as the same record, so where the numbers came from never constrains what the
+ * app can do with them. `source` is recorded for honesty, not for logic.
+ */
+export function newFood(uid, { name, portion, portionGrams, protein, kcal, source = 'manual' }) {
+  return {
+    id: uid('f_'),
+    name: String(name).trim(),
+    portion: (portion || '1 Portion').trim(),   // human label: "100 g", "1 Scoop"
+    portionGrams: Number(portionGrams) || null, // optional, for scaling later
+    protein: Math.max(0, Number(protein) || 0),
+    kcal: Math.max(0, Number(kcal) || 0),
+    source,                                     // 'manual' | 'barcode' | 'photo'
+    uses: 0,
+    createdAt: Date.now(),
+  };
+}
+
+/** A portion actually eaten. Values are copied, not referenced — see store.js. */
+export function newMeal(uid, food, { amount = 1, day = dayKey(), at = Date.now() } = {}) {
+  return {
+    id: uid('m_'),
+    day,                       // 'YYYY-MM-DD', local
+    at,
+    foodId: food.id,
+    name: food.name,
+    portion: food.portion,
+    amount: Number(amount) || 1,
+    protein: food.protein * (Number(amount) || 1),
+    kcal: food.kcal * (Number(amount) || 1),
+  };
+}
+
+/** Local calendar day as 'YYYY-MM-DD'. Local, not UTC — a 23:00 snack is today. */
+export function dayKey(ts = Date.now()) {
+  const d = new Date(ts);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export function newSet(prev = null) {
   return {
     weight: prev ? prev.weight : null,

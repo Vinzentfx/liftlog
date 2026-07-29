@@ -1,7 +1,7 @@
 // Minimal promise wrapper over IndexedDB. No dependencies so the app works offline.
 
 const DB_NAME = 'liftlog';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export const STORES = {
   exercises: 'exercises',
@@ -10,6 +10,8 @@ export const STORES = {
   sessions: 'sessions',
   bodyweight: 'bodyweight',
   settings: 'settings',
+  foods: 'foods',
+  meals: 'meals',
 };
 
 let _db = null;
@@ -44,6 +46,18 @@ export function open() {
       }
       if (!db.objectStoreNames.contains(STORES.settings)) {
         db.createObjectStore(STORES.settings, { keyPath: 'key' });
+      }
+      // v3: nutrition. `foods` is the user's own list of things they eat —
+      // deliberately source-agnostic, so an entry typed by hand, filled from a
+      // barcode lookup or drafted by a photo all end up as the same record.
+      if (!db.objectStoreNames.contains(STORES.foods)) {
+        const s = db.createObjectStore(STORES.foods, { keyPath: 'id' });
+        s.createIndex('name', 'name', { unique: false });
+      }
+      // One row per portion eaten. Indexed by day so a date's log is one read.
+      if (!db.objectStoreNames.contains(STORES.meals)) {
+        const s = db.createObjectStore(STORES.meals, { keyPath: 'id' });
+        s.createIndex('day', 'day', { unique: false });
       }
       void ev;
     };

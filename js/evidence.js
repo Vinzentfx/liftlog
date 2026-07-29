@@ -56,6 +56,14 @@ export const SOURCES = {
     url: 'https://sportrxiv.org/index.php/server/preprint/view/295',
     says: 'The closer a set is taken to failure, the more it grows the muscle — a gradient, not a switch. Strength barely cares. So how hard the set is matters more than which rep range it lands in.',
   },
+  protein2018: {
+    key: 'protein2018',
+    short: 'Morton et al. 2018 — protein intake',
+    cite: 'Morton RW et al. A systematic review, meta-analysis and meta-regression of the effect of protein supplementation on resistance training-induced gains in muscle mass and strength in healthy adults. British Journal of Sports Medicine, 2018. Read alongside the later re-analyses that question the breakpoint.',
+    note: '49 studies, 1,863 participants. The most-cited number in the field, and shakier than its fame suggests.',
+    url: 'https://pubmed.ncbi.nlm.nih.gov/28698222/',
+    says: 'The famous figure is 1.6 g of protein per kg of bodyweight per day, past which the meta-regression found no further gain. Two caveats travel with it and usually get dropped: the confidence interval reaches 2.2 g/kg, and later work argues the breakpoint may not exist at all — that intake and growth simply keep rising with diminishing returns, as weekly sets do. So this app shows a range, not a number.',
+  },
   variation2024: {
     key: 'variation2024',
     short: 'Exercise variation & regional growth',
@@ -89,6 +97,12 @@ export const THRESHOLDS = {
   repWindow: { low: 5, high: 30, source: 'acsm2026' },
   /** Different movements per muscle before regional coverage stops improving. */
   exercisesPerMuscle: { value: 2, source: 'variation2024' },
+  /**
+   * Daily protein, grams per kg of bodyweight. Deliberately a band: 1.6 is the
+   * headline breakpoint, 2.2 is the top of its own confidence interval, and the
+   * honest reading is that anywhere inside is fine.
+   */
+  proteinPerKg: { low: 1.6, high: 2.2, source: 'protein2018' },
 };
 
 export const RATING_DISCLAIMER =
