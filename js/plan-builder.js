@@ -11,6 +11,9 @@
 import { rateExercise } from './exercise-rating.js';
 import { isBenchmark } from './standards.js';
 
+// Fallbacks, not policy. The user can change both in Settings; these are what a
+// blueprint uses when nobody has said otherwise, and the reasoning for the
+// numbers is in the slot-count comment above.
 export const SETS_PER_EXERCISE = 2;
 export const REP_TARGET = '6-10';
 
@@ -138,7 +141,7 @@ function rankFor(region, exercises, { used, preferCompound }) {
  * @param exercises  the full library
  * @param opts       { empty } — true returns the day layout with no exercises
  */
-export function buildPlanDays(blueprint, exercises, { empty = false } = {}) {
+export function buildPlanDays(blueprint, exercises, { empty = false, sets = SETS_PER_EXERCISE, reps = REP_TARGET } = {}) {
   if (empty) {
     return blueprint.days.map((d) => ({
       id: uid(),
@@ -167,8 +170,8 @@ export function buildPlanDays(blueprint, exercises, { empty = false } = {}) {
         used.add(pick.ex.id);
         items.push({
           exerciseId: pick.ex.id,
-          targetSets: SETS_PER_EXERCISE,
-          targetReps: REP_TARGET,
+          targetSets: sets,
+          targetReps: reps,
           note: '',
         });
       }

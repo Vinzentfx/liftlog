@@ -29,7 +29,7 @@ let sort = 'muscle';
 let limit = PAGE;
 
 /** Stars sit on the right of every row so the list is scannable at a glance. */
-const starsFor = (ex) => starBadge(rateExercise(ex).stars);
+const starsFor = (ex) => (store.starsShown() ? starBadge(rateExercise(ex).stars) : null);
 
 export default function renderLibrary({ param, actions }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': 'Settings' }, ['⚙']));
@@ -55,7 +55,9 @@ function listView() {
   });
   const equipSel = el('select', {}, equipmentOptions().map((eq) =>
     el('option', { value: eq, selected: eq === equipFilter }, [eq === 'All' ? 'Any equipment' : eq])));
-  const sortSel = el('select', { 'aria-label': 'Sort exercises' }, Object.entries(SORTS).map(([k, label]) =>
+  const sortable = Object.entries(SORTS).filter(([k]) => k !== 'rating' || store.starsShown());
+  if (!store.starsShown() && sort === 'rating') sort = 'muscle';
+  const sortSel = el('select', { 'aria-label': 'Sort exercises' }, sortable.map(([k, label]) =>
     el('option', { value: k, selected: k === sort }, [label])));
   const list = el('div');
   const footer = el('div');
@@ -100,7 +102,9 @@ function listView() {
       title: (ex.favourite ? '★ ' : '') + ex.name,
       sub,
       right: starsFor(ex),
-      ariaLabel: `Open ${ex.name} — ${rateExercise(ex).stars} of 5 stars`,
+      ariaLabel: store.starsShown()
+        ? `Open ${ex.name} — ${rateExercise(ex).stars} of 5 stars`
+        : `Open ${ex.name}`,
       onclick: () => navigate('library', ex.id),
     });
 
@@ -222,9 +226,15 @@ function detailView(id) {
     ])
   );
 
-  const ratingCard = exerciseRatingCard(ex);
-  ratingCard.append(myRatingRow(ex, { onChange: () => render() }));
-  root.append(ratingCard);
+  // With stars switched off the evidence card goes too — but your own rating
+  // stays, because that is a note to yourself, not a score handed to you.
+  if (store.starsShown()) {
+    const ratingCard = exerciseRatingCard(ex);
+    ratingCard.append(myRatingRow(ex, { onChange: () => render() }));
+    root.append(ratingCard);
+  } else {
+    root.append(el('div.card', {}, [myRatingRow(ex, { onChange: () => render() })]));
+  }
 
   // Illustrated where everkinetic has the movement, muscle map otherwise.
   const illustrated = hasArt(ex);

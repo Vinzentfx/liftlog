@@ -122,6 +122,31 @@ export function renderSettings() {
   soundToggle.checked = s.soundOnRestEnd !== false;
   soundToggle.addEventListener('change', () => store.setSetting('soundOnRestEnd', soundToggle.checked));
 
+  const starToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
+  starToggle.checked = s.showStars !== false;
+  starToggle.addEventListener('change', () => store.setSetting('showStars', starToggle.checked));
+
+  const nutritionToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
+  nutritionToggle.checked = s.showNutrition !== false;
+  nutritionToggle.addEventListener('change', () => store.setSetting('showNutrition', nutritionToggle.checked));
+
+  const defSets = el('input', {
+    type: 'number', inputmode: 'numeric', min: '1', max: '20', step: '1',
+    value: String(store.defaultSets()),
+  });
+  defSets.addEventListener('change', () => {
+    const n = Math.max(1, Math.min(20, Number(defSets.value) || 2));
+    defSets.value = String(n);
+    store.setSetting('defaultSets', n);
+  });
+
+  const defReps = el('input', { type: 'text', value: store.defaultReps(), placeholder: 'e.g. 6-10' });
+  defReps.addEventListener('change', () => {
+    const v = defReps.value.trim() || '6-10';
+    defReps.value = v;
+    store.setSetting('defaultReps', v);
+  });
+
   const checkRow = (input, label, hint) => el('label.field', {}, [
     el('div.row', { style: { gap: '10px' } }, [
       input,
@@ -174,6 +199,22 @@ export function renderSettings() {
     checkRow(soundToggle, 'Chime when rest ends'),
     checkRow(rirToggle, 'Log reps in reserve',
       'Adds an RIR column to every set. Optional per set — how close to failure a set was drives growth more than which rep range it lands in, so it is worth recording, but a blank is treated as "unknown", never as "easy".'),
+
+    el('div.section-head', {}, [el('h2', { text: 'New plan exercises' })]),
+    el('div.small.muted', { style: { marginBottom: '10px' },
+      text: 'What an exercise starts at when you add it to a plan — by hand, from a template, or through the plan doctor.' }),
+    el('div.row', { style: { gap: '10px' } }, [
+      el('label.field.grow', {}, [el('span', { text: 'Sets' }), defSets]),
+      el('label.field.grow', {}, [el('span', { text: 'Reps' }), defReps]),
+    ]),
+    el('div.small.faint', { style: { marginTop: '-4px' },
+      text: '2 sets at 6–10 is the app default: spreading volume over more movements covers more of a muscle than piling sets onto one. That is a preference, not a finding — change it and everything follows.' }),
+
+    el('div.section-head', {}, [el('h2', { text: 'What to show' })]),
+    checkRow(starToggle, 'Exercise and plan stars',
+      'Hides the 1–5 star scores and the rating cards. The plain-language feedback stays — "what works" and "what to fix" are useful even if you would rather not be given a grade. Your own personal rating stays too; that one is a note to yourself.'),
+    checkRow(nutritionToggle, 'Nutrition on Home',
+      'The Nutrition tab keeps working either way — this only controls the summary card on Home.'),
 
     el('div.section-head', {}, [el('h2', { text: 'Backup' })]),
     el('div.small.muted', { style: { marginBottom: '10px' },

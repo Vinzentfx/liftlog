@@ -6,13 +6,14 @@ import {
 } from '../ui.js';
 import * as store from '../store.js';
 import { bestOneRepMaxByName } from '../models.js';
-import { PLAN_BLUEPRINTS, SETS_PER_EXERCISE, REP_TARGET, buildPlanDays } from '../plan-builder.js';
+import { PLAN_BLUEPRINTS, buildPlanDays } from '../plan-builder.js';
 import { analysePlan, WEIGHTS, WEIGHT_WHY } from '../plan-rating.js';
 import { THRESHOLDS, RATING_DISCLAIMER } from '../evidence.js';
 import { rateExercise } from '../exercise-rating.js';
 import { exerciseRatingSheet, evidenceList, swapSheet } from '../rating-ui.js';
 import { diagnose } from '../plan-doctor.js';
 import { suggestSwaps } from '../swaps.js';
+import { WEEK_ORDER, weekdayName, weekdayShort, weekRows, isScheduled, scheduleConflict } from '../schedule.js';
 import { REGIONS } from '../standards.js';
 import { scoreFor, tierIndex, tierOf, isBenchmark, hasProfile, toNextTier } from '../standards.js';
 import { pickExercise } from '../pickers.js';
@@ -47,8 +48,8 @@ function listView() {
       root.append(listItem({
         title: p.name + (p.id === activeId ? '  ★' : ''),
         sub: `${dayCount} ${dayCount === 1 ? 'day' : 'days'} · ${exCount} exercises${p.id === activeId ? ' · active' : ''}`,
-        right: exCount ? starBadge(a.stars) : null,
-        ariaLabel: `Open ${p.name}${exCount ? ` — ${a.stars} of 5 stars` : ''}`,
+        right: exCount && store.starsShown() ? starBadge(a.stars) : null,
+        ariaLabel: `Open ${p.name}${exCount && store.starsShown() ? ` — ${a.stars} of 5 stars` : ''}`,
         onclick: () => navigate('plans', p.id),
       }));
     }
@@ -56,21 +57,21 @@ function listView() {
 
   root.append(el('div.section-head', {}, [el('h2', { text: 'Templates' })]));
   root.append(el('div.small.faint', { style: { marginBottom: '10px' },
-    text: `Every exercise gets ${SETS_PER_EXERCISE} sets at ${REP_TARGET} reps — more movements, fewer sets each. Stars are what the template scores once it is filled in with your library.` }));
+    text: `Every exercise gets ${store.defaultSets()} sets at ${store.defaultReps()} reps — change that in Settings.${store.starsShown() ? ' Stars are what the template scores once it is filled in with your library.' : ''}` }));
 
   for (const bp of PLAN_BLUEPRINTS) {
     const slots = bp.days.reduce((n, d) => n + d.slots.reduce((m, [, c]) => m + c, 0), 0);
     const preview = previewBlueprint(bp);
     root.append(
       el('button.list-item' + (bp.recommended ? '.glow' : ''), {
-        'aria-label': `Create ${bp.name} — ${preview.stars} of 5 stars`,
+        'aria-label': store.starsShown() ? `Create ${bp.name} — ${preview.stars} of 5 stars` : `Create ${bp.name}`,
         onclick: () => blueprintSheet(bp, preview),
       }, [
         el('div.grow', {}, [
           el('div.li-title', { text: bp.name + (bp.recommended ? '  ★' : '') }),
-          el('div.li-sub', { text: `${bp.blurb} · ${slots} exercises, ${slots * SETS_PER_EXERCISE} sets/week` }),
+          el('div.li-sub', { text: `${bp.blurb} · ${slots} exercises, ${slots * store.defaultSets()} sets/week` }),
         ]),
-        starBadge(preview.stars),
+        store.starsShown() ? starBadge(preview.stars) : null,
         el('span.chev', { text: '+', 'aria-hidden': 'true' }),
       ])
     );
@@ -99,11 +100,11 @@ function previewBlueprint(bp) {
   // Cheap enough to do once, not cheap enough to redo on every repaint of the
   // list — and the only inputs that change the answer are the library size and
   // which movements are favourited.
-  const sig = `${store.state.exercises.length}:${store.state.exercises.filter((e) => e.favourite).map((e) => e.id).join(',')}`;
+  const sig = `${store.state.exercises.length}:${store.defaultSets()}:${store.defaultReps()}:${store.state.exercises.filter((e) => e.favourite).map((e) => e.id).join(',')}`;
   const hit = previewCache.get(bp.key);
   if (hit && hit.sig === sig) return hit.analysis;
 
-  const days = buildPlanDays(bp, store.state.exercises);
+  const days = buildPlanDays(bp, store.state.exercises, { sets: store.defaultSets(), reps: store.defaultReps() });
   const analysis = analysePlan({ days, perWeek: bp.perWeek || 1 }, store.state.exerciseById);
   previewCache.set(bp.key, { sig, analysis });
   return analysis;
@@ -123,7 +124,9 @@ function blueprintSheet(bp, preview = previewBlueprint(bp)) {
 
     el('div.card.tight.glow', { style: { marginTop: '12px' } }, [
       el('div.row.between', {}, [
-        starBadge(preview.stars, { size: '19px' }),
+        store.starsShown()
+          ? starBadge(preview.stars, { size: '19px' })
+          : el('span.small.faint', { text: 'Plan check' }),
         el('button.btn.sm.ghost', { onclick: () => breakdownSheet(bp.name, preview) }, ['Details']),
       ]),
       ...preview.good.slice(0, 1).map((t) =>
@@ -134,7 +137,7 @@ function blueprintSheet(bp, preview = previewBlueprint(bp)) {
 
     el('div.card.tight', { style: { marginTop: '12px' } }, [
       el('div.small', { style: { fontWeight: '650', marginBottom: '6px' },
-        text: `Target: ${REP_TARGET} reps · ${SETS_PER_EXERCISE} sets per exercise` }),
+        text: `Target: ${store.defaultReps()} reps · ${store.defaultSets()} sets per exercise` }),
       ...perDay.map((t) => el('div.small.faint', { text: t })),
     ]),
 
@@ -209,6 +212,7 @@ function planView(planId) {
   }
 
   root.append(qualityCard(plan));
+  root.append(weekCard(plan));
 
   plan.days.forEach((day, i) => root.append(dayCard(plan, day, i)));
 
@@ -239,6 +243,65 @@ function planView(planId) {
 }
 
 /** Star rating plus a plain-language breakdown of what works and what doesn't. */
+/**
+ * The week at a glance, once any day has a weekday assigned.
+ *
+ * Hidden entirely while nothing is scheduled — an empty seven-row grid is not
+ * an invitation, it is clutter. The nudge to schedule lives on the first day's
+ * menu instead, where you are already editing.
+ */
+function weekCard(plan) {
+  const wrap = el('div');
+  if (!plan.days.length) return wrap;
+
+  if (!isScheduled(plan)) {
+    wrap.append(el('div.section-head', {}, [el('h2', { text: 'Week' })]));
+    wrap.append(el('div.card', {}, [
+      el('div.small.muted', {
+        text: 'No fixed weekdays. The Train tab suggests whichever day has gone longest without being trained — which is the right answer if you train when you can rather than on a schedule.',
+      }),
+      el('div.small.faint', { style: { marginTop: '8px' },
+        text: 'To pin days down, open a day’s ··· menu and set "Trained on".' }),
+    ]));
+    return wrap;
+  }
+
+  const conflict = scheduleConflict(plan);
+  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Week' })]));
+
+  const card = el('div.card', {});
+  for (const row of weekRows(plan)) {
+    card.append(
+      el('div.row', {
+        style: {
+          gap: '10px', alignItems: 'baseline', padding: '7px 0',
+          borderBottom: '1px solid var(--line-soft)',
+        },
+      }, [
+        el('span', {
+          style: {
+            width: '42px', flex: '0 0 42px', fontSize: '12px', fontWeight: '750',
+            letterSpacing: '.06em', textTransform: 'uppercase',
+            color: row.isToday ? 'var(--accent-hi)' : 'var(--text-faint)',
+          },
+          text: row.short,
+        }),
+        row.days.length
+          ? el('span.grow', { style: { fontSize: '14.5px', fontWeight: '600' },
+              text: row.days.map((d) => `${d.name} · ${d.items.length}`).join('   ') })
+          : el('span.grow.small.faint', { text: 'Rest' }),
+        row.isToday ? el('span.pill.accent', { text: 'Today' }) : null,
+      ])
+    );
+  }
+
+  if (conflict) {
+    card.append(el('div.small', { style: { marginTop: '10px', color: 'var(--warn)' }, text: `! ${conflict.text}` }));
+  }
+  wrap.append(card);
+  return wrap;
+}
+
 function qualityCard(plan) {
   const a = analysePlan(plan, store.state.exerciseById);
   const card = el('div.card.glow', { style: { marginBottom: '14px' } });
@@ -246,7 +309,7 @@ function qualityCard(plan) {
   card.append(
     el('div.row.between', { style: { marginBottom: '4px' } }, [
       el('div.grow', {}, [
-        starBadge(a.stars, { size: '22px' }),
+        store.starsShown() ? starBadge(a.stars, { size: '22px' }) : null,
         el('div.small.faint', {
           text: `${a.exerciseCount} exercises · ${a.totalSets} sets a week · ${Math.round(a.longShare * 100)}% loaded stretched`,
         }),
@@ -272,7 +335,7 @@ function qualityCard(plan) {
       text: `+${a.good.length + a.missing.length - 4} more in Details` }));
   }
 
-  const fixes = diagnose(plan, a, store.state.exercises, store.state.exerciseById);
+  const fixes = diagnose(plan, a, store.state.exercises, store.state.exerciseById, { sets: store.defaultSets() });
   if (fixes.length) {
     card.append(el('button.btn.ghost.full.sm', {
       style: { marginTop: '12px' },
@@ -353,8 +416,10 @@ function breakdownSheet(title, a) {
   ]);
 
   const body = el('div', {}, [
-    el('div', { style: { fontSize: '26px', letterSpacing: '.06em', color: 'var(--t4)', textAlign: 'center' },
-      text: starString(a.stars) }),
+    store.starsShown()
+      ? el('div', { style: { fontSize: '26px', letterSpacing: '.06em', color: 'var(--t4)', textAlign: 'center' },
+          text: starString(a.stars) })
+      : null,
     el('div.small.muted', { style: { textAlign: 'center', marginBottom: '14px' }, text: RATING_DISCLAIMER }),
 
     el('div.section-head', {}, [el('h2', { text: 'Score breakdown' })]),
@@ -439,7 +504,14 @@ function dayCard(plan, day, index) {
     el('button.btn.ghost.full.sm', {
       style: { marginTop: '8px' },
       onclick: () => pickExercise(async (ex) => {
-        day.items.push({ exerciseId: ex.id, targetSets: 3, targetReps: '8-12', note: '' });
+        // Whatever you set in Settings, not a hardcoded 3 x 8-12 that
+        // disagreed with what the generator produces.
+        day.items.push({
+          exerciseId: ex.id,
+          targetSets: store.defaultSets(),
+          targetReps: plan.repTarget || store.defaultReps(),
+          note: '',
+        });
         await store.savePlan(plan);
         toast(`Added ${ex.name}`);
       }, day.items.map((i) => i.exerciseId)),
@@ -485,11 +557,13 @@ function exerciseRow(plan, day, item) {
       el('div', { style: { fontWeight: '600', fontSize: '14.5px' }, text: ex.name }),
       el('div.small.faint', { text: `${item.targetSets} × ${item.targetReps || '8-12'} · ${ex.muscle}` }),
       // Tapping the stars explains them; the row's own ··· menu edits the item.
-      el('button.btn.quiet.sm', {
-        style: { padding: '2px 0', marginTop: '2px' },
-        'aria-label': `Why ${ex.name} is rated ${rating.stars} of 5`,
-        onclick: () => exerciseRatingSheet(ex),
-      }, [starBadge(rating.stars, { size: '12px' })]),
+      store.starsShown()
+        ? el('button.btn.quiet.sm', {
+            style: { padding: '2px 0', marginTop: '2px' },
+            'aria-label': `Why ${ex.name} is rated ${rating.stars} of 5`,
+            onclick: () => exerciseRatingSheet(ex),
+          }, [starBadge(rating.stars, { size: '12px' })])
+        : null,
     ]),
     chip,
     el('button.btn.quiet.sm', {
@@ -556,15 +630,28 @@ function dayMenu(plan, day, index) {
 
   const name = el('input', { type: 'text', value: day.name });
 
+  // Scheduling is optional: "Any day" keeps the least-recently-trained
+  // suggestion the Train tab has always used, which is the better answer for
+  // anyone training on feel rather than on a calendar.
+  const weekday = el('select', {}, [
+    el('option', { value: '', selected: !Number.isInteger(day.weekday) }, ['Any day — no fixed weekday']),
+    ...WEEK_ORDER.map((n) =>
+      el('option', { value: String(n), selected: day.weekday === n }, [weekdayName(n)])),
+  ]);
+
   const body = el('div', {}, [
     el('label.field', {}, [el('span', { text: 'Day name' }), name]),
+    el('label.field', {}, [el('span', { text: 'Trained on' }), weekday]),
+    el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '12px' },
+      text: 'Leave this on "Any day" and the Train tab keeps suggesting whatever has gone longest without being trained.' }),
     el('button.btn.primary.full', {
       onclick: async () => {
         day.name = name.value.trim() || day.name;
+        day.weekday = weekday.value === '' ? null : Number(weekday.value);
         await store.savePlan(plan);
         closeSheet();
       },
-    }, ['Save name']),
+    }, ['Save']),
     el('div.stack', { style: { marginTop: '12px' } }, [
       el('button.btn.ghost.full', { disabled: index === 0, onclick: () => move(-1) }, ['↑ Move up']),
       el('button.btn.ghost.full', { disabled: index === plan.days.length - 1, onclick: () => move(1) }, ['↓ Move down']),

@@ -154,6 +154,7 @@ warnings that do matter.
 | `js/history.js` | Strength, tonnage and per-lift trends over time |
 | `js/nutrition.js` | Protein targets, daily totals, bodyweight direction |
 | `js/foodlookup.js` | Open Food Facts barcode lookup — the only networked module |
+| `js/schedule.js` | Which plan day belongs to which weekday |
 
 ### The body map
 
@@ -374,6 +375,33 @@ in Settings → Credits, in the lookup sheet, and in `NOTICE`.
 **`User-Agent` can't be set from a browser** — it's on the Fetch spec's
 forbidden list. Open Food Facts also accepts `X-User-Agent`, and it's in their
 CORS allow-list, so that's what identifies the app.
+
+### Weekday scheduling
+
+Optional, and off until you use it. A plan day can be pinned to a weekday from
+its `···` menu; with nothing pinned, the Train tab keeps suggesting whichever
+day has gone longest untrained — genuinely the better answer for anyone who
+trains when they can rather than on a calendar, so it stays the default.
+
+Once anything *is* scheduled, `js/schedule.js` becomes the single source for
+"what's on today" and Home, Train and the plan's Week card all read from it. A
+weekday can hold two sessions and a day can sit on no weekday; neither is an
+error, so nothing validates them away. The Week card also flags the one case
+that silently misleads: fewer scheduled sessions than the plan's `perWeek`
+implies means the rating is counting a week the calendar won't deliver.
+
+### Settings that change behaviour
+
+- **Default sets and reps** for newly added plan exercises. Read through
+  `store.defaultSets()` / `defaultReps()` by the generator, the plan doctor, the
+  template previews *and* the hand-add path — that last one used to hardcode
+  3 × 8-12, which disagreed with everything else in the app.
+- **Stars off** hides the 1–5 scores and the rating cards but keeps the
+  plain-language verdicts; "what to fix" is useful without a grade. Your own
+  personal rating survives too — that one is a note to yourself. Gate with
+  `store.starsShown()`, not by reading the setting directly.
+- **Strength ratings** (`showRatings`) is a *separate* switch for the 0–100 tier
+  system. Two different things, two toggles.
 
 ### The plan doctor
 

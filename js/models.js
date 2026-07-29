@@ -17,8 +17,15 @@ export const DEFAULT_SETTINGS = {
   restSeconds: 180,
   autoStartRest: true,
   soundOnRestEnd: true,
-  showRatings: true,      // tiers can be demotivating — let them be hidden
+  showRatings: true,      // strength tiers can be demotivating — let them be hidden
+  showStars: true,        // exercise/plan quality stars, separate from the tiers
+  showNutrition: true,    // the nutrition card on Home
   logRir: true,           // reps-in-reserve column on the set row
+  // What a newly added plan exercise starts at. 2 x 6-10 is the app's default
+  // for reasons documented in plan-builder.js, but it is a preference, not a
+  // finding — someone running 3 x 8-12 should not have to retype it every time.
+  defaultSets: 2,
+  defaultReps: '6-10',
   // Profile. sex and bodyweight drive the strength standards; height is
   // recorded for reference only and is deliberately not used in any rating
   // (no published standard normalises by height).

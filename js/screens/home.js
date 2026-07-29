@@ -15,6 +15,7 @@ import { bodyMap, tierLegend } from '../bodymap.js';
 import { barChart, lineChart } from '../charts.js';
 import { analyseWeek, compareToPlan, weekVerdict } from '../log-analysis.js';
 import { proteinTarget, dayTotals, proteinVerdict, weightTrend, trendVerdict } from '../nutrition.js';
+import { todaysDays, weekdayName } from '../schedule.js';
 import { analysePlan } from '../plan-rating.js';
 import { THRESHOLDS } from '../evidence.js';
 import { navigate } from '../app.js';
@@ -95,11 +96,14 @@ export default function renderHome({ actions }) {
     ])
   );
 
+  // ---------- what's on today ----------
+  root.append(todayCard(done));
+
   // ---------- done vs planned ----------
   root.append(weekVsPlan(done));
 
   // ---------- nutrition ----------
-  root.append(nutritionCard());
+  if (s.showNutrition !== false) root.append(nutritionCard());
 
   // ---------- weekly workload ----------
   const buckets = weeklyMuscleSets(done, store.state.exerciseById, 10);
@@ -160,6 +164,68 @@ export default function renderHome({ actions }) {
   }
 
   return root;
+}
+
+/* ==================== today ==================== */
+
+/**
+ * What the plan says to do today.
+ *
+ * Only appears once weekdays are assigned — without a schedule "today" has no
+ * answer, and the Train tab's least-recently-trained suggestion is already the
+ * right one. Nothing here is shown while a workout is in progress; the resume
+ * card above already covers that.
+ */
+function todayCard(done) {
+  const wrap = el('div');
+  const plan = store.activePlan();
+  if (!plan || !plan.days.length || store.activeSession()) return wrap;
+
+  const today = todaysDays(plan, done);
+  if (!today.scheduled) return wrap;
+
+  const trainedToday = done.some((s) => s.dayId
+    && today.days.some((d) => d.id === s.dayId)
+    && new Date(s.startedAt).toDateString() === new Date().toDateString());
+
+  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Today' })]));
+
+  if (!today.days.length) {
+    wrap.append(el('div.card', {}, [
+      el('div', { style: { fontWeight: '680' }, text: 'Rest day' }),
+      el('div.small.muted', { style: { marginTop: '2px' },
+        text: today.next
+          ? `${today.next.day.name} is next, on ${weekdayName(today.next.weekday)}.`
+          : 'Nothing scheduled.' }),
+    ]));
+    return wrap;
+  }
+
+  for (const day of today.days) {
+    wrap.append(
+      el('div.card' + (trainedToday ? '' : '.glow'), {}, [
+        el('div.row.between', { style: { gap: '12px' } }, [
+          el('div.grow', {}, [
+            el('div', { style: { fontWeight: '700', fontSize: '17px' }, text: day.name }),
+            el('div.small.muted', {
+              text: trainedToday
+                ? 'Done today.'
+                : `${day.items.length} ${day.items.length === 1 ? 'exercise' : 'exercises'}`,
+            }),
+          ]),
+          trainedToday
+            ? el('span.pill.pr', { text: '✓' })
+            : el('button.btn.primary.sm', {
+                onclick: async () => {
+                  await store.startSession({ planId: plan.id, dayId: day.id });
+                  navigate('train');
+                },
+              }, ['Start']),
+        ]),
+      ])
+    );
+  }
+  return wrap;
 }
 
 /* ==================== this week vs the plan ==================== */

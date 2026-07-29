@@ -26,7 +26,7 @@ const article = (word) => (/^[aeiou]/i.test(word) ? 'an' : 'a');
  * @param exercises the full library
  * @returns [{ id, title, detail, severity, apply(plan) }]
  */
-export function diagnose(plan, analysis, exercises, byId) {
+export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXERCISE } = {}) {
   const fixes = [];
   const used = new Set();
   for (const d of plan.days || []) for (const i of d.items) used.add(i.exerciseId);
@@ -42,8 +42,8 @@ export function diagnose(plan, analysis, exercises, byId) {
       id: `cover-${region}`,
       severity: 3,
       title: `Add ${name(region)} to ${day.name}`,
-      detail: `${pick.name}, ${SETS_PER_EXERCISE} sets. ${name(region)} is not trained at all right now.`,
-      apply: (p) => addItem(p, day.id, pick.id),
+      detail: `${pick.name}, ${sets} sets. ${name(region)} is not trained at all right now.`,
+      apply: (p) => addItem(p, day.id, pick.id, sets),
     });
   }
 
@@ -62,8 +62,8 @@ export function diagnose(plan, analysis, exercises, byId) {
       id: `volume-${region}`,
       severity: 2,
       title: `Add ${article(name(region))} ${name(region)} exercise to ${day.name}`,
-      detail: `${pick.name}, ${SETS_PER_EXERCISE} sets — ${name(region)} is ${gap} short of the ${FLOOR}-set floor.`,
-      apply: (p) => addItem(p, day.id, pick.id),
+      detail: `${pick.name}, ${sets} sets — ${name(region)} is ${gap} short of the ${FLOOR}-set floor.`,
+      apply: (p) => addItem(p, day.id, pick.id, sets),
     });
   }
 
@@ -115,7 +115,7 @@ export function diagnose(plan, analysis, exercises, byId) {
       severity: 1,
       title: `Add a second ${name(region)} movement`,
       detail: `${pick.name} on ${day.name}. All your ${name(region)} volume comes from one exercise, and muscles do not grow evenly.`,
-      apply: (p) => addItem(p, day.id, pick.id),
+      apply: (p) => addItem(p, day.id, pick.id, sets),
     });
   }
 
@@ -124,12 +124,12 @@ export function diagnose(plan, analysis, exercises, byId) {
 
 /* ---------------- edits ---------------- */
 
-function addItem(plan, dayId, exerciseId) {
+function addItem(plan, dayId, exerciseId, sets = SETS_PER_EXERCISE) {
   const day = plan.days.find((d) => d.id === dayId);
   if (!day) return;
   day.items.push({
     exerciseId,
-    targetSets: SETS_PER_EXERCISE,
+    targetSets: sets,
     targetReps: plan.repTarget || REP_TARGET,
     note: '',
   });

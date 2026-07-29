@@ -7,7 +7,7 @@ import {
   newFood, newMeal, dayKey,
   LIBRARY_VERSION, DATA_VERSION, normName, regionsForMuscle,
 } from './models.js';
-import { buildPlanDays, REP_TARGET } from './plan-builder.js';
+import { buildPlanDays, SETS_PER_EXERCISE, REP_TARGET } from './plan-builder.js';
 
 export const state = {
   ready: false,
@@ -145,6 +145,17 @@ export function activeSession() {
 }
 
 export const units = () => state.settings.units;
+
+/** What a newly added plan exercise starts at. Settings first, app default after. */
+export const defaultSets = () => {
+  const n = Number(state.settings.defaultSets);
+  return Number.isFinite(n) && n >= 1 && n <= 20 ? n : SETS_PER_EXERCISE;
+};
+export const defaultReps = () =>
+  (state.settings.defaultReps || '').trim() || REP_TARGET;
+
+/** Quality stars are hidden separately from the strength tiers — different things. */
+export const starsShown = () => state.settings.showStars !== false;
 
 // ---------- settings ----------
 
@@ -289,13 +300,17 @@ export function activePlan() {
  *   so the user fills it in themselves.
  */
 export async function createPlanFromBlueprint(blueprint, { empty = false } = {}) {
-  const days = buildPlanDays(blueprint, state.exercises, { empty });
+  const days = buildPlanDays(blueprint, state.exercises, {
+    empty,
+    sets: defaultSets(),
+    reps: defaultReps(),
+  });
 
   const plan = {
     id: db.uid('p_'),
     name: blueprint.name,
     presetKey: blueprint.key || null,
-    repTarget: REP_TARGET,
+    repTarget: defaultReps(),
     // how many times the whole cycle runs per week — the rating scales by this
     perWeek: blueprint.perWeek || 1,
     days,
@@ -315,7 +330,7 @@ export async function savePlan(plan) {
     id: plan.id || db.uid('p_'),
     name: (plan.name || 'Plan').trim(),
     presetKey: plan.presetKey ?? (existing ? existing.presetKey : null),
-    repTarget: plan.repTarget ?? (existing ? existing.repTarget : REP_TARGET),
+    repTarget: plan.repTarget ?? (existing ? existing.repTarget : defaultReps()),
     perWeek: plan.perWeek ?? (existing ? existing.perWeek : 1),
     days: plan.days || [],
     createdAt: existing ? existing.createdAt : Date.now(),

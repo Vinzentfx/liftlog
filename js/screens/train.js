@@ -8,6 +8,7 @@ import * as store from '../store.js';
 import * as rest from '../rest.js';
 import { newSet, newEntry, entryStats, sessionStats, lastPerformance, e1rm, isCounted } from '../models.js';
 import { pickExercise } from '../pickers.js';
+import { todaysDays, weekdayName, weekdayShort } from '../schedule.js';
 import { exerciseArt } from '../exercise-art.js';
 import { navigate, render } from '../app.js';
 
@@ -49,23 +50,42 @@ function launcherView() {
       }, ['Choose a plan']),
     ]));
   } else {
-    // Suggest the day that has gone longest without being trained.
     const lastByDay = new Map();
     for (const s of done) {
       if (s.dayId && !lastByDay.has(s.dayId)) lastByDay.set(s.dayId, s.startedAt);
     }
-    const suggested = [...plan.days]
-      .sort((a, b) => (lastByDay.get(a.id) || 0) - (lastByDay.get(b.id) || 0))[0];
+
+    // With weekdays assigned, "up next" means what is on today. Without them it
+    // stays what it always was: whatever has gone longest untrained.
+    const today = todaysDays(plan, done);
+    const highlighted = new Set(today.days.map((d) => d.id));
+
+    if (today.scheduled && !today.days.length) {
+      root.append(el('div.card', {}, [
+        el('div.small.muted', {
+          text: today.next
+            ? `Rest day. Next up is ${today.next.day.name} on ${weekdayName(today.next.weekday)}.`
+            : 'Rest day — nothing scheduled.',
+        }),
+        el('div.small.faint', { style: { marginTop: '6px' }, text: 'Starting any day below still works.' }),
+      ]));
+    }
 
     for (const day of plan.days) {
       const names = day.items
         .map((i) => store.state.exerciseById.get(i.exerciseId))
         .filter(Boolean).map((e) => e.name);
       const last = lastByDay.get(day.id);
-      const isNext = suggested && day.id === suggested.id;
+      const isNext = highlighted.has(day.id);
+      const dayLabel = Number.isInteger(day.weekday) ? weekdayShort(day.weekday) : null;
+
       root.append(listItem({
-        title: day.name + (isNext ? '  ·  up next' : ''),
-        sub: `${names.length} exercises${last ? ` · last ${relLabel(last)}` : ' · never trained'}`,
+        title: day.name + (isNext ? (today.scheduled ? '  ·  today' : '  ·  up next') : ''),
+        sub: [
+          `${names.length} exercises`,
+          dayLabel,
+          last ? `last ${relLabel(last)}` : 'never trained',
+        ].filter(Boolean).join(' · '),
         ariaLabel: `Start ${day.name}`,
         onclick: async () => {
           await store.startSession({ planId: plan.id, dayId: day.id });
