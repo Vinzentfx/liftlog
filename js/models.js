@@ -2,7 +2,7 @@
 
 import { LIBRARY as LIBRARY_MAIN } from './exercise-library.js';
 import { LIBRARY_EXTRA } from './exercise-extra.js';
-import { CONTRIB } from './standards.js';
+import { CONTRIB, ANATOMY } from './standards.js';
 
 // free-exercise-db catalogue plus the everkinetic exercises adopted for their art
 const LIBRARY = [...LIBRARY_MAIN, ...LIBRARY_EXTRA];
@@ -107,6 +107,38 @@ const SEED = [
   ['Cable Crunch', 'Core', 'Cable'],
   ['Ab Wheel Rollout', 'Core', 'Bodyweight'],
   ['Russian Twist', 'Core', 'Dumbbell'],
+
+  // Machine work. The imported catalogue is heavy on barbell, dumbbell and
+  // cable and thin on machines — 72 of 850 entries — which leaves anyone who
+  // trains in a machine-equipped gym typing their own. These carry hand-written
+  // anatomy from CONTRIB_EXTRA, and deliberately no strength standard.
+  ['Machine Chest Press', 'Chest', 'Machine'],
+  ['Incline Machine Press', 'Chest', 'Machine'],
+  ['Machine Chest Fly', 'Chest', 'Machine'],
+  ['Smith Machine Bench Press', 'Chest', 'Machine'],
+  ['Machine Dip', 'Triceps', 'Machine'],
+
+  ['Chest-Supported T-Bar Row', 'Back', 'Machine'],
+  ['Chest-Supported Row', 'Back', 'Machine'],
+  ['Close-Grip Seated Row', 'Back', 'Machine'],
+  ['Machine Row', 'Back', 'Machine'],
+  ['Machine High Row', 'Back', 'Machine'],
+  ['Machine Pullover', 'Back', 'Machine'],
+  ['Assisted Pull-Up Machine', 'Back', 'Machine'],
+
+  ['Machine Shoulder Press', 'Shoulders', 'Machine'],
+  ['Machine Lateral Raise', 'Shoulders', 'Machine'],
+  ['Machine Rear Delt Fly', 'Shoulders', 'Machine'],
+
+  ['Machine Biceps Curl', 'Biceps', 'Machine'],
+  ['Machine Preacher Curl', 'Biceps', 'Machine'],
+  ['Machine Triceps Extension', 'Triceps', 'Machine'],
+
+  ['Smith Machine Squat', 'Quads', 'Machine'],
+  ['Machine Hip Abduction', 'Glutes', 'Machine'],
+  ['Machine Hip Adduction', 'Quads', 'Machine'],
+  ['Machine Back Extension', 'Hamstrings', 'Machine'],
+  ['Machine Crunch', 'Core', 'Machine'],
 ];
 
 /** Coarse muscle -> body-map regions, for the curated seed entries. */
@@ -128,7 +160,7 @@ export function regionsForMuscle(muscle) {
 }
 
 /** Bumped whenever the bundled catalogue changes, to top up existing installs. */
-export const LIBRARY_VERSION = 7;
+export const LIBRARY_VERSION = 8;
 
 /**
  * Bumped for one-off repairs to *stored* records, independently of the
@@ -181,9 +213,17 @@ function borrowInstructions(name) {
   return score >= 0.7 && best ? best.i : [];
 }
 
-/** Regions for a curated lift: authoritative table first, coarse fallback after. */
+/**
+ * Regions for a curated lift: the hand-written anatomy table first, coarse
+ * fallback after.
+ *
+ * ANATOMY covers both benchmark lifts and the curated machine movements. Having
+ * accurate regions and having a strength standard are separate questions, and
+ * this only answers the first — see standards.js for why machines get one and
+ * not the other.
+ */
 function regionsFor(name, muscle) {
-  const contrib = CONTRIB[name];
+  const contrib = ANATOMY[name];
   if (contrib) {
     const entries = Object.entries(contrib).sort((a, b) => b[1] - a[1]);
     return {
@@ -205,6 +245,10 @@ export function seedExercises(uid) {
       // Curated lifts carry no mechanic flag of their own. Without this they
       // score below imported variants in the plan generator, which is how a
       // plan ends up recommending "Bodyweight Flyes" over the bench press.
+      // Benchmarks stay compound unconditionally: without an explicit flag they
+      // rank below obscure imported variants in the plan generator, which is
+      // how a plan once recommended "Bodyweight Flyes" over the bench press.
+      // Curated machine work gets the honest region-count rule instead.
       mech: CONTRIB[name] ? 'compound' : (primary.length + secondary.length >= 3 ? 'compound' : 'isolation'),
       level: null,
       isCustom: false,

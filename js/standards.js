@@ -110,8 +110,73 @@ export const CONTRIB = {
   'Dip':                      { triceps: 1, chest: 0.8, 'delts-front': 0.5 },
 };
 
+/**
+ * Curated anatomy for movements that have no strength standard.
+ *
+ * CONTRIB used to do two jobs at once — "which muscles does this train" and
+ * "is this a benchmark lift" — which meant the only way to give an exercise
+ * proper multi-region anatomy was to invent a standard for it. This table is
+ * the first job on its own: machine work gets accurate regions and stays
+ * unrated, which is the honest combination.
+ *
+ * Why machines get no standard: a "100 kg" chest press on one manufacturer's
+ * frame is not 100 kg on another. Lever arms differ, plate-loaded and
+ * pin-loaded stacks differ, and the starting resistance differs. There is
+ * nothing to normalise against, so a tier would be a number with no meaning
+ * behind it.
+ */
+export const CONTRIB_EXTRA = {
+  // --- rows and pulls ---
+  'Chest-Supported T-Bar Row': { lats: 1, traps: 0.7, 'delts-rear': 0.6, biceps: 0.5 },
+  'Chest-Supported Row':       { lats: 1, traps: 0.65, 'delts-rear': 0.6, biceps: 0.5 },
+  'Close-Grip Seated Row':     { lats: 1, biceps: 0.6, traps: 0.5, 'delts-rear': 0.35 },
+  'Machine Row':               { lats: 1, traps: 0.6, biceps: 0.5, 'delts-rear': 0.5 },
+  'Machine High Row':          { lats: 1, traps: 0.6, 'delts-rear': 0.5, biceps: 0.45 },
+  'Machine Pullover':          { lats: 1, chest: 0.4, triceps: 0.3 },
+  'Assisted Pull-Up Machine':  { lats: 1, biceps: 0.6, 'delts-rear': 0.3 },
+
+  // --- pressing ---
+  'Machine Chest Press':       { chest: 1, 'delts-front': 0.55, triceps: 0.55 },
+  'Incline Machine Press':     { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
+  'Machine Chest Fly':         { chest: 1, 'delts-front': 0.3 },
+  'Machine Shoulder Press':    { 'delts-front': 1, triceps: 0.6, traps: 0.35 },
+  'Smith Machine Bench Press': { chest: 1, 'delts-front': 0.5, triceps: 0.5 },
+  'Smith Machine Squat':       { quads: 1, glutes: 0.7, 'lower-back': 0.3 },
+
+  // --- arms and delts ---
+  'Machine Lateral Raise':     { 'delts-front': 1, traps: 0.3 },
+  'Machine Rear Delt Fly':     { 'delts-rear': 1, traps: 0.4 },
+  'Machine Biceps Curl':       { biceps: 1, forearms: 0.3 },
+  'Machine Preacher Curl':     { biceps: 1, forearms: 0.25 },
+  'Machine Triceps Extension': { triceps: 1 },
+  'Machine Dip':               { triceps: 1, chest: 0.75, 'delts-front': 0.45 },
+
+  // --- lower body and core ---
+  'Machine Hip Abduction':     { glutes: 1 },
+  'Machine Hip Adduction':     { quads: 0.6, glutes: 0.4 },
+  'Machine Crunch':            { abs: 1, obliques: 0.35 },
+  'Machine Back Extension':    { 'lower-back': 1, glutes: 0.6, hamstrings: 0.5 },
+};
+
+/** Anatomy for any curated movement, benchmark or not. */
+export const ANATOMY = { ...CONTRIB_EXTRA, ...CONTRIB };
+
 export const BENCHMARKS = Object.keys(CONTRIB);
 export const isBenchmark = (name) => Object.hasOwn(CONTRIB, name);
+
+/**
+ * Benchmarks whose standard is shakier than the rest, and why.
+ *
+ * Leg press is the honest problem case in this table: published standards for
+ * it exist and circulate widely, but the load depends entirely on the machine's
+ * leverage and sled weight, which vary hugely. Two lifters pressing the same
+ * number on different machines are not doing the same work. The tier is kept
+ * because leaving quads unrated for a machine trainee is worse, but the caveat
+ * travels with it wherever it is shown.
+ */
+export const LOW_CONFIDENCE = {
+  'Leg Press': 'Machine leverage and sled weight vary enormously between manufacturers, so the same number means different things in different gyms. Treat this tier as a rough placement, and trust your own progression on the machine you actually use.',
+};
 
 /**
  * Strength peaks roughly 20–35. Older lifters get a proportionally easier

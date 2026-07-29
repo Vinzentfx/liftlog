@@ -9,17 +9,22 @@ import {
   bestOneRepMaxByName, isCounted, startOfWeek, weeklyMuscleSets, sessionStats,
 } from '../models.js';
 import {
-  buildRating, hasProfile, REGIONS, TIERS, tierIndex, tierOf,
+  buildRating, hasProfile, REGIONS, TIERS, tierIndex, tierOf, LOW_CONFIDENCE,
 } from '../standards.js';
 import { bodyMap, tierLegend } from '../bodymap.js';
 import { barChart, lineChart } from '../charts.js';
 import { analyseWeek, compareToPlan, weekVerdict } from '../log-analysis.js';
 import { proteinTarget, dayTotals, proteinVerdict, weightTrend, trendVerdict } from '../nutrition.js';
 import { todaysDays, weekdayName } from '../schedule.js';
+import { regionProgress, progressFills, describeRegion } from '../region-progress.js';
 import { analysePlan } from '../plan-rating.js';
 import { THRESHOLDS } from '../evidence.js';
 import { navigate } from '../app.js';
 import { profileForm, doExport } from './settings.js';
+
+// Which map the user last looked at. Module-level so switching tabs and coming
+// back does not silently reset it.
+let mapMode = 'strength';
 
 export default function renderHome({ actions }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': 'Settings' }, ['⚙']));
@@ -416,17 +421,7 @@ function ratingSection(done, settings) {
   );
 
   // body map
-  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Muscle map' })]));
-  wrap.append(
-    el('div.card', {}, [
-      bodyMap(rating.regions, {
-        onSelect: (region) => regionSheet(region, rating),
-      }),
-      tierLegend(),
-      el('div.small.faint', { style: { marginTop: '8px' },
-        text: 'Tap a muscle for detail. Unlit means no benchmark lift trains it yet.' }),
-    ])
-  );
+  wrap.append(mapSection(rating));
 
   // strongest / weakest lifts
   if (rating.lifts.length) {
@@ -459,6 +454,89 @@ function ratingSection(done, settings) {
   return wrap;
 }
 
+/**
+ * The muscle map, two ways.
+ *
+ * "Strength" is the tier map: how you compare against published standards. It
+ * only lights the regions a benchmark lift trains, and it always will — there
+ * are about seventeen lifts with standards worth having, and no honest way to
+ * add a machine chest press to that list.
+ *
+ * "Progress" answers the other half: are you getting stronger, measured against
+ * yourself. That needs no standard, so every exercise you log counts — which is
+ * the map that actually reflects a machine-based session. Two scales, never
+ * mixed, each with its own legend.
+ */
+function mapSection(rating) {
+  const wrap = el('div');
+  const host = el('div');
+  const done = store.state.sessions.filter((s) => s.finishedAt);
+
+  const seg = el('div.seg', { style: { marginBottom: '12px' } },
+    [['strength', 'Strength'], ['progress', 'Progress']].map(([key, label]) =>
+      el('button', {
+        'aria-pressed': String(mapMode === key),
+        onclick: (e) => {
+          mapMode = key;
+          [...e.target.parentElement.children].forEach((b, i) =>
+            b.setAttribute('aria-pressed', String(['strength', 'progress'][i] === key)));
+          paint();
+        },
+      }, [label])
+    )
+  );
+
+  function paint() {
+    if (mapMode === 'strength') {
+      host.replaceChildren(
+        bodyMap(rating.regions, { onSelect: (region) => regionSheet(region, rating) }),
+        tierLegend(),
+        el('div.small.faint', { style: { marginTop: '8px' },
+          text: 'Compared against published standards. Unlit means no benchmark lift trains it — machine work has no standard to compare against, so switch to Progress for those.' })
+      );
+      return;
+    }
+
+    const prog = regionProgress(done, store.state.exerciseById, { weeks: 12 });
+    const lit = Object.keys(prog).length;
+    host.replaceChildren(
+      bodyMap(progressFills(prog), { onSelect: (region) => progressSheet(region, prog[region]) }),
+      el('div.legend', {}, [
+        el('span', {}, [el('b', { style: { background: 'var(--t4)' } }), 'Going up']),
+        el('span', {}, [el('b', { style: { background: 'var(--t1)' } }), 'Holding / too few sessions']),
+        el('span', {}, [el('b', { style: { background: 'var(--t0)' } }), 'Falling']),
+      ]),
+      el('div.small.faint', { style: { marginTop: '8px' },
+        text: lit
+          ? 'Estimated 1RM trend over 12 weeks, measured against yourself. No standards involved, so every exercise counts — machines included.'
+          : 'Nothing logged in the last 12 weeks yet. This map fills in from your own numbers, whatever equipment you use.' })
+    );
+  }
+
+  paint();
+  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Muscle map' })]), seg, el('div.card', {}, [host]));
+  return wrap;
+}
+
+function progressSheet(region, p) {
+  openSheet(REGIONS[region] || region, el('div', {}, [
+    el('div.small.muted', { text: describeRegion(region, p) }),
+    p && p.best
+      ? el('div.card.tight', { style: { marginTop: '12px' } }, [
+          el('div.small', { style: { fontWeight: '650' }, text: p.best.name }),
+          el('div.small.faint', { style: { marginTop: '2px' },
+            text: `${fmtWeight(Math.round(p.best.from), store.units())} → ${fmtWeight(Math.round(p.best.to), store.units())} estimated 1RM` }),
+        ])
+      : null,
+    el('div.section-head', {}, [el('h2', { text: 'What this is' })]),
+    el('div.small.muted', {
+      text: 'The slope of your own estimated 1RM over the last 12 weeks, fitted per exercise and averaged across everything that trains this muscle. Secondary muscles count half. It says nothing about how strong you are — only about which direction you are going, which is the one comparison that stays valid on a machine.',
+    }),
+    el('div.small.faint', { style: { marginTop: '8px' },
+      text: 'A flat reading is not a failure. Nobody progresses on everything at once, and a muscle you are maintaining while pushing another is doing its job.' }),
+  ]));
+}
+
 function regionSheet(region, rating) {
   const label = REGIONS[region] || region;
   const info = rating.regions[region];
@@ -473,9 +551,13 @@ function regionSheet(region, rating) {
             ]),
           ]),
           el('div.small.muted', { style: { textAlign: 'center' }, text: `Rated from your ${info.via}.` }),
+          LOW_CONFIDENCE[info.via]
+            ? el('div.small', { style: { marginTop: '10px', color: 'var(--warn)' },
+                text: `!  ${LOW_CONFIDENCE[info.via]}` })
+            : null,
         ])
       : el('div.small.muted', {
-          text: `No benchmark lift in your history trains ${label} yet. Ratings come from the big barbell lifts — add one that hits this muscle and it will fill in.`,
+          text: `No benchmark lift in your history trains ${label} yet. Standards exist for about seventeen barbell and bodyweight lifts and nothing else — a machine load cannot be compared between gyms, so there is nothing honest to rate it against. Switch the map to Progress to see this muscle measured against your own numbers instead.`,
         }),
     el('div.section-head', {}, [el('h2', { text: 'Tier scale' })]),
     el('div', {}, TIERS.map((t, i) =>

@@ -221,6 +221,13 @@ Two deliberate limits:
   leverages, but including it would be invented precision.
 - **Only benchmark lifts are rated.** There's no meaningful standard for a cable
   lateral raise, and machine loads vary too much between manufacturers to compare.
+  A "100 kg" chest press on one frame is not 100 kg on another — different lever
+  arms, different sled weight, plate-loaded versus pin-loaded. So machines get
+  accurate *anatomy* (`CONTRIB_EXTRA`) and deliberately no tier. `CONTRIB` used
+  to answer both questions at once, which meant the only way to give a movement
+  proper regions was to invent a standard for it; they're separate tables now.
+  `LOW_CONFIDENCE` flags the one benchmark that is shakier than the rest — leg
+  press — and the caveat travels with the tier wherever it's shown.
 
 The numbers are an approximate consensus of commonly published standards — a
 yardstick, not a measurement. Ratings can be switched off entirely in Settings.
@@ -296,6 +303,22 @@ The "This week vs. plan" card grades against **pace**, not against the finished
 week — how many of the plan's sessions you have done so far. Judging a Tuesday
 against a full week paints everything red until Sunday and stops meaning
 anything.
+
+### The muscle map has two modes
+
+Because "am I strong?" and "am I getting stronger?" are different questions and
+only the first one needs standards.
+
+- **Strength** is the tier map, from `buildRating`. Lights only the regions a
+  benchmark lift trains, and always will.
+- **Progress** (`js/region-progress.js`) fits your own estimated-1RM slope per
+  exercise over 12 weeks and averages it per region, secondary muscles at half
+  weight. No standards involved, so *every* exercise counts — which makes it the
+  map that actually reflects a machine-based session.
+
+The two scales are never mixed and each carries its own legend. A region needs
+three sessions on one movement before a slope means anything; below that it
+reports "too few sessions to tell" rather than a number.
 
 ### Watching progress
 
