@@ -4,7 +4,10 @@ import { el, openSheet, closeSheet, toast, listItem } from './ui.js';
 import { MUSCLES } from './models.js';
 import * as store from './store.js';
 
-const EQUIPMENT = ['Barbell', 'Dumbbell', 'Cable', 'Machine', 'Bodyweight', 'Other'];
+// Must cover every value the bundled catalogue uses. It didn't: opening Edit on
+// a Kettlebell or Bands exercise fell through to the first option, so pressing
+// Save silently retagged it as a barbell movement.
+const EQUIPMENT = ['Barbell', 'Dumbbell', 'Cable', 'Machine', 'Bodyweight', 'Kettlebell', 'Bands', 'Other'];
 
 /**
  * @param {(exercise) => void} onPick
@@ -116,6 +119,10 @@ export function newExerciseForm(prefillName = '', onCreated = null, existing = n
     el('label.field', {}, [el('span', { text: 'Name' }), name]),
     el('label.field', {}, [el('span', { text: 'Muscle group' }), muscle]),
     el('label.field', {}, [el('span', { text: 'Equipment' }), equipment]),
+    existing && !existing.isCustom
+      ? el('div.small.faint', { style: { marginBottom: '12px' },
+          text: 'Changing the muscle group replaces this exercise’s body-map regions with the coarse ones for that group.' })
+      : null,
     el('button.btn.primary.full', { onclick: submit }, [existing ? 'Save changes' : 'Create exercise']),
   ]);
 

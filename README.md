@@ -132,6 +132,15 @@ which is also how you'd move to a new phone.
 | `tools/devserver.py` | No-cache dev server |
 | `tools/build_library.py` | Regenerates `js/exercise-library.js` from free-exercise-db |
 | `js/exercise-library.js` | GENERATED catalogue — don't hand-edit |
+| `js/evidence.js` | The papers and thresholds both star ratings are built on |
+| `js/exercise-science.js` | Curated length-bias / limiting-factor rules per movement |
+| `js/exercise-rating.js` | 1–5 star exercise rating |
+| `js/plan-rating.js` | 1–5 star plan rating |
+| `js/rating-ui.js` | Shared rating cards, breakdown sheets and source lists |
+| `js/log-analysis.js` | What you actually trained, counted the way a plan is |
+| `js/plan-doctor.js` | Turns rating complaints into one-tap plan edits |
+| `js/swaps.js` | "Same muscle, better position" alternatives |
+| `js/history.js` | Strength, tonnage and per-lift trends over time |
 
 ### The body map
 
@@ -195,6 +204,108 @@ Two deliberate limits:
 
 The numbers are an approximate consensus of commonly published standards — a
 yardstick, not a measurement. Ratings can be switched off entirely in Settings.
+
+### How the star ratings work
+
+Separate from the strength rating: every **exercise** and every **plan** carries a
+1–5 star score for muscle growth. `js/evidence.js` holds the papers and the
+thresholds taken from them, and every threshold used anywhere in the app points
+back at an entry there, so a rating can always show its source.
+
+**Plans** are scored on weekly volume (35%), coverage (15%), session size (15%),
+exercise selection (15%), variety (10%) and frequency (10%). Two of those weights
+are deliberately unfashionable:
+
+- **There is no volume ceiling.** Meta-regression finds growth still rising at the
+  top of the studied range, so high volume gets an advisory note about recovery,
+  never a deduction. The old rating docked plans past 26 sets per muscle per week;
+  nothing supports that.
+- **Frequency is only 10%.** At equal weekly volume its own effect on hypertrophy
+  is negligible. It earns its 10% as the lever that keeps any single session under
+  ~11 fractional sets for one muscle, which is where extra sets stop paying.
+
+A set counts fully for the muscles it primarily trains and as half a set for the
+secondary ones — the fractional convention that predicted the meta-analytic
+results best.
+
+**Exercises** are scored on muscle length under load (0–3), whether the target
+muscle is what fails (0–2), how finely the movement loads (0–2), muscle covered
+per set (0–1.5) and whether published standards exist (0–0.5). Equipment is
+deliberately *not* a growth criterion — machines and free weights build the same
+muscle at matched volume and effort, so equipment only affects how measurable your
+progression is.
+
+Two things this is not:
+
+- **Not a measured ranking.** No study compares 900 exercises head to head, and
+  the EMG numbers usually quoted for this predict growth badly. Every point comes
+  from a property of the movement, not from a trial of it.
+- **Not complete.** Where a movement loads the muscle is a curated call in
+  `js/exercise-science.js`; about a third of the catalogue matches no rule and is
+  scored neutrally and labelled "not classified" rather than guessed at.
+
+Evidence last reviewed July 2026. When you revisit it, update `SOURCES` and
+`THRESHOLDS` in `js/evidence.js` together — the raters read the thresholds, the UI
+reads the sources, and they are meant to stay in step.
+
+### Effort, and why RIR is optional
+
+Every set can carry a **reps-in-reserve** number. It is optional on purpose: a
+blank means "unknown", never "easy", and no rating punishes one. A required
+field here would get filled in with noise, and noise about effort is worse than
+silence — the whole 2026 evidence base is effort-based rather than load-based,
+so a fabricated RIR would corrupt the one input that matters most.
+
+RIR feeds two things: the effort line on Home ("38 of 44 sets have an RIR, 61% of
+those at 0–2"), and the progression suggestion on the logging screen. That
+suggestion is plain double progression — clear the top of the rep range on every
+set, then add weight — with RIR as an override in both directions. It is a way to
+turn "train close to failure" into a decision on the gym floor, not a research
+finding, and it says so.
+
+### Two numbers that have to agree
+
+`js/log-analysis.js` counts logged training with the **same** fractional
+convention as `js/plan-rating.js`: full credit for primary muscles, half for
+secondary, over the 15 body-map regions. Before that, Home counted raw working
+sets against the coarse muscle labels, so a plan could promise "Lats 12" while
+the chart reported "Back 8" and nothing admitted they were different
+measurements. If you touch either counter, touch both.
+
+The "This week vs. plan" card grades against **pace**, not against the finished
+week — how many of the plan's sessions you have done so far. Judging a Tuesday
+against a full week paints everything red until Sunday and stops meaning
+anything.
+
+### Watching progress
+
+The Progress screen (no tab slot — reached from Home, Library or a session)
+answers three different questions:
+
+- **Strength over time** recomputes the overall score for each of the last 20
+  weeks *as it stood then*. Two details make the line honest: best-e1RM-so-far is
+  cumulative, so a week off does not drop your score; and each week is scored
+  against the bodyweight logged at the time, not today's, so a bulk does not
+  retroactively make you look weaker in March. A dip in the line almost always
+  means the scale moved.
+- **What is moving** fits a slope through estimated 1RM per lift over 12 weeks
+  and splits them into climbing and flat. Fitted on e1RM rather than top weight,
+  so a session where you added reps instead of plates still counts.
+- **Weekly workload** switches between sets, tonnage and reps. Sets is what the
+  plan rating judges; tonnage is what answers "how much did I move"; reps is what
+  moves first when you are progressing inside a rep range.
+
+None of it is cached. A stored trend goes stale the moment a session is edited,
+and the recompute is trivial at personal-log sizes.
+
+### The plan doctor
+
+`js/plan-doctor.js` turns each complaint the rating produces into one small,
+reversible edit to one day, applied individually. It never restructures a plan.
+Placement is the part that needs care: a day's `target` slots (what the blueprint
+built it from) decide where a muscle belongs, then which day already trains
+related muscles, and only then which day is emptiest. Sorting by "emptiest day"
+alone puts a back squat on pull day.
 
 ### Estimated 1RM
 

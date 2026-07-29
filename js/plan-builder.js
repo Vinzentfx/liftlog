@@ -80,7 +80,17 @@ export const PLAN_BLUEPRINTS = [
  * hypertrophy set. Caught by name because the source data has no reliable flag
  * for it once the category field is dropped.
  */
-const NOT_FOR_SLOTS = /(circle|balance board|bosu|stretch|warm[- ]?up|foam roll|mobility|\bclean\b|\bsnatch\b|\bjerk\b|\bjump|\bhop\b|plyo|wall sit|breathing|muscle up)/i;
+export const NOT_FOR_SLOTS = /(circle|balance board|bosu|stretch|warm[- ]?up|foam roll|mobility|\bclean\b|\bsnatch\b|\bjerk\b|\bjump|\bhop\b|plyo|wall sit|breathing|muscle up|\bsprint\b|\bdrill\b|\bchair\b|\bthrow\b|sled|\bdrag\b|\bcuban\b|rotation|isometric|\bneck\b)/i;
+
+/**
+ * Best unused movement for a muscle. Exported so the plan doctor fills a gap
+ * with exactly the exercise the generator would have picked — a plan that gets
+ * repaired by hand and one that gets generated should not disagree.
+ */
+export function pickForRegion(region, exercises, { used = new Set(), preferCompound = false } = {}) {
+  const ranked = rankFor(region, exercises, { used, preferCompound });
+  return ranked.length ? ranked[0].ex : null;
+}
 
 function rankFor(region, exercises, { used, preferCompound }) {
   const out = [];
@@ -92,9 +102,21 @@ function rankFor(region, exercises, { used, preferCompound }) {
     const rating = rateExercise(ex);
     let score = rating ? rating.stars : 2;
     if (ex.favourite) score += 10;
+    // Your own rating outranks the evidence one, and it can veto: a movement
+    // you scored 1 or 2 stars is one that hurts, that your gym does not have,
+    // or that you simply will not do. The best exercise you skip is worth zero.
+    if (ex.myRating) score += (ex.myRating - 3) * 2.5;
     // Benchmark lifts are the movements with published standards and the most
-    // coaching material — they belong at the top of a generated plan.
-    if (isBenchmark(ex.name)) score += 4;
+    // coaching material. The bonus has to stay large: the rating scores what a
+    // movement *is*, and by that measure "Chair Squat" and "Lunge Sprint" —
+    // catalogue oddities tagged Machine — score as well as a hack squat. Only
+    // this bonus keeps a generated plan built out of movements that exist in
+    // real gyms.
+    if (isBenchmark(ex.name)) score += 3;
+    // A movement the length-bias rules recognise is a movement the app can
+    // reason about — and in practice that set is the staples, not the 900
+    // catalogue oddities.
+    if (rating && rating.length.classified) score += 1;
     // Obscure one-off variants shouldn't outrank a staple just because the
     // catalogue tagged them compound.
     if (!ex.instructions || ex.instructions.length < 2) score -= 1.5;

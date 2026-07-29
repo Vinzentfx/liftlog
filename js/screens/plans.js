@@ -2,11 +2,17 @@
 
 import {
   el, toast, openSheet, closeSheet, confirmSheet, emptyState, listItem, fmtWeight,
+  starString, starBadge,
 } from '../ui.js';
 import * as store from '../store.js';
 import { bestOneRepMaxByName } from '../models.js';
-import { PLAN_BLUEPRINTS, SETS_PER_EXERCISE, REP_TARGET } from '../plan-builder.js';
-import { analysePlan, starString } from '../plan-rating.js';
+import { PLAN_BLUEPRINTS, SETS_PER_EXERCISE, REP_TARGET, buildPlanDays } from '../plan-builder.js';
+import { analysePlan, WEIGHTS, WEIGHT_WHY } from '../plan-rating.js';
+import { THRESHOLDS, RATING_DISCLAIMER } from '../evidence.js';
+import { rateExercise } from '../exercise-rating.js';
+import { exerciseRatingSheet, evidenceList, swapSheet } from '../rating-ui.js';
+import { diagnose } from '../plan-doctor.js';
+import { suggestSwaps } from '../swaps.js';
 import { REGIONS } from '../standards.js';
 import { scoreFor, tierIndex, tierOf, isBenchmark, hasProfile, toNextTier } from '../standards.js';
 import { pickExercise } from '../pickers.js';
@@ -37,10 +43,12 @@ function listView() {
     for (const p of plans) {
       const dayCount = p.days.length;
       const exCount = p.days.reduce((n, d) => n + d.items.length, 0);
+      const a = analysePlan(p, store.state.exerciseById);
       root.append(listItem({
         title: p.name + (p.id === activeId ? '  ★' : ''),
         sub: `${dayCount} ${dayCount === 1 ? 'day' : 'days'} · ${exCount} exercises${p.id === activeId ? ' · active' : ''}`,
-        ariaLabel: `Open ${p.name}`,
+        right: exCount ? starBadge(a.stars) : null,
+        ariaLabel: `Open ${p.name}${exCount ? ` — ${a.stars} of 5 stars` : ''}`,
         onclick: () => navigate('plans', p.id),
       }));
     }
@@ -48,19 +56,21 @@ function listView() {
 
   root.append(el('div.section-head', {}, [el('h2', { text: 'Templates' })]));
   root.append(el('div.small.faint', { style: { marginBottom: '10px' },
-    text: `Every exercise gets ${SETS_PER_EXERCISE} sets at ${REP_TARGET} reps — more movements, fewer sets each.` }));
+    text: `Every exercise gets ${SETS_PER_EXERCISE} sets at ${REP_TARGET} reps — more movements, fewer sets each. Stars are what the template scores once it is filled in with your library.` }));
 
   for (const bp of PLAN_BLUEPRINTS) {
     const slots = bp.days.reduce((n, d) => n + d.slots.reduce((m, [, c]) => m + c, 0), 0);
+    const preview = previewBlueprint(bp);
     root.append(
       el('button.list-item' + (bp.recommended ? '.glow' : ''), {
-        'aria-label': `Create ${bp.name}`,
-        onclick: () => blueprintSheet(bp),
+        'aria-label': `Create ${bp.name} — ${preview.stars} of 5 stars`,
+        onclick: () => blueprintSheet(bp, preview),
       }, [
         el('div.grow', {}, [
           el('div.li-title', { text: bp.name + (bp.recommended ? '  ★' : '') }),
           el('div.li-sub', { text: `${bp.blurb} · ${slots} exercises, ${slots * SETS_PER_EXERCISE} sets/week` }),
         ]),
+        starBadge(preview.stars),
         el('span.chev', { text: '+', 'aria-hidden': 'true' }),
       ])
     );
@@ -79,8 +89,30 @@ function listView() {
   return root;
 }
 
+/**
+ * What a template scores once it is filled in from the current library. Built
+ * and thrown away — the picker is deterministic, so this is the plan the user
+ * would actually get.
+ */
+function previewBlueprint(bp) {
+  // Filling four blueprints means ranking the whole library a few dozen times.
+  // Cheap enough to do once, not cheap enough to redo on every repaint of the
+  // list — and the only inputs that change the answer are the library size and
+  // which movements are favourited.
+  const sig = `${store.state.exercises.length}:${store.state.exercises.filter((e) => e.favourite).map((e) => e.id).join(',')}`;
+  const hit = previewCache.get(bp.key);
+  if (hit && hit.sig === sig) return hit.analysis;
+
+  const days = buildPlanDays(bp, store.state.exercises);
+  const analysis = analysePlan({ days, perWeek: bp.perWeek || 1 }, store.state.exerciseById);
+  previewCache.set(bp.key, { sig, analysis });
+  return analysis;
+}
+
+const previewCache = new Map();
+
 /** Two ways to take a template: filled in, or just the day structure. */
-function blueprintSheet(bp) {
+function blueprintSheet(bp, preview = previewBlueprint(bp)) {
   const perDay = bp.days.map((d) => {
     const n = d.slots.reduce((m, [, c]) => m + c, 0);
     return `${d.name} — ${n} exercises`;
@@ -88,6 +120,18 @@ function blueprintSheet(bp) {
 
   const body = el('div', {}, [
     el('div.small.muted', { text: bp.blurb }),
+
+    el('div.card.tight.glow', { style: { marginTop: '12px' } }, [
+      el('div.row.between', {}, [
+        starBadge(preview.stars, { size: '19px' }),
+        el('button.btn.sm.ghost', { onclick: () => breakdownSheet(bp.name, preview) }, ['Details']),
+      ]),
+      ...preview.good.slice(0, 1).map((t) =>
+        el('div.small', { style: { marginTop: '7px', color: 'var(--good)' }, text: `✓  ${t}` })),
+      ...preview.missing.slice(0, 1).map((t) =>
+        el('div.small', { style: { marginTop: '7px', color: 'var(--warn)' }, text: `!  ${t}` })),
+    ]),
+
     el('div.card.tight', { style: { marginTop: '12px' } }, [
       el('div.small', { style: { fontWeight: '650', marginBottom: '6px' },
         text: `Target: ${REP_TARGET} reps · ${SETS_PER_EXERCISE} sets per exercise` }),
@@ -202,19 +246,18 @@ function qualityCard(plan) {
   card.append(
     el('div.row.between', { style: { marginBottom: '4px' } }, [
       el('div.grow', {}, [
-        el('div', { style: { fontSize: '22px', letterSpacing: '.06em', color: 'var(--t4)' },
-          text: starString(a.stars) }),
+        starBadge(a.stars, { size: '22px' }),
         el('div.small.faint', {
-          text: `${a.exerciseCount} exercises · ${a.totalSets} sets a week · max ${a.maxSetsPerExercise} sets per exercise`,
+          text: `${a.exerciseCount} exercises · ${a.totalSets} sets a week · ${Math.round(a.longShare * 100)}% loaded stretched`,
         }),
       ]),
-      el('button.btn.sm.ghost', { onclick: () => breakdownSheet(plan, a) }, ['Details']),
+      el('button.btn.sm.ghost', { onclick: () => breakdownSheet(plan.name, a) }, ['Details']),
     ])
   );
 
   if (!a.exerciseCount) {
     card.append(el('div.small.muted', { style: { marginTop: '8px' },
-      text: 'Add exercises and this rates the plan on frequency, volume and coverage.' }));
+      text: 'Add exercises and this rates the plan on volume, coverage, session size and exercise selection.' }));
     return card;
   }
 
@@ -229,34 +272,93 @@ function qualityCard(plan) {
       text: `+${a.good.length + a.missing.length - 4} more in Details` }));
   }
 
+  const fixes = diagnose(plan, a, store.state.exercises, store.state.exerciseById);
+  if (fixes.length) {
+    card.append(el('button.btn.ghost.full.sm', {
+      style: { marginTop: '12px' },
+      onclick: () => doctorSheet(plan, fixes),
+    }, [`Fix it — ${fixes.length} suggested ${fixes.length === 1 ? 'change' : 'changes'}`]));
+  }
+
   return card;
 }
 
-function breakdownSheet(plan, a) {
+/**
+ * The plan doctor. Each fix applies on its own and saves immediately — batching
+ * them behind one "apply all" would make a plan you no longer recognise, and the
+ * point is that you see each change land.
+ */
+function doctorSheet(plan, fixes) {
+  const body = el('div');
+  body.append(el('div.small.muted', {
+    text: 'Each of these is one small edit to one day, taken straight from what the rating flagged. Apply the ones you agree with and ignore the rest — a plan you will actually run beats a plan that scores well.',
+  }));
+
+  for (const fix of fixes) {
+    const row = el('div.card.tight', { style: { marginTop: '10px' } });
+    const applyBtn = el('button.btn.sm.primary', {
+      onclick: async () => {
+        // Work on the live plan object, then persist through the normal path so
+        // the rating, the Train tab and the calendar all see it at once.
+        fix.apply(plan);
+        await store.savePlan(plan);
+        applyBtn.replaceChildren('Applied');
+        applyBtn.disabled = true;
+        row.style.opacity = '.55';
+        toast('Plan updated');
+      },
+    }, ['Apply']);
+
+    row.append(
+      el('div.row.between', { style: { gap: '10px', alignItems: 'flex-start' } }, [
+        el('div.grow', {}, [
+          el('div', { style: { fontWeight: '640', fontSize: '14px' }, text: fix.title }),
+          el('div.small.faint', { style: { marginTop: '2px' }, text: fix.detail }),
+        ]),
+        applyBtn,
+      ])
+    );
+    body.append(row);
+  }
+
+  openSheet(`${plan.name} — fixes`, body);
+}
+
+// Kept short — .bar-row gives the label an 84px column and ellipsises the rest.
+const PART_LABEL = {
+  volume: 'Volume', coverage: 'Coverage', session: 'Session',
+  selection: 'Selection', variety: 'Variety', frequency: 'Frequency',
+};
+
+function breakdownSheet(title, a) {
   const label = (r) => REGIONS[r] || r;
+  const floor = THRESHOLDS.weeklyFloor.value;
+  const uncharted = THRESHOLDS.weeklyUncharted.value;
+
   const rows = Object.entries(a.volume)
     .filter(([, v]) => v > 0)
     .sort((x, y) => y[1] - x[1]);
   const max = Math.max(...rows.map(([, v]) => v), 1);
 
-  const part = (name, value) => el('div.bar-row', {}, [
-    el('span.name', { text: name }),
-    el('div.track', {}, [el('div.fill', { style: { width: `${Math.round(value * 100)}%` } })]),
-    el('span.val', { text: `${Math.round(value * 100)}%` }),
+  // Weight shown next to each component, because a 40% on something worth a
+  // tenth of the score reads very differently from a 40% on volume.
+  const part = (key) => el('div', { style: { marginBottom: '10px' } }, [
+    el('div.bar-row', { style: { marginBottom: '2px' } }, [
+      el('span.name', { text: PART_LABEL[key] }),
+      el('div.track', {}, [el('div.fill', { style: { width: `${Math.round(a.parts[key] * 100)}%` } })]),
+      el('span.val', { text: `${Math.round(a.parts[key] * 100)}%` }),
+    ]),
+    el('div.small.faint', { style: { fontSize: '12px' },
+      text: `Worth ${Math.round(WEIGHTS[key] * 100)}% — ${WEIGHT_WHY[key]}` }),
   ]);
 
   const body = el('div', {}, [
     el('div', { style: { fontSize: '26px', letterSpacing: '.06em', color: 'var(--t4)', textAlign: 'center' },
       text: starString(a.stars) }),
-    el('div.small.faint', { style: { textAlign: 'center', marginBottom: '14px' },
-      text: 'Scored for muscle growth. These thresholds are a reasonable consensus, not settled science.' }),
+    el('div.small.muted', { style: { textAlign: 'center', marginBottom: '14px' }, text: RATING_DISCLAIMER }),
 
     el('div.section-head', {}, [el('h2', { text: 'Score breakdown' })]),
-    part('Frequency', a.parts.frequency),
-    part('Volume', a.parts.volume),
-    part('Spread', a.parts.spread),
-    part('Coverage', a.parts.coverage),
-    part('Recovery', a.parts.recovery),
+    ...Object.keys(PART_LABEL).map(part),
 
     a.good.length ? el('div.section-head', {}, [el('h2', { text: 'What works' })]) : null,
     ...a.good.map((t) => el('div.small', { style: { marginBottom: '7px', color: 'var(--good)' }, text: `✓  ${t}` })),
@@ -266,20 +368,40 @@ function breakdownSheet(plan, a) {
 
     el('div.section-head', {}, [el('h2', { text: 'Weekly sets per muscle' })]),
     el('div.small.faint', { style: { marginBottom: '10px' },
-      text: 'Target 10–20. Secondary muscles count as half a set.' }),
+      text: `At least ${floor} is the floor and more keeps helping with diminishing returns; past ${uncharted} the research runs out rather than turning against you. A secondary muscle counts as ${THRESHOLDS.indirectSetWeight.value} of a set.` }),
     ...rows.map(([r, v]) => el('div.bar-row', {}, [
       el('span.name', { text: label(r) }),
       el('div.track', {}, [el('div.fill', {
         style: {
           width: `${Math.max(3, (v / max) * 100)}%`,
-          background: v < 10 ? 'var(--t0)' : v > 26 ? 'var(--danger)' : 'linear-gradient(90deg, var(--accent), var(--accent-hi))',
+          background: v < floor ? 'var(--t0)' : 'linear-gradient(90deg, var(--accent), var(--accent-hi))',
         },
       })]),
       el('span.val', { text: String(Math.round(v)) }),
     ])),
+
+    el('div.section-head', {}, [el('h2', { text: 'Biggest single session per muscle' })]),
+    el('div.small.faint', { style: { marginBottom: '10px' },
+      text: `Sets past about ${THRESHOLDS.sessionPerMuscle.value} for one muscle in one workout stop producing a detectable advantage. Grey means you are inside that.` }),
+    ...Object.entries(a.peakSession)
+      .filter(([, v]) => v > 0)
+      .sort((x, y) => y[1] - x[1])
+      .slice(0, 8)
+      .map(([r, v]) => el('div.bar-row', {}, [
+        el('span.name', { text: label(r) }),
+        el('div.track', {}, [el('div.fill', {
+          style: {
+            width: `${Math.max(3, (v / Math.max(THRESHOLDS.sessionPerMuscle.value, v)) * 100)}%`,
+            background: v > THRESHOLDS.sessionPerMuscle.value ? 'var(--warn)' : 'var(--t0)',
+          },
+        })]),
+        el('span.val', { text: String(Math.round(v)) }),
+      ])),
+
+    evidenceList('What this is based on'),
   ]);
 
-  openSheet(`${plan.name} — rating`, body);
+  openSheet(`${title} — rating`, body);
 }
 
 function dayCard(plan, day, index) {
@@ -354,12 +476,20 @@ function exerciseRow(plan, day, item) {
     }
   }
 
+  const rating = rateExercise(ex);
+
   return el('div.row.between', {
     style: { padding: '9px 0', borderTop: '1px solid var(--line-soft)', gap: '10px' },
   }, [
     el('div.grow', {}, [
       el('div', { style: { fontWeight: '600', fontSize: '14.5px' }, text: ex.name }),
       el('div.small.faint', { text: `${item.targetSets} × ${item.targetReps || '8-12'} · ${ex.muscle}` }),
+      // Tapping the stars explains them; the row's own ··· menu edits the item.
+      el('button.btn.quiet.sm', {
+        style: { padding: '2px 0', marginTop: '2px' },
+        'aria-label': `Why ${ex.name} is rated ${rating.stars} of 5`,
+        onclick: () => exerciseRatingSheet(ex),
+      }, [starBadge(rating.stars, { size: '12px' })]),
     ]),
     chip,
     el('button.btn.quiet.sm', {
@@ -377,6 +507,8 @@ function itemMenu(plan, day, item, ex) {
   });
   const reps = el('input', { type: 'text', value: item.targetReps || '8-12', placeholder: 'e.g. 8-12' });
 
+  const swaps = suggestSwaps(ex, store.state.exercises);
+
   const body = el('div', {}, [
     el('label.field', {}, [el('span', { text: 'Target sets' }), sets]),
     el('label.field', {}, [el('span', { text: 'Target reps' }), reps]),
@@ -388,6 +520,16 @@ function itemMenu(plan, day, item, ex) {
         closeSheet();
       },
     }, ['Save']),
+    swaps.length
+      ? el('button.btn.ghost.full', {
+          style: { marginTop: '10px' },
+          onclick: () => swapSheet(ex, swaps, async (pick) => {
+            item.exerciseId = pick.id;
+            await store.savePlan(plan);
+            toast(`Swapped to ${pick.name}`);
+          }),
+        }, [`Swap for something better (${swaps.length})`])
+      : null,
     el('button.btn.full.danger', {
       style: { marginTop: '10px' },
       onclick: async () => {

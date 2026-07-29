@@ -85,6 +85,30 @@ export function setsSummary(sets, units) {
   return groups.map((g) => `${fmtWeight(g.w, units)} × ${g.reps.join(', ')}`).join('  ·  ');
 }
 
+// ---------- star ratings ----------
+
+/** '★★★★☆' style string, halves shown as ½. */
+export function starString(stars) {
+  const full = Math.floor(stars);
+  const half = stars - full >= 0.5;
+  return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(Math.max(0, 5 - full - (half ? 1 : 0)));
+}
+
+/** Screen readers get a number; sighted users get the stars. */
+export function starBadge(stars, { size = '13px', dim = false } = {}) {
+  return el('span.stars', {
+    style: {
+      fontSize: size,
+      letterSpacing: '.04em',
+      color: dim ? 'var(--text-faint)' : 'var(--t4)',
+      whiteSpace: 'nowrap',
+    },
+    'aria-label': `${stars} out of 5 stars`,
+    role: 'img',
+    text: starString(stars),
+  });
+}
+
 // ---------- feedback ----------
 
 let toastTimer = null;
@@ -152,7 +176,7 @@ export function confirmSheet(title, message, { danger = true, confirmLabel = 'De
  * Tappable row. Goes through one helper so every one of them carries an
  * accessible name — nested text alone leaves screen readers announcing "button".
  */
-export function listItem({ title, sub, onclick, chev = '›', ariaLabel, style }) {
+export function listItem({ title, sub, onclick, chev = '›', ariaLabel, style, right }) {
   return el('button.list-item', {
     onclick,
     style,
@@ -162,6 +186,7 @@ export function listItem({ title, sub, onclick, chev = '›', ariaLabel, style }
       el('div.li-title', { text: title }),
       sub ? el('div.li-sub', { text: sub }) : null,
     ]),
+    right || null,
     el('span.chev', { text: chev, 'aria-hidden': 'true' }),
   ]);
 }

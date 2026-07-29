@@ -16,9 +16,9 @@ export const DEFAULT_SETTINGS = {
   units: 'kg',            // 'kg' | 'lb'
   restSeconds: 180,
   autoStartRest: true,
-  barWeight: 20,
   soundOnRestEnd: true,
   showRatings: true,      // tiers can be demotivating — let them be hidden
+  logRir: true,           // reps-in-reserve column on the set row
   // Profile. sex and bodyweight drive the strength standards; height is
   // recorded for reference only and is deliberately not used in any rating
   // (no published standard normalises by height).
@@ -109,6 +109,16 @@ const COARSE_REGIONS = {
   Hamstrings: ['hamstrings'], Glutes: ['glutes'], Calves: ['calves'],
   Core: ['abs'], Other: [],
 };
+
+/**
+ * Regions for an exercise the user typed in themselves. Coarse, but a coarse
+ * answer is what makes a custom exercise visible at all: without regions it
+ * contributes nothing to the muscle map, nothing to a plan's volume and scores
+ * as a no-muscle movement in the exercise rating.
+ */
+export function regionsForMuscle(muscle) {
+  return [...(COARSE_REGIONS[muscle] || [])];
+}
 
 /** Bumped whenever the bundled catalogue changes, to top up existing installs. */
 export const LIBRARY_VERSION = 7;
@@ -256,6 +266,11 @@ export function newSet(prev = null) {
   return {
     weight: prev ? prev.weight : null,
     reps: prev ? prev.reps : null,
+    // Reps in reserve. Deliberately NOT carried over from the previous set —
+    // weight and reps are a plan you repeat, effort is an observation you make
+    // after the fact, and pre-filling it would turn it into a default nobody
+    // corrects.
+    rir: null,
     type: 'working',   // 'working' | 'warmup'
     done: false,
   };
@@ -346,10 +361,16 @@ export function startOfWeek(ts) {
  * Weekly set count is the metric that actually tracks hypertrophy stimulus.
  */
 export function weeklyMuscleSets(sessions, exerciseById, weeks = 8) {
-  const now = startOfWeek(Date.now());
   const buckets = [];
+  // Stepping by calendar days rather than subtracting 7 x 86400000: across a
+  // DST change a fixed-millisecond week is an hour off midnight, the bucket key
+  // stops matching startOfWeek() below, and a whole week of training silently
+  // vanishes from the chart. Twice a year, which is exactly often enough to be
+  // baffling and rare enough never to get reported.
   for (let i = weeks - 1; i >= 0; i--) {
-    buckets.push({ week: now - i * 7 * 86400000, byMuscle: {}, total: 0 });
+    const d = new Date(startOfWeek(Date.now()));
+    d.setDate(d.getDate() - i * 7);
+    buckets.push({ week: startOfWeek(d.getTime()), byMuscle: {}, total: 0 });
   }
   const index = new Map(buckets.map((b) => [b.week, b]));
 

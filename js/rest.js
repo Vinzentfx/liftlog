@@ -13,10 +13,13 @@ const bar = () => $('#rest-bar');
 
 export function isRunning() { return endsAt > Date.now(); }
 
-export function start(seconds, { onComplete } = {}) {
+let sound = true;
+
+export function start(seconds, { onComplete, sound: withSound = true } = {}) {
   total = Math.max(1, seconds);
   endsAt = Date.now() + total * 1000;
   onDone = onComplete || null;
+  sound = withSound;
   chimed = false;
   bar().hidden = false;
   tick();
@@ -51,7 +54,7 @@ function tick() {
       chimed = true;
       $('#rest-label').textContent = 'Done';
       haptic([90, 60, 90]);
-      chime();
+      if (sound) chime();
       if (onDone) onDone();
       setTimeout(() => { if (!isRunning()) stop(); }, 4000);
     }

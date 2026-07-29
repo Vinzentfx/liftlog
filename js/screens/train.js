@@ -177,8 +177,18 @@ function exerciseBlock(session, entry, entryIndex) {
       el('div.last-time', {}, [
         el('span', { text: `${relLabel(last.session.startedAt)}: ` }),
         el('b', { text: setsSummary(last.sets, units) }),
+        lastRirLabel(last.sets),
       ])
     );
+    const tip = suggestNext(last, entry.targetReps, ex, units);
+    if (tip) {
+      block.append(
+        el('div.suggest', {}, [
+          el('b', { text: tip.headline }),
+          el('span', { text: ` — ${tip.why}` }),
+        ])
+      );
+    }
   } else {
     block.append(el('div.small.faint', { style: { marginBottom: '10px' }, text: 'First time logging this one.' }));
   }
@@ -187,9 +197,12 @@ function exerciseBlock(session, entry, entryIndex) {
     block.append(el('div.small.muted', { style: { marginBottom: '8px' }, text: entry.note }));
   }
 
-  block.append(el('div.set-labels', {}, [
+  const rirOn = store.state.settings.logRir !== false;
+  block.append(el('div.set-labels' + (rirOn ? '.with-rir' : ''), {}, [
     el('span', { text: 'Set' }), el('span', { text: units }),
-    el('span', { text: 'Reps' }), el('span', { text: '✓' }),
+    el('span', { text: 'Reps' }),
+    rirOn ? el('span', { text: 'RIR', title: 'Reps in reserve' }) : null,
+    el('span', { text: '✓' }),
   ]));
 
   entry.sets.forEach((set, i) => {
@@ -211,7 +224,11 @@ function exerciseBlock(session, entry, entryIndex) {
 
 function setRow(session, entry, set, index, last) {
   const workingNo = entry.sets.slice(0, index + 1).filter((s) => s.type === 'working').length;
-  const row = el('div.set-row' + (set.done ? '.done' : '') + (set.type === 'warmup' ? '.warmup' : ''));
+  const rirOn = store.state.settings.logRir !== false;
+  const row = el('div.set-row'
+    + (rirOn ? '.with-rir' : '')
+    + (set.done ? '.done' : '')
+    + (set.type === 'warmup' ? '.warmup' : ''));
 
   // Tap the number to flip a set between warmup and working.
   row.append(
@@ -226,7 +243,13 @@ function setRow(session, entry, set, index, last) {
     }, [set.type === 'warmup' ? 'W' : String(workingNo)])
   );
 
-  const hint = last && last.sets[index] ? last.sets[index] : (last ? last.sets[last.sets.length - 1] : null);
+  // `last.sets` holds only the working sets from last time, so it has to be
+  // indexed by working-set number, not by row. Indexing by row meant that two
+  // warm-up sets shifted every placeholder two sets down the list — set 1 would
+  // suggest what you did on set 3.
+  const hint = set.type === 'warmup' || !last
+    ? null
+    : last.sets[workingNo - 1] || last.sets[last.sets.length - 1];
 
   const weight = el('input', {
     type: 'number', inputmode: 'decimal', step: '0.5', min: '0',
@@ -254,14 +277,100 @@ function setRow(session, entry, set, index, last) {
     input.addEventListener('focus', () => input.select());
   });
 
+  // Reps in reserve. Optional by design — the rating never punishes a blank,
+  // it just says it cannot judge effort. A required field here would get filled
+  // in with noise, which is worse than nothing.
+  const rir = el('input.rir', {
+    type: 'number', inputmode: 'numeric', step: '1', min: '0', max: '10',
+    value: set.rir ?? '',
+    placeholder: '–',
+    'aria-label': `Reps in reserve for set ${workingNo}`,
+    title: 'Reps in reserve — how many more you could have done',
+  });
+  rir.addEventListener('input', () => {
+    set.rir = rir.value === '' ? null : Math.max(0, Math.min(10, Number(rir.value)));
+    saveSoon(session);
+  });
+  rir.addEventListener('focus', () => rir.select());
+
   const doneBtn = el('button.done-btn', {
     'aria-label': set.done ? 'Mark set not done' : 'Mark set done',
     'aria-pressed': String(!!set.done),
     onclick: () => toggleDone(session, entry, set, weight, reps, hint),
   }, ['✓']);
 
-  row.append(weight, reps, doneBtn);
+  row.append(weight, reps, rirOn ? rir : null, doneBtn);
   return row;
+}
+
+/* ======================= effort and progression ======================= */
+
+/** "· 1–2 RIR" tail on the last-time line, when it was recorded. */
+function lastRirLabel(sets) {
+  const vals = sets.map((s) => s.rir).filter((v) => v !== null && v !== undefined);
+  if (!vals.length) return null;
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  return el('span.small.faint', { text: `  ·  ${lo === hi ? lo : `${lo}–${hi}`} RIR` });
+}
+
+/**
+ * Double progression: clear the top of the rep range on every set, then add
+ * weight. Not a research finding — it is the standard way to make "train close
+ * to failure" into a decision you can take on the gym floor. Where RIR was
+ * logged it is used, because a set finished with 4 in reserve did not earn a
+ * weight jump no matter how many reps it was.
+ */
+function suggestNext(last, targetReps, ex, units) {
+  const sets = last.sets;
+  if (!sets.length) return null;
+
+  const range = parseReps(targetReps) || { low: 6, high: 10 };
+  const reps = sets.map((s) => Number(s.reps) || 0);
+  const rirs = sets.map((s) => s.rir).filter((v) => v !== null && v !== undefined);
+  const topWeight = Math.max(...sets.map((s) => Number(s.weight) || 0));
+  if (!topWeight) return null;
+
+  const step = ex && ex.equipment === 'Dumbbell' ? (units === 'lb' ? 5 : 2) : (units === 'lb' ? 5 : 2.5);
+  const next = `${fmtWeight(topWeight + step, units)}`;
+
+  // Effort first: it overrides the rep count in both directions.
+  if (rirs.length && Math.min(...rirs) >= 3) {
+    return {
+      headline: `Try ${next}`,
+      why: `you finished with ${Math.min(...rirs)}+ reps in reserve — that set was too easy to grow much`,
+    };
+  }
+  if (rirs.length && Math.max(...rirs) === 0 && reps.some((r) => r < range.low)) {
+    return {
+      headline: `Stay at ${fmtWeight(topWeight, units)}`,
+      why: 'you hit failure below the rep range — the weight is ahead of you',
+    };
+  }
+
+  if (reps.every((r) => r >= range.high)) {
+    return {
+      headline: `Try ${next}`,
+      why: `every set cleared ${range.high} reps${rirs.length ? '' : ' — log RIR and this gets sharper'}`,
+    };
+  }
+  if (reps.some((r) => r < range.low)) {
+    return {
+      headline: `Stay at ${fmtWeight(topWeight, units)}`,
+      why: `build back to ${range.low}+ reps on every set first`,
+    };
+  }
+  return {
+    headline: `Stay at ${fmtWeight(topWeight, units)}`,
+    why: `add reps until all sets reach ${range.high}`,
+  };
+}
+
+function parseReps(spec) {
+  if (!spec) return null;
+  const nums = String(spec).match(/\d+/g);
+  if (!nums || !nums.length) return null;
+  const ns = nums.map(Number);
+  return { low: Math.min(...ns), high: Math.max(...ns) };
 }
 
 async function toggleDone(session, entry, set, weightInput, repsInput, hint) {
@@ -287,7 +396,9 @@ async function toggleDone(session, entry, set, weightInput, repsInput, hint) {
     const pr = checkPR(session, entry, set);
     if (pr) toast(pr, 2600);
     if (set.type === 'working' && store.state.settings.autoStartRest) {
-      rest.start(store.state.settings.restSeconds);
+      rest.start(store.state.settings.restSeconds, {
+        sound: store.state.settings.soundOnRestEnd !== false,
+      });
     }
   }
 

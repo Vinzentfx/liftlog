@@ -4,7 +4,7 @@
 import * as db from './db.js';
 import {
   DEFAULT_SETTINGS, seedExercises, newSession, newEntry, newSet,
-  LIBRARY_VERSION, normName,
+  LIBRARY_VERSION, normName, regionsForMuscle,
 } from './models.js';
 import { buildPlanDays, REP_TARGET } from './plan-builder.js';
 
@@ -104,6 +104,13 @@ export async function addExercise({ name, muscle, equipment }) {
   const ex = {
     id: db.uid('ex_'),
     name: name.trim(), muscle, equipment: equipment || 'Other',
+    // Without these a custom exercise is invisible to everything that matters:
+    // it colours no muscle on the map, adds no volume to a plan's rating, and
+    // scores as a movement that trains nothing.
+    primary: regionsForMuscle(muscle),
+    secondary: [],
+    instructions: [],
+    mech: null,
     isCustom: true, createdAt: Date.now(),
   };
   state.exercises.push(ex);
@@ -129,10 +136,29 @@ export function favouriteFirst(list) {
 export async function updateExercise(id, patch) {
   const ex = state.exerciseById.get(id);
   if (!ex) return null;
+  // Moving an exercise to another muscle group has to move its body-map regions
+  // with it, or the map and every volume count keep answering for the old one.
+  // Only on an actual change: the curated entries have hand-written regions from
+  // CONTRIB that are far better than the coarse mapping.
+  const movedGroup = patch.muscle && patch.muscle !== ex.muscle;
   Object.assign(ex, patch);
+  if (movedGroup) {
+    ex.primary = regionsForMuscle(ex.muscle);
+    ex.secondary = [];
+  }
   await db.put(db.STORES.exercises, ex);
   reindex(); emit();
   return ex;
+}
+
+/** Personal 1–5 rating, or 0 to clear it. Separate from the evidence rating. */
+export async function setMyRating(id, value) {
+  const ex = state.exerciseById.get(id);
+  if (!ex) return null;
+  ex.myRating = value > 0 ? Math.max(1, Math.min(5, Math.round(value))) : null;
+  await db.put(db.STORES.exercises, ex);
+  emit();
+  return ex.myRating;
 }
 
 export function exerciseUsageCount(id) {
@@ -149,7 +175,25 @@ export async function deleteExercise(id) {
     r.items = r.items.filter((i) => i.exerciseId !== id);
     if (r.items.length !== before) await db.put(db.STORES.routines, r);
   }
+  // And from plans. This was missing: the delete dialog promised it, the plan
+  // screen rendered an empty row where the exercise had been, and the plan
+  // rating quietly counted a slot that trained nothing.
+  for (const p of state.plans) {
+    let touched = false;
+    for (const day of p.days || []) {
+      const before = day.items.length;
+      day.items = day.items.filter((i) => i.exerciseId !== id);
+      if (day.items.length !== before) touched = true;
+    }
+    if (touched) { p.updatedAt = Date.now(); await db.put(db.STORES.plans, p); }
+  }
   reindex(); emit();
+}
+
+/** How many plan days reference an exercise — for an honest delete warning. */
+export function planUsageCount(id) {
+  return state.plans.reduce((n, p) =>
+    n + (p.days || []).filter((d) => d.items.some((i) => i.exerciseId === id)).length, 0);
 }
 
 // ---------- routines ----------
@@ -267,7 +311,14 @@ export async function startSession({ routineId = null, planId = null, dayId = nu
     const sets = [];
     const target = Math.max(1, Number(item.targetSets) || 3);
     for (let i = 0; i < target; i++) sets.push(newSet());
-    return { ...newEntry(item.exerciseId, sets), note: item.note || '' };
+    // targetReps travels with the entry so the logging screen can tell you
+    // whether you cleared the range — without it the progression suggestion has
+    // nothing to compare against.
+    return {
+      ...newEntry(item.exerciseId, sets),
+      note: item.note || '',
+      targetReps: item.targetReps || null,
+    };
   });
 
   const session = newSession(db.uid, {

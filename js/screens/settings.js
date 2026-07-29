@@ -4,6 +4,7 @@ import { el, openSheet, closeSheet, confirmSheet, toast, fmtClock } from '../ui.
 import * as store from '../store.js';
 import * as db from '../db.js';
 import { hasProfile } from '../standards.js';
+import { evidenceList } from '../rating-ui.js';
 
 /**
  * Profile — the inputs the strength standards actually need.
@@ -113,6 +114,25 @@ export function renderSettings() {
   ratingToggle.checked = s.showRatings !== false;
   ratingToggle.addEventListener('change', () => store.setSetting('showRatings', ratingToggle.checked));
 
+  const rirToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
+  rirToggle.checked = s.logRir !== false;
+  rirToggle.addEventListener('change', () => store.setSetting('logRir', rirToggle.checked));
+
+  const soundToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
+  soundToggle.checked = s.soundOnRestEnd !== false;
+  soundToggle.addEventListener('change', () => store.setSetting('soundOnRestEnd', soundToggle.checked));
+
+  const checkRow = (input, label, hint) => el('label.field', {}, [
+    el('div.row', { style: { gap: '10px' } }, [
+      input,
+      el('span.grow', {
+        text: label,
+        style: { textTransform: 'none', letterSpacing: '0', fontSize: '15px', fontWeight: '500', color: 'var(--text)', marginBottom: '0' },
+      }),
+    ]),
+    hint ? el('div.small.faint', { style: { marginTop: '4px' }, text: hint }) : null,
+  ]);
+
   const profileSummary = hasProfile(s)
     ? `${s.sex === 'female' ? 'Female' : 'Male'} · ${s.bodyweight}${s.units}${s.age ? ` · ${s.age}y` : ''}${s.height ? ` · ${s.height}cm` : ''}`
     : 'Not set — ratings are disabled until you add it';
@@ -150,12 +170,10 @@ export function renderSettings() {
       rest,
     ]),
 
-    el('label.field', {}, [
-      el('div.row', { style: { gap: '10px' } }, [
-        autoRest,
-        el('span.grow', { text: 'Start rest timer automatically', style: { textTransform: 'none', letterSpacing: '0', fontSize: '15px', fontWeight: '500', color: 'var(--text)', marginBottom: '0' } }),
-      ]),
-    ]),
+    checkRow(autoRest, 'Start rest timer automatically'),
+    checkRow(soundToggle, 'Chime when rest ends'),
+    checkRow(rirToggle, 'Log reps in reserve',
+      'Adds an RIR column to every set. Optional per set — how close to failure a set was drives growth more than which rep range it lands in, so it is worth recording, but a blank is treated as "unknown", never as "easy".'),
 
     el('div.section-head', {}, [el('h2', { text: 'Backup' })]),
     el('div.small.muted', { style: { marginBottom: '10px' },
@@ -179,6 +197,11 @@ export function renderSettings() {
         toast('All data erased');
       },
     }, ['Erase all data']),
+
+    el('div.section-head', {}, [el('h2', { text: 'How ratings work' })]),
+    el('div.small.muted', { style: { marginBottom: '10px' },
+      text: 'Plans and exercises are starred against the resistance-training literature, reviewed July 2026. Every star in the app opens a breakdown showing which paper each point came from.' }),
+    evidenceList('Sources'),
 
     el('div.section-head', {}, [el('h2', { text: 'Credits' })]),
     el('div.small.faint', { style: { lineHeight: '1.65' } }, [

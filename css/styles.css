@@ -266,6 +266,31 @@ label.field > span {
   box-shadow: 0 0 8px 0 var(--tier, transparent);
 }
 
+/* Criterion meter inside a rating breakdown — same language as .bar-row .track,
+   but full width because the label sits on its own line above it. */
+.track-thin {
+  height: 6px; border-radius: 999px; background: var(--bg-sunken);
+  overflow: hidden; margin-top: 6px;
+}
+.track-thin i {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hi));
+}
+
+/* Star ratings never carry meaning by colour alone — the glyphs themselves
+   encode the value, so amber here is decoration, not information. */
+.stars { color: var(--t4); font-variant-numeric: tabular-nums; }
+
+/* Personal rating — bigger tap targets than the read-only star string, because
+   these are controls, not decoration. */
+.myrating { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.mystar {
+  background: none; border: 0; padding: 2px 4px;
+  font-size: 24px; line-height: 1; color: var(--text-faint);
+  min-width: 34px; min-height: 34px;
+}
+.mystar.on { color: var(--accent-hi); }
+
 .rating-hero { text-align: center; padding: 6px 0 2px; }
 .rating-val {
   font-size: 54px; font-weight: 800; letter-spacing: -0.045em; line-height: 1;
@@ -348,6 +373,22 @@ label.field > span {
   font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase;
   color: var(--text-faint); margin-bottom: 5px; text-align: center;
 }
+
+/* With the RIR column the gap drops to 6px — on a 375px screen the two main
+   inputs are already down to ~74px each and any wider gutter starts clipping
+   three-digit weights. */
+.set-row.with-rir, .set-labels.with-rir { grid-template-columns: 26px 1fr 1fr 48px 44px; gap: 6px; }
+.set-row .rir { font-size: 15px; font-weight: 600; color: var(--text-dim); }
+.set-row .rir::placeholder { color: var(--text-faint); }
+
+.suggest {
+  font-size: 12.5px; color: var(--text-dim);
+  background: rgba(52, 211, 153, .07);
+  border: 1px solid rgba(52, 211, 153, .18); border-left: 3px solid var(--good);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  padding: 7px 11px; margin: -4px 0 10px;
+}
+.suggest b { color: var(--good); font-weight: 680; }
 
 /* ============ rest timer ============ */
 #rest-bar {

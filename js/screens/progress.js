@@ -10,10 +10,14 @@ import {
   isCounted, startOfWeek, MUSCLES,
 } from '../models.js';
 import { lineChart, barChart, hBars, heatmap } from '../charts.js';
+import { strengthHistory, tonnageHistory, movers } from '../history.js';
+import { TIERS, tierIndex, hasProfile } from '../standards.js';
 import { pickExercise } from '../pickers.js';
+import { profileForm } from './settings.js';
 import { navigate } from '../app.js';
 
-let metric = 'e1rm';   // remembered across renders within a session
+let metric = 'e1rm';      // per-exercise chart, remembered across renders
+let workMetric = 'sets';  // weekly workload chart
 
 export default function renderProgress({ param, actions }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': 'Settings' }, ['⚙']));
@@ -36,12 +40,25 @@ function overview() {
   const thisWeek = done.filter((s) => s.startedAt >= weekStart);
   const weekSets = thisWeek.reduce((n, s) => n + s.entries.reduce((m, e) => m + e.sets.filter(isCounted).length, 0), 0);
 
+  // Lifetime tonnage is not a training metric — it never tells you what to do
+  // next. It is here because watching it climb is the thing that keeps people
+  // opening the app in month four.
+  const lifetime = done.reduce((n, s) =>
+    n + s.entries.reduce((m, e) => m + entryStats(e).volume, 0), 0);
+
   root.append(
     el('div.stat-grid.two', {}, [
       el('div.stat', {}, [el('span.stat-val', { text: String(thisWeek.length) }), el('span.stat-key', { text: 'This week' })]),
       el('div.stat', {}, [el('span.stat-val', { text: String(weekSets) }), el('span.stat-key', { text: 'Sets' })]),
       el('div.stat', {}, [el('span.stat-val', { text: String(streak(done)) }), el('span.stat-key', { text: 'Week streak' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: String(done.length) }), el('span.stat-key', { text: 'All time' })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(done.length) }), el('span.stat-key', { text: 'Workouts' })]),
+    ])
+  );
+  root.append(
+    el('div.card.tight', { style: { marginTop: '10px', textAlign: 'center' } }, [
+      el('div', { style: { fontSize: '22px', fontWeight: '740', letterSpacing: '-0.02em' },
+        text: `${fmtNum(Math.round(lifetime))} ${units}` }),
+      el('div.small.faint', { text: 'moved all time' }),
     ])
   );
 
@@ -65,23 +82,16 @@ function overview() {
     )));
   }
 
+  // --- strength over time ---
+  root.append(strengthSection(done));
+
+  // --- what's moving ---
+  root.append(moversSection(done, units));
+
   // --- weekly volume of work ---
   const buckets = weeklyMuscleSets(done, store.state.exerciseById, 10);
   root.append(el('div.section-head', {}, [el('h2', { text: 'Weekly workload' })]));
-  root.append(
-    el('div.card', {}, [
-      barChart(
-        buckets.map((b, i) => ({
-          label: `Week of ${fmtDate(b.week)}`,
-          short: i === buckets.length - 1 ? 'Now' : fmtDate(b.week),
-          value: b.total,
-          tip: `${b.total} working sets`,
-          dim: i === buckets.length - 1,
-        })),
-        { caption: 'Working sets per week — the last bar is the week in progress.', height: 160, everyNthLabel: 3 }
-      ),
-    ])
-  );
+  root.append(workloadSection(done, units));
 
   // --- muscle split over the last 4 weeks ---
   const recent = buckets.slice(-4);
@@ -157,6 +167,212 @@ function overview() {
   }
 
   return root;
+}
+
+/* ===================== strength over time ===================== */
+
+/**
+ * The overall strength score as it stood each week, not as it stands today.
+ *
+ * This is the chart the app was missing: every other number here measures work
+ * done, which is an input. This one measures what came out of it.
+ */
+function strengthSection(done) {
+  const wrap = el('div');
+  const settings = store.state.settings;
+  if (settings.showRatings === false) return wrap;
+
+  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Strength over time' })]));
+
+  if (!hasProfile(settings)) {
+    wrap.append(el('div.card', {}, [
+      el('div.small.muted', {
+        text: 'Strength is scored relative to bodyweight, sex and age. Add those and this becomes a line you can watch.',
+      }),
+      el('button.btn.ghost.full.sm', { style: { marginTop: '10px' }, onclick: () => profileForm() }, ['Add my details']),
+    ]));
+    return wrap;
+  }
+
+  const history = strengthHistory(
+    store.state.sessions, store.state.bodyweight, settings, store.state.exerciseById, 20);
+
+  if (history.length < 2) {
+    wrap.append(el('div.card', {}, [
+      el('div.small.muted', {
+        text: 'Log a benchmark lift — squat, bench, deadlift, overhead press, row — across a few weeks and your score gets plotted here.',
+      }),
+    ]));
+    return wrap;
+  }
+
+  const first = history[0], last = history[history.length - 1];
+  const delta = last.score - first.score;
+  const weeks = Math.max(1, Math.round((last.week - first.week) / (7 * 86400000)));
+
+  wrap.append(
+    el('div.card', {}, [
+      lineChart(
+        history.map((h) => ({
+          x: h.week,
+          y: h.score,
+          tip: `${Math.round(h.score)} · ${h.tier.label}`,
+        })),
+        {
+          caption: `Overall score across ${last.lifts} rated ${last.lifts === 1 ? 'lift' : 'lifts'}. Each week uses the best you had shown by then, scored against your bodyweight at the time — so a dip usually means the scale moved, not that you got weaker.`,
+          // A few months of training spans only a handful of points, and
+          // rounding those to whole numbers prints "30, 30, 31" up the axis.
+          format: axisFormat(history.map((h) => h.score)),
+          showTrend: true,
+          height: 190,
+        }
+      ),
+      el('div.row.between', { style: { marginTop: '10px', alignItems: 'center' } }, [
+        el(`div.tier-${tierIndex(last.score)}`, {}, [
+          el('span.tier-chip', { text: last.tier.label }),
+        ]),
+        el('div.small', {
+          style: { color: delta >= 0 ? 'var(--good)' : 'var(--text-dim)', fontWeight: '650' },
+          text: `${delta >= 0 ? '+' : ''}${Math.round(delta)} points over ${weeks} week${weeks === 1 ? '' : 's'}`,
+        }),
+      ]),
+      // The tier thresholds are the thing people actually want to know their
+      // distance from, and reading them off an unlabelled y-axis is guesswork.
+      // Bands are 20 points wide — see tierIndex() in standards.js.
+      el('div.small.faint', { style: { marginTop: '6px' },
+        text: `Tier bands are 20 points wide: ${TIERS.map((t, i) => `${t.short} ${i * 20}`).join(' · ')}. ${nextTierNote(last.score)}` }),
+    ])
+  );
+
+  return wrap;
+}
+
+/** Enough decimals that consecutive axis ticks never print the same label. */
+function axisFormat(values) {
+  const span = Math.max(...values) - Math.min(...values);
+  const decimals = span >= 8 ? 0 : span >= 2 ? 1 : 2;
+  return (v) => v.toFixed(decimals);
+}
+
+/** How far to the next tier, in the units the chart is drawn in. */
+function nextTierNote(score) {
+  const i = tierIndex(score);
+  if (i >= TIERS.length - 1) return 'You are in the top band.';
+  const gap = (i + 1) * 20 - score;
+  return `${gap.toFixed(1)} points to ${TIERS[i + 1].label}.`;
+}
+
+/* ===================== movers ===================== */
+
+/** Which lifts are climbing, and which have not moved in months. */
+function moversSection(done, units) {
+  const wrap = el('div');
+  const rows = movers(done, store.state.exerciseById, { minSessions: 3, sinceWeeks: 12 });
+  if (!rows.length) return wrap;
+
+  const climbing = rows.filter((r) => r.perWeek > 0.05).slice(0, 5);
+  const stalled = rows.filter((r) => r.perWeek <= 0.05).slice(-4).reverse();
+
+  wrap.append(el('div.section-head', {}, [el('h2', { text: 'What is moving · 12 weeks' })]));
+
+  const card = el('div.card', {});
+  const line = (r, tone) => el('button.row.between', {
+    style: {
+      width: '100%', background: 'none', border: 0, textAlign: 'left',
+      padding: '9px 0', borderTop: '1px solid var(--line-soft)', gap: '10px',
+    },
+    'aria-label': `Chart ${r.ex.name}`,
+    onclick: () => navigate('progress', r.ex.id),
+  }, [
+    el('div.grow', {}, [
+      el('div', { style: { fontWeight: '600', fontSize: '14.5px' }, text: r.ex.name }),
+      el('div.small.faint', {
+        text: `${fmtWeight(Math.round(r.first), units)} → ${fmtWeight(Math.round(r.last), units)} est. 1RM · ${r.sessions} sessions`,
+      }),
+    ]),
+    el('div', { style: { textAlign: 'right', color: tone, fontWeight: '680', fontSize: '14px' } }, [
+      `${r.perWeek >= 0 ? '+' : ''}${r.perWeek.toFixed(1)}`,
+      el('div.small.faint', { style: { fontWeight: '500' }, text: `${units}/week` }),
+    ]),
+  ]);
+
+  if (climbing.length) {
+    card.append(el('div.small', { style: { fontWeight: '650', color: 'var(--good)' }, text: 'Going up' }));
+    climbing.forEach((r) => card.append(line(r, 'var(--good)')));
+  }
+  if (stalled.length) {
+    card.append(el('div.small', {
+      style: { fontWeight: '650', color: 'var(--text-dim)', marginTop: climbing.length ? '14px' : '0' },
+      text: 'Flat or falling',
+    }));
+    stalled.forEach((r) => card.append(line(r, 'var(--text-dim)')));
+  }
+  card.append(el('div.small.faint', { style: { marginTop: '12px' },
+    text: 'Slope of estimated 1RM per week, so adding reps counts as progress too. A flat lift is not a failure — but it is the first place to look.' }));
+
+  wrap.append(card);
+  return wrap;
+}
+
+/* ===================== workload ===================== */
+
+/**
+ * The same weeks, three ways. Sets is the metric the plan rating cares about,
+ * tonnage is the one that answers "how much did I move", and reps is what
+ * changes first when you are progressing inside a rep range.
+ */
+function workloadSection(done, units) {
+  const host = el('div');
+  // Tonnage runs into five digits fast, and the y-axis gutter is 30px — hence
+  // the compact axis format rather than a thousands-separated number.
+  const compact = (v) => (v >= 10000 ? `${Math.round(v / 1000)}k` : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)));
+
+  const WORK = {
+    sets:    { label: 'Sets',    pick: (b) => b.sets,    fmt: (v) => `${v} sets`, axis: (v) => String(Math.round(v)),
+               caption: 'Working sets per week. This is the metric weekly volume is judged on.' },
+    tonnage: { label: 'Volume',  pick: (b) => b.tonnage, fmt: (v) => `${fmtNum(v, 0)}${units}`, axis: compact,
+               caption: `Total weight moved per week — weight x reps across every working set, in ${units}.` },
+    reps:    { label: 'Reps',    pick: (b) => b.reps,    fmt: (v) => `${v} reps`, axis: compact,
+               caption: 'Total working reps per week.' },
+  };
+
+  const chart = el('div');
+  const seg = el('div.seg', { style: { marginBottom: '12px' } },
+    Object.entries(WORK).map(([key, m]) =>
+      el('button', {
+        'aria-pressed': String(workMetric === key),
+        onclick: (e) => {
+          workMetric = key;
+          [...e.target.parentElement.children].forEach((b, i) =>
+            b.setAttribute('aria-pressed', String(Object.keys(WORK)[i] === key)));
+          paint();
+        },
+      }, [m.label])
+    )
+  );
+
+  function paint() {
+    const m = WORK[workMetric];
+    const buckets = tonnageHistory(done, 12);
+    chart.replaceChildren(
+      el('div.card', {}, [
+        barChart(
+          buckets.map((b, i) => ({
+            label: `Week of ${fmtDate(b.week)}`,
+            short: i === buckets.length - 1 ? 'Now' : fmtDate(b.week),
+            value: Math.round(m.pick(b)),
+            tip: m.fmt(Math.round(m.pick(b))),
+            dim: i === buckets.length - 1,
+          })),
+          { caption: `${m.caption} The last bar is the week in progress.`, height: 160, everyNthLabel: 3, format: m.axis }
+        ),
+      ])
+    );
+  }
+
+  paint();
+  host.append(seg, chart);
+  return host;
 }
 
 /* ======================= exercise drill-down ======================= */

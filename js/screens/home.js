@@ -13,6 +13,9 @@ import {
 } from '../standards.js';
 import { bodyMap, tierLegend } from '../bodymap.js';
 import { barChart, lineChart } from '../charts.js';
+import { analyseWeek, compareToPlan, weekVerdict } from '../log-analysis.js';
+import { analysePlan } from '../plan-rating.js';
+import { THRESHOLDS } from '../evidence.js';
 import { navigate } from '../app.js';
 import { profileForm } from './settings.js';
 
@@ -69,9 +72,17 @@ export default function renderHome({ actions }) {
     ])
   );
 
+  // ---------- done vs planned ----------
+  root.append(weekVsPlan(done));
+
   // ---------- weekly workload ----------
   const buckets = weeklyMuscleSets(done, store.state.exerciseById, 10);
-  root.append(el('div.section-head', {}, [el('h2', { text: 'Workload' })]));
+  root.append(el('div.section-head', {}, [
+    el('h2', { text: 'Workload' }),
+    // The Progress tab has no slot on the tab bar, so every section that hints
+    // at a trend needs to offer the way in.
+    el('button.btn.quiet.sm', { onclick: () => navigate('progress') }, ['Charts ›']),
+  ]));
   root.append(
     el('div.card', {}, [
       barChart(
@@ -124,6 +135,87 @@ export default function renderHome({ actions }) {
 
   return root;
 }
+
+/* ==================== this week vs the plan ==================== */
+
+/**
+ * The number the plan rating promises, measured against what you actually did.
+ * Same fractional counting on both sides — see js/log-analysis.js for why that
+ * had to be said out loud.
+ */
+function weekVsPlan(done) {
+  const byId = store.state.exerciseById;
+  const week = analyseWeek(store.state.sessions, byId);
+  const plan = store.activePlan();
+  const planned = plan && plan.days.some((d) => d.items.length)
+    ? analysePlan(plan, byId)
+    : null;
+
+  const rows = compareToPlan(week, planned).slice(0, 8);
+  const verdict = weekVerdict(week, rows, planned ? plan.days.length * (plan.perWeek || 1) : 0);
+  const floor = THRESHOLDS.weeklyFloor.value;
+
+  const wrap = el('div');
+  wrap.append(el('div.section-head', {}, [
+    el('h2', { text: 'This week vs. plan' }),
+    plan ? el('button.btn.quiet.sm', { onclick: () => navigate('plans', plan.id) }, ['Plan']) : null,
+  ]));
+
+  const card = el('div.card', {}, [
+    el('div', {
+      style: {
+        fontWeight: '650', fontSize: '14px',
+        color: verdict.tone === 'good' ? 'var(--good)' : verdict.tone === 'warn' ? 'var(--warn)' : 'var(--text-faint)',
+      },
+      text: verdict.headline,
+    }),
+    el('div.small.faint', { style: { marginTop: '2px' },
+      text: planned
+        ? `Target is what ${plan.name} prescribes. Secondary muscles count as ${THRESHOLDS.indirectSetWeight.value} of a set.`
+        : `No active plan, so the target is the ${floor}-set weekly floor.` }),
+  ]);
+
+  if (!rows.length) {
+    card.append(el('div.small.muted', { style: { marginTop: '10px' },
+      text: 'Nothing logged yet this week.' }));
+  }
+
+  // Green means "on pace for how far into the plan you are", not "finished".
+  // Grading a Tuesday against a whole week would paint everything red until
+  // Sunday and stop meaning anything.
+  const pace = Math.max(0.15, verdict.pace);
+  for (const r of rows) {
+    const pct = Math.min(1, r.target > 0 ? r.ratio : 1);
+    card.append(el('div.bar-row', { style: { marginTop: '8px' } }, [
+      el('span.name', { text: REGIONS[r.region] || r.region }),
+      el('div.track', {}, [el('div.fill', {
+        style: {
+          width: `${Math.max(3, pct * 100)}%`,
+          background: r.ratio >= pace * 0.9
+            ? 'linear-gradient(90deg, var(--good), #6EE7B7)'
+            : r.ratio >= pace * 0.7
+              ? 'linear-gradient(90deg, var(--accent), var(--accent-hi))'
+              : 'var(--t0)',
+        },
+      })]),
+      el('span.val', { text: r.target > 0 ? `${trimNum(r.done)}/${trimNum(r.target)}` : String(trimNum(r.done)) }),
+    ]));
+  }
+
+  // Effort coverage. Stated as a share rather than an average, because a mean
+  // RIR over sets you never rated would be a made-up number.
+  if (week.totalSets) {
+    card.append(el('div.small.faint', { style: { marginTop: '12px' },
+      text: week.effort.logged
+        ? `${week.effort.logged} of ${week.totalSets} sets have an RIR — ${Math.round(week.effort.hardShare * 100)}% of those were 0–2 in reserve. ${Math.round(week.longShare * 100)}% of sets loaded a muscle stretched.`
+        : `No RIR logged this week, so nothing here can tell you how hard the sets were. ${Math.round(week.longShare * 100)}% of sets loaded a muscle stretched.` }));
+  }
+
+  wrap.append(card);
+  return wrap;
+}
+
+const trimNum = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 /* ======================= rating ======================= */
 
