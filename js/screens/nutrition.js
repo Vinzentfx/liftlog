@@ -16,7 +16,7 @@ import {
 import * as store from '../store.js';
 import { dayKey, MEAL_SLOTS, slotFor } from '../models.js';
 import {
-  proteinTarget, dayTotals, proteinVerdict, proteinHistory, proteinSummary,
+  proteinTarget, dayTotals, proteinVerdict, proteinHistory,
   weightTrend, trendVerdict, energySplit, fibreTarget, waterTarget, maintenanceEstimate,
   NUTRIENTS, macroTargets, GOALS,
 } from '../nutrition.js';
@@ -29,7 +29,15 @@ import { lookupBarcode, scaleToPortion, ATTRIBUTION } from '../foodlookup.js';
 import { barChart } from '../charts.js';
 import { navigate } from '../app.js';
 
-let viewDay = null;   // null = today; set by the date stepper
+let viewDay = null;      // null = today; set by the date stepper
+let trendMetric = 'protein';   // which metric the 14-day chart shows
+
+/** The target band for a metric, or null where there is none to compare against. */
+function bandFor(key, targets) {
+  if (!targets || !targets.ok) return null;
+  if (key === 'kcal') return { low: targets.kcal, high: targets.kcal };
+  return targets[key] || null;
+}
 
 export default function renderNutrition({ actions }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': 'Settings' }, ['⚙']));
@@ -47,6 +55,7 @@ export default function renderNutrition({ actions }) {
   root.append(macroCard(totals));
   root.append(waterCard(day));
   root.append(mealList(meals, day));
+  root.append(savedMeals(day));
   root.append(quickAdd(day));
   root.append(trendSection());
 
@@ -512,7 +521,17 @@ function mealList(meals, day) {
 
     wrap.append(el('div.slot-head', {}, [
       el('span', { text: SLOT_LABEL[slot] }),
-      el('span', { text: `${slotProtein} g${slotKcal ? ` · ${fmtNum(slotKcal)} kcal` : ''}` }),
+      el('div.row', { style: { gap: '10px', alignItems: 'baseline' } }, [
+        el('span', { text: `${slotProtein} g${slotKcal ? ` · ${fmtNum(slotKcal)} kcal` : ''}` }),
+        // The cheapest place to create a saved meal is the moment you have just
+        // logged one — no separate builder screen to go and find.
+        inSlot.length > 1
+          ? el('button.btn.quiet.sm', {
+              style: { padding: '0 4px', minHeight: '22px', fontSize: '11px' },
+              onclick: () => saveMealSheet(inSlot, slot),
+            }, ['Save'])
+          : null,
+      ]),
     ]));
 
     for (const m of inSlot) wrap.append(mealRow(m));
@@ -579,6 +598,126 @@ function mealSheet(m) {
     el('div.small.faint', { style: { marginTop: '8px' },
       text: 'Grouping only. Total intake over the day is what matters — nothing here scores when you ate.' }),
   ]));
+}
+
+/**
+ * Turn what is already logged into a reusable meal.
+ *
+ * Offered from the slot header because that is the moment it costs nothing: you
+ * have just built the thing, and naming it is one field. A separate builder
+ * screen would be a place nobody goes.
+ *
+ * Only the items that still resolve to a food can be saved — a portion logged
+ * from a food since deleted carries its own snapshot in history, but there is
+ * nothing left to re-log it from.
+ */
+function saveMealSheet(meals, slot) {
+  const resolvable = meals.filter((m) => store.state.foods.some((f) => f.id === m.foodId));
+  const orphans = meals.length - resolvable.length;
+
+  const name = el('input', {
+    type: 'text',
+    placeholder: 'e.g. Usual breakfast',
+    value: meals.map((m) => m.name).slice(0, 2).join(' + '),
+  });
+
+  openSheet('Save as a meal', el('div', {}, [
+    el('div.small.muted', { style: { marginBottom: '14px' },
+      text: `${plural(resolvable.length, 'item')} from this ${SLOT_LABEL[slot].toLowerCase().replace(/s$/, '')}. Saved meals store the foods, not the numbers — correct a food later and this follows.` }),
+    el('label.field', {}, [el('span', { text: 'Name' }), name]),
+    ...resolvable.map((m) => el('div.small.faint', { style: { marginBottom: '4px' },
+      text: `${m.amount === 1 ? '' : `${m.amount}× `}${m.name} · ${m.portion}` })),
+    orphans
+      ? el('div.small', { style: { color: 'var(--warn)', marginTop: '10px' },
+          text: `${plural(orphans, 'item')} cannot be saved — the food behind it was deleted. It stays in this day's history either way.` })
+      : null,
+    el('button.btn.primary.full', {
+      style: { marginTop: '14px' },
+      onclick: async () => {
+        if (!resolvable.length) { toast('Nothing here can be saved'); return; }
+        const saved = await store.saveTemplate({
+          name: name.value,
+          slot,
+          items: resolvable.map((m) => ({ foodId: m.foodId, amount: m.amount })),
+        });
+        closeSheet();
+        toast(`Saved “${saved.name}”`);
+      },
+    }, ['Save this meal']),
+  ]));
+}
+
+/** Saved meals, one tap each. */
+function savedMeals(day) {
+  const wrap = el('div');
+  const templates = store.state.templates;
+  if (!templates.length) return wrap;
+
+  wrap.append(el('div.section-head', {}, [
+    el('h2', { text: 'Saved meals' }),
+    el('span.small.faint', { text: plural(templates.length, 'meal') }),
+  ]));
+
+  for (const t of templates.slice(0, 8)) {
+    // Totals are computed from the foods now, not from when it was saved — the
+    // whole point of storing references rather than values.
+    const items = t.items
+      .map((i) => ({ food: store.state.foods.find((f) => f.id === i.foodId), amount: i.amount }))
+      .filter((x) => x.food);
+    const kcal = Math.round(items.reduce((n, x) => n + (x.food.kcal || 0) * x.amount, 0));
+    const protein = Math.round(items.reduce((n, x) => n + (x.food.protein || 0) * x.amount, 0));
+    const gone = t.items.length - items.length;
+
+    wrap.append(listItem({
+      title: t.name,
+      sub: items.length
+        ? `${plural(items.length, 'item')} · ${protein} g protein${kcal ? ` · ${kcal} kcal` : ''}${gone ? ` · ${gone} missing` : ''}`
+        : 'Every food in this meal has been deleted',
+      right: el('span.small.faint', { text: '+' }),
+      chev: '',
+      ariaLabel: `Log ${t.name}`,
+      onclick: async () => {
+        if (!items.length) { toast('Nothing left to log'); return; }
+        const res = await store.logTemplate(t.id, { day });
+        toast(res.missing
+          ? `${res.name}: ${plural(res.logged, 'item')} logged, ${res.missing} missing`
+          : `${res.name} logged`);
+      },
+    }));
+  }
+
+  wrap.append(
+    el('button.btn.ghost.full.sm', { style: { marginTop: '8px' }, onclick: manageMealsSheet },
+      ['Edit saved meals'])
+  );
+  return wrap;
+}
+
+function manageMealsSheet() {
+  const body = el('div', {}, [
+    el('div.small.muted', { style: { marginBottom: '12px' },
+      text: 'Saved meals hold food references, so editing a food updates every meal that uses it. Deleting one here never touches anything already logged.' }),
+    ...store.state.templates.map((t) =>
+      el('div.row.between', { style: { padding: '10px 0', borderBottom: '1px solid var(--line-soft)' } }, [
+        el('div.grow', {}, [
+          el('div', { style: { fontWeight: '620' }, text: t.name }),
+          el('div.small.faint', { text: `${plural(t.items.length, 'item')}${t.uses ? ` · logged ${plural(t.uses, 'time')}` : ''}` }),
+        ]),
+        el('button.btn.quiet.sm', {
+          'aria-label': `Delete ${t.name}`,
+          onclick: async () => {
+            const ok = await confirmSheet('Delete saved meal?',
+              `“${t.name}” will be removed. Days you already logged it on keep their entries.`,
+              { confirmLabel: 'Delete' });
+            if (!ok) return;
+            await store.deleteTemplate(t.id);
+            toast('Deleted');
+          },
+        }, ['×']),
+      ])
+    ),
+  ]);
+  openSheet('Saved meals', body);
 }
 
 function previousDay(day) {
@@ -993,45 +1132,91 @@ function manageSheet() {
 
 /* ======================= trends ======================= */
 
+/**
+ * The last fourteen days, per metric.
+ *
+ * Protein was the only one charted here for a long time, because it was the
+ * only one with a target. Now that calories, carbs and fat have one too — see
+ * macroTargets — they get the same treatment, against the same band, with the
+ * same rule underneath: **a day nobody logged is blank, not zero.** Averaging
+ * in zeroes would make a fortnight of decent eating with two forgotten days
+ * look like failure, which is the fastest way to make someone stop logging.
+ */
 function trendSection() {
   const wrap = el('div');
   const units = store.units();
-  const target = proteinTarget(store.state.settings);
   const history = proteinHistory(store.state.meals, 14);
-  const summary = proteinSummary(history, target);
+  const logged = history.filter((d) => d.logged);
+  const targets = macroTargets(store.state.settings, maintenanceEstimate(store.state.meals, store.state.bodyweight));
 
   wrap.append(el('div.section-head', {}, [el('h2', { text: 'Last 14 days' })]));
 
-  if (!summary.logged) {
+  if (!logged.length) {
     wrap.append(el('div.card', {}, [
       el('div.small.muted', { text: 'Log a few days and the pattern shows up here — plus how it lines up with your bodyweight and your lifts.' }),
     ]));
     return wrap;
   }
 
-  wrap.append(
-    el('div.card', {}, [
+  const METRICS = [
+    { key: 'protein', label: 'Protein', unit: 'g' },
+    { key: 'kcal', label: 'Calories', unit: 'kcal' },
+    { key: 'carbs', label: 'Carbs', unit: 'g' },
+    { key: 'fat', label: 'Fat', unit: 'g' },
+  ];
+
+  const host = el('div.card', {});
+  const paint = () => {
+    const m = METRICS.find((x) => x.key === trendMetric) || METRICS[0];
+    const band = bandFor(m.key, targets);
+
+    // Only days that carry this metric count. Carbs and fat are optional per
+    // food, so a day can be logged and still have nothing to say about them.
+    const withValue = logged.filter((d) => !(d.missing && d.missing[m.key]) || d[m.key] > 0);
+    const mean = withValue.length
+      ? Math.round(withValue.reduce((n, d) => n + d[m.key], 0) / withValue.length)
+      : null;
+    const inBand = band && withValue.filter((d) => d[m.key] >= band.low && d[m.key] <= band.high).length;
+
+    host.replaceChildren(
       barChart(
         history.map((d) => ({
           label: d.day,
           short: d.day.slice(8),
-          value: d.protein,
-          tip: d.logged ? `${d.protein} g` : 'not logged',
+          value: d[m.key],
+          tip: d.logged ? `${fmtNum(d[m.key])} ${m.unit}` : 'not logged',
           dim: !d.logged,
         })),
         {
-          caption: target
-            ? `Daily protein against your ${target.low} g floor. Days you did not log are blank, not zero.`
-            : 'Daily protein. Add your bodyweight to get a target line.',
+          caption: band
+            ? `Daily ${m.label.toLowerCase()} against your ${fmtNum(band.low)}${band.low === band.high ? '' : `–${fmtNum(band.high)}`} ${m.unit} target. Days you did not log are blank, not zero.`
+            : `Daily ${m.label.toLowerCase()}. Days you did not log are blank, not zero.`,
           height: 150, everyNthLabel: 2,
         }
       ),
       el('div.small.faint', { style: { marginTop: '10px' },
-        text: summary.hitRate !== null
-          ? `${summary.mean} g average across ${summary.logged} logged ${summary.logged === 1 ? 'day' : 'days'} — ${Math.round(summary.hitRate * 100)}% cleared ${target.low} g.`
-          : `${summary.mean} g average across ${summary.logged} logged ${summary.logged === 1 ? 'day' : 'days'}.` }),
-    ])
-  );
+        text: mean === null
+          ? `Nothing logged carries ${m.label.toLowerCase()} yet.`
+          : band
+            ? `${fmtNum(mean)} ${m.unit} average across ${plural(withValue.length, 'day')} — ${inBand} of them inside the target.`
+            : `${fmtNum(mean)} ${m.unit} average across ${plural(withValue.length, 'day')}.` })
+    );
+  };
+
+  const seg = el('div.seg', { style: { marginBottom: '10px' } }, METRICS.map((m) =>
+    el('button', {
+      'aria-pressed': String(trendMetric === m.key),
+      onclick: (e) => {
+        trendMetric = m.key;
+        [...e.target.parentElement.children].forEach((b, i) =>
+          b.setAttribute('aria-pressed', String(METRICS[i].key === m.key)));
+        paint();
+      },
+    }, [m.label])
+  ));
+
+  paint();
+  wrap.append(seg, host);
 
   // The point of the whole module: intake next to what it produced.
   const trend = weightTrend(store.state.bodyweight, 4);

@@ -1,16 +1,20 @@
 // Daily targets and totals.
 //
 // Scope note, because this is the part that usually metastasises. Protein and
-// calories are the two that carry a claim: protein is the one intake variable
-// with a defensible hypertrophy number attached, and calories decide whether
-// you gain or lose. Carbs, fat, fibre and water were added later and are held
-// to a different standard — they are *recorded*, and the app makes no training
-// claim about any of them. Fibre and water show a reference line with a source
-// and a caveat; carbs and fat are only ever shown as the split of a day's
-// energy, never as a target, because no macro ratio has an evidence base worth
-// printing.
+// calories are the two that carry a claim of their own: protein has a
+// defensible hypertrophy number, and calories decide whether you gain or lose.
 //
-// Still no micronutrients, and still no "you should eat X".
+// Carbs and fat do get targets now (macroTargets below), and it is worth being
+// precise about why that is not a contradiction. There is no evidence-based
+// macro *ratio* — "40/30/30" is folklore with a decimal point, and this file
+// will not print one. What there is, is an evidence-based *order*: calories,
+// then protein, then a fat floor, then carbohydrate as the remainder. Those
+// numbers are arithmetic on the user's own measured calorie figure, not a rule
+// about proportions, and the UI says so.
+//
+// Fibre and water show a reference line with a source and a caveat, and are
+// never scored against training. Still no micronutrient targets, and still no
+// "you should eat X" that cannot name where X came from.
 //
 // Everything past protein is optional throughout. A protein-only log is a
 // complete log here — it answers the question the training data can actually be
@@ -224,18 +228,6 @@ export function proteinHistory(meals, days = 14, endTs = Date.now()) {
   return out;
 }
 
-export function proteinSummary(history, target) {
-  const logged = history.filter((d) => d.logged);
-  if (!logged.length) return { logged: 0, days: history.length, mean: null, hitRate: null };
-  const mean = logged.reduce((n, d) => n + d.protein, 0) / logged.length;
-  const hit = target ? logged.filter((d) => d.protein >= target.low).length : 0;
-  return {
-    logged: logged.length,
-    days: history.length,
-    mean: Math.round(mean),
-    hitRate: target ? hit / logged.length : null,
-  };
-}
 
 /**
  * Bodyweight direction over a window, as %/week — the number that actually says

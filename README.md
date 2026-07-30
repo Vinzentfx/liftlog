@@ -37,7 +37,8 @@ so the whole thing works with the network off.
 - Search 725 bundled foods — 194 generic, 531 branded — or scan any barcode
 - **More** opens every nutrient the day's log knows, micronutrients included
 - Carbs, fat, fibre and water — recorded, with no training claim attached
-- Meals grouped by time of day; repeat yesterday in one tap
+- Meals grouped by time of day; save one as a recipe, repeat yesterday in one tap
+- 14-day chart for calories, protein, carbs and fat against their targets
 - Maintenance calories derived from your own log and scale, and targets that follow from them
 
 **Library**
@@ -467,6 +468,26 @@ taken first-to-last, so a single heavy morning cannot swing the answer.
 What it cannot fix is under-logging, which every validation study finds and which
 this inherits in full. The sheet says so. It is still anchored to your own scale,
 which is more than a formula can say.
+
+### Saved meals hold references, logged meals hold values
+
+The same data appears in two places with deliberately different rules.
+
+A **logged meal** snapshots the numbers at the moment you ate it. It is history:
+correcting a food later must never rewrite what last Tuesday said.
+
+A **saved meal** stores food *ids* and amounts, nothing else. It is a recipe:
+fixing the protein on your quark should carry into the next breakfast you log
+from it. Its totals are computed fresh from the current foods every time it is
+drawn.
+
+A food deleted since the meal was saved is skipped and counted rather than
+logged as a blank — `logTemplate` reports how many resolved and how many did
+not, and the toast says so.
+
+Creating one is offered from the slot header of a day you have just logged,
+because that is the moment it costs nothing. A separate builder screen would be
+a place nobody goes.
 
 ### Carbohydrate and fat targets, without a macro ratio
 

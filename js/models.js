@@ -418,6 +418,27 @@ const optionalGrams = (v) => {
   return Number.isFinite(n) ? Math.max(0, n) : null;
 };
 
+/**
+ * A saved meal: a name and the foods that make it up.
+ *
+ * Items reference foods by id rather than snapshotting their values, unlike a
+ * logged meal. The difference is deliberate: a logged meal is history and must
+ * never change, but a template is a *recipe*, and correcting the protein on
+ * your quark should carry into the next time you log breakfast.
+ */
+export function newTemplate(uid, { name, items = [], slot = null }) {
+  return {
+    id: uid('t_'),
+    name: String(name).trim() || 'Saved meal',
+    slot: MEAL_SLOTS.includes(slot) ? slot : null,
+    items: items
+      .filter((i) => i && i.foodId)
+      .map((i) => ({ foodId: i.foodId, amount: Number(i.amount) || 1 })),
+    uses: 0,
+    createdAt: Date.now(),
+  };
+}
+
 /** Local calendar day as 'YYYY-MM-DD'. Local, not UTC — a 23:00 snack is today. */
 export function dayKey(ts = Date.now()) {
   const d = new Date(ts);

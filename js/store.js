@@ -4,7 +4,7 @@
 import * as idb from './db.js';
 import {
   DEFAULT_SETTINGS, seedExercises, newSession, newEntry, newSet,
-  newFood, newMeal, dayKey,
+  newFood, newMeal, newTemplate, dayKey,
   LIBRARY_VERSION, DATA_VERSION, normName, regionsForMuscle,
 } from './models.js';
 import { buildPlanDays, SETS_PER_EXERCISE, REP_TARGET } from './plan-builder.js';
@@ -61,6 +61,7 @@ export const state = {
   bodyweight: [],     // newest first
   foods: [],          // the user's own food list
   water: [],          // one row per day: { day, ml }
+  templates: [],      // saved meals: a name and a list of foods
   meals: [],          // newest first
   settings: { ...DEFAULT_SETTINGS },
   exerciseById: new Map(),
@@ -81,10 +82,11 @@ function reindex() {
   // Most-eaten first: the list you pick from should put your staples on top,
   // because 95% of what anyone eats is the same 30 things.
   state.foods.sort((a, b) => (b.uses || 0) - (a.uses || 0) || a.name.localeCompare(b.name));
+  state.templates.sort((a, b) => (b.uses || 0) - (a.uses || 0) || a.name.localeCompare(b.name));
 }
 
 export async function load() {
-  const [exercises, plans, sessions, bodyweight, foods, meals, water, settingsRows] = await Promise.all([
+  const [exercises, plans, sessions, bodyweight, foods, meals, water, templates, settingsRows] = await Promise.all([
     db.getAll(db.STORES.exercises),
     db.getAll(db.STORES.plans),
     db.recentSessions(0),
@@ -92,6 +94,7 @@ export async function load() {
     db.getAll(db.STORES.foods),
     db.getAll(db.STORES.meals),
     db.getAll(db.STORES.water),
+    db.getAll(db.STORES.templates),
     db.getAll(db.STORES.settings),
   ]);
 
@@ -102,6 +105,7 @@ export async function load() {
   state.foods = foods;
   state.meals = meals;
   state.water = water;
+  state.templates = templates;
   state.settings = { ...DEFAULT_SETTINGS };
   for (const row of settingsRows) state.settings[row.key] = row.value;
 
@@ -672,6 +676,59 @@ function shiftToDay(at, day) {
   return new Date(y, m - 1, d, from.getHours(), from.getMinutes()).getTime();
 }
 
+// ---------- saved meals ----------
+
+/**
+ * Save a combination of foods under a name.
+ *
+ * Stores food *ids*, not values, unlike a logged meal. A logged meal is history
+ * and must never move; a saved meal is a recipe, so correcting the protein on
+ * your quark should carry into the next breakfast you log from it.
+ */
+export async function saveTemplate({ name, items, slot = null, id = null }) {
+  const existing = id && state.templates.find((t) => t.id === id);
+  const rec = existing
+    ? { ...existing, name: String(name).trim() || existing.name, items, slot }
+    : newTemplate(db.uid, { name, items, slot });
+
+  if (existing) Object.assign(existing, rec);
+  else state.templates.push(rec);
+
+  await db.put(db.STORES.templates, rec);
+  reindex(); emit();
+  return rec;
+}
+
+export async function deleteTemplate(id) {
+  state.templates = state.templates.filter((t) => t.id !== id);
+  await db.remove(db.STORES.templates, id);
+  emit();
+}
+
+/**
+ * Log every food in a saved meal.
+ *
+ * A food deleted since the template was saved is skipped and counted rather
+ * than logged as a blank — the same rule the rest of the app follows for
+ * references that no longer resolve. The caller can then say so.
+ */
+export async function logTemplate(id, { day = dayKey(), slot = null } = {}) {
+  const template = state.templates.find((t) => t.id === id);
+  if (!template) return null;
+
+  let logged = 0, missing = 0;
+  for (const item of template.items) {
+    const meal = await logMeal(item.foodId, { day, amount: item.amount, slot: slot || template.slot });
+    if (meal) logged++;
+    else missing++;
+  }
+
+  template.uses = (template.uses || 0) + 1;
+  await db.put(db.STORES.templates, template);
+  reindex(); emit();
+  return { logged, missing, name: template.name };
+}
+
 // ---------- water ----------
 
 /** Millilitres drunk on a day, 0 when nothing is recorded. */
@@ -766,6 +823,7 @@ export function exportData() {
     foods: state.foods,
     meals: state.meals,
     water: state.water,
+    templates: state.templates,
   };
 }
 
@@ -777,7 +835,7 @@ export async function importData(payload, { replace = true } = {}) {
   // and then writes, so a payload that passes the format check but carries a
   // truncated or wrong-typed body used to leave you with neither the backup nor
   // what you had. Cheap to verify, impossible to undo.
-  const lists = ['exercises', 'plans', 'sessions', 'bodyweight', 'foods', 'meals', 'water'];
+  const lists = ['exercises', 'plans', 'sessions', 'bodyweight', 'foods', 'meals', 'water', 'templates'];
   for (const key of lists) {
     if (payload[key] !== undefined && !Array.isArray(payload[key])) {
       throw new Error(`This backup is damaged — "${key}" is not a list.`);
@@ -806,6 +864,7 @@ export async function importData(payload, { replace = true } = {}) {
     db.putMany(db.STORES.foods, payload.foods || []),
     db.putMany(db.STORES.meals, payload.meals || []),
     db.putMany(db.STORES.water, payload.water || []),
+    db.putMany(db.STORES.templates, payload.templates || []),
     db.putMany(db.STORES.settings, settingRows),
   ]);
   await load();
