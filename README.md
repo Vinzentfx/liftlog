@@ -333,6 +333,23 @@ set, then add weight — with RIR as an override in both directions. It is a way
 turn "train close to failure" into a decision on the gym floor, not a research
 finding, and it says so.
 
+### Numbers you type
+
+Weight, bodyweight and protein fields are `type="text"` with
+`inputmode="decimal"`, not `type="number"`, and they go through
+`parseNumber()` in `js/ui.js`.
+
+The reason is not style. `<input type="number">` accepts a full stop and
+nothing else, whatever the locale — but on a German phone the decimal key on
+that keypad *is* a comma. Type "82,5" and the digits sit there on screen while
+`.value` reads as the empty string: the app stored nothing, said nothing, and
+the set was lost. `inputmode="decimal"` keeps the numeric keypad and
+`parseNumber` accepts either separator. `normaliseOnBlur` rewrites the field to
+what was actually understood, so junk cannot sit there looking accepted.
+
+The trade is losing the browser's own `min`/`step` validation, which this app
+was already doing in JS anyway.
+
 ### A write that fails has to say so
 
 Every action changes `state` first and persists afterwards — that is what makes
@@ -353,6 +370,17 @@ the set was saved. That path runs on every completed set, which is precisely
 where an optimistic lie is least affordable. The copy is a JSON round trip
 because these records are plain data by definition — it is the same shape the
 backup file holds.
+
+`store.updateSession(id, mutate)` only works if `mutate` contains *every*
+change. It snapshots at the moment it is called, so a caller that edits the
+session first and then passes an empty callback gets a snapshot of the
+already-edited session and the rollback silently does nothing. That is exactly
+what ticking a set used to do.
+
+A restore validates the whole file before it erases anything. `importData`
+wipes every store and then writes, so a payload that passed the format check but
+carried a truncated or wrong-typed body used to leave you with neither the
+backup nor what you had.
 
 Opening the database can fail in one more way that used to hang forever: a
 schema upgrade cannot run while another tab still holds the old version open.

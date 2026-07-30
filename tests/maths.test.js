@@ -33,6 +33,7 @@ const { bodyweightAt, strengthAt } = await import('../js/history.js');
 const { decodeLink, planLink, resolveAgainstLibrary } = await import('../js/plan-share.js');
 const { weekSummary } = await import('../js/week-card.js');
 const { THRESHOLDS } = await import('../js/evidence.js');
+const { parseNumber } = await import('../js/ui.js');
 
 const INDIRECT = THRESHOLDS.indirectSetWeight.value;
 
@@ -90,6 +91,23 @@ test('entryStats ignores warm-ups in every number it reports', () => {
   assert.equal(st.sets, 2);
   assert.equal(st.volume, 80 * 8 + 80 * 6);
   assert.equal(st.reps, 14);
+});
+
+test('parseNumber takes the separator the keyboard offers', () => {
+  // A German phone's decimal key is a comma. <input type="number"> reports an
+  // empty string for "82,5", which silently swallowed the weight of a set.
+  assert.equal(parseNumber('82,5'), 82.5);
+  assert.equal(parseNumber('82.5'), 82.5);
+  assert.equal(parseNumber(' 82 '), 82);
+  assert.equal(parseNumber(82.5), 82.5);
+});
+
+test('parseNumber says null rather than guessing', () => {
+  for (const junk of ['', '   ', 'abc', '8o', null, undefined, NaN]) {
+    assert.equal(parseNumber(junk), null, `expected null for ${JSON.stringify(junk)}`);
+  }
+  // 0 is a real value, not an absence — reps of 0 must not read as "blank".
+  assert.equal(parseNumber('0'), 0);
 });
 
 /* ============================== dates ============================== */

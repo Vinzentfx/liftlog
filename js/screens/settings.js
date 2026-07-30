@@ -1,6 +1,9 @@
 // Settings sheet — units, rest defaults, and backup/restore.
 
-import { el, openSheet, closeSheet, confirmSheet, toast, fmtClock, fmtDate } from '../ui.js';
+import {
+  el, openSheet, closeSheet, confirmSheet, toast, fmtClock, fmtDate,
+  numberInput, parseNumber, normaliseOnBlur,
+} from '../ui.js';
 import * as store from '../store.js';
 import * as db from '../db.js';
 import { hasProfile } from '../standards.js';
@@ -27,10 +30,10 @@ export function profileForm(onSaved = null) {
     }, [label])
   ));
 
-  const bodyweight = el('input', {
-    type: 'number', inputmode: 'decimal', step: '0.1', min: '20',
+  const bodyweight = normaliseOnBlur(numberInput({
+    decimal: true,
     value: s.bodyweight ?? '', placeholder: `Weight in ${s.units}`,
-  });
+  }));
   const age = el('input', {
     type: 'number', inputmode: 'numeric', step: '1', min: '10', max: '100',
     value: s.age ?? '', placeholder: 'Years',
@@ -43,8 +46,8 @@ export function profileForm(onSaved = null) {
   async function save() {
     const sex = [...sexSeg.children].find((b) => b.getAttribute('aria-pressed') === 'true');
     if (!sex) { toast('Pick male or female'); return; }
-    const bw = Number(bodyweight.value);
-    if (!bw || bw <= 0) { toast('Enter your bodyweight'); bodyweight.focus(); return; }
+    const bw = parseNumber(bodyweight.value);
+    if (bw === null || bw <= 0) { toast('Enter your bodyweight'); bodyweight.focus(); return; }
 
     await store.setSetting('sex', sex.dataset.sex);
     await store.setSetting('bodyweight', bw);
@@ -78,10 +81,22 @@ export function profileForm(onSaved = null) {
 export function renderSettings() {
   const s = store.state.settings;
 
+  // Switching units relabels every stored number rather than converting it —
+  // weights are kept as bare figures, so 100 kg becomes "100 lb". That is fine
+  // when it is set once at the start and wrong the moment there is history, so
+  // the switch says so instead of pretending to convert.
   const units = el('div.seg', {}, ['kg', 'lb'].map((u) =>
     el('button', {
       'aria-pressed': String(s.units === u),
       onclick: async (e) => {
+        if (u !== s.units && store.state.sessions.some((x) => x.finishedAt)) {
+          const ok = await confirmSheet(
+            `Switch to ${u}?`,
+            `Your logged weights are stored as plain numbers, so this changes the label, not the figures — a 100 ${s.units} lift will read as 100 ${u}. Only do this if you entered everything in ${u} already.`,
+            { danger: false, confirmLabel: `Use ${u}` }
+          );
+          if (!ok) return;
+        }
         await store.setSetting('units', u);
         [...e.target.parentElement.children].forEach((b) =>
           b.setAttribute('aria-pressed', String(b.textContent === u)));

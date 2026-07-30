@@ -28,6 +28,51 @@ export function el(spec, props = {}, children = []) {
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 
+/**
+ * A number field that accepts the separator the keyboard actually offers.
+ *
+ * `<input type="number">` only accepts a full stop, whatever the locale. On a
+ * German phone the decimal key *is* a comma, so typing "82,5" leaves the digits
+ * visible in the box while `.value` reads as the empty string — the app stored
+ * nothing and said nothing. Mid-workout that is a lost set.
+ *
+ * A text field with inputmode="decimal" keeps the numeric keypad on iOS, and
+ * `parseNumber` takes either separator. The cost is losing the browser's own
+ * min/step validation, which this app was already doing in JS anyway.
+ */
+export function numberInput({ decimal = false, ...props } = {}) {
+  return el('input', {
+    type: 'text',
+    inputmode: decimal ? 'decimal' : 'numeric',
+    autocomplete: 'off',
+    autocorrect: 'off',
+    spellcheck: 'false',
+    ...props,
+  });
+}
+
+/** '82,5' and '82.5' both parse; anything else, including '', is null. */
+export function parseNumber(value) {
+  const raw = String(value ?? '').trim().replace(',', '.');
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Rewrite a field to the canonical form of what it holds, on blur.
+ *
+ * Without this a text-mode number field will happily keep showing "8o" while
+ * the app has stored nothing — the old type="number" at least cleared itself.
+ */
+export function normaliseOnBlur(input, { integer = false } = {}) {
+  input.addEventListener('blur', () => {
+    const n = parseNumber(input.value);
+    input.value = n === null ? '' : String(integer ? Math.round(n) : n);
+  });
+  return input;
+}
+
 export function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); return node; }
 
 // ---------- formatting ----------

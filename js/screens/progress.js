@@ -3,6 +3,7 @@
 import {
   el, fmtNum, fmtWeight, fmtDate, relDay, emptyState,
   openSheet, closeSheet, toast, confirmSheet, listItem,
+  numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
 import {
@@ -530,11 +531,11 @@ function mostTrained(sessions, limit) {
 function bodyweightForm() {
   const units = store.units();
   const latest = store.state.bodyweight[0];
-  const input = el('input', {
-    type: 'number', inputmode: 'decimal', step: '0.1', min: '0',
+  const input = normaliseOnBlur(numberInput({
+    decimal: true,
     value: latest ? String(latest.weight) : '',
     placeholder: `Weight in ${units}`,
-  });
+  }));
   const date = el('input', { type: 'date', value: new Date().toISOString().slice(0, 10) });
 
   const history = el('div', {}, store.state.bodyweight.slice(0, 8).map((b) =>
@@ -558,7 +559,7 @@ function bodyweightForm() {
     el('label.field', {}, [el('span', { text: 'Date' }), date]),
     el('button.btn.primary.full', {
       onclick: async () => {
-        const v = Number(input.value);
+        const v = parseNumber(input.value);
         if (!v || v <= 0) { toast('Enter a weight'); input.focus(); return; }
         await store.logBodyweight(v, new Date(`${date.value}T12:00:00`).getTime());
         closeSheet();

@@ -280,8 +280,13 @@ function detailView(id) {
           const planPart = inPlans
             ? ` It will also be removed from ${inPlans} plan ${inPlans === 1 ? 'day' : 'days'}.`
             : '';
+          // Say what actually happens. The sets survive as rows in the session,
+          // but every analysis looks the exercise up by id and skips what it
+          // cannot find — so the volume, the muscle map, the strength score and
+          // the charts all quietly lose that work. "The name will be lost" was
+          // true and misleading at the same time.
           const warn = uses
-            ? `${ex.name} appears in ${uses} logged ${uses === 1 ? 'session' : 'sessions'}. Those sessions keep their sets, but the exercise name will be lost from them.${planPart}`
+            ? `${ex.name} appears in ${uses} logged ${uses === 1 ? 'session' : 'sessions'}. Those sets stay in your history, but they stop counting anywhere else: the exercise name, its volume, its muscle map colour and its part of your strength score all disappear. Consider renaming it instead.${planPart}`
             : `${ex.name} will be removed from your library.${planPart}`;
           const ok = await confirmSheet('Delete exercise?', warn);
           if (!ok) return;

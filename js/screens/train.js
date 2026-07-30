@@ -3,6 +3,7 @@
 import {
   el, $, toast, haptic, fmtWeight, fmtDuration, fmtNum, setsSummary,
   openSheet, closeSheet, confirmSheet, emptyState, debounce, listItem,
+  numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
 import * as rest from '../rest.js';
@@ -271,26 +272,26 @@ function setRow(session, entry, set, index, last) {
     ? null
     : last.sets[workingNo - 1] || last.sets[last.sets.length - 1];
 
-  const weight = el('input', {
-    type: 'number', inputmode: 'decimal', step: '0.5', min: '0',
+  const weight = normaliseOnBlur(numberInput({
+    decimal: true,
     value: set.weight ?? '',
     placeholder: hint ? String(hint.weight) : '—',
     'aria-label': 'Weight',
-  });
-  const reps = el('input', {
-    type: 'number', inputmode: 'numeric', step: '1', min: '0',
+  }));
+  const reps = normaliseOnBlur(numberInput({
     value: set.reps ?? '',
     placeholder: hint ? String(hint.reps) : '—',
     'aria-label': 'Reps',
-  });
+  }), { integer: true });
 
   // Keystrokes persist quietly — a re-render here would kill the caret.
   weight.addEventListener('input', () => {
-    set.weight = weight.value === '' ? null : Number(weight.value);
+    set.weight = parseNumber(weight.value);
     saveSoon(session);
   });
   reps.addEventListener('input', () => {
-    set.reps = reps.value === '' ? null : Number(reps.value);
+    const n = parseNumber(reps.value);
+    set.reps = n === null ? null : Math.round(n);
     saveSoon(session);
   });
   [weight, reps].forEach((input) => {
@@ -300,15 +301,16 @@ function setRow(session, entry, set, index, last) {
   // Reps in reserve. Optional by design — the rating never punishes a blank,
   // it just says it cannot judge effort. A required field here would get filled
   // in with noise, which is worse than nothing.
-  const rir = el('input.rir', {
-    type: 'number', inputmode: 'numeric', step: '1', min: '0', max: '10',
+  const rir = normaliseOnBlur(numberInput({
+    class: 'rir',
     value: set.rir ?? '',
     placeholder: '–',
     'aria-label': `Reps in reserve for set ${workingNo}`,
     title: 'Reps in reserve — how many more you could have done',
-  });
+  }), { integer: true });
   rir.addEventListener('input', () => {
-    set.rir = rir.value === '' ? null : Math.max(0, Math.min(10, Number(rir.value)));
+    const n = parseNumber(rir.value);
+    set.rir = n === null ? null : Math.max(0, Math.min(10, Math.round(n)));
     saveSoon(session);
   });
   rir.addEventListener('focus', () => rir.select());
@@ -393,26 +395,46 @@ function parseReps(spec) {
   return { low: Math.min(...ns), high: Math.max(...ns) };
 }
 
+/**
+ * Tick or untick a set.
+ *
+ * Every change to the session happens inside the mutate callback, and nothing
+ * is celebrated until the write comes back. `store.updateSession` takes its
+ * undo snapshot at the moment it is called, so anything changed before the call
+ * is a change it cannot roll back — this used to mutate first and pass an empty
+ * callback, which quietly made the rollback a no-op on the one action that
+ * matters most. Firing the PR toast and the rest timer first had the same
+ * shape: a personal best announced for a set that never reached the disk.
+ */
 async function toggleDone(session, entry, set, weightInput, repsInput, hint) {
-  if (!set.done) {
+  const turningOn = !set.done;
+  let fill = null;
+
+  if (turningOn) {
     // Empty fields fall back to the placeholder — repeating last week is the
     // common case and shouldn't need typing.
-    if (set.weight === null || set.weight === undefined || weightInput.value === '') {
-      const v = hint ? hint.weight : null;
-      if (v === null) { toast('Enter a weight first'); weightInput.focus(); return; }
-      set.weight = v; weightInput.value = String(v);
-    }
-    if (!set.reps || repsInput.value === '') {
-      const v = hint ? hint.reps : null;
-      if (!v) { toast('Enter reps first'); repsInput.focus(); return; }
-      set.reps = v; repsInput.value = String(v);
-    }
+    const weight = (set.weight === null || set.weight === undefined || weightInput.value === '')
+      ? (hint ? hint.weight : null)
+      : set.weight;
+    const reps = (!set.reps || repsInput.value === '')
+      ? (hint ? hint.reps : null)
+      : set.reps;
+
+    if (weight === null || weight === undefined) { toast('Enter a weight first'); weightInput.focus(); return; }
+    if (!reps) { toast('Enter reps first'); repsInput.focus(); return; }
+    fill = { weight, reps };
   }
 
-  set.done = !set.done;
-  haptic(set.done ? 12 : 6);
+  const saved = await store.updateSession(session.id, () => {
+    if (fill) { set.weight = fill.weight; set.reps = fill.reps; }
+    set.done = turningOn;
+  });
+  if (!saved) return;   // rolled back, and the failure has already been reported
 
-  if (set.done) {
+  if (fill) { weightInput.value = String(fill.weight); repsInput.value = String(fill.reps); }
+  haptic(turningOn ? 12 : 6);
+
+  if (turningOn) {
     const pr = checkPR(session, entry, set);
     if (pr) toast(pr, 2600);
     if (set.type === 'working' && store.state.settings.autoStartRest) {
@@ -421,8 +443,6 @@ async function toggleDone(session, entry, set, weightInput, repsInput, hint) {
       });
     }
   }
-
-  await store.updateSession(session.id, () => {});
 }
 
 /** Returns a message if this set just beat a stored best. */

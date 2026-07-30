@@ -11,6 +11,7 @@
 
 import {
   el, toast, openSheet, closeSheet, confirmSheet, emptyState, listItem, fmtNum, fmtWeight, fmtDate,
+  numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
 import { dayKey } from '../models.js';
@@ -273,7 +274,7 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
     type: 'text', placeholder: 'e.g. 250 g, 1 Scoop, 1 Riegel',
     value: existing ? existing.portion : draft ? `${draft.suggestedGrams} g` : '',
   });
-  const protein = el('input', { type: 'number', inputmode: 'decimal', step: '0.1', min: '0', value: existing ? existing.protein : '' });
+  const protein = normaliseOnBlur(numberInput({ decimal: true, value: existing ? existing.protein : '' }));
   const kcal = el('input', { type: 'number', inputmode: 'numeric', step: '1', min: '0', value: existing ? existing.kcal : '' });
 
   // Only the barcode path gets this: the database stores per 100 g, and how
@@ -301,12 +302,12 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
   async function submit(alsoLog) {
     const value = name.value.trim();
     if (!value) { toast('Give it a name'); name.focus(); return; }
-    if (!protein.value) { toast('Protein per portion is the one number this needs'); protein.focus(); return; }
+    if (parseNumber(protein.value) === null) { toast('Protein per portion is the one number this needs'); protein.focus(); return; }
 
     const fields = {
       name: value,
       portion: portion.value.trim() || '1 Portion',
-      protein: Number(protein.value),
+      protein: parseNumber(protein.value) ?? 0,
       kcal: Number(kcal.value) || 0,
     };
     if (draft) {

@@ -483,6 +483,11 @@ export async function startSession({ planId = null, dayId = null, name } = {}) {
  * is a JSON round trip on purpose: these records are plain data by definition
  * (they are also what the backup file contains), so it is exact, and it needs
  * no support for structuredClone.
+ *
+ * The contract that makes this work: `mutate` must contain *every* change. A
+ * caller that edits the session first and then calls this with an empty
+ * callback gets a snapshot of the already-changed session, and the rollback
+ * silently does nothing.
  */
 export async function updateSession(id, mutate) {
   const index = state.sessions.findIndex((x) => x.id === id);
@@ -658,6 +663,23 @@ export async function importData(payload, { replace = true } = {}) {
   if (!payload || payload.format !== 'liftlog-backup') {
     throw new Error('Not a LiftLog backup file.');
   }
+  // Check the whole file before erasing anything. A restore wipes every store
+  // and then writes, so a payload that passes the format check but carries a
+  // truncated or wrong-typed body used to leave you with neither the backup nor
+  // what you had. Cheap to verify, impossible to undo.
+  const lists = ['exercises', 'plans', 'sessions', 'bodyweight', 'foods', 'meals'];
+  for (const key of lists) {
+    if (payload[key] !== undefined && !Array.isArray(payload[key])) {
+      throw new Error(`This backup is damaged — "${key}" is not a list.`);
+    }
+  }
+  if (payload.settings !== undefined && (typeof payload.settings !== 'object' || payload.settings === null)) {
+    throw new Error('This backup is damaged — its settings are unreadable.');
+  }
+  if (!lists.some((key) => (payload[key] || []).length)) {
+    throw new Error('This backup is empty — nothing would be restored.');
+  }
+
   if (replace) {
     await Promise.all(Object.values(db.STORES).map((s) => db.clear(s)));
   }
