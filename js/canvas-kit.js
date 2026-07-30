@@ -143,7 +143,11 @@ export async function loadPaths(url) {
     const svg = doc.querySelector('svg');
     if (!svg) throw new Error(`${url} has no <svg>`);
 
-    const [, , vw, vh] = (svg.getAttribute('viewBox') || '0 0 100 100')
+    // The origin matters: body-back.svg is "37 0 35 93", not "0 0 …". Reading
+    // only the width and height draws its paths at their raw coordinates, which
+    // pushes the whole figure a viewBox-width to the right. Inline SVG hides
+    // this because the browser applies the origin for you; a canvas does not.
+    const [minX, minY, vw, vh] = (svg.getAttribute('viewBox') || '0 0 100 100')
       .split(/[\s,]+/).map(Number);
 
     const paths = [];
@@ -156,13 +160,45 @@ export async function loadPaths(url) {
         muscle: (node.getAttribute('class') || '').includes('muscle'),
       });
     }
-    return { width: vw, height: vh, paths };
+    return { x: minX, y: minY, width: vw, height: vh, box: contentBox(svg), paths };
   })();
 
   artCache.set(url, job);
   // A failed fetch must not poison the cache — the next attempt should retry.
   job.catch(() => artCache.delete(url));
   return job;
+}
+
+/**
+ * Where the ink actually sits inside the viewBox, in user units.
+ *
+ * The body art does not fill its viewBox: the figure is about 31.5 units wide in
+ * a 35-unit box and sits against the left edge. On the app's screen that is
+ * invisible — each map has its own grid column — but on a card the figure is a
+ * standalone graphic under a centred caption, and the empty margin reads as the
+ * drawing being off to one side.
+ *
+ * Measured with getBBox rather than by parsing path data, which needs the node
+ * attached and rendered: `left: -9999px` works, `display: none` does not. Runs
+ * once per asset, behind the same cache as the fetch. Returns null if the
+ * browser refuses, and the caller then falls back to the plain viewBox.
+ */
+function contentBox(svgNode) {
+  if (typeof document === 'undefined') return null;
+  const host = document.createElement('div');
+  host.setAttribute('aria-hidden', 'true');
+  host.style.cssText = 'position:absolute;left:-9999px;top:0;width:300px;pointer-events:none';
+  const svg = svgNode.cloneNode(true);
+  host.append(svg);
+  document.body.append(host);
+  try {
+    const b = svg.getBBox();
+    return b.width > 0 ? { x: b.x, y: b.y, width: b.width, height: b.height } : null;
+  } catch {
+    return null;
+  } finally {
+    host.remove();
+  }
 }
 
 /**
@@ -181,9 +217,16 @@ export function drawPaths(ctx, art, x, y, width, opts = {}) {
   } = opts;
 
   const scale = width / art.width;
+  // Centred on the ink, not on the box it was exported in. Horizontally only:
+  // the viewBox height is what the caller reserved space with, and the figure
+  // fills it vertically anyway. Both views keep the same scale, so the pair
+  // still matches — each is only nudged into the middle of its own column.
+  const dx = art.box ? (art.x + art.width / 2) - (art.box.x + art.box.width / 2) : 0;
+
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(scale, scale);
+  ctx.translate(-art.x + dx, -art.y);   // the viewBox origin, exactly as SVG applies it
   // Stroke widths in the source are in user units (the viewBox is 35 x 93), so
   // they scale with the transform exactly as they do in the inline SVG.
   ctx.lineWidth = 0.12;
