@@ -2,7 +2,7 @@
 
 import {
   el, fmtNum, fmtWeight, fmtDate, emptyState, listItem,
-  openSheet, closeSheet, toast,
+  openSheet, closeSheet, toast, confirmSheet,
 } from '../ui.js';
 import * as store from '../store.js';
 import {
@@ -53,7 +53,8 @@ export default function renderHome({ actions }) {
 
   // ---------- active workout nudge ----------
   const active = store.activeSession();
-  if (active) {
+  const stale = store.staleSession();
+  if (active && !stale) {
     root.append(
       el('div.card.glow', {}, [
         el('div.row.between', {}, [
@@ -66,6 +67,9 @@ export default function renderHome({ actions }) {
       ])
     );
   }
+  // A workout nobody closed is not "in progress" — and until it is dealt with,
+  // starting a new one silently reopens this one instead.
+  if (stale) root.append(staleCard(stale));
 
   // ---------- backup nudge ----------
   const backup = store.backupStatus();
@@ -190,6 +194,49 @@ export default function renderHome({ actions }) {
   }
 
   return root;
+}
+
+/**
+ * A workout left open.
+ *
+ * Offers the two honest ways out and says what happens to the sets either way.
+ * Finishing keeps only what was ticked — the same rule as finishing normally —
+ * so a session with nothing ticked is worth nothing and says so.
+ */
+function staleCard({ session, hours }) {
+  const logged = session.entries.reduce((n, e) => n + e.sets.filter(isCounted).length, 0);
+  const since = hours >= 48
+    ? `${Math.round(hours / 24)} days ago`
+    : `${Math.round(hours)} hours ago`;
+
+  return el('div.card', { style: { borderColor: 'color-mix(in srgb, var(--warn) 40%, transparent)' } }, [
+    el('div', { style: { fontWeight: '680', color: 'var(--warn)' }, text: 'A workout is still open' }),
+    el('div.small.muted', { style: { marginTop: '2px' },
+      text: `${session.name} was started ${since} and never finished. Until it is closed, starting a new workout just reopens this one.` }),
+    el('div.stack', { style: { marginTop: '12px' } }, [
+      logged
+        ? el('button.btn.primary.full.sm', {
+            onclick: async () => {
+              await store.finishSession(session.id);
+              toast(`Finished with ${logged} ${logged === 1 ? 'set' : 'sets'}`);
+            },
+          }, [`Finish it — keeps the ${logged} ${logged === 1 ? 'set' : 'sets'} you ticked`])
+        : null,
+      el('button.btn.ghost.full.sm', { onclick: () => navigate('train') }, ['Open it first']),
+      el('button.btn.ghost.full.sm', {
+        onclick: async () => {
+          const ok = await confirmSheet('Discard this workout?',
+            logged
+              ? `${logged} logged ${logged === 1 ? 'set' : 'sets'} will be permanently deleted.`
+              : 'Nothing was ticked in it, so nothing is lost.',
+            { confirmLabel: 'Discard' });
+          if (!ok) return;
+          await store.discardSession(session.id);
+          toast('Discarded');
+        },
+      }, ['Discard it']),
+    ]),
+  ]);
 }
 
 /* ==================== today ==================== */

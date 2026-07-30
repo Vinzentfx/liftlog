@@ -8,6 +8,7 @@ import {
   LIBRARY_VERSION, DATA_VERSION, normName, regionsForMuscle,
 } from './models.js';
 import { buildPlanDays, SETS_PER_EXERCISE, REP_TARGET } from './plan-builder.js';
+import { DEFAULT_BAR } from './plates.js';
 
 /**
  * Every write goes through this wrapper, so a failed one can never be silent.
@@ -186,6 +187,24 @@ export function activeSession() {
   return state.sessions.find((s) => !s.finishedAt) || null;
 }
 
+/**
+ * How long a workout has been open, past the point where it is plausible.
+ *
+ * Nothing ever closes a session by itself, and `startSession` hands back the
+ * open one rather than starting a second — which is right during a workout and
+ * wrong three days later, when it quietly means you cannot start anything and
+ * the elapsed clock reads 72h. Twelve hours is not a rule about training, just
+ * longer than any session anyone actually does.
+ */
+export const STALE_SESSION_HOURS = 12;
+
+export function staleSession() {
+  const open = activeSession();
+  if (!open) return null;
+  const hours = (Date.now() - open.startedAt) / 3600000;
+  return hours >= STALE_SESSION_HOURS ? { session: open, hours } : null;
+}
+
 export const units = () => state.settings.units;
 
 /** What a newly added plan exercise starts at. Settings first, app default after. */
@@ -198,6 +217,12 @@ export const defaultReps = () =>
 
 /** Quality stars are hidden separately from the strength tiers — different things. */
 export const starsShown = () => state.settings.showStars !== false;
+
+/** The bar the plate maths assumes, falling back to the standard for the unit. */
+export const barWeight = () => {
+  const set = Number(state.settings.barWeight);
+  return set > 0 ? set : DEFAULT_BAR[units()] ?? DEFAULT_BAR.kg;
+};
 
 // ---------- settings ----------
 

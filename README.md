@@ -17,6 +17,7 @@ so the whole thing works with the network off.
 
 **Logging**
 - Exercise library, reusable multi-day plans, set-by-set entry
+- Plate maths for barbell lifts: what to hang on each side, and when a weight is not loadable
 - **Last session's numbers shown inline** and pre-filled, so repeating a workout is three taps
 - Rest timer (3 min default) with a chime, auto-started when you complete a set
 - Warmup vs working sets, per-exercise notes, PR toasts mid-workout
@@ -29,6 +30,7 @@ so the whole thing works with the network off.
 **Calendar**
 - Month grid of every gym day, measured against your active plan
 - Full workout history; tap any date to open that session
+- Edit a finished workout — fix a set, add or remove one, correct the date
 
 **Library**
 - ~776 exercises, searchable by name, muscle group and equipment
@@ -186,6 +188,8 @@ warnings that do matter.
 | `js/foodlookup.js` | Open Food Facts barcode lookup — the only networked module |
 | `js/schedule.js` | Which plan day belongs to which weekday |
 | `js/plan-share.js` | Encode/decode a plan into a link — no server involved |
+| `js/plates.js` | What to load per side, and when a weight cannot be reached |
+| `js/fatigue.js` | Whether lifts are still gaining — facts only, no prescription |
 | `js/canvas-kit.js` | Canvas text/shape helpers and an SVG-path-to-Path2D loader |
 | `js/week-card.js` | One week assembled and drawn as a shareable PNG |
 | `js/week-share.js` | The sheet that builds the card and hands it to the share sheet |
@@ -332,6 +336,46 @@ suggestion is plain double progression — clear the top of the rep range on eve
 set, then add weight — with RIR as an override in both directions. It is a way to
 turn "train close to failure" into a decision on the gym floor, not a research
 finding, and it says so.
+
+### Why there is no deload feature
+
+There is a card on Progress called **Still moving?**, and it deliberately stops
+short of being one. It counts how many of your tracked lifts have stopped
+gaining, what your working sets have done over the last three weeks against the
+three before, and whether your sets have been drifting closer to failure. Then
+it stops.
+
+It will not tell you to take a lighter week. Deloads are near-universal in
+training culture and thin in the literature: no trial establishes when one is
+due, how long it should last, or that taking one beats simply carrying on.
+"Week 7, drop to 60%" would be invented precision of exactly the kind this app
+refuses everywhere else, and a stall has plenty of cheaper explanations —
+jumping the weight too fast, a bad week of sleep, or three ordinary sessions in
+a row.
+
+So `js/fatigue.js` reports and the reader decides. There is a test asserting the
+output contains none of "deload", "should", "need to", "too much" — the wording
+is the feature, and it is the sort of thing that erodes one helpful-sounding
+edit at a time.
+
+The one number it introduces, the band within which a slope counts as flat, is
+not invented for it either: it is `FLAT_BAND` in `js/region-progress.js`, the
+same convention the muscle map already uses, exported rather than copied so the
+two cannot drift apart.
+
+### Editing a workout after the fact
+
+The calendar detail view could only delete, which meant a mistyped rep count
+cost you the whole session. That is worse than it sounds: 120 reps instead of 12
+mints an estimated 1RM that is never beaten again, permanently lifts the
+strength score and bends twelve weeks of slope. Everything this app says is
+derived from the log, so the log has to be correctable.
+
+Editing follows the same split as a live workout: keystrokes save quietly
+(a re-render mid-typing would destroy the caret), structural changes go through
+`store.updateSession` so they re-render and can roll back. Moving a workout to
+another day keeps its duration rather than its end time, and the field says out
+loud that the week it counts towards moves with it.
 
 ### Numbers you type
 

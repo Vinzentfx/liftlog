@@ -11,6 +11,7 @@ import { newSet, newEntry, entryStats, sessionStats, lastPerformance, e1rm, isCo
 import { pickExercise } from '../pickers.js';
 import { todaysDays, weekdayName, weekdayShort } from '../schedule.js';
 import { exerciseArt } from '../exercise-art.js';
+import { platePlan, describePlates, PLATES } from '../plates.js';
 import { navigate, render } from '../app.js';
 
 const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
@@ -466,6 +467,57 @@ function checkPR(session, entry, set) {
   return null;
 }
 
+/**
+ * What to hang on the bar for a given total.
+ *
+ * Opens on the heaviest weight already written into this exercise, because that
+ * is nearly always the number you are asking about. It reports the load it can
+ * actually reach: the gym has no 0.5 kg discs, so a target it cannot hit says
+ * so instead of printing a plate list that adds up to something else.
+ */
+function plateSheet(entry, ex) {
+  const units = store.units();
+  const bar = store.barWeight();
+  const start = Math.max(0, ...entry.sets.map((s) => Number(s.weight) || 0));
+
+  const input = normaliseOnBlur(numberInput({
+    decimal: true,
+    value: start || '',
+    placeholder: `Total in ${units}`,
+    'aria-label': 'Target weight',
+  }));
+  const out = el('div', { style: { marginTop: '4px' } });
+
+  function paint() {
+    const plan = platePlan(parseNumber(input.value), bar, units);
+    if (!plan) {
+      out.replaceChildren(el('div.small.faint', {
+        text: `Enter a total of at least the bar (${fmtWeight(bar, units)}).`,
+      }));
+      return;
+    }
+    out.replaceChildren(
+      el('div.card.tight', {}, [
+        el('div', { style: { fontSize: '19px', fontWeight: '720' },
+          text: plan.barOnly ? 'Just the bar' : `${describePlates(plan.perSide)} per side` }),
+        el('div.small.faint', { style: { marginTop: '4px' },
+          text: `${fmtWeight(plan.loaded, units)} on the bar · ${fmtWeight(bar, units)} bar` }),
+        plan.exact ? null : el('div.small', { style: { marginTop: '6px', color: 'var(--warn)' },
+          text: `Closest loadable weight — ${fmtWeight(Math.abs(plan.off), units)} ${plan.off < 0 ? 'under' : 'over'} what you asked for.` }),
+      ])
+    );
+  }
+  input.addEventListener('input', paint);
+  paint();
+
+  openSheet(`Load ${ex.name}`, el('div', {}, [
+    el('label.field', {}, [el('span', { text: `Target weight (${units})` }), input]),
+    out,
+    el('div.small.faint', { style: { marginTop: '14px' },
+      text: `Assumes a ${fmtWeight(bar, units)} bar and plates of ${PLATES[units].join(', ')}. Change the bar in Settings if yours is different.` }),
+  ]));
+}
+
 /* ============================ menus ============================ */
 
 function exerciseMenu(session, entry, index, name) {
@@ -485,6 +537,13 @@ function exerciseMenu(session, entry, index, name) {
     ex ? el('button.btn.ghost.full', {
       onclick: () => { closeSheet(); howToSheet(ex); },
     }, ['How to do it']) : null,
+    // Only for a loaded bar. On a machine "per side" means nothing, and on a
+    // dumbbell there is nothing to work out.
+    ex && ex.equipment === 'Barbell'
+      ? el('button.btn.ghost.full', {
+          onclick: () => { closeSheet(); plateSheet(entry, ex); },
+        }, ['What to load'])
+      : null,
     el('button.btn.ghost.full', { onclick: () => { closeSheet(); noteForm(session, entry); } }, ['Add a note']),
     el('button.btn.ghost.full', { disabled: index === 0, onclick: () => move(-1) }, ['↑ Move up']),
     el('button.btn.ghost.full', { disabled: index === session.entries.length - 1, onclick: () => move(1) }, ['↓ Move down']),

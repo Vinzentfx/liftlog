@@ -7,6 +7,7 @@ import {
 import * as store from '../store.js';
 import * as db from '../db.js';
 import { hasProfile } from '../standards.js';
+import { DEFAULT_BAR } from '../plates.js';
 import { evidenceList } from '../rating-ui.js';
 
 /**
@@ -155,6 +156,16 @@ export function renderSettings() {
     store.setSetting('defaultSets', n);
   });
 
+  const barInput = normaliseOnBlur(numberInput({
+    decimal: true,
+    value: s.barWeight ?? '',
+    placeholder: String(DEFAULT_BAR[s.units] ?? DEFAULT_BAR.kg),
+  }));
+  barInput.addEventListener('change', () => {
+    const n = parseNumber(barInput.value);
+    store.setSetting('barWeight', n !== null && n > 0 ? n : null);
+  });
+
   const defReps = el('input', { type: 'text', value: store.defaultReps(), placeholder: 'e.g. 6-10' });
   defReps.addEventListener('change', () => {
     const v = defReps.value.trim() || '6-10';
@@ -224,6 +235,11 @@ export function renderSettings() {
     ]),
     el('div.small.faint', { style: { marginTop: '-4px' },
       text: '2 sets at 6–10 is the app default: spreading volume over more movements covers more of a muscle than piling sets onto one. That is a preference, not a finding — change it and everything follows.' }),
+
+    el('div.section-head', {}, [el('h2', { text: 'Barbell' })]),
+    el('label.field', {}, [el('span', { text: `Bar weight (${s.units})` }), barInput]),
+    el('div.small.faint', { style: { marginTop: '-4px' },
+      text: `Used only by the plate maths in a workout. Blank means the standard Olympic bar for your unit (${DEFAULT_BAR[s.units] ?? DEFAULT_BAR.kg}${s.units}).` }),
 
     el('div.section-head', {}, [el('h2', { text: 'What to show' })]),
     checkRow(starToggle, 'Exercise and plan stars',

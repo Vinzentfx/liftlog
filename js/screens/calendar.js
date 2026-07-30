@@ -3,13 +3,18 @@
 
 import {
   el, fmtNum, fmtDuration, fmtDate, relDay, setsSummary,
-  confirmSheet, toast, emptyState, listItem,
+  confirmSheet, toast, emptyState, listItem, debounce,
+  numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
-import { sessionStats, entryStats, isCounted } from '../models.js';
+import { sessionStats, entryStats, isCounted, newSet, newEntry } from '../models.js';
+import { pickExercise } from '../pickers.js';
 import { navigate } from '../app.js';
 
-let cursor = null;   // first-of-month being viewed
+let cursor = null;      // first-of-month being viewed
+let editingId = null;   // which session is open for editing, if any
+
+const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
 
 export default function renderCalendar({ param, actions }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': 'Settings' }, ['⚙']));
@@ -190,16 +195,26 @@ function detailView(id) {
 
   const units = store.units();
   const st = sessionStats(session);
+  const editing = editingId === session.id;
 
   root.append(
     el('div.card', {}, [
-      el('div', { style: { fontSize: '20px', fontWeight: '730', letterSpacing: '-0.02em' }, text: session.name }),
-      el('div.small.muted', {
-        style: { marginBottom: '12px' },
-        text: new Date(session.startedAt).toLocaleDateString(undefined,
-          { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
-      }),
-      el('div.stat-grid', {}, [
+      el('div.row.between', { style: { gap: '10px' } }, [
+        el('div.grow', {}, [
+          el('div', { style: { fontSize: '20px', fontWeight: '730', letterSpacing: '-0.02em' }, text: session.name }),
+          el('div.small.muted', {
+            text: new Date(session.startedAt).toLocaleDateString(undefined,
+              { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+          }),
+        ]),
+        el('button.btn.sm' + (editing ? '.primary' : '.ghost'), {
+          onclick: () => {
+            editingId = editing ? null : session.id;
+            navigate('calendar', session.id);
+          },
+        }, [editing ? 'Done' : 'Edit']),
+      ]),
+      el('div.stat-grid', { style: { marginTop: '12px' } }, [
         el('div.stat', {}, [el('span.stat-val', { text: fmtDuration(st.durationMs) }), el('span.stat-key', { text: 'Duration' })]),
         el('div.stat', {}, [el('span.stat-val', { text: String(st.sets) }), el('span.stat-key', { text: 'Sets' })]),
         el('div.stat', {}, [el('span.stat-val', { text: fmtNum(st.volume) }), el('span.stat-key', { text: `Volume ${units}` })]),
@@ -207,26 +222,22 @@ function detailView(id) {
     ])
   );
 
-  for (const entry of session.entries) {
-    const ex = store.state.exerciseById.get(entry.exerciseId);
-    const stats = entryStats(entry);
-    const counted = entry.sets.filter(isCounted);
-
+  if (editing) {
+    root.append(editHeader(session));
+    for (const entry of session.entries) root.append(editEntry(session, entry, units));
     root.append(
-      el('div.card', {}, [
-        el('div.row.between', { style: { marginBottom: '6px' } }, [
-          el('div', { style: { fontWeight: '650' }, text: ex ? ex.name : 'Unknown exercise' }),
-          ex ? el('button.btn.quiet.sm', { onclick: () => navigate('progress', ex.id) }, ['Chart ›']) : null,
-        ]),
-        el('div.small', { style: { marginBottom: '6px' }, text: setsSummary(counted, units) }),
-        el('div.row', { style: { gap: '14px' } }, [
-          el('span.small.faint', { text: `${stats.sets} sets` }),
-          el('span.small.faint', { text: `${fmtNum(stats.volume)}${units} volume` }),
-          stats.e1rm ? el('span.small.faint', { text: `e1RM ${fmtNum(stats.e1rm)}${units}` }) : null,
-        ]),
-        entry.note ? el('div.small.muted', { style: { marginTop: '8px' }, text: entry.note }) : null,
-      ])
+      el('button.btn.ghost.full', {
+        style: { marginTop: '4px' },
+        onclick: () => pickExercise(async (ex) => {
+          await store.updateSession(session.id, (s) => {
+            s.entries.push(newEntry(ex.id, [{ ...newSet(), done: true }]));
+          });
+          toast(`Added ${ex.name}`);
+        }, session.entries.map((e) => e.exerciseId)),
+      }, ['+ Add exercise'])
     );
+  } else {
+    for (const entry of session.entries) root.append(readEntry(entry, units));
   }
 
   root.append(
@@ -237,6 +248,7 @@ function detailView(id) {
           `${session.name} from ${fmtDate(session.startedAt)} will be permanently deleted.`);
         if (!ok) return;
         await store.discardSession(session.id);
+        editingId = null;
         toast('Workout deleted');
         navigate('calendar');
       },
@@ -244,4 +256,198 @@ function detailView(id) {
   );
 
   return root;
+}
+
+function readEntry(entry, units) {
+  const ex = store.state.exerciseById.get(entry.exerciseId);
+  const stats = entryStats(entry);
+  const counted = entry.sets.filter(isCounted);
+
+  return el('div.card', {}, [
+    el('div.row.between', { style: { marginBottom: '6px' } }, [
+      el('div', { style: { fontWeight: '650' }, text: ex ? ex.name : 'Unknown exercise' }),
+      ex ? el('button.btn.quiet.sm', { onclick: () => navigate('progress', ex.id) }, ['Chart ›']) : null,
+    ]),
+    el('div.small', { style: { marginBottom: '6px' }, text: setsSummary(counted, units) }),
+    el('div.row', { style: { gap: '14px' } }, [
+      el('span.small.faint', { text: `${stats.sets} sets` }),
+      el('span.small.faint', { text: `${fmtNum(stats.volume)}${units} volume` }),
+      stats.e1rm ? el('span.small.faint', { text: `e1RM ${fmtNum(stats.e1rm)}${units}` }) : null,
+    ]),
+    entry.note ? el('div.small.muted', { style: { marginTop: '8px' }, text: entry.note }) : null,
+  ]);
+}
+
+/* ============================ editing ============================ */
+
+/**
+ * Correcting a workout after the fact.
+ *
+ * This existed as "delete the whole thing" for far too long. A mistyped rep
+ * count is not a reason to throw away a session, and leaving it in is worse
+ * than it looks: 120 reps instead of 12 mints an estimated 1RM that is never
+ * beaten again, lifts the strength score permanently and bends twelve weeks of
+ * slope. Everything the app says is derived from this log, so the log has to be
+ * correctable.
+ *
+ * Keystrokes save quietly, exactly as they do in a live workout — re-rendering
+ * on every character would destroy the caret. Structural edits go through
+ * store.updateSession, which re-renders and can roll back.
+ */
+function editHeader(session) {
+  const name = el('input', { type: 'text', value: session.name });
+  name.addEventListener('input', () => {
+    session.name = name.value.trim() || 'Workout';
+    saveSoon(session);
+  });
+
+  const date = el('input', {
+    type: 'date',
+    value: toDateValue(session.startedAt),
+    max: toDateValue(Date.now()),
+  });
+  date.addEventListener('change', async () => {
+    const moved = movedToDate(session.startedAt, date.value);
+    if (moved === null) { date.value = toDateValue(session.startedAt); return; }
+    const shift = moved - session.startedAt;
+    const ok = await store.updateSession(session.id, (s) => {
+      s.startedAt = moved;
+      // Keep the duration rather than the end time; a session moved to another
+      // day did not suddenly last three days.
+      if (s.finishedAt) s.finishedAt += shift;
+    });
+    if (ok) toast('Date corrected');
+    else date.value = toDateValue(session.startedAt);
+  });
+
+  return el('div.card', {}, [
+    el('label.field', {}, [el('span', { text: 'Workout name' }), name]),
+    el('label.field', { style: { marginBottom: '0' } }, [
+      el('span', { text: 'Date' }), date,
+      el('div.small.faint', { style: { marginTop: '6px' },
+        text: 'Moving a workout moves it in every weekly figure too — the week it counts towards, the streak and the muscle map all follow the date.' }),
+    ]),
+  ]);
+}
+
+function editEntry(session, entry, units) {
+  const ex = store.state.exerciseById.get(entry.exerciseId);
+  const block = el('div.card.exercise-block');
+
+  block.append(
+    el('div.exercise-head', {}, [
+      el('h3', { text: ex ? ex.name : 'Unknown exercise' }),
+      el('button.btn.quiet.sm', {
+        'aria-label': `Remove ${ex ? ex.name : 'exercise'} from this workout`,
+        onclick: async () => {
+          const ok = await confirmSheet('Remove exercise?',
+            `${ex ? ex.name : 'This exercise'} and its ${entry.sets.length} ${entry.sets.length === 1 ? 'set' : 'sets'} will be removed from this workout.`,
+            { confirmLabel: 'Remove' });
+          if (!ok) return;
+          await store.updateSession(session.id, (s) => {
+            s.entries = s.entries.filter((e) => e !== entry);
+          });
+        },
+      }, ['Remove']),
+    ])
+  );
+
+  block.append(el('div.set-labels.with-rir', {}, [
+    el('span', { text: 'Set' }), el('span', { text: units }),
+    el('span', { text: 'Reps' }), el('span', { text: 'RIR' }), el('span', { text: '' }),
+  ]));
+
+  entry.sets.forEach((set, i) => block.append(editRow(session, entry, set, i)));
+
+  block.append(
+    el('button.btn.ghost.full.sm', {
+      style: { marginTop: '8px' },
+      onclick: async () => {
+        const prev = entry.sets.filter((s) => s.type === 'working').slice(-1)[0] || null;
+        await store.updateSession(session.id, () => {
+          entry.sets.push({ ...newSet(prev), done: true });
+        });
+      },
+    }, ['+ Add set'])
+  );
+
+  return block;
+}
+
+function editRow(session, entry, set, index) {
+  const workingNo = entry.sets.slice(0, index + 1).filter((s) => s.type === 'working').length;
+  const row = el('div.set-row.with-rir' + (set.type === 'warmup' ? '.warmup' : ''));
+
+  row.append(
+    el('button.set-no', {
+      style: { background: 'none', border: 0 },
+      title: 'Tap to toggle warmup',
+      onclick: async () => {
+        await store.updateSession(session.id, () => {
+          set.type = set.type === 'warmup' ? 'working' : 'warmup';
+        });
+      },
+    }, [set.type === 'warmup' ? 'W' : String(workingNo)])
+  );
+
+  const weight = normaliseOnBlur(numberInput({
+    decimal: true, value: set.weight ?? '', placeholder: '—', 'aria-label': 'Weight',
+  }));
+  const reps = normaliseOnBlur(numberInput({
+    value: set.reps ?? '', placeholder: '—', 'aria-label': 'Reps',
+  }), { integer: true });
+  const rir = normaliseOnBlur(numberInput({
+    class: 'rir', value: set.rir ?? '', placeholder: '–', 'aria-label': 'Reps in reserve',
+  }), { integer: true });
+
+  weight.addEventListener('input', () => {
+    set.weight = parseNumber(weight.value);
+    saveSoon(session);
+  });
+  reps.addEventListener('input', () => {
+    const n = parseNumber(reps.value);
+    set.reps = n === null ? null : Math.round(n);
+    saveSoon(session);
+  });
+  rir.addEventListener('input', () => {
+    const n = parseNumber(rir.value);
+    set.rir = n === null ? null : Math.max(0, Math.min(10, Math.round(n)));
+    saveSoon(session);
+  });
+  [weight, reps, rir].forEach((input) => input.addEventListener('focus', () => input.select()));
+
+  row.append(weight, reps, rir);
+  row.append(
+    el('button.done-btn', {
+      'aria-label': `Delete set ${workingNo}`,
+      title: 'Delete this set',
+      style: { color: 'var(--danger)' },
+      onclick: async () => {
+        await store.updateSession(session.id, (s) => {
+          entry.sets.splice(index, 1);
+          // An exercise with no sets left is not a record of anything, and it
+          // would still be counted as an exercise performed.
+          if (!entry.sets.length) s.entries = s.entries.filter((e) => e !== entry);
+        });
+      },
+    }, ['✕'])
+  );
+
+  return row;
+}
+
+const toDateValue = (ts) => {
+  const d = new Date(ts);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+/** Same clock time, different day. Returns null if the field is unusable. */
+function movedToDate(startedAt, value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;
+  const [y, m, d] = value.split('-').map(Number);
+  const from = new Date(startedAt);
+  const next = new Date(y, m - 1, d, from.getHours(), from.getMinutes(), from.getSeconds());
+  const ts = next.getTime();
+  return Number.isFinite(ts) && ts <= Date.now() ? ts : null;
 }

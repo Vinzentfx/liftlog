@@ -13,6 +13,7 @@ import {
 import { lineChart, barChart, hBars, heatmap } from '../charts.js';
 import { strengthHistory, tonnageHistory, movers } from '../history.js';
 import { weekStreak } from '../log-analysis.js';
+import { stallReport, describeStall } from '../fatigue.js';
 import { shareWeekSheet } from '../week-share.js';
 import { TIERS, tierIndex, hasProfile } from '../standards.js';
 import { pickExercise } from '../pickers.js';
@@ -94,6 +95,9 @@ function overview() {
 
   // --- what's moving ---
   root.append(moversSection(done, units));
+
+  // --- is it still moving at all ---
+  root.append(stallSection(done));
 
   // --- weekly volume of work ---
   const buckets = weeklyMuscleSets(done, store.state.exerciseById, 10);
@@ -272,6 +276,43 @@ function nextTierNote(score) {
 /* ===================== movers ===================== */
 
 /** Which lifts are climbing, and which have not moved in months. */
+/**
+ * The closest this app comes to telling you to take a lighter week — which is
+ * to say, not very close. It states what your own log shows and stops there.
+ *
+ * Deloads are near-universal in practice and thinly evidenced in the
+ * literature: no trial establishes when one is due, how long it should last, or
+ * that taking one beats carrying on. A rule here would be invented precision,
+ * so the card carries facts and says out loud that the decision is yours.
+ */
+function stallSection(done) {
+  const wrap = el('div');
+  const report = stallReport(done, store.state.exerciseById);
+  if (!report) return wrap;
+
+  const lines = describeStall(report);
+  const worthAttention = report.stalled >= Math.ceil(report.tracked / 2);
+
+  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Still moving?' })]));
+  wrap.append(
+    el('div.card', {}, [
+      el('div', {
+        style: {
+          fontWeight: '650', fontSize: '14px',
+          color: worthAttention ? 'var(--warn)' : 'var(--good)',
+        },
+        text: worthAttention
+          ? 'Most of your lifts have stopped gaining'
+          : 'Most of your lifts are still gaining',
+      }),
+      ...lines.map((text) => el('div.small.muted', { style: { marginTop: '8px' }, text })),
+      el('div.small.faint', { style: { marginTop: '12px' },
+        text: 'These are observations, not instructions. There is no good evidence for a scheduled deload — no trial says when one is due or that taking one beats carrying on — so the app will not tell you to take one. A stall can equally mean the weight jumps are too big, sleep, or a run of bad sessions.' }),
+    ])
+  );
+  return wrap;
+}
+
 function moversSection(done, units) {
   const wrap = el('div');
   const rows = movers(done, store.state.exerciseById, { minSessions: 3, sinceWeeks: 12 });

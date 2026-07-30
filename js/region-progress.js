@@ -26,6 +26,17 @@ const WEEK = 7 * 86400000;
 const MIN_SESSIONS = 3;
 
 /**
+ * How close to zero a slope has to be before it is called flat, in percent of
+ * the starting estimate per week.
+ *
+ * This is the app's own convention, not a finding — there is no published cut-off
+ * for "no longer progressing". It is here rather than inline because more than
+ * one screen asks the same question, and two screens disagreeing about what
+ * counts as flat is the bug this codebase keeps producing.
+ */
+export const FLAT_BAND = 0.3;
+
+/**
  * Estimated-1RM trend per body-map region.
  *
  * Fitted on e1RM rather than top weight so that adding reps counts as progress
@@ -101,7 +112,7 @@ export function regionProgress(sessions, exerciseById, { weeks = 12, now = Date.
     }
     const pct = a.weighted / a.weight;
     out[region] = {
-      state: pct > 0.3 ? 'climbing' : pct < -0.3 ? 'falling' : 'flat',
+      state: pct > FLAT_BAND ? 'climbing' : pct < -FLAT_BAND ? 'falling' : 'flat',
       pctPerWeek: pct,
       exercises: a.exercises,
       sessions: a.sessions,

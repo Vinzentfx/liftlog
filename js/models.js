@@ -26,6 +26,10 @@ export const DEFAULT_SETTINGS = {
   // finding — someone running 3 x 8-12 should not have to retype it every time.
   defaultSets: 2,
   defaultReps: '6-10',
+  // What the empty bar weighs, for the plate maths. null means "the standard
+  // Olympic bar for the current unit" — a setting rather than a constant
+  // because training bars, women's bars and safety-squat bars all differ.
+  barWeight: null,
   // Profile. sex and bodyweight drive the strength standards; height is
   // recorded for reference only and is deliberately not used in any rating
   // (no published standard normalises by height).

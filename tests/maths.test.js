@@ -34,6 +34,8 @@ const { decodeLink, planLink, resolveAgainstLibrary } = await import('../js/plan
 const { weekSummary } = await import('../js/week-card.js');
 const { THRESHOLDS } = await import('../js/evidence.js');
 const { parseNumber } = await import('../js/ui.js');
+const { platePlan, describePlates } = await import('../js/plates.js');
+const { stallReport, describeStall } = await import('../js/fatigue.js');
 
 const INDIRECT = THRESHOLDS.indirectSetWeight.value;
 
@@ -242,6 +244,95 @@ test('bodyweightAt reads the entry in force at a moment', () => {
   assert.equal(bodyweightAt(log, at(2026, 5, 1)), null, 'nothing before the first entry');
   assert.equal(bodyweightAt(log, at(2026, 6, 15)), 80);
   assert.equal(bodyweightAt(log, at(2026, 8, 1)), 82);
+});
+
+/* ========================== loading a bar ========================== */
+
+test('platePlan splits the load evenly and names every disc', () => {
+  const plan = platePlan(100, 20, 'kg');
+  assert.equal(plan.loaded, 100);
+  assert.equal(plan.exact, true);
+  assert.equal(plan.perSide.reduce((a, b) => a + b, 0) * 2 + 20, 100);
+  // Heaviest discs first: 40 a side is 25 + 15, not 20 + 15 + 5.
+  assert.equal(describePlates(plan.perSide), '1 × 25, 1 × 15');
+});
+
+test('platePlan admits when a weight cannot be loaded', () => {
+  // Nothing under 1.25 kg exists on the rack, so 101 kg is not a thing you can
+  // put on a bar — printing a plate list for it would be a small daily lie.
+  // 40.5 a side loads as 25 + 15; the last half kilo has no disc, so the bar
+  // ends up at 100 and the answer says so rather than claiming 101.
+  const plan = platePlan(101, 20, 'kg');
+  assert.equal(plan.exact, false);
+  assert.equal(plan.loaded, 100);
+  assert.equal(plan.off, -1);
+});
+
+test('platePlan handles the bar on its own and refuses less', () => {
+  const barOnly = platePlan(20, 20, 'kg');
+  assert.equal(barOnly.barOnly, true);
+  assert.equal(describePlates(barOnly.perSide), 'just the bar');
+  assert.equal(platePlan(15, 20, 'kg'), null, 'lighter than the bar has no answer');
+  assert.equal(platePlan(null, 20, 'kg'), null);
+});
+
+test('platePlan uses the pound rack for pounds', () => {
+  const plan = platePlan(225, 45, 'lb');
+  assert.equal(plan.exact, true);
+  assert.equal(describePlates(plan.perSide), '2 × 45');
+});
+
+/* ===================== is it still moving ===================== */
+
+/** n sessions of one exercise, one a week, at a constant or climbing load. */
+function series(exercise, { weeks, from, step }) {
+  const out = [];
+  for (let i = 0; i < weeks; i++) {
+    const t = at(2026, 7, 28) - (weeks - 1 - i) * 7 * 86400000;
+    out.push(session(t, [entry(exercise.id, [set(from + i * step, 8)])]));
+  }
+  return out;
+}
+
+test('stallReport says nothing without enough lifts to compare', () => {
+  const only = series(BENCH, { weeks: 6, from: 80, step: 2.5 });
+  assert.equal(stallReport(only, byId), null, 'one lift is not a picture');
+});
+
+test('stallReport separates climbing lifts from stalled ones', () => {
+  const squat = exercise('ex_squat', 'Back Squat', ['quads']);
+  const row = exercise('ex_row', 'Barbell Row', ['lats']);
+  const all = new Map([[BENCH.id, BENCH], [squat.id, squat], [row.id, row]]);
+
+  const sessions = [
+    ...series(BENCH, { weeks: 6, from: 80, step: 2.5 }),   // climbing
+    ...series(squat, { weeks: 6, from: 100, step: 0 }),    // flat
+    ...series(row, { weeks: 6, from: 70, step: -1 }),      // falling
+  ];
+
+  const report = stallReport(sessions, all);
+  assert.equal(report.tracked, 3);
+  assert.equal(report.stalled, 2, 'flat and falling both count as not gaining');
+  assert.equal(report.falling, 1);
+  assert.ok(report.names.includes('Barbell Row'));
+  assert.ok(!report.names.includes('Barbell Bench Press'));
+});
+
+test('describeStall reports and never prescribes', () => {
+  const squat = exercise('ex_squat', 'Back Squat', ['quads']);
+  const row = exercise('ex_row', 'Barbell Row', ['lats']);
+  const all = new Map([[BENCH.id, BENCH], [squat.id, squat], [row.id, row]]);
+  const sessions = [
+    ...series(BENCH, { weeks: 6, from: 80, step: 0 }),
+    ...series(squat, { weeks: 6, from: 100, step: 0 }),
+    ...series(row, { weeks: 6, from: 70, step: 0 }),
+  ];
+
+  const text = describeStall(stallReport(sessions, all)).join(' ').toLowerCase();
+  assert.ok(text.includes('3 of 3'));
+  for (const word of ['deload', 'should', 'need to', 'take a', 'too much', 'overtrain']) {
+    assert.ok(!text.includes(word), `the observation must not say "${word}"`);
+  }
 });
 
 /* ======================= sharing a plan ======================= */
