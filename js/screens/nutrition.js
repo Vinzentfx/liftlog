@@ -21,7 +21,8 @@ import {
   NUTRIENTS,
 } from '../nutrition.js';
 import {
-  searchLibrary, toFoodFields, coverage, LIBRARY_SIZE, LIBRARY_ATTRIBUTION,
+  searchFoods, toFoodFields, coverage, TOTAL_SIZE,
+  LIBRARY_ATTRIBUTION, BRAND_ATTRIBUTION,
 } from '../foodsearch.js';
 import { THRESHOLDS, SOURCES } from '../evidence.js';
 import { lookupBarcode, scaleToPortion, ATTRIBUTION } from '../foodlookup.js';
@@ -483,7 +484,7 @@ function quickAdd(day) {
   }
 
   const search = el('input', {
-    type: 'text', placeholder: `Search your list and ${LIBRARY_SIZE} generic foods…`,
+    type: 'text', placeholder: `Search your list and ${TOTAL_SIZE} foods…`,
     autocomplete: 'off', autocorrect: 'off', spellcheck: 'false',
   });
   const list = el('div');
@@ -504,34 +505,40 @@ function quickAdd(day) {
       }));
     }
 
-    // Then the bundled generic foods, clearly separated: these are not on your
-    // list yet, and picking one asks for a portion before it joins.
-    const fromLibrary = q ? searchLibrary(q) : [];
-    if (fromLibrary.length) {
+    // Then the bundled libraries, kept visibly apart. Generic entries were
+    // measured in a lab; branded ones were typed off a packet by a stranger.
+    // Both are useful and they are not the same kind of number.
+    const hits = q ? searchFoods(q) : [];
+    for (const kind of ['generic', 'brand']) {
+      const group = hits.filter((h) => h.kind === kind);
+      if (!group.length) continue;
+
       list.append(el('div.slot-head', {}, [
-        el('span', { text: 'From the food library' }),
-        el('span', { text: plural(fromLibrary.length, 'match', 'matches') }),
+        el('span', { text: kind === 'generic' ? 'Generic foods · measured' : 'Branded · as labelled' }),
+        el('span', { text: plural(group.length, 'match', 'matches') }),
       ]));
-      for (const entry of fromLibrary) {
-        const p = entry.per100;
+
+      for (const hit of group) {
+        const p = hit.entry.per100;
+        const title = hit.entry.brand ? `${hit.entry.name} · ${hit.entry.brand}` : hit.entry.name;
         list.append(listItem({
-          title: entry.name,
+          title,
           sub: `per 100 g · ${Math.round(p.protein)} g protein · ${Math.round(p.kcal)} kcal`,
           right: el('span.small.faint', { text: '+' }),
           chev: '',
-          ariaLabel: `Add ${entry.name} from the library`,
-          onclick: () => libraryPortionSheet(entry, day),
+          ariaLabel: `Add ${hit.entry.name}`,
+          onclick: () => libraryPortionSheet(hit.entry, day, hit.kind),
         }));
       }
     }
 
-    if (!found.length && !fromLibrary.length) {
+    if (!found.length && !hits.length) {
       list.append(el('div.small.faint', { style: { padding: '10px 0' },
         text: q
-          ? `Nothing in your list or the ${LIBRARY_SIZE}-food library matches. Add it as a new food, or scan its barcode.`
+          ? `Nothing in your list or the ${TOTAL_SIZE} bundled foods matches. Add it as a new food, or scan its barcode.`
           : 'Nothing matches. Add it as a new food.' }));
     } else if (!q && foods.length > 12) {
-      list.append(el('div.small.faint', { style: { textAlign: 'center' }, text: `Search to reach the other ${foods.length - 12}, plus the ${LIBRARY_SIZE}-food library` }));
+      list.append(el('div.small.faint', { style: { textAlign: 'center' }, text: `Search to reach the other ${foods.length - 12}, plus ${TOTAL_SIZE} bundled foods` }));
     }
   };
 
@@ -556,8 +563,8 @@ function quickAdd(day) {
  * no database knows, so it is asked here — the same decision the barcode path
  * makes, in the same place.
  */
-function libraryPortionSheet(entry, day) {
-  const grams = normaliseOnBlur(numberInput({ value: '100', 'aria-label': 'Grams' }), { integer: true });
+function libraryPortionSheet(entry, day, kind = 'generic') {
+  const grams = normaliseOnBlur(numberInput({ value: String(entry.serving || 100), 'aria-label': 'Grams' }), { integer: true });
   const preview = el('div.small.faint', { style: { marginTop: '-6px', marginBottom: '14px' } });
   const cov = coverage(entry);
 
@@ -574,7 +581,15 @@ function libraryPortionSheet(entry, day) {
   const add = async (alsoLog) => {
     const g = parseNumber(grams.value);
     if (g === null || g <= 0) { toast('How many grams?'); grams.focus(); return; }
-    const food = await store.addFood(toFoodFields(entry, g));
+    const fields = toFoodFields(entry, g);
+    if (kind === 'brand') {
+      // Keep the barcode: a later scan of the same packet then answers from
+      // your own list instead of the network.
+      fields.source = 'brand-library';
+      fields.barcode = entry.code || null;
+      if (entry.brand) fields.name = `${entry.name} · ${entry.brand}`;
+    }
+    const food = await store.addFood(fields);
     closeSheet();
     if (alsoLog) {
       await store.logMeal(food.id, { day });
@@ -592,8 +607,13 @@ function libraryPortionSheet(entry, day) {
       el('button.btn.ghost.full', { onclick: () => add(false) }, ['Just add to my list']),
     ]),
     el('div.section-head', {}, [el('h2', { text: 'Source' })]),
-    el('div.small.muted', { text: `USDA FoodData Central: “${entry.usda}”. ${cov.known} of ${cov.total} nutrients recorded.` }),
-    el('div.small.faint', { style: { marginTop: '8px' }, text: LIBRARY_ATTRIBUTION }),
+    el('div.small.muted', {
+      text: kind === 'generic'
+        ? `USDA FoodData Central: “${entry.usda}”. ${cov.known} of ${cov.total} nutrients recorded.`
+        : `Open Food Facts, barcode ${entry.code}. ${cov.known} of ${cov.total} nutrients recorded — branded entries rarely carry micronutrients.`,
+    }),
+    el('div.small.faint', { style: { marginTop: '8px' },
+      text: kind === 'generic' ? LIBRARY_ATTRIBUTION : BRAND_ATTRIBUTION }),
   ]));
 }
 

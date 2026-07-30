@@ -1,5 +1,5 @@
 // Offline shell. Bump CACHE when shipping changes so clients pick them up.
-const CACHE = 'liftlog-v40';
+const CACHE = 'liftlog-v41';
 
 // assets/exercises/*.webp are deliberately NOT precached — ~270 exercises x2
 // frames would bloat the install and most are never opened. The runtime
@@ -36,6 +36,7 @@ const SHELL = [
   './js/plan-share.js',
   './js/plates.js',
   './js/food-library.js',
+  './js/brand-library.js',
   './js/foodsearch.js',
   './js/fatigue.js',
   './js/canvas-kit.js',

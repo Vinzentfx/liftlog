@@ -17,29 +17,53 @@
 // ingredients a meal is built from.
 
 import { FOOD_LIBRARY } from './food-library.js';
+import { BRAND_LIBRARY } from './brand-library.js';
 import { NUTRIENTS, CORE_KEYS } from './nutrition.js';
 
-/** Rank by where the match falls: a name that starts with the query wins. */
-export function searchLibrary(query, limit = 25) {
+/**
+ * Both libraries at once, generic first.
+ *
+ * Generic entries lead because they are measured — USDA analysed the food —
+ * while a branded row is whatever a contributor typed off a packet. When both
+ * could answer "chicken", the measured one should be the first offer.
+ *
+ * Every result carries `kind`, and the UI keeps them visibly apart. A number's
+ * provenance is part of the number here.
+ */
+export function searchFoods(query, { limit = 25 } = {}) {
   const q = String(query || '').trim().toLowerCase();
   if (q.length < 2) return [];
 
   const words = q.split(/\s+/);
-  const scored = [];
+  const rank = (haystack) => {
+    const h = haystack.toLowerCase();
+    if (!words.every((w) => h.includes(w))) return null;
+    return h.startsWith(q) ? 0 : h.indexOf(words[0]) + 1;
+  };
 
+  const out = [];
   for (const food of FOOD_LIBRARY) {
-    const name = food.name.toLowerCase();
-    if (!words.every((w) => name.includes(w))) continue;
-    scored.push({
-      food,
-      score: name.startsWith(q) ? 0 : name.indexOf(words[0]),
-    });
+    const score = rank(food.name);
+    if (score !== null) out.push({ kind: 'generic', score, entry: food, name: food.name });
+  }
+  for (const product of BRAND_LIBRARY) {
+    // Brand counts as searchable text: "milka" should find its products even
+    // when the brand is not repeated in the product name.
+    const score = rank(`${product.name} ${product.brand || ''}`);
+    // + 100 keeps generics ahead of brands at equal quality of match.
+    if (score !== null) out.push({ kind: 'brand', score: score + 100, entry: product, name: product.name });
   }
 
-  return scored
-    .sort((a, b) => a.score - b.score || a.food.name.localeCompare(b.food.name))
-    .slice(0, limit)
-    .map((s) => s.food);
+  return out
+    .sort((a, b) => a.score - b.score || a.name.localeCompare(b.name))
+    .slice(0, limit);
+}
+
+/** Generic library only — kept for callers that want the measured rows. */
+export function searchLibrary(query, limit = 25) {
+  return searchFoods(query, { limit })
+    .filter((r) => r.kind === 'generic')
+    .map((r) => r.entry);
 }
 
 /**
@@ -85,8 +109,17 @@ export function coverage(entry) {
 }
 
 export const LIBRARY_SIZE = FOOD_LIBRARY.length;
+export const BRAND_SIZE = BRAND_LIBRARY.length;
+export const TOTAL_SIZE = LIBRARY_SIZE + BRAND_SIZE;
 
 export const LIBRARY_ATTRIBUTION =
   'Generic foods from USDA FoodData Central (SR Legacy), a work of the US '
   + 'federal government and in the public domain. Values are per 100 g of the '
   + 'food as described — raw where it says raw, cooked where it says cooked.';
+
+export const BRAND_ATTRIBUTION =
+  'Branded products from Open Food Facts, licensed ODbL v1.0 and bundled with '
+  + 'the app. Crowd-sourced: a value is only as good as the contributor who '
+  + 'typed it off the packet, which is worth knowing before trusting one to the '
+  + 'gram. Scanning the barcode of the packet in front of you asks the same '
+  + 'database live and gets whatever has been corrected since.';

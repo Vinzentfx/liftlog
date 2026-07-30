@@ -34,7 +34,7 @@ const { decodeLink, planLink, resolveAgainstLibrary } = await import('../js/plan
 const { weekSummary } = await import('../js/week-card.js');
 const { THRESHOLDS } = await import('../js/evidence.js');
 const { dayTotals, energySplit, maintenanceEstimate, NUTRIENTS } = await import('../js/nutrition.js');
-const { searchLibrary, toFoodFields } = await import('../js/foodsearch.js');
+const { searchLibrary, searchFoods, toFoodFields } = await import('../js/foodsearch.js');
 const { parseNumber, plural } = await import('../js/ui.js');
 const { platePlan, describePlates } = await import('../js/plates.js');
 const { stallReport, describeStall } = await import('../js/fatigue.js');
@@ -320,6 +320,25 @@ test('the food library is searchable and scales to a portion', () => {
   assert.equal(fields.kcal, Math.round(oats.per100.kcal / 2));
   assert.ok(fields.protein > 0);
   assert.equal(typeof fields.micros, 'object');
+});
+
+test('branded products are searchable and rank behind measured ones', () => {
+  const hits = searchFoods('nutella');
+  assert.ok(hits.some((h) => h.kind === 'brand'), 'the brand library answers a brand name');
+
+  // Generic entries are lab measurements; branded ones are what a contributor
+  // typed off a packet. When both could answer, the measured one leads.
+  const both = searchFoods('milk');
+  const firstBrand = both.findIndex((h) => h.kind === 'brand');
+  const lastGeneric = both.map((h) => h.kind).lastIndexOf('generic');
+  if (firstBrand !== -1 && lastGeneric !== -1) {
+    assert.ok(lastGeneric < firstBrand, 'generic results come first');
+  }
+
+  for (const hit of searchFoods('protein')) {
+    assert.ok(hit.entry.per100.kcal !== undefined, 'every bundled row carries energy');
+    assert.ok(hit.entry.per100.protein !== undefined, 'and protein');
+  }
 });
 
 test('maintenance refuses to answer on thin data', () => {
