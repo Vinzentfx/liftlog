@@ -12,6 +12,7 @@ import renderLibrary from './screens/library.js';
 import renderCalendar from './screens/calendar.js';
 import renderProgress from './screens/progress.js';
 import renderNutrition from './screens/nutrition.js';
+import renderShare from './screens/share.js';
 import { renderSettings } from './screens/settings.js';
 
 /**
@@ -26,6 +27,8 @@ const ROUTES = {
   calendar:  { title: 'Calendar',  render: renderCalendar },
   progress:  { title: 'Progress',  render: renderProgress },
   nutrition: { title: 'Nutrition', render: renderNutrition },
+  // Arrives from a link someone sent; never navigated to from inside the app.
+  share:     { title: 'Shared plan', render: renderShare },
 };
 
 /** Parsed from location.hash: `#/route/param`. */

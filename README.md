@@ -155,6 +155,7 @@ warnings that do matter.
 | `js/nutrition.js` | Protein targets, daily totals, bodyweight direction |
 | `js/foodlookup.js` | Open Food Facts barcode lookup — the only networked module |
 | `js/schedule.js` | Which plan day belongs to which weekday |
+| `js/plan-share.js` | Encode/decode a plan into a link — no server involved |
 
 ### The body map
 
@@ -303,6 +304,27 @@ The "This week vs. plan" card grades against **pace**, not against the finished
 week — how many of the plan's sessions you have done so far. Judging a Tuesday
 against a full week paints everything red until Sunday and stops meaning
 anything.
+
+### Sharing a plan
+
+A plan travels **inside the link**. No server, no account, nothing uploaded —
+the link is exactly as private as whoever you send it to.
+
+The part that needs care: exercise ids are generated per install, so an id is
+meaningless on another phone. A shared plan therefore carries exercise *names*
+plus their muscle group and equipment, and the import re-resolves against the
+recipient's library using the same `normName` the catalogue top-up uses.
+Anything they don't have is created as a custom exercise — with regions from its
+muscle group, so an imported plan never leaves silent holes in the volume count.
+
+A full 39-exercise plan is about 960 characters of URL, deflated with
+`CompressionStream` (a plain web API, so no dependency) and base64url-encoded so
+it survives a hash untouched. Where compression is unavailable the payload goes
+uncompressed and the only cost is a longer link.
+
+The import screen states what would change *before* anything is written,
+including how many exercises would be added. An imported plan is deliberately
+not made active: importing is browsing, not committing.
 
 ### The muscle map has two modes
 

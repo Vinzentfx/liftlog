@@ -344,6 +344,66 @@ export async function savePlan(plan) {
   return rec;
 }
 
+/**
+ * Materialise a plan that arrived over a share link.
+ *
+ * Exercises are matched by normalised name against the existing library, and
+ * anything missing is created as a custom entry — with regions from its muscle
+ * group, so a shared plan never leaves silent holes in the muscle map or the
+ * volume count the way an exercise without regions would.
+ *
+ * @returns {{plan:object, created:string[]}}
+ */
+export async function importSharedPlan(shared) {
+  const byName = new Map(state.exercises.map((e) => [normName(e.name), e]));
+  const created = [];
+
+  // One pass to create everything missing, so the day mapping below can assume
+  // every name resolves.
+  for (const day of shared.days) {
+    for (const item of day.items) {
+      const key = normName(item.name);
+      if (byName.has(key)) continue;
+      const ex = await addExercise({
+        name: item.name,
+        muscle: item.muscle,
+        equipment: item.equipment,
+      });
+      byName.set(key, ex);
+      created.push(ex.name);
+    }
+  }
+
+  const plan = {
+    id: db.uid('p_'),
+    name: shared.name,
+    presetKey: null,
+    repTarget: shared.repTarget || defaultReps(),
+    perWeek: shared.perWeek || 1,
+    days: shared.days.map((day) => ({
+      id: db.uid('d_'),
+      name: day.name,
+      weekday: Number.isInteger(day.weekday) ? day.weekday : null,
+      items: day.items.map((item) => ({
+        exerciseId: byName.get(normName(item.name)).id,
+        targetSets: item.sets,
+        targetReps: item.reps || shared.repTarget || defaultReps(),
+        note: '',
+      })),
+      target: [],
+    })),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  state.plans.push(plan);
+  await db.put(db.STORES.plans, plan);
+  // Deliberately not made active: importing someone's plan is browsing, not
+  // committing to it. The plan screen offers the switch.
+  emit();
+  return { plan, created };
+}
+
 export async function deletePlan(id) {
   state.plans = state.plans.filter((p) => p.id !== id);
   await db.remove(db.STORES.plans, id);

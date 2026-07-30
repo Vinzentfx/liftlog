@@ -14,6 +14,7 @@ import { exerciseRatingSheet, evidenceList, swapSheet } from '../rating-ui.js';
 import { diagnose } from '../plan-doctor.js';
 import { suggestSwaps } from '../swaps.js';
 import { WEEK_ORDER, weekdayName, weekdayShort, weekRows, isScheduled, scheduleConflict } from '../schedule.js';
+import { planLink } from '../plan-share.js';
 import { REGIONS } from '../standards.js';
 import { scoreFor, tierIndex, tierOf, isBenchmark, hasProfile, toNextTier } from '../standards.js';
 import { pickExercise } from '../pickers.js';
@@ -194,7 +195,12 @@ function planView(planId) {
         el('div', { style: { fontSize: '21px', fontWeight: '740', letterSpacing: '-0.025em' }, text: plan.name }),
         el('div.small.faint', { text: `${plan.days.length} training days` }),
       ]),
-      el('button.btn.sm.ghost', { onclick: () => renamePlan(plan) }, ['Rename']),
+      el('div.row', { style: { gap: '6px' } }, [
+        plan.days.some((d) => d.items.length)
+          ? el('button.btn.sm.ghost', { onclick: () => shareSheet(plan) }, ['Share'])
+          : null,
+        el('button.btn.sm.ghost', { onclick: () => renamePlan(plan) }, ['Rename']),
+      ]),
     ])
   );
 
@@ -668,6 +674,64 @@ function dayMenu(plan, day, index) {
   ]);
 
   openSheet(day.name, body);
+}
+
+/**
+ * A plan as a link. No server involved: the whole plan rides inside the URL,
+ * so there is nothing to host, nothing to sign up for, and nothing of yours
+ * stored anywhere. It also means the link is exactly as private as whoever you
+ * send it to.
+ */
+function shareSheet(plan) {
+  const status = el('div.small.faint', { style: { marginTop: '10px' }, text: 'Building the link…' });
+  const body = el('div', {}, [
+    el('div.small.muted', {
+      text: 'The plan travels inside the link itself — no account, no server, nothing uploaded. Whoever opens it sees what it contains and decides whether to import.',
+    }),
+    status,
+  ]);
+  openSheet(`Share ${plan.name}`, body);
+
+  planLink(plan, store.state.exerciseById).then((url) => {
+    const exCount = plan.days.reduce((n, d) => n + d.items.length, 0);
+    status.replaceChildren();
+    status.style.color = 'var(--text-faint)';
+
+    const field = el('input', { type: 'text', value: url, readonly: 'readonly' });
+    field.addEventListener('focus', () => field.select());
+
+    body.append(
+      el('label.field', { style: { marginTop: '4px' } }, [el('span', { text: 'Link' }), field]),
+      el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '14px' },
+        text: `${exCount} exercises · ${url.length} characters. Long links survive most messengers, but if a friend gets a "damaged link" message, the app it came through cut it — send it as a plain text message instead.` }),
+      el('div.stack', {}, [
+        // navigator.share opens the iOS share sheet, which is the fastest path
+        // into a chat. Not available everywhere, hence the copy fallback below.
+        navigator.share
+          ? el('button.btn.primary.full', {
+              onclick: () => navigator.share({ title: plan.name, text: `${plan.name} — LiftLog plan`, url })
+                .catch(() => { /* user dismissed the sheet */ }),
+            }, ['Send…'])
+          : null,
+        el('button.btn.ghost.full', {
+          onclick: async () => {
+            try {
+              await navigator.clipboard.writeText(url);
+              toast('Link copied');
+            } catch {
+              field.select();
+              toast('Select the link and copy it');
+            }
+          },
+        }, ['Copy link']),
+      ]),
+      el('div.small.faint', { style: { marginTop: '14px' },
+        text: 'Exercises are matched by name on the other side. Anything they do not have gets added to their library as a custom exercise — their own plans and workouts are never touched.' })
+    );
+  }).catch((err) => {
+    status.style.color = 'var(--warn)';
+    status.textContent = `Could not build a link: ${err.message}`;
+  });
 }
 
 function renamePlan(plan) {
