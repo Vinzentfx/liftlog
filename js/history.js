@@ -113,8 +113,43 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
   return out.length >= 2 ? out : [];
 }
 
+/**
+ * The full rating as it stood at one moment, or null when it cannot be built.
+ *
+ * Same two rules as strengthHistory above — cumulative best e1RM, bodyweight as
+ * it was then — for callers that want a single point rather than a line. The
+ * week card uses it twice, at both ends of a week, to say what the week changed.
+ * Kept separate rather than folded into strengthHistory: that function walks the
+ * log once for sixteen weeks, and rewriting it to call this one would turn one
+ * pass into sixteen for no gain.
+ */
+export function strengthAt(sessions, bodyweightLog, profile, exerciseById, at = Date.now()) {
+  if (!hasProfile(profile)) return null;
+
+  const best = new Map();
+  for (const s of sessions) {
+    if (!s.finishedAt || s.startedAt > at) continue;
+    for (const entry of s.entries || []) {
+      const ex = exerciseById.get(entry.exerciseId);
+      if (!ex || !isBenchmark(ex.name)) continue;
+      for (const set of (entry.sets || []).filter(isCounted)) {
+        const est = e1rm(set.weight, set.reps);
+        if (est > (best.get(ex.name) || 0)) best.set(ex.name, est);
+      }
+    }
+  }
+  if (!best.size) return null;
+
+  const bw = [...(bodyweightLog || [])].sort((a, b) => a.date - b.date);
+  const rating = buildRating(best, {
+    ...profile,
+    bodyweight: bodyweightAt(bw, at) ?? profile.bodyweight,
+  });
+  return rating.overall === null ? null : rating;
+}
+
 /** Bodyweight as recorded on or before a moment, or null before the first entry. */
-function bodyweightAt(sorted, ts) {
+export function bodyweightAt(sorted, ts) {
   let value = null;
   for (const b of sorted) {
     if (b.date > ts) break;

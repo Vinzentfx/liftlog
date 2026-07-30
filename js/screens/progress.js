@@ -11,6 +11,8 @@ import {
 } from '../models.js';
 import { lineChart, barChart, hBars, heatmap } from '../charts.js';
 import { strengthHistory, tonnageHistory, movers } from '../history.js';
+import { weekStreak } from '../log-analysis.js';
+import { shareWeekSheet } from '../week-share.js';
 import { TIERS, tierIndex, hasProfile } from '../standards.js';
 import { pickExercise } from '../pickers.js';
 import { profileForm } from './settings.js';
@@ -50,7 +52,7 @@ function overview() {
     el('div.stat-grid.two', {}, [
       el('div.stat', {}, [el('span.stat-val', { text: String(thisWeek.length) }), el('span.stat-key', { text: 'This week' })]),
       el('div.stat', {}, [el('span.stat-val', { text: String(weekSets) }), el('span.stat-key', { text: 'Sets' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: String(streak(done)) }), el('span.stat-key', { text: 'Week streak' })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(weekStreak(done)) }), el('span.stat-key', { text: 'Week streak' })]),
       el('div.stat', {}, [el('span.stat-val', { text: String(done.length) }), el('span.stat-key', { text: 'Workouts' })]),
     ])
   );
@@ -60,6 +62,10 @@ function overview() {
         text: `${fmtNum(Math.round(lifetime))} ${units}` }),
       el('div.small.faint', { text: 'moved all time' }),
     ])
+  );
+  root.append(
+    el('button.btn.ghost.full', { style: { marginTop: '10px' }, onclick: () => shareWeekSheet() },
+      ['Share this week as an image'])
   );
 
   // --- per-exercise entry point (the thing people actually want) ---
@@ -519,18 +525,6 @@ function mostTrained(sessions, limit) {
     .filter((r) => r.ex)
     .sort((a, b) => b.count - a.count)
     .slice(0, limit);
-}
-
-/** Consecutive weeks (ending this week or last) with at least one workout. */
-function streak(sessions) {
-  if (!sessions.length) return 0;
-  const weeks = new Set(sessions.map((s) => startOfWeek(s.startedAt)));
-  const WEEK = 7 * 86400000;
-  let cursor = startOfWeek(Date.now());
-  if (!weeks.has(cursor)) cursor -= WEEK;      // grace for early in the week
-  let n = 0;
-  while (weeks.has(cursor)) { n++; cursor -= WEEK; }
-  return n;
 }
 
 function bodyweightForm() {

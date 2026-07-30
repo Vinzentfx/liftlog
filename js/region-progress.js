@@ -32,15 +32,19 @@ const MIN_SESSIONS = 3;
  * — which matters more here than on the strength card, because machine users
  * often progress in reps between the stack's coarse weight steps.
  *
+ * `now` ends the window. It exists for the week card: a card about last week
+ * must not be able to see sessions logged since, or re-opening it next month
+ * would quietly change what it said.
+ *
  * @returns {Object<string, {state, pctPerWeek, exercises, sessions, best}>}
  */
-export function regionProgress(sessions, exerciseById, { weeks = 12 } = {}) {
-  const since = Date.now() - weeks * WEEK;
+export function regionProgress(sessions, exerciseById, { weeks = 12, now = Date.now() } = {}) {
+  const since = now - weeks * WEEK;
 
   // exerciseId -> [{t, e1rm}]
   const series = new Map();
   for (const s of sessions) {
-    if (!s.finishedAt || s.startedAt < since) continue;
+    if (!s.finishedAt || s.startedAt < since || s.startedAt > now) continue;
     for (const entry of s.entries || []) {
       const st = entryStats(entry);
       if (!st.sets || !st.e1rm) continue;

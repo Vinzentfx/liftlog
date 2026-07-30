@@ -9,7 +9,11 @@ invalidates any verification you do. This sends no-store on everything.
 Production (GitHub Pages) sets its own caching headers; this file is dev-only.
 
     python3 tools/devserver.py [port]
+
+The port comes from the argument, else $PORT, else 5173 — so two of these can
+run side by side when something else already holds the default.
 """
+import os
 import sys
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -42,7 +46,7 @@ class NoCacheHandler(SimpleHTTPRequestHandler):
 
 
 def main() -> None:
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 5173
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get("PORT", 5173))
     handler = partial(NoCacheHandler, directory=str(ROOT))
     with ThreadingHTTPServer(("127.0.0.1", port), handler) as httpd:
         print(f"LiftLog dev server → http://localhost:{port}  (no-store)")

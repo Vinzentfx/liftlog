@@ -13,7 +13,8 @@ import {
 } from '../standards.js';
 import { bodyMap, tierLegend } from '../bodymap.js';
 import { barChart, lineChart } from '../charts.js';
-import { analyseWeek, compareToPlan, weekVerdict } from '../log-analysis.js';
+import { analyseWeek, compareToPlan, weekVerdict, weekStreak } from '../log-analysis.js';
+import { shareWeekSheet } from '../week-share.js';
 import { proteinTarget, dayTotals, proteinVerdict, weightTrend, trendVerdict } from '../nutrition.js';
 import { todaysDays, weekdayName } from '../schedule.js';
 import { regionProgress, progressFills, describeRegion } from '../region-progress.js';
@@ -91,12 +92,15 @@ export default function renderHome({ actions }) {
   const weekSets = thisWeek.reduce(
     (n, x) => n + x.entries.reduce((m, e) => m + e.sets.filter(isCounted).length, 0), 0);
 
-  root.append(el('div.section-head', {}, [el('h2', { text: 'This week' })]));
+  root.append(el('div.section-head', {}, [
+    el('h2', { text: 'This week' }),
+    el('button.btn.quiet.sm', { onclick: () => shareWeekSheet() }, ['Share ›']),
+  ]));
   root.append(
     el('div.stat-grid.two', {}, [
       el('div.stat', {}, [el('span.stat-val', { text: String(thisWeek.length) }), el('span.stat-key', { text: 'Workouts' })]),
       el('div.stat', {}, [el('span.stat-val', { text: String(weekSets) }), el('span.stat-key', { text: 'Working sets' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: String(streak(done)) }), el('span.stat-key', { text: 'Week streak' })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(weekStreak(done)) }), el('span.stat-key', { text: 'Week streak' })]),
       el('div.stat', {}, [el('span.stat-val', { text: String(done.length) }), el('span.stat-key', { text: 'All time' })]),
     ])
   );
@@ -283,20 +287,26 @@ function weekVsPlan(done) {
   const pace = Math.max(0.15, verdict.pace);
   for (const r of rows) {
     const pct = Math.min(1, r.target > 0 ? r.ratio : 1);
+    // A muscle the plan never asked for has no pace to be on. Its ratio is
+    // reported as 1, which used to paint it the same green as a target you
+    // actually hit — full marks for work nobody was measuring.
+    const tone = r.target === 0
+      ? 'var(--t0)'
+      : r.ratio >= pace * 0.9
+        ? 'linear-gradient(90deg, var(--good), #6EE7B7)'
+        : r.ratio >= pace * 0.7
+          ? 'linear-gradient(90deg, var(--accent), var(--accent-hi))'
+          : 'var(--t0)';
     card.append(el('div.bar-row', { style: { marginTop: '8px' } }, [
       el('span.name', { text: REGIONS[r.region] || r.region }),
-      el('div.track', {}, [el('div.fill', {
-        style: {
-          width: `${Math.max(3, pct * 100)}%`,
-          background: r.ratio >= pace * 0.9
-            ? 'linear-gradient(90deg, var(--good), #6EE7B7)'
-            : r.ratio >= pace * 0.7
-              ? 'linear-gradient(90deg, var(--accent), var(--accent-hi))'
-              : 'var(--t0)',
-        },
-      })]),
+      el('div.track', {}, [el('div.fill', { style: { width: `${Math.max(3, pct * 100)}%`, background: tone } })]),
       el('span.val', { text: r.target > 0 ? `${trimNum(r.done)}/${trimNum(r.target)}` : String(trimNum(r.done)) }),
     ]));
+  }
+
+  if (rows.some((r) => r.target === 0)) {
+    card.append(el('div.small.faint', { style: { marginTop: '10px' },
+      text: 'Grey: trained this week but not in the plan, so there is no target to measure it against.' }));
   }
 
   // Effort coverage. Stated as a share rather than an average, because a mean
@@ -569,15 +579,4 @@ function regionSheet(region, rating) {
   ]);
 
   openSheet(label, body);
-}
-
-/** Consecutive weeks, ending this week or last, with at least one workout. */
-function streak(sessions) {
-  const weeks = new Set(sessions.map((s) => startOfWeek(s.startedAt)));
-  const WEEK = 7 * 86400000;
-  let cursor = startOfWeek(Date.now());
-  if (!weeks.has(cursor)) cursor -= WEEK;
-  let n = 0;
-  while (weeks.has(cursor)) { n++; cursor -= WEEK; }
-  return n;
 }

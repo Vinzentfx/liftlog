@@ -35,6 +35,10 @@ so the whole thing works with the network off.
 - Each one shows which muscles it hits on the same body map, plus step-by-step
   instructions — no exercise photos, for licensing reasons (see below)
 
+**Sharing**
+- A plan travels inside a link — no server, no account
+- A week card: your week drawn as a PNG for a group chat, built on the phone
+
 **Practical**
 - Works fully offline once installed · dark theme built around the blue/glow look
 - JSON export/import for backups
@@ -156,6 +160,9 @@ warnings that do matter.
 | `js/foodlookup.js` | Open Food Facts barcode lookup — the only networked module |
 | `js/schedule.js` | Which plan day belongs to which weekday |
 | `js/plan-share.js` | Encode/decode a plan into a link — no server involved |
+| `js/canvas-kit.js` | Canvas text/shape helpers and an SVG-path-to-Path2D loader |
+| `js/week-card.js` | One week assembled and drawn as a shareable PNG |
+| `js/week-share.js` | The sheet that builds the card and hands it to the share sheet |
 
 ### The body map
 
@@ -325,6 +332,50 @@ uncompressed and the only cost is a longer link.
 The import screen states what would change *before* anything is written,
 including how many exercises would be added. An imported plan is deliberately
 not made active: importing is browsing, not committing.
+
+### The week card
+
+Home → *This week* → **Share**, or the button on Progress. It renders the week —
+strength score and what it moved, sessions, sets, tonnage, streak, the muscle
+map, new bests, volume against the plan — as a 1080-wide PNG, and hands it to
+the iOS share sheet, a download, or the clipboard.
+
+**Why it is drawn instead of screenshotted.** There is no dependency-free way to
+photograph a DOM node. `html2canvas` is a dependency, and the standard trick of
+wrapping HTML in an `<svg><foreignObject>` and rasterising it does not work in
+WebKit — which is the only browser this app runs in on a phone. So the card is
+painted on a canvas by `js/week-card.js`, with primitives in `js/canvas-kit.js`.
+The one thing it does not paint by hand is the body map: those shapes are
+already vectors, so `loadPaths` reads the same two SVG files the app renders
+inline and turns them into `Path2D` objects the canvas fills directly. No
+rasterisation step, no data URLs, and exact control over every region's colour.
+
+Layout runs twice: once against a throwaway context to find the height the
+content needs, then for real. Both passes run the same code — a measured layout
+that drifts from the drawn one is a bug waiting to happen. The measure pass
+skips only the two things whose size is arithmetic rather than measurement (the
+background and the body map), which is what keeps drawing at ~30 ms.
+
+Nothing is uploaded, and there is no service to be down: the summary comes out
+of IndexedDB, the PNG is encoded on the phone, and it stays there until the
+share sheet is used. The training half of the app still works in flight mode.
+
+**What it will not claim.** The card shows nothing the app itself would hide.
+With `showRatings` off, or without a profile, or before a benchmark lift is
+logged, there is no score and no tier map — it says which of those it is, and
+falls back to the progress map, because an unlit body under a Beginner-to-Elite
+legend says nothing. The score delta is the difference of the *rounded* scores,
+so "+1" always matches the two numbers a reader could compare; when bodyweight
+moved during the week the card says so, because the score is relative to it. A
+muscle trained but not in the plan gets a grey bar and a footnote, not the green
+of a target that was hit — there is no pace to be on without a target. And a
+movement logged for the first time is not a "new best": without that rule week
+one of any programme reads as a wall of records.
+
+Cards can also be made for **last week**, which is when you actually want to send
+one. Anything with a time window respects that: `regionProgress` takes a `now`,
+so a card about last week cannot see sessions logged since and quietly change
+what it said.
 
 ### The muscle map has two modes
 
@@ -540,3 +591,14 @@ The right shape for it is tool use: give the model functions like
 local database, rather than stuffing a summary of every workout into the prompt.
 That stays cheap and accurate as history grows. Worth building after a few weeks of
 real logging, when it's clear which questions actually come up.
+
+A **leaderboard** among friends, undecided. Raw kilos are useless as a ranking —
+bodyweight, machine versus barbell and an estimated 1RM all make them
+incomparable, which is the whole argument the rest of this app makes. What can
+be ranked honestly is the 0–100 strength score (already normalised), relative
+progress in percent, and consistency; tonnage cannot, because it rewards junk
+volume. If it happens it should synchronise the *ranking only* — name, score,
+sessions this week, streak, 12-week progress — never the log itself, and on
+something with row-level security rather than hand-rolled, because other
+people's training data carries obligations a personal app does not. The week
+card exists partly to find out whether a leaderboard is even wanted.

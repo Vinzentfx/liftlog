@@ -119,6 +119,36 @@ export function compareToPlan(week, plan) {
 }
 
 /**
+ * Consecutive weeks, ending at `at`, with at least one finished workout.
+ *
+ * The week containing `at` is allowed to be empty without breaking the run —
+ * without that grace every streak reads 0 until the first session of the week,
+ * which is exactly when you least want to be told you have none.
+ *
+ * Stepping back with setDate rather than subtracting 7 x 86400000: across a DST
+ * change a fixed-millisecond week lands an hour off midnight, the key stops
+ * matching startOfWeek(), and the streak silently collapses to 1 twice a year.
+ * The weekly charts were fixed for this; the two copies of this function on Home
+ * and Progress were not, which is why there is now one copy here.
+ */
+export function weekStreak(sessions, at = Date.now()) {
+  const weeks = new Set(
+    sessions.filter((s) => s.finishedAt).map((s) => startOfWeek(s.startedAt))
+  );
+  let cursor = startOfWeek(at);
+  if (!weeks.has(cursor)) cursor = previousWeek(cursor);
+  let n = 0;
+  while (weeks.has(cursor)) { n++; cursor = previousWeek(cursor); }
+  return n;
+}
+
+function previousWeek(weekStart) {
+  const d = new Date(weekStart);
+  d.setDate(d.getDate() - 7);
+  return startOfWeek(d.getTime());
+}
+
+/**
  * Is the week on track *so far*?
  *
  * Judging Tuesday against a full week's target would mark every week red until
@@ -145,7 +175,11 @@ export function weekVerdict(week, rows, plannedDays = 0) {
     headline: withTarget.length
       ? done
         ? `${withTarget.filter((r) => r.ratio >= 1).length} of ${withTarget.length} muscles hit this week's target`
-        : `${onTrack.length} of ${withTarget.length} muscles are on pace — ${week.workouts} of ${plannedDays || '?'} sessions in`
+        // Without a plan there is no session count to be part-way through, and
+        // "2 of ? sessions in" reads like a bug — say only what is known.
+        : plannedDays
+          ? `${onTrack.length} of ${withTarget.length} muscles are on pace — ${week.workouts} of ${plannedDays} sessions in`
+          : `${onTrack.length} of ${withTarget.length} muscles are on pace`
       : `${week.totalSets} sets logged`,
     tone: behind.length > withTarget.length * 0.4 ? 'warn' : 'good',
     behind,
