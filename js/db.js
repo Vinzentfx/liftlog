@@ -1,11 +1,10 @@
 // Minimal promise wrapper over IndexedDB. No dependencies so the app works offline.
 
 const DB_NAME = 'liftlog';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export const STORES = {
   exercises: 'exercises',
-  routines: 'routines',
   plans: 'plans',
   sessions: 'sessions',
   bodyweight: 'bodyweight',
@@ -29,10 +28,13 @@ export function open() {
         s.createIndex('name', 'name', { unique: false });
         s.createIndex('muscle', 'muscle', { unique: false });
       }
-      if (!db.objectStoreNames.contains(STORES.routines)) {
-        db.createObjectStore(STORES.routines, { keyPath: 'id' });
-      }
-      // v2: multi-day workout plans (a routine is a single day; a plan groups them)
+      // v4: `routines` dropped. A routine was a single reusable workout, made
+      // obsolete by plans before the app ever shipped a screen for one — no
+      // build ever contained a way to create, edit or start one, so the store
+      // could only ever be empty and nothing is lost by removing it.
+      if (db.objectStoreNames.contains('routines')) db.deleteObjectStore('routines');
+
+      // v2: multi-day workout plans (a routine was a single day; a plan groups them)
       if (!db.objectStoreNames.contains(STORES.plans)) {
         db.createObjectStore(STORES.plans, { keyPath: 'id' });
       }
@@ -62,7 +64,19 @@ export function open() {
       void ev;
     };
 
-    req.onsuccess = () => { _db = req.result; resolve(_db); };
+    // A schema upgrade cannot run while another tab still holds the old
+    // version open. Without this the request simply never settles: boot() awaits
+    // forever and the app shows an empty screen with nothing in the console.
+    // Rare, but it lands exactly when an update ships, which is the worst
+    // moment to look broken.
+    req.onblocked = () => reject(new Error('BLOCKED'));
+
+    req.onsuccess = () => {
+      _db = req.result;
+      // If another tab later starts an upgrade, step aside rather than block it.
+      _db.onversionchange = () => { _db.close(); _db = null; };
+      resolve(_db);
+    };
     req.onerror = () => reject(req.error);
   });
 }

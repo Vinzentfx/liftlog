@@ -34,6 +34,23 @@ export default function renderHome({ actions }) {
   const done = store.state.sessions.filter((s) => s.finishedAt);
   const s = store.state.settings;
 
+  // ---------- storage failure ----------
+  // Above everything else, including a workout in progress: if writes are
+  // failing, nothing else on this screen can be trusted to survive the night.
+  if (store.state.storageError) {
+    const problem = store.state.storageError;
+    root.append(
+      el('div.card', { style: { borderColor: 'color-mix(in srgb, var(--danger) 45%, transparent)' } }, [
+        el('div', { style: { fontWeight: '680', color: 'var(--danger)' }, text: 'Something did not save' }),
+        el('div.small.muted', { style: { marginTop: '2px' },
+          text: problem.quota
+            ? 'The phone refused the write because storage is full. Free some space, then export a backup — until then, new entries may not survive.'
+            : `The last write to the database failed (${problem.message}). Anything you logged since may not have been saved.` }),
+        el('button.btn.sm.ghost', { style: { marginTop: '10px' }, onclick: () => doExport() }, ['Export what is there']),
+      ])
+    );
+  }
+
   // ---------- active workout nudge ----------
   const active = store.activeSession();
   if (active) {

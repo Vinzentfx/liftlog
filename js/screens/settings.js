@@ -106,7 +106,7 @@ export function renderSettings() {
     text: [
       plural(store.state.sessions.filter((x) => x.finishedAt).length, 'workout'),
       plural(store.state.exercises.length, 'exercise', 'exercises'),
-      plural(store.state.routines.length, 'routine'),
+      plural(store.state.plans.length, 'plan'),
     ].join(' · '),
   });
 
@@ -232,7 +232,7 @@ export function renderSettings() {
       onclick: async () => {
         closeSheet();
         const ok = await confirmSheet('Erase everything?',
-          'All workouts, routines, custom exercises and bodyweight entries will be permanently deleted. Export a backup first if you might want them back.',
+          'All workouts, plans, custom exercises, food entries and bodyweight entries will be permanently deleted. Export a backup first if you might want them back.',
           { confirmLabel: 'Erase all data' });
         if (!ok) return;
         await Promise.all(Object.values(db.STORES).map((st) => db.clear(st)));

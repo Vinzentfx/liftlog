@@ -1,7 +1,7 @@
 // Single source of truth. Screens read `state` and call actions; actions persist
 // to IndexedDB and notify subscribers.
 
-import * as db from './db.js';
+import * as idb from './db.js';
 import {
   DEFAULT_SETTINGS, seedExercises, newSession, newEntry, newSet,
   newFood, newMeal, dayKey,
@@ -9,10 +9,52 @@ import {
 } from './models.js';
 import { buildPlanDays, SETS_PER_EXERCISE, REP_TARGET } from './plan-builder.js';
 
+/**
+ * Every write goes through this wrapper, so a failed one can never be silent.
+ *
+ * The failure mode it exists for: an action changes `state` first and persists
+ * afterwards, which is what keeps the UI instant. If the write then fails —
+ * quota exhausted, the origin evicted, private browsing — the screen shows a
+ * set as logged that never reached the disk, and it disappears at the next
+ * launch. Silent data loss that looks like success is the worst thing a
+ * training log can do, so the failure is recorded on `state.storageError`,
+ * every subscriber is notified, and the error still propagates to the caller.
+ *
+ * Reads are passed through untouched; a failed read already shows up as a
+ * screen that will not load.
+ */
+const db = {
+  ...idb,
+  put: (store, value) => guard(() => idb.put(store, value)),
+  putMany: (store, values) => guard(() => idb.putMany(store, values)),
+  remove: (store, key) => guard(() => idb.remove(store, key)),
+  clear: (store) => guard(() => idb.clear(store)),
+};
+
+async function guard(run) {
+  try {
+    const out = await run();
+    // A write that works clears the warning — no point nagging about a full
+    // disk after the user has freed some.
+    if (state.storageError) { state.storageError = null; emit(); }
+    return out;
+  } catch (err) {
+    console.error('[liftlog] write failed', err);
+    state.storageError = {
+      at: Date.now(),
+      // Safari reports a full quota under two different names depending on
+      // version; both mean "delete something or export".
+      quota: !!err && (err.name === 'QuotaExceededError' || err.code === 22),
+      message: (err && err.message) || String(err),
+    };
+    emit();
+    throw err;
+  }
+}
+
 export const state = {
   ready: false,
   exercises: [],
-  routines: [],
   plans: [],
   sessions: [],       // newest first, includes the in-progress one
   bodyweight: [],     // newest first
@@ -20,6 +62,8 @@ export const state = {
   meals: [],          // newest first
   settings: { ...DEFAULT_SETTINGS },
   exerciseById: new Map(),
+  // Set by `guard` when a write fails; cleared by the next one that works.
+  storageError: null,
 };
 
 const listeners = new Set();
@@ -38,9 +82,8 @@ function reindex() {
 }
 
 export async function load() {
-  const [exercises, routines, plans, sessions, bodyweight, foods, meals, settingsRows] = await Promise.all([
+  const [exercises, plans, sessions, bodyweight, foods, meals, settingsRows] = await Promise.all([
     db.getAll(db.STORES.exercises),
-    db.getAll(db.STORES.routines),
     db.getAll(db.STORES.plans),
     db.recentSessions(0),
     db.getAll(db.STORES.bodyweight),
@@ -50,7 +93,6 @@ export async function load() {
   ]);
 
   state.exercises = exercises;
-  state.routines = routines;
   state.plans = plans;
   state.sessions = sessions;
   state.bodyweight = bodyweight;
@@ -236,12 +278,6 @@ export function exerciseUsageCount(id) {
 export async function deleteExercise(id) {
   state.exercises = state.exercises.filter((e) => e.id !== id);
   await db.remove(db.STORES.exercises, id);
-  // Drop it from routines too, or they'd render blank rows.
-  for (const r of state.routines) {
-    const before = r.items.length;
-    r.items = r.items.filter((i) => i.exerciseId !== id);
-    if (r.items.length !== before) await db.put(db.STORES.routines, r);
-  }
   // And from plans. This was missing: the delete dialog promised it, the plan
   // screen rendered an empty row where the exercise had been, and the plan
   // rating quietly counted a slot that trained nothing.
@@ -261,30 +297,6 @@ export async function deleteExercise(id) {
 export function planUsageCount(id) {
   return state.plans.reduce((n, p) =>
     n + (p.days || []).filter((d) => d.items.some((i) => i.exerciseId === id)).length, 0);
-}
-
-// ---------- routines ----------
-
-export async function saveRoutine(routine) {
-  const existing = state.routines.find((r) => r.id === routine.id);
-  const rec = {
-    id: routine.id || db.uid('r_'),
-    name: routine.name.trim() || 'Routine',
-    items: routine.items || [],
-    createdAt: existing ? existing.createdAt : Date.now(),
-    updatedAt: Date.now(),
-  };
-  if (existing) Object.assign(existing, rec);
-  else state.routines.push(rec);
-  await db.put(db.STORES.routines, rec);
-  emit();
-  return rec;
-}
-
-export async function deleteRoutine(id) {
-  state.routines = state.routines.filter((r) => r.id !== id);
-  await db.remove(db.STORES.routines, id);
-  emit();
 }
 
 // ---------- plans ----------
@@ -421,11 +433,11 @@ async function persistSession(session) {
   emit();
 }
 
-export async function startSession({ routineId = null, planId = null, dayId = null, name } = {}) {
+export async function startSession({ planId = null, dayId = null, name } = {}) {
   const existing = activeSession();
   if (existing) return existing;
 
-  // A session can be seeded from a plan day or a standalone routine.
+  // A session is either seeded from a plan day or started empty.
   let items = null;
   let label = null;
 
@@ -433,9 +445,6 @@ export async function startSession({ routineId = null, planId = null, dayId = nu
     const plan = state.plans.find((p) => p.id === planId);
     const day = plan && plan.days.find((d) => d.id === dayId);
     if (day) { items = day.items; label = `${day.name}`; }
-  } else if (routineId) {
-    const routine = state.routines.find((r) => r.id === routineId);
-    if (routine) { items = routine.items; label = routine.name; }
   }
 
   const entries = (items || []).map((item) => {
@@ -453,7 +462,6 @@ export async function startSession({ routineId = null, planId = null, dayId = nu
   });
 
   const session = newSession(db.uid, {
-    routineId,
     planId,
     dayId,
     name: name || label || 'Quick Workout',
@@ -464,11 +472,34 @@ export async function startSession({ routineId = null, planId = null, dayId = nu
   return session;
 }
 
+/**
+ * Mutate the live session and persist it, or leave no trace of the attempt.
+ *
+ * This is the one path where optimism is not affordable: it runs on every
+ * completed set, mid-workout, and a set that looks logged but was never written
+ * is worse than one that visibly failed — you would only find out weeks later,
+ * with no way to reconstruct it. So the session is copied first and put back if
+ * the write fails, which makes the screen agree with the disk again. The copy
+ * is a JSON round trip on purpose: these records are plain data by definition
+ * (they are also what the backup file contains), so it is exact, and it needs
+ * no support for structuredClone.
+ */
 export async function updateSession(id, mutate) {
-  const s = state.sessions.find((x) => x.id === id);
-  if (!s) return null;
+  const index = state.sessions.findIndex((x) => x.id === id);
+  if (index === -1) return null;
+
+  const before = JSON.parse(JSON.stringify(state.sessions[index]));
+  const s = state.sessions[index];
   mutate(s);
-  await persistSession(s);
+  try {
+    await persistSession(s);
+  } catch {
+    // guard() has already recorded the failure and notified; this only undoes
+    // the optimistic change so the UI stops claiming the set was saved.
+    state.sessions[index] = before;
+    emit();
+    return null;
+  }
   return s;
 }
 
@@ -615,7 +646,6 @@ export function exportData() {
     exportedAt: new Date().toISOString(),
     settings: state.settings,
     exercises: state.exercises,
-    routines: state.routines,
     plans: state.plans,
     sessions: state.sessions,
     bodyweight: state.bodyweight,
@@ -638,7 +668,6 @@ export async function importData(payload, { replace = true } = {}) {
   // and fall through to the empty array.
   await Promise.all([
     db.putMany(db.STORES.exercises, payload.exercises || []),
-    db.putMany(db.STORES.routines, payload.routines || []),
     db.putMany(db.STORES.plans, payload.plans || []),
     db.putMany(db.STORES.sessions, payload.sessions || []),
     db.putMany(db.STORES.bodyweight, payload.bodyweight || []),

@@ -59,6 +59,31 @@ Open <http://localhost:5173>.
 It ships with demo data if you seeded it — wipe it any time via **⚙ → Erase all
 data**. To load demo data again, paste `tools/seed-demo.js` into the browser console.
 
+## Run the tests
+
+```bash
+cd ~/liftlog && node --test
+```
+
+No framework, no `package.json`, no dependency — `node:test` ships with Node, and
+every module under test is DOM-free, so `tests/maths.test.js` imports straight
+out of `js/` with nothing stubbed. The browser never sees the directory.
+
+What is tested is narrow on purpose. Not the rating weights: those are judgement
+calls against the literature and will move again, and a test would only pin them
+down. What is tested is the arithmetic underneath them and the invariants that
+have already broken once — dates, because every silent breakage so far has been
+a date and none of them showed up until a clock change months later; the two
+counts that must agree (a plan's target and a week's actual, which disagreed for
+months because each screen counted its own way); and the honesty rules, which
+are the point of the app and exactly the sort of thing a refactor reverses
+without noticing.
+
+A regression test is only worth having if it fails against the bug it describes.
+The DST cases were checked that way: reinstate the old fixed-millisecond week
+arithmetic and `weekStreak: counts consecutive weeks across a clock change` goes
+red on its own.
+
 ---
 
 ## Install on your iPhone
@@ -145,6 +170,7 @@ warnings that do matter.
 | `sw.js` | Offline precache — **add new modules to `SHELL`** |
 | `tools/make_icons.py` | Regenerates the app icons |
 | `tools/devserver.py` | No-cache dev server |
+| `tests/maths.test.js` | `node --test` over the DOM-free maths — dev only, never served |
 | `tools/build_library.py` | Regenerates `js/exercise-library.js` from free-exercise-db |
 | `js/exercise-library.js` | GENERATED catalogue — don't hand-edit |
 | `js/evidence.js` | The papers and thresholds both star ratings are built on |
@@ -210,6 +236,15 @@ precache and serving it long after a deploy. Don't remove that flag.
 object and call `store.saveSessionQuiet()`, which persists without notifying
 subscribers. Calling `store.updateSession()` on every keystroke would re-render the
 screen and destroy the focused input mid-typing.
+
+**Changing the database schema?** That's `DB_VERSION` in `db.js`, which is a
+different lever from the two above — it controls object stores, not the records
+inside them. It has been bumped once, to drop `routines` (v4).
+
+**Adding derived maths?** Put it where it can be tested — a module under `js/`
+that touches no DOM — and add a case to `tests/maths.test.js`. Every silent bug
+this app has had came from two screens computing the same number their own way,
+or from date arithmetic that only breaks twice a year.
 
 ### How the rating works
 
@@ -297,6 +332,32 @@ suggestion is plain double progression — clear the top of the rep range on eve
 set, then add weight — with RIR as an override in both directions. It is a way to
 turn "train close to failure" into a decision on the gym floor, not a research
 finding, and it says so.
+
+### A write that fails has to say so
+
+Every action changes `state` first and persists afterwards — that is what makes
+a tap feel instant. The cost is a failure mode worth naming: if the write then
+fails (quota exhausted, the origin evicted, private browsing), the screen shows
+a set as logged that never reached the disk, and it is gone at the next launch.
+Silent data loss that looks like success is the worst thing a training log can
+do.
+
+So every write in `js/store.js` goes through one wrapper. A failure is recorded
+on `state.storageError`, subscribers are notified, `js/app.js` raises a specific
+toast wherever you happen to be, and Home carries a red card above everything
+else with an export button. The next write that succeeds clears it.
+
+`updateSession` goes further and rolls back: it copies the session before
+mutating and puts the copy back if the write fails, so the screen stops claiming
+the set was saved. That path runs on every completed set, which is precisely
+where an optimistic lie is least affordable. The copy is a JSON round trip
+because these records are plain data by definition — it is the same shape the
+backup file holds.
+
+Opening the database can fail in one more way that used to hang forever: a
+schema upgrade cannot run while another tab still holds the old version open.
+`db.open()` now rejects on `blocked` and the app says which of the two problems
+it is, instead of showing an empty screen at exactly the moment an update ships.
 
 ### Two numbers that have to agree
 

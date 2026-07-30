@@ -11,7 +11,7 @@
 // it answers the question the training data can actually be compared against.
 
 import { THRESHOLDS } from './evidence.js';
-import { dayKey, startOfWeek } from './models.js';
+import { dayKey } from './models.js';
 
 /**
  * Daily protein target as a range, from bodyweight.
@@ -150,10 +150,4 @@ export function trendVerdict(trend) {
   return pct >= -0.5
     ? { state: 'cut', text: `Losing at ${rate} — the usual range for keeping muscle` }
     : { state: 'fast', text: `Losing at ${rate} — fast enough to cost you strength` };
-}
-
-/** Meals for one week, for the Home comparison. */
-export function weekMeals(meals, weekStart = startOfWeek(Date.now())) {
-  const end = weekStart + 7 * 86400000;
-  return meals.filter((m) => m.at >= weekStart && m.at < end);
 }

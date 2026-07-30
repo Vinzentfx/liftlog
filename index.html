@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <!-- No maximum-scale/user-scalable: iOS Safari ignores both anyway, and every
+       browser that honours them only ends up denying pinch zoom to someone who
+       needs it. Inputs are 16px, which is what actually stops the zoom-on-focus
+       jump those attributes are usually reached for. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>LiftLog</title>
   <meta name="description" content="Personal workout tracker">
 

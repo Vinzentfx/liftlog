@@ -1,4 +1,4 @@
-// Exercise picker — shared by the active workout and the routine editor.
+// Exercise picker — shared by the active workout, the plan editor and the library.
 
 import { el, openSheet, closeSheet, toast, listItem } from './ui.js';
 import { MUSCLES } from './models.js';

@@ -303,10 +303,9 @@ export function refineRegions(name, primary = [], secondary = []) {
 
 // ---------- factories ----------
 
-export function newSession(uid, { name = 'Workout', routineId = null, planId = null, dayId = null, entries = [] } = {}) {
+export function newSession(uid, { name = 'Workout', planId = null, dayId = null, entries = [] } = {}) {
   return {
     id: uid('s_'),
-    routineId,
     planId,
     dayId,
     name,

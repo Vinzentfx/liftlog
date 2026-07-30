@@ -116,16 +116,38 @@ async function boot() {
     await store.load();
   } catch (err) {
     console.error('[liftlog] load failed', err);
+    const blocked = err && err.message === 'BLOCKED';
     clear($('#screen')).append(
       el('div.empty', {}, [
-        el('strong', { text: 'Could not open the database' }),
-        el('div', { text: 'Private browsing blocks local storage. Open LiftLog in a normal tab.' }),
+        el('strong', { text: blocked ? 'LiftLog is open somewhere else' : 'Could not open the database' }),
+        el('div', {
+          text: blocked
+            ? 'This version needs to update the database, and another tab or window still has the old one open. Close the others and reload.'
+            : 'Private browsing blocks local storage. Open LiftLog in a normal tab.',
+        }),
+        blocked
+          ? el('button.btn.primary', { style: { marginTop: '14px' }, onclick: () => location.reload() }, ['Reload'])
+          : null,
       ])
     );
     return;
   }
 
-  store.subscribe(() => render());
+  // A failed write has to be said out loud where it happens, which is usually
+  // the Train screen mid-set, not Home. The store cannot raise UI itself
+  // without the data layer importing the view layer, so the notification is
+  // wired here instead — one place, every screen.
+  let announced = 0;
+  store.subscribe(() => {
+    const problem = store.state.storageError;
+    if (problem && problem.at !== announced) {
+      announced = problem.at;
+      toast(problem.quota
+        ? 'Not saved — the phone is out of storage'
+        : 'Not saved — that entry did not reach the disk', 4000);
+    }
+    render();
+  });
   if (!location.hash) location.replace('#/home');
   render();
 
@@ -140,6 +162,13 @@ window.addEventListener('error', (e) => {
 });
 window.addEventListener('unhandledrejection', (e) => {
   console.error('[liftlog] unhandled rejection', e.reason);
+  // Most UI handlers fire a store action without awaiting it — deliberately, so
+  // a tap never waits on a disk write. A failed write therefore lands here as
+  // well as in store.state.storageError, and the subscriber above has already
+  // said something specific about it. Two toasts for one problem, the vaguer
+  // one second, is worse than one.
+  const problem = store.state.storageError;
+  if (problem && Date.now() - problem.at < 2000) return;
   toast('Something went wrong');
 });
 
