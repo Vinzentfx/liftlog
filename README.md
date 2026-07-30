@@ -20,7 +20,9 @@ so the whole thing works with the network off.
 - Plate maths for barbell lifts: what to hang on each side, and when a weight is not loadable
 - **Last session's numbers shown inline** and pre-filled, so repeating a workout is three taps
 - Rest timer (3 min default) with a chime, auto-started when you complete a set
-- Warmup vs working sets, per-exercise notes, PR toasts mid-workout
+- Warmup vs working sets, per-exercise notes collected on the exercise's own screen
+- A one-tap warm-up ramp — two sets on a barbell lift, one on everything else
+- PR toasts mid-workout
 
 **Plans**
 - Presets: Push/Pull/Legs, Upper/Lower, PPL+Upper/Lower, Full Body, Arnold split
@@ -203,6 +205,7 @@ warnings that do matter.
 | `js/schedule.js` | Which plan day belongs to which weekday |
 | `js/plan-share.js` | Encode/decode a plan into a link — no server involved |
 | `js/plates.js` | What to load per side, and when a weight cannot be reached |
+| `js/warmup.js` | A warm-up ramp — gym practice, labelled as such |
 | `js/fatigue.js` | Whether lifts are still gaining — facts only, no prescription |
 | `js/canvas-kit.js` | Canvas text/shape helpers and an SVG-path-to-Path2D loader |
 | `js/week-card.js` | One week assembled and drawn as a shareable PNG |
@@ -514,6 +517,20 @@ special.
 The whole chain rests on the maintenance estimate, so it refuses as a unit: with
 too little logging there are no calorie, carb or fat targets, and the card says
 which piece is missing. Protein still appears, because it only needs bodyweight.
+
+### The warm-up ramp says what it is
+
+Two sets on a barbell lift, one on everything else, at roughly half and
+three-quarters of the working weight. Every one of those numbers is gym
+practice: no trial establishes an optimal ramp, a set count, or a percentage.
+The button says so underneath itself, in the same voice the deload card uses.
+
+Being unable to know the right answer is a reason to take up little room, not a
+reason to say nothing — so the offer is one line, appears only when there is a
+working weight to ramp towards, and disappears once taken.
+
+Barbell warm-ups are rounded through `platePlan`, so a suggestion is never a
+weight the rack cannot make.
 
 ### Why there is no deload feature
 

@@ -37,6 +37,7 @@ const { dayTotals, energySplit, maintenanceEstimate, NUTRIENTS, macroTargets } =
 const { searchLibrary, searchFoods, toFoodFields } = await import('../js/foodsearch.js');
 const { parseNumber, plural } = await import('../js/ui.js');
 const { platePlan, describePlates } = await import('../js/plates.js');
+const { warmupSets, warmupCount } = await import('../js/warmup.js');
 const { stallReport, describeStall } = await import('../js/fatigue.js');
 
 const INDIRECT = THRESHOLDS.indirectSetWeight.value;
@@ -451,6 +452,44 @@ test('platePlan uses the pound rack for pounds', () => {
   const plan = platePlan(225, 45, 'lb');
   assert.equal(plan.exact, true);
   assert.equal(describePlates(plan.perSide), '2 × 45');
+});
+
+/* ========================== warming up ========================== */
+
+test('warm-up sets: two on a barbell lift, one on everything else', () => {
+  assert.equal(warmupCount(BENCH), 2);
+  assert.equal(warmupCount(exercise('m', 'Machine Chest Press', ['chest'])), 2,
+    'a benchmark name counts even without barbell equipment');
+  assert.equal(warmupCount({ name: 'Cable Fly', equipment: 'Cable' }), 1);
+  assert.equal(warmupCount({ name: 'Lateral Raise', equipment: 'Dumbbell' }), 1);
+});
+
+test('warm-up weights stay under the working set and land on real plates', () => {
+  const sets = warmupSets(BENCH, 100, { units: 'kg', barWeight: 20 });
+  assert.equal(sets.length, 2);
+  for (const s of sets) {
+    assert.ok(s.weight < 100, 'a warm-up heavier than the work is not a warm-up');
+    assert.ok(s.weight >= 20, 'and never lighter than the empty bar');
+    // Loadable: (weight - bar) / 2 must come out of the plate set.
+    const plan = platePlan(s.weight, 20, 'kg');
+    assert.equal(plan.exact, true, `${s.weight} kg cannot be loaded`);
+  }
+  assert.ok(sets[0].weight < sets[1].weight, 'and they ramp upwards');
+  assert.ok(sets[0].reps > sets[1].reps, 'with reps coming down as weight goes up');
+});
+
+test('warm-up sets refuse when there is nothing to ramp towards', () => {
+  assert.deepEqual(warmupSets(BENCH, 0), []);
+  assert.deepEqual(warmupSets(BENCH, null), []);
+  // A working weight at or under the empty bar leaves nothing sensible to do.
+  assert.deepEqual(warmupSets(BENCH, 20, { units: 'kg', barWeight: 20 }), []);
+});
+
+test('warm-up sets do not repeat the same weight twice', () => {
+  // Light dumbbell work rounds both steps onto the same number.
+  const sets = warmupSets({ name: 'Lateral Raise', equipment: 'Dumbbell' }, 8, { units: 'kg' });
+  const weights = sets.map((s) => s.weight);
+  assert.equal(new Set(weights).size, weights.length);
 });
 
 /* ===================== is it still moving ===================== */

@@ -212,6 +212,54 @@ function thinChart(points, m, units) {
   ]);
 }
 
+/**
+ * Every note ever written against this exercise, newest first.
+ *
+ * The notes were always there — one per exercise per session — but there was
+ * nowhere to read them back, so "what did I decide about deadlifts?" had no
+ * answer despite the data sitting in the log. This is the cheapest possible
+ * feature: no new storage, no new writes, just the thing already recorded,
+ * gathered up.
+ */
+function noteHistory(exerciseId) {
+  const wrap = el('div');
+
+  const notes = [];
+  for (const s of store.state.sessions) {
+    if (!s.finishedAt) continue;
+    const entry = (s.entries || []).find((e) => e.exerciseId === exerciseId);
+    const text = entry && (entry.note || '').trim();
+    if (text) notes.push({ text, at: s.startedAt, sessionId: s.id });
+  }
+  if (!notes.length) return wrap;
+
+  notes.sort((a, b) => b.at - a.at);
+
+  wrap.append(el('div.section-head', {}, [
+    el('h2', { text: 'Notes' }),
+    el('span.small.faint', { text: plural(notes.length, 'note') }),
+  ]));
+
+  for (const n of notes.slice(0, 12)) {
+    wrap.append(
+      el('button.card.tight', {
+        style: { display: 'block', width: '100%', textAlign: 'left' },
+        'aria-label': `Note from ${relDay(n.at)}`,
+        onclick: () => navigate('calendar', n.sessionId),
+      }, [
+        el('div.small.faint', { text: relDay(n.at) }),
+        el('div.small', { style: { marginTop: '2px', color: 'var(--text)' }, text: n.text }),
+      ])
+    );
+  }
+
+  if (notes.length > 12) {
+    wrap.append(el('div.small.faint', { style: { textAlign: 'center' },
+      text: `${notes.length - 12} older ${notes.length - 12 === 1 ? 'note' : 'notes'} in the sessions below` }));
+  }
+  return wrap;
+}
+
 /* ===================== strength over time ===================== */
 
 /**
@@ -575,6 +623,8 @@ function exerciseView(exerciseId) {
       );
     }
   }
+
+  root.append(noteHistory(exerciseId));
 
   // --- session table (the accessible alternative to reading the chart) ---
   root.append(el('div.section-head', {}, [el('h2', { text: 'Every session' })]));

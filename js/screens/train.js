@@ -3,7 +3,7 @@
 import {
   el, $, toast, haptic, fmtWeight, fmtDuration, fmtNum, setsSummary,
   openSheet, closeSheet, confirmSheet, emptyState, debounce, listItem,
-  numberInput, parseNumber, normaliseOnBlur,
+  numberInput, parseNumber, normaliseOnBlur, plural,
 } from '../ui.js';
 import * as store from '../store.js';
 import * as rest from '../rest.js';
@@ -12,6 +12,7 @@ import { pickExercise } from '../pickers.js';
 import { todaysDays, weekdayName, weekdayShort } from '../schedule.js';
 import { exerciseArt } from '../exercise-art.js';
 import { platePlan, describePlates, PLATES } from '../plates.js';
+import { warmupSets } from '../warmup.js';
 import { navigate, render } from '../app.js';
 
 const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
@@ -215,6 +216,8 @@ function exerciseBlock(session, entry, entryIndex) {
     block.append(el('div.small.faint', { style: { marginBottom: '10px' }, text: 'First time logging this one.' }));
   }
 
+  block.append(warmupOffer(session, entry, ex, units));
+
   if (entry.note) {
     block.append(el('div.small.muted', { style: { marginBottom: '8px' }, text: entry.note }));
   }
@@ -324,6 +327,54 @@ function setRow(session, entry, set, index, last) {
 
   row.append(weight, reps, rirOn ? rir : null, doneBtn);
   return row;
+}
+
+/**
+ * Offer a warm-up, once, quietly.
+ *
+ * Only when there is a working weight to ramp towards and no warm-up already
+ * logged — the offer disappears the moment it is taken or made unnecessary,
+ * rather than sitting there for the rest of the session.
+ *
+ * The label says "gym practice" because that is exactly what it is: no trial
+ * establishes an optimal ramp, and this app does not print numbers whose origin
+ * it cannot name. Two sets on a barbell lift, one on everything else.
+ */
+function warmupOffer(session, entry, ex, units) {
+  const wrap = el('div');
+  if (entry.sets.some((s) => s.type === 'warmup')) return wrap;
+
+  // What the working sets are aiming at: whatever is already typed in, else
+  // what the suggestion is built from.
+  const planned = Math.max(0, ...entry.sets
+    .filter((s) => s.type === 'working')
+    .map((s) => Number(s.weight) || 0));
+  const last = planned || (() => {
+    const prev = lastPerformance(store.state.sessions, entry.exerciseId, session.id);
+    return prev ? prev.stats.topWeight : 0;
+  })();
+
+  const sets = warmupSets(ex, last, { units, barWeight: store.barWeight() });
+  if (!sets.length) return wrap;
+
+  wrap.append(
+    el('button.btn.quiet.sm', {
+      style: { padding: '2px 0', marginBottom: '8px', textAlign: 'left' },
+      onclick: async () => {
+        await store.updateSession(session.id, () => {
+          // In front of the working sets, which is where they belong and where
+          // the set numbering expects them.
+          entry.sets.unshift(...sets.map((s) => ({
+            ...newSet(), weight: s.weight, reps: s.reps, type: 'warmup',
+          })));
+        });
+        toast(`${plural(sets.length, 'warm-up set')} added`);
+      },
+    }, [`+ Warm-up: ${sets.map((s) => `${fmtWeight(s.weight, units)} × ${s.reps}`).join(', ')}`])
+  );
+  wrap.append(el('div.small.faint', { style: { marginTop: '-6px', marginBottom: '8px', fontSize: '11px' },
+    text: 'Gym practice, not a finding — no trial says what a warm-up should be.' }));
+  return wrap;
 }
 
 /* ======================= effort and progression ======================= */
