@@ -25,7 +25,7 @@ import assert from 'node:assert/strict';
 // Set before any Date is constructed; imports above only define functions.
 process.env.TZ = 'Europe/Berlin';
 
-const { e1rm, isCounted, startOfWeek, entryStats, newMeal, dayKey } = await import('../js/models.js');
+const { e1rm, isCounted, startOfWeek, entryStats, newMeal, dayKey, slotFor } = await import('../js/models.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
 const { regionProgress } = await import('../js/region-progress.js');
@@ -33,7 +33,8 @@ const { bodyweightAt, strengthAt } = await import('../js/history.js');
 const { decodeLink, planLink, resolveAgainstLibrary } = await import('../js/plan-share.js');
 const { weekSummary } = await import('../js/week-card.js');
 const { THRESHOLDS } = await import('../js/evidence.js');
-const { dayTotals, energySplit, maintenanceEstimate } = await import('../js/nutrition.js');
+const { dayTotals, energySplit, maintenanceEstimate, NUTRIENTS } = await import('../js/nutrition.js');
+const { searchLibrary, toFoodFields } = await import('../js/foodsearch.js');
 const { parseNumber, plural } = await import('../js/ui.js');
 const { platePlan, describePlates } = await import('../js/plates.js');
 const { stallReport, describeStall } = await import('../js/fatigue.js');
@@ -286,11 +287,39 @@ test('the energy split refuses to draw itself on partial data', () => {
 
 test('a meal scales every recorded macro and leaves the unknown ones alone', () => {
   const food = { id: 'f1', name: 'Quark', portion: '250 g', protein: 30, kcal: 160, carbs: 10, fat: null, fibre: null };
-  const m = newMeal((p) => `${p}x`, food, { amount: 2 });
+  // `at` is passed explicitly: without it the slot comes from the wall clock and
+  // this test would pass all morning and fail after lunch.
+  const m = newMeal((p) => `${p}x`, food, { amount: 2, at: at(2026, 7, 28, 12) });
   assert.equal(m.protein, 60);
   assert.equal(m.carbs, 20);
   assert.equal(m.fat, null, 'unknown times two is still unknown');
   assert.equal(m.slot, 'lunch', 'a slot is picked from the clock when none is given');
+});
+
+test('slotFor splits the day at the hours people eat', () => {
+  assert.equal(slotFor(at(2026, 7, 28, 8)), 'breakfast');
+  assert.equal(slotFor(at(2026, 7, 28, 13)), 'lunch');
+  assert.equal(slotFor(at(2026, 7, 28, 19)), 'dinner');
+  assert.equal(slotFor(at(2026, 7, 28, 22)), 'snack');
+});
+
+test('the food library is searchable and scales to a portion', () => {
+  const hits = searchLibrary('chicken');
+  assert.ok(hits.length > 0, 'the bundled library answers a plain query');
+  assert.ok(hits.every((f) => f.name.toLowerCase().includes('chicken')));
+  assert.deepEqual(searchLibrary('c'), [], 'one letter is not a search');
+  assert.deepEqual(searchLibrary('zzzzzz'), []);
+
+  const oats = searchLibrary('oats')[0];
+  // The generator's word-boundary rule exists because a substring match filed
+  // "Buckwheat groats" under Oats, and nothing downstream would have caught it.
+  assert.ok(/oat/i.test(oats.usda), `expected an oat row, got "${oats.usda}"`);
+
+  const fields = toFoodFields(oats, 50);
+  assert.equal(fields.portion, '50 g');
+  assert.equal(fields.kcal, Math.round(oats.per100.kcal / 2));
+  assert.ok(fields.protein > 0);
+  assert.equal(typeof fields.micros, 'object');
 });
 
 test('maintenance refuses to answer on thin data', () => {

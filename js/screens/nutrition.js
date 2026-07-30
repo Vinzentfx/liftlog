@@ -18,7 +18,11 @@ import { dayKey, MEAL_SLOTS, slotFor } from '../models.js';
 import {
   proteinTarget, dayTotals, proteinVerdict, proteinHistory, proteinSummary,
   weightTrend, trendVerdict, energySplit, fibreTarget, waterTarget, maintenanceEstimate,
+  NUTRIENTS,
 } from '../nutrition.js';
+import {
+  searchLibrary, toFoodFields, coverage, LIBRARY_SIZE, LIBRARY_ATTRIBUTION,
+} from '../foodsearch.js';
 import { THRESHOLDS, SOURCES } from '../evidence.js';
 import { lookupBarcode, scaleToPortion, ATTRIBUTION } from '../foodlookup.js';
 import { barChart } from '../charts.js';
@@ -184,23 +188,30 @@ function dayHeader(day, isToday) {
 
 /* ======================= target ======================= */
 
+/**
+ * The day at a glance: energy first, then the three macros under it.
+ *
+ * Calories lead because that is the number that decides which direction you are
+ * going. Protein keeps its band underneath, because it is the only one of the
+ * three with a target worth showing — carbs and fat are reported, not judged.
+ */
 function targetCard(totals, target) {
   const verdict = proteinVerdict(totals.protein, target);
   const tone = { hit: 'var(--good)', over: 'var(--text-dim)', under: 'var(--warn)', unknown: 'var(--text-faint)' }[verdict.state];
+  const maintenance = maintenanceEstimate(store.state.meals, store.state.bodyweight);
 
   const card = el('div.card.glow', {}, [
-    el('div.row.between', { style: { alignItems: 'flex-end' } }, [
-      el('div', {}, [
-        el('div', { style: { fontSize: '30px', fontWeight: '750', letterSpacing: '-0.03em', lineHeight: '1' },
-          text: `${totals.protein} g` }),
-        el('div.small.faint', { style: { marginTop: '3px' }, text: 'protein today' }),
-      ]),
-      totals.kcal
-        ? el('div', { style: { textAlign: 'right' } }, [
-            el('div', { style: { fontSize: '19px', fontWeight: '680' }, text: fmtNum(totals.kcal) }),
-            el('div.small.faint', { text: 'kcal' }),
-          ])
-        : null,
+    el('div', { style: { fontSize: '40px', fontWeight: '760', letterSpacing: '-0.035em', lineHeight: '1' },
+      text: fmtNum(totals.kcal) }),
+    el('div.small.faint', { style: { marginTop: '3px' },
+      text: maintenance.ok
+        ? `kcal today · maintenance is around ${fmtNum(maintenance.maintenance)}`
+        : 'kcal today' }),
+
+    el('div.row', { style: { gap: '8px', marginTop: '14px' } }, [
+      macroPill('Protein', totals.protein, 'var(--accent-hi)'),
+      macroPill('Carbs', totals.carbs, '#22D3EE', totals.missing.carbs),
+      macroPill('Fat', totals.fat, '#C084FC', totals.missing.fat),
     ]),
   ]);
 
@@ -222,16 +233,76 @@ function targetCard(totals, target) {
     );
   }
 
-  card.append(el('div.small', { style: { marginTop: '8px', color: tone }, text: verdict.text }));
+  card.append(el('div.small', { style: { marginTop: '10px', color: tone }, text: verdict.text }));
 
   card.append(
-    el('button.btn.quiet.sm', {
-      style: { padding: '4px 0', marginTop: '2px' },
-      onclick: targetSheet,
-    }, ['Where does this target come from?'])
+    el('div.row', { style: { gap: '4px', marginTop: '2px' } }, [
+      el('button.btn.quiet.sm', { style: { padding: '4px 0' }, onclick: targetSheet }, ['Where the target comes from']),
+      el('button.btn.quiet.sm', { style: { padding: '4px 0', marginLeft: 'auto' },
+        onclick: () => detailSheet(totals) }, ['More ›']),
+    ])
   );
 
   return card;
+}
+
+function macroPill(label, grams, colour, missing = 0) {
+  return el('div.grow', {
+    style: {
+      background: 'var(--bg-sunken)', borderRadius: 'var(--r-sm)',
+      padding: '9px 10px', borderTop: `2px solid ${colour}`,
+    },
+  }, [
+    el('div', { style: { fontSize: '17px', fontWeight: '720' }, text: `${grams} g` }),
+    el('div.small.faint', { style: { fontSize: '10.5px' },
+      text: missing ? `${label} · ${missing} unknown` : label }),
+  ]);
+}
+
+/**
+ * Everything the day's log actually knows.
+ *
+ * Micronutrients are here rather than on the main screen because their coverage
+ * is thin and uneven: they come from the bundled USDA library and from whatever
+ * a barcode record happened to carry, so a day is nearly always part-known. Each
+ * row therefore says how many of the day's items had no value, and a row where
+ * nothing did says so instead of printing a confident zero.
+ */
+function detailSheet(totals) {
+  const rows = NUTRIENTS.map((n) => {
+    const cell = totals.all[n.key];
+    return el('div.row.between', {
+      style: {
+        padding: '9px 0', borderBottom: '1px solid var(--line-soft)',
+        paddingLeft: n.sub ? '14px' : '0',
+      },
+    }, [
+      el('span.grow', {
+        style: { fontSize: n.sub ? '13px' : '14px', color: n.sub ? 'var(--text-dim)' : 'var(--text)' },
+        text: n.label,
+      }),
+      cell.known
+        ? el('div', { style: { textAlign: 'right' } }, [
+            el('div', { style: { fontWeight: '680', fontSize: '14px' },
+              text: `${fmtNum(cell.value, cell.value < 10 && n.unit !== 'kcal' ? 1 : 0)} ${n.unit}` }),
+            cell.missing
+              ? el('div.small.faint', { style: { fontSize: '10.5px' },
+                  text: `${cell.missing} of ${totals.items} unknown` })
+              : null,
+          ])
+        : el('span.small.faint', { text: 'not recorded' }),
+    ]);
+  });
+
+  openSheet('Everything logged today', el('div', {}, [
+    el('div.small.muted', { style: { marginBottom: '10px' },
+      text: `${plural(totals.items, 'item')} logged. A value counts only the items that carry it — anything else is listed as unknown rather than added in as zero.` }),
+    ...rows,
+    el('div.section-head', {}, [el('h2', { text: 'Where the numbers come from' })]),
+    el('div.small.muted', { text: LIBRARY_ATTRIBUTION }),
+    el('div.small.faint', { style: { marginTop: '8px' },
+      text: 'Foods you typed in yourself only carry what you entered, and a barcode record only carries what the manufacturer submitted — which for micronutrients is usually nothing. That is why most of this list stays empty until you build meals from the library.' }),
+  ]));
 }
 
 function targetSheet() {
@@ -412,7 +483,7 @@ function quickAdd(day) {
   }
 
   const search = el('input', {
-    type: 'text', placeholder: `Search ${foods.length} foods…`,
+    type: 'text', placeholder: `Search your list and ${LIBRARY_SIZE} generic foods…`,
     autocomplete: 'off', autocorrect: 'off', spellcheck: 'false',
   });
   const list = el('div');
@@ -422,10 +493,6 @@ function quickAdd(day) {
     const found = q ? foods.filter((f) => f.name.toLowerCase().includes(q)) : foods.slice(0, 12);
     list.replaceChildren();
 
-    if (!found.length) {
-      list.append(el('div.small.faint', { style: { padding: '10px 0' }, text: 'Nothing matches. Add it as a new food.' }));
-      return;
-    }
     for (const f of found) {
       list.append(listItem({
         title: f.name,
@@ -436,8 +503,35 @@ function quickAdd(day) {
         onclick: async () => { await store.logMeal(f.id, { day }); toast(`${f.name} logged`); },
       }));
     }
-    if (!q && foods.length > 12) {
-      list.append(el('div.small.faint', { style: { textAlign: 'center' }, text: `Search to reach the other ${foods.length - 12}` }));
+
+    // Then the bundled generic foods, clearly separated: these are not on your
+    // list yet, and picking one asks for a portion before it joins.
+    const fromLibrary = q ? searchLibrary(q) : [];
+    if (fromLibrary.length) {
+      list.append(el('div.slot-head', {}, [
+        el('span', { text: 'From the food library' }),
+        el('span', { text: plural(fromLibrary.length, 'match', 'matches') }),
+      ]));
+      for (const entry of fromLibrary) {
+        const p = entry.per100;
+        list.append(listItem({
+          title: entry.name,
+          sub: `per 100 g · ${Math.round(p.protein)} g protein · ${Math.round(p.kcal)} kcal`,
+          right: el('span.small.faint', { text: '+' }),
+          chev: '',
+          ariaLabel: `Add ${entry.name} from the library`,
+          onclick: () => libraryPortionSheet(entry, day),
+        }));
+      }
+    }
+
+    if (!found.length && !fromLibrary.length) {
+      list.append(el('div.small.faint', { style: { padding: '10px 0' },
+        text: q
+          ? `Nothing in your list or the ${LIBRARY_SIZE}-food library matches. Add it as a new food, or scan its barcode.`
+          : 'Nothing matches. Add it as a new food.' }));
+    } else if (!q && foods.length > 12) {
+      list.append(el('div.small.faint', { style: { textAlign: 'center' }, text: `Search to reach the other ${foods.length - 12}, plus the ${LIBRARY_SIZE}-food library` }));
     }
   };
 
@@ -452,6 +546,55 @@ function quickAdd(day) {
     el('button.btn.ghost.full.sm', { style: { marginTop: '8px' }, onclick: manageSheet }, ['Edit my foods'])
   );
   return wrap;
+}
+
+/**
+ * Pick a portion for a library food, then it joins your list.
+ *
+ * The library stores per 100 g because that is how the source reports it and
+ * the only figure that is unambiguous. How much of it you eat is the one thing
+ * no database knows, so it is asked here — the same decision the barcode path
+ * makes, in the same place.
+ */
+function libraryPortionSheet(entry, day) {
+  const grams = normaliseOnBlur(numberInput({ value: '100', 'aria-label': 'Grams' }), { integer: true });
+  const preview = el('div.small.faint', { style: { marginTop: '-6px', marginBottom: '14px' } });
+  const cov = coverage(entry);
+
+  const paint = () => {
+    const g = parseNumber(grams.value) || 0;
+    const f = toFoodFields(entry, g);
+    preview.textContent = g > 0
+      ? `${f.kcal ?? 0} kcal · ${f.protein ?? 0} g protein · ${f.carbs ?? 0} g carbs · ${f.fat ?? 0} g fat`
+      : 'Enter a weight in grams.';
+  };
+  grams.addEventListener('input', paint);
+  paint();
+
+  const add = async (alsoLog) => {
+    const g = parseNumber(grams.value);
+    if (g === null || g <= 0) { toast('How many grams?'); grams.focus(); return; }
+    const food = await store.addFood(toFoodFields(entry, g));
+    closeSheet();
+    if (alsoLog) {
+      await store.logMeal(food.id, { day });
+      toast(`${food.name} added and logged`);
+    } else {
+      toast(`${food.name} added to your list`);
+    }
+  };
+
+  openSheet(entry.name, el('div', {}, [
+    el('label.field', {}, [el('span', { text: 'How much do you eat? (g)' }), grams]),
+    preview,
+    el('div.stack', {}, [
+      el('button.btn.primary.full', { onclick: () => add(true) }, ['Add and log it']),
+      el('button.btn.ghost.full', { onclick: () => add(false) }, ['Just add to my list']),
+    ]),
+    el('div.section-head', {}, [el('h2', { text: 'Source' })]),
+    el('div.small.muted', { text: `USDA FoodData Central: “${entry.usda}”. ${cov.known} of ${cov.total} nutrients recorded.` }),
+    el('div.small.faint', { style: { marginTop: '8px' }, text: LIBRARY_ATTRIBUTION }),
+  ]));
 }
 
 /**

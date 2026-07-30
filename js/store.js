@@ -627,6 +627,11 @@ export async function updateMeal(id, patch) {
         meal[key] = Math.round(meal[key] * factor * 10) / 10;
       }
     }
+    for (const [key, value] of Object.entries(meal.micros || {})) {
+      if (value !== null && value !== undefined) {
+        meal.micros[key] = Math.round(value * factor * 10) / 10;
+      }
+    }
     meal.amount = Number(patch.amount) || 1;
   }
   if (patch.slot !== undefined) meal.slot = patch.slot;

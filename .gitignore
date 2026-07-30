@@ -12,3 +12,4 @@ liftlog-backup-*.json
 
 # build scratch (the generators read from /tmp)
 *.tar.gz
+tools/.cache/

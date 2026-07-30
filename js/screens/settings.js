@@ -293,7 +293,10 @@ export function renderSettings() {
       ', licensed ',
       el('a', { href: 'https://opendatacommons.org/licenses/odbl/1-0/', target: '_blank', rel: 'noopener',
         style: { color: 'var(--accent-hi)' } }, ['ODbL']),
-      ' — queried live per lookup, never bundled.',
+      ' — queried live per lookup, never bundled. Generic foods from ',
+      el('a', { href: 'https://fdc.nal.usda.gov', target: '_blank', rel: 'noopener',
+        style: { color: 'var(--accent-hi)' } }, ['USDA FoodData Central']),
+      ', public domain — bundled with the app, so food search works offline.',
     ]),
 
     el('div.small.faint', { style: { textAlign: 'center', marginTop: '22px' }, text: 'LiftLog · v2' }),

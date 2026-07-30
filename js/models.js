@@ -333,8 +333,8 @@ export function newEntry(exerciseId, sets = []) {
  */
 export function newFood(uid, {
   name, portion, portionGrams, protein, kcal,
-  carbs = null, fat = null, fibre = null,
-  source = 'manual', barcode = null, per100 = null,
+  carbs = null, fat = null, fibre = null, micros = null,
+  source = 'manual', barcode = null, per100 = null, fdcId = null,
 }) {
   return {
     id: uid('f_'),
@@ -350,6 +350,10 @@ export function newFood(uid, {
     carbs: optionalGrams(carbs),
     fat: optionalGrams(fat),
     fibre: optionalGrams(fibre),
+    // Everything past the core five, so adding a nutrient never widens this
+    // record. Same rule inside: a key that is absent is unknown, not zero.
+    micros: micros && typeof micros === 'object' ? { ...micros } : {},
+    fdcId,
     source,                                     // 'manual' | 'barcode' | 'photo'
     // Kept so a second lookup of the same product answers from this list
     // instead of the network, and so the portion can be re-scaled later without
@@ -382,6 +386,9 @@ export function newMeal(uid, food, { amount = 1, day = dayKey(), at = Date.now()
     carbs: scale(food.carbs ?? null),
     fat: scale(food.fat ?? null),
     fibre: scale(food.fibre ?? null),
+    micros: Object.fromEntries(
+      Object.entries(food.micros || {}).map(([k, v]) => [k, scale(v)])
+    ),
   };
 }
 

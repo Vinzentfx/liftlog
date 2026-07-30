@@ -43,6 +43,44 @@ export function proteinTarget(settings) {
 }
 
 /**
+ * Everything the app can hold about a food, in the order it reads on a label.
+ *
+ * `core` values live directly on a food or meal record because every screen
+ * touches them; the rest live in a `micros` object, so adding a nutrient never
+ * widens the record schema. Units come from USDA FoodData Central rather than
+ * being assumed here — milligrams and micrograms are easy to confuse and both
+ * get printed next to a number.
+ */
+export const NUTRIENTS = [
+  { key: 'kcal',        label: 'Energy',             unit: 'kcal', core: true },
+  { key: 'protein',     label: 'Protein',            unit: 'g',    core: true },
+  { key: 'carbs',       label: 'Carbohydrate',       unit: 'g',    core: true },
+  { key: 'sugars',      label: 'of which sugars',    unit: 'g',    sub: true },
+  { key: 'fibre',       label: 'Fibre',              unit: 'g',    core: true },
+  { key: 'fat',         label: 'Fat',                unit: 'g',    core: true },
+  { key: 'satFat',      label: 'of which saturates', unit: 'g',    sub: true },
+  { key: 'sodium',      label: 'Sodium',             unit: 'mg' },
+  { key: 'cholesterol', label: 'Cholesterol',        unit: 'mg' },
+  { key: 'potassium',   label: 'Potassium',          unit: 'mg' },
+  { key: 'calcium',     label: 'Calcium',            unit: 'mg' },
+  { key: 'magnesium',   label: 'Magnesium',          unit: 'mg' },
+  { key: 'iron',        label: 'Iron',               unit: 'mg' },
+  { key: 'zinc',        label: 'Zinc',               unit: 'mg' },
+  { key: 'vitaminC',    label: 'Vitamin C',          unit: 'mg' },
+  { key: 'vitaminD',    label: 'Vitamin D',          unit: 'µg' },
+  { key: 'vitaminB12',  label: 'Vitamin B12',        unit: 'µg' },
+];
+
+export const CORE_KEYS = NUTRIENTS.filter((n) => n.core).map((n) => n.key);
+
+/** One nutrient off a food or meal, wherever it is stored. null means unknown. */
+export function nutrientOf(record, key) {
+  if (!record) return null;
+  const value = CORE_KEYS.includes(key) ? record[key] : (record.micros || {})[key];
+  return value === undefined || value === '' ? null : value;
+}
+
+/**
  * Totals for one day's meals.
  *
  * Protein and calories are always present. Carbs, fat and fibre are not: a food
@@ -74,6 +112,25 @@ export function dayTotals(meals) {
   out.protein = Math.round(out.protein);
   out.kcal = Math.round(out.kcal);
   for (const key of ['carbs', 'fat', 'fibre']) out[key] = Math.round(out[key]);
+
+  // Same rule, applied to everything: a total plus a count of the items that had
+  // nothing to contribute, so "12 mg iron" can never quietly mean "12 mg from
+  // the two items that happened to know, out of nine".
+  out.all = {};
+  for (const n of NUTRIENTS) {
+    let sum = 0, missing = 0, known = 0;
+    for (const m of meals) {
+      const v = nutrientOf(m, n.key);
+      if (v === null) missing++;
+      else { sum += Number(v) || 0; known++; }
+    }
+    out.all[n.key] = {
+      value: Math.round(sum * 10) / 10,
+      missing,
+      known,
+      complete: meals.length > 0 && missing === 0,
+    };
+  }
   return out;
 }
 
