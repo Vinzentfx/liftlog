@@ -106,7 +106,7 @@ input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
   height: calc(var(--tabbar-h) + var(--safe-b));
   padding-bottom: var(--safe-b);
-  display: grid; grid-template-columns: repeat(6, 1fr);
+  display: grid; grid-template-columns: repeat(5, 1fr);
   background: linear-gradient(to top, rgba(7, 10, 18, .97), rgba(10, 14, 26, .86));
   backdrop-filter: saturate(170%) blur(18px);
   -webkit-backdrop-filter: saturate(170%) blur(18px);
@@ -115,7 +115,7 @@ input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
 .tab {
   background: none; border: 0; padding: 7px 0 4px;
   display: flex; flex-direction: column; align-items: center; gap: 3px;
-  color: var(--text-faint); font-size: 9.5px; font-weight: 650; letter-spacing: 0;
+  color: var(--text-faint); font-size: 10px; font-weight: 650; letter-spacing: .012em;
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
   position: relative; transition: color .16s ease;

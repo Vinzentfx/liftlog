@@ -19,7 +19,6 @@ export const DEFAULT_SETTINGS = {
   soundOnRestEnd: true,
   showRatings: true,      // strength tiers can be demotivating — let them be hidden
   showStars: true,        // exercise/plan quality stars, separate from the tiers
-  showNutrition: true,    // the nutrition card on Home
   logRir: true,           // reps-in-reserve column on the set row
   // What a newly added plan exercise starts at. 2 x 6-10 is the app's default
   // for reasons documented in plan-builder.js, but it is a preference, not a

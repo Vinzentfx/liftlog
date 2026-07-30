@@ -27,7 +27,7 @@ so the whole thing works with the network off.
 - Per-day exercise lists with target sets and reps
 - Strength tier shown inline per lift, plus the weight needed for the next tier
 
-**Calendar**
+**Calendar** (from Home)
 - Month grid of every gym day, measured against your active plan
 - Full workout history; tap any date to open that session
 - Edit a finished workout — fix a set, add or remove one, correct the date
@@ -342,6 +342,21 @@ suggestion is plain double progression — clear the top of the rep range on eve
 set, then add weight — with RIR as an override in both directions. It is a way to
 turn "train close to failure" into a decision on the gym floor, not a research
 finding, and it says so.
+
+### Why five tabs, and which five
+
+Home, Train, Food, Plans, Library. A sixth was tried when Food was added, with
+Calendar keeping its slot — and the tab pushed to the far edge stopped being
+seen at all: the calendar was reported missing within a day of shipping it.
+
+So the slots go to what gets opened *during* something — a session, a meal —
+and the two weekly reads, Calendar and Progress, live at the foot of Home as
+labelled cards. Not links tucked into a section head, which is what "All ›"
+was and is exactly how the calendar disappeared.
+
+The nutrition summary that used to sit on Home went with it. Once Food is a tap
+away there is no reason to render the same protein figure twice, and the setting
+that hid that card went too — it had nothing left to control.
 
 ### What the food tab will and will not claim
 

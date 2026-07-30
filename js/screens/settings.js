@@ -141,10 +141,6 @@ export function renderSettings() {
   starToggle.checked = s.showStars !== false;
   starToggle.addEventListener('change', () => store.setSetting('showStars', starToggle.checked));
 
-  const nutritionToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
-  nutritionToggle.checked = s.showNutrition !== false;
-  nutritionToggle.addEventListener('change', () => store.setSetting('showNutrition', nutritionToggle.checked));
-
   const defSets = el('input', {
     type: 'number', inputmode: 'numeric', min: '1', max: '20', step: '1',
     value: String(store.defaultSets()),
@@ -243,8 +239,6 @@ export function renderSettings() {
     el('div.section-head', {}, [el('h2', { text: 'What to show' })]),
     checkRow(starToggle, 'Exercise and plan stars',
       'Hides the 1–5 star scores and the rating cards. The plain-language feedback stays — "what works" and "what to fix" are useful even if you would rather not be given a grade. Your own personal rating stays too; that one is a note to yourself.'),
-    checkRow(nutritionToggle, 'Nutrition on Home',
-      'The Nutrition tab keeps working either way — this only controls the summary card on Home.'),
 
     el('div.section-head', {}, [el('h2', { text: 'Backup' })]),
     el('div.small.muted', { style: { marginBottom: '10px' },

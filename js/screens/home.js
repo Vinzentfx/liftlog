@@ -15,7 +15,6 @@ import { bodyMap, tierLegend } from '../bodymap.js';
 import { barChart, lineChart } from '../charts.js';
 import { analyseWeek, compareToPlan, weekVerdict, weekStreak } from '../log-analysis.js';
 import { shareWeekSheet } from '../week-share.js';
-import { proteinTarget, dayTotals, proteinVerdict, weightTrend, trendVerdict } from '../nutrition.js';
 import { todaysDays, weekdayName } from '../schedule.js';
 import { regionProgress, progressFills, describeRegion } from '../region-progress.js';
 import { analysePlan } from '../plan-rating.js';
@@ -132,9 +131,6 @@ export default function renderHome({ actions }) {
   // ---------- done vs planned ----------
   root.append(weekVsPlan(done));
 
-  // ---------- nutrition ----------
-  if (s.showNutrition !== false) root.append(nutritionCard());
-
   // ---------- weekly workload ----------
   const buckets = weeklyMuscleSets(done, store.state.exerciseById, 10);
   root.append(el('div.section-head', {}, [
@@ -182,7 +178,7 @@ export default function renderHome({ actions }) {
   // ---------- recent ----------
   root.append(el('div.section-head', {}, [
     el('h2', { text: 'Recent' }),
-    el('button.btn.quiet.sm', { onclick: () => navigate('calendar') }, ['All ›']),
+    el('button.btn.quiet.sm', { onclick: () => navigate('calendar') }, ['Calendar ›']),
   ]));
   for (const x of done.slice(0, 3)) {
     const st = sessionStats(x);
@@ -193,7 +189,34 @@ export default function renderHome({ actions }) {
     }));
   }
 
+  // ---------- the two screens without a tab ----------
+  // Five tabs is the ceiling a thumb can aim at, and Food earned one by being a
+  // several-times-a-day screen. Calendar and Progress are both weekly reads, so
+  // they live here instead — but they have to be *visible*, not a link buried in
+  // a section head, which is how the calendar went missing the moment it lost
+  // its slot.
+  root.append(
+    el('div.stat-grid.two', { style: { marginTop: '18px' } }, [
+      wayIn('Calendar', 'Every gym day, month by month', () => navigate('calendar')),
+      wayIn('Progress', 'Charts, trends and records', () => navigate('progress')),
+    ])
+  );
+
   return root;
+}
+
+function wayIn(title, sub, onclick) {
+  return el('button.stat', {
+    onclick,
+    'aria-label': `${title} — ${sub}`,
+    style: { textAlign: 'left', cursor: 'pointer' },
+  }, [
+    el('div.row.between', { style: { alignItems: 'baseline' } }, [
+      el('span', { style: { fontWeight: '700', fontSize: '15px' }, text: title }),
+      el('span.chev', { text: '›', 'aria-hidden': 'true', style: { color: 'var(--text-faint)' } }),
+    ]),
+    el('div.small.faint', { style: { marginTop: '2px' }, text: sub }),
+  ]);
 }
 
 /**
@@ -389,60 +412,6 @@ function weekVsPlan(done) {
 const trimNum = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 /* ======================= nutrition ======================= */
-
-/**
- * Today's protein and where bodyweight is heading — the two nutrition numbers
- * that mean anything next to training data. Everything else lives on its own
- * screen; this is the glance.
- */
-function nutritionCard() {
-  const wrap = el('div');
-  const target = proteinTarget(store.state.settings);
-  const meals = store.mealsOn();
-  const totals = dayTotals(meals);
-  const verdict = proteinVerdict(totals.protein, target);
-  const trend = weightTrend(store.state.bodyweight, 4);
-
-  wrap.append(el('div.section-head', {}, [
-    el('h2', { text: 'Nutrition' }),
-    el('button.btn.quiet.sm', { onclick: () => navigate('nutrition') }, ['Log ›']),
-  ]));
-
-  const card = el('div.card', {}, [
-    el('div.row.between', { style: { alignItems: 'flex-end' } }, [
-      el('div', {}, [
-        el('div', { style: { fontSize: '24px', fontWeight: '740', letterSpacing: '-0.02em', lineHeight: '1' },
-          text: `${totals.protein} g` }),
-        el('div.small.faint', { style: { marginTop: '2px' },
-          text: target ? `protein today · target ${target.low}–${target.high} g` : 'protein today' }),
-      ]),
-      totals.kcal
-        ? el('div', { style: { textAlign: 'right' } }, [
-            el('div', { style: { fontSize: '16px', fontWeight: '650' }, text: fmtNum(totals.kcal) }),
-            el('div.small.faint', { text: 'kcal' }),
-          ])
-        : null,
-    ]),
-  ]);
-
-  if (!meals.length) {
-    card.append(el('div.small.muted', { style: { marginTop: '8px' },
-      text: store.state.foods.length
-        ? 'Nothing logged today.'
-        : 'Build a short list of what you actually eat and logging becomes one tap.' }));
-  } else {
-    const tone = { hit: 'var(--good)', over: 'var(--text-dim)', under: 'var(--warn)', unknown: 'var(--text-faint)' }[verdict.state];
-    card.append(el('div.small', { style: { marginTop: '8px', color: tone }, text: verdict.text }));
-  }
-
-  if (trend) {
-    card.append(el('div.small.faint', { style: { marginTop: '6px' },
-      text: `${trendVerdict(trend).text} over ${trend.spanWeeks} weeks` }));
-  }
-
-  wrap.append(card);
-  return wrap;
-}
 
 /* ======================= rating ======================= */
 

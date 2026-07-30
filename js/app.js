@@ -16,9 +16,13 @@ import renderShare from './screens/share.js';
 import { renderSettings } from './screens/settings.js';
 
 /**
- * Six tabs, plus `progress`, which is reachable from Home and from every
- * section that hints at a trend. Nutrition earned its slot by being a
- * several-times-a-day screen; Progress is a weekly read and does not.
+ * Five tabs, plus `calendar` and `progress`, which are reached from Home.
+ *
+ * Five is the ceiling: a sixth was tried, and the tab pushed to the far edge
+ * became invisible in use — the calendar was reported missing within a day.
+ * So the slots go to what gets opened during a session or a meal, and the two
+ * weekly reads live on Home, as visible cards rather than links tucked into a
+ * section head.
  */
 const ROUTES = {
   home:      { title: 'Home',      render: renderHome },
