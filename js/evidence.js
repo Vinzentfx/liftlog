@@ -72,6 +72,14 @@ export const SOURCES = {
     url: 'https://pubmed.ncbi.nlm.nih.gov/13594881/',
     says: 'A kilogram of body tissue is treated as roughly 7,700 kcal. The figure assumes the change is mostly fat and that energy expenditure holds still, and neither is quite true — real weight change flattens as intake changes, so a long projection built on it drifts. Over a few weeks, against measured weight and measured intake, it is close enough to be useful and too rough to quote to the calorie.',
   },
+  efsaFat: {
+    key: 'efsaFat',
+    short: 'EFSA — dietary reference values for fats',
+    cite: 'EFSA Panel on Dietetic Products, Nutrition and Allergies. Scientific Opinion on Dietary Reference Values for fats. EFSA Journal, 2010. Alongside Thomas DT, Erdman KA, Burke LM. Position of the Academy of Nutrition and Dietetics, Dietitians of Canada, and ACSM: Nutrition and Athletic Performance, 2016.',
+    note: 'A reference range for the population, not a performance optimum.',
+    url: 'https://www.efsa.europa.eu/en/efsajournal/pub/1461',
+    says: 'Total fat between 20% and 35% of energy is the reference intake for adults, and the sports-nutrition position stand puts athletes in the same range while warning against dropping below 20% — fat carries the essential fatty acids and the fat-soluble vitamins, and very low intakes have been linked to lower testosterone. There is no evidence that any particular point inside the range builds more muscle than another.',
+  },
   efsaFibre: {
     key: 'efsaFibre',
     short: 'EFSA — dietary reference values for carbohydrates and fibre',
@@ -145,6 +153,25 @@ export const THRESHOLDS = {
 
   /** Energy equivalent of a kilogram of bodyweight change. */
   kcalPerKg: { value: 7700, source: 'wishnofsky' },
+
+  /**
+   * Fat as a share of energy. The lower edge is a floor worth respecting —
+   * essential fatty acids, fat-soluble vitamins, and a hormonal cost below it.
+   * Inside the range, nothing distinguishes one point from another.
+   */
+  fatShare: { low: 0.20, high: 0.35, source: 'efsaFat' },
+
+  /**
+   * Carbohydrate as a share of energy, for a sanity check rather than a target:
+   * in this app carbs are whatever energy is left once protein and fat are set.
+   */
+  carbShare: { low: 0.45, high: 0.60, source: 'efsaFibre' },
+
+  /**
+   * Weight change per week, as a share of bodyweight. Training-practice
+   * convention rather than a trial result, which is why the UI says so.
+   */
+  weeklyChangePct: { low: 0.0025, high: 0.005, source: null },
 };
 
 export const RATING_DISCLAIMER =

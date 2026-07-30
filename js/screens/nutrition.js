@@ -18,7 +18,7 @@ import { dayKey, MEAL_SLOTS, slotFor } from '../models.js';
 import {
   proteinTarget, dayTotals, proteinVerdict, proteinHistory, proteinSummary,
   weightTrend, trendVerdict, energySplit, fibreTarget, waterTarget, maintenanceEstimate,
-  NUTRIENTS,
+  NUTRIENTS, macroTargets, GOALS,
 } from '../nutrition.js';
 import {
   searchFoods, toFoodFields, coverage, TOTAL_SIZE,
@@ -43,6 +43,7 @@ export default function renderNutrition({ actions }) {
 
   root.append(dayHeader(day, isToday));
   root.append(targetCard(totals, target));
+  root.append(targetsSection(totals));
   root.append(macroCard(totals));
   root.append(waterCard(day));
   root.append(mealList(meals, day));
@@ -50,6 +51,135 @@ export default function renderNutrition({ actions }) {
   root.append(trendSection());
 
   return root;
+}
+
+/* ======================= targets ======================= */
+
+/**
+ * What to aim for, and how much of it is left today.
+ *
+ * The order matters and is stated on the card, because it is the whole reason
+ * these numbers are allowed to exist: energy sets the direction, protein has
+ * its own band, fat has a floor, and carbohydrate is the remainder. Nothing
+ * here is a ratio — the carb figure is arithmetic on the user's own calorie
+ * target, which is itself measured rather than predicted.
+ */
+function targetsSection(totals) {
+  const wrap = el('div');
+  const maintenance = maintenanceEstimate(store.state.meals, store.state.bodyweight);
+  const targets = macroTargets(store.state.settings, maintenance);
+
+  wrap.append(el('div.section-head', {}, [
+    el('h2', { text: 'Targets' }),
+    el('button.btn.quiet.sm', { onclick: () => targetsSheet(targets) }, ['How these are set']),
+  ]));
+
+  if (!targets.ok) {
+    wrap.append(el('div.card', {}, [
+      el('div.small.muted', {
+        text: targets.protein
+          ? `Protein is ${targets.protein.low}–${targets.protein.high} g, straight from your bodyweight. Calories, carbs and fat all hang off your maintenance figure, and that needs a few weeks of logging before it means anything — the Maintenance card below says what is still missing.`
+          : 'Add your bodyweight in Settings and the protein band appears. Everything else waits on the maintenance estimate further down.',
+      }),
+    ]));
+    return wrap;
+  }
+
+  wrap.append(goalPicker(targets));
+
+  const rows = [
+    ['Calories', `${fmtNum(targets.kcal)} kcal`, totals.kcal, targets.kcal, targets.kcal, 'var(--text)'],
+    ['Protein', `${targets.protein.low}–${targets.protein.high} g`, totals.protein, targets.protein.low, targets.protein.high, 'var(--accent-hi)'],
+    ['Carbs', `${targets.carbs.low}–${targets.carbs.high} g`, totals.carbs, targets.carbs.low, targets.carbs.high, '#22D3EE'],
+    ['Fat', `${targets.fat.low}–${targets.fat.high} g`, totals.fat, targets.fat.low, targets.fat.high, '#C084FC'],
+  ];
+
+  const card = el('div.card', {});
+  for (const [label, band, eaten, low, high, colour] of rows) {
+    const pct = high > 0 ? Math.min(1, eaten / high) : 0;
+    const inRange = eaten >= low && eaten <= high * 1.05;
+    card.append(
+      el('div', { style: { marginBottom: '12px' } }, [
+        el('div.row.between', { style: { alignItems: 'baseline' } }, [
+          el('span', { style: { fontSize: '13.5px', fontWeight: '640' }, text: label }),
+          el('span.small', {
+            style: { color: inRange ? 'var(--good)' : 'var(--text-dim)' },
+            text: `${fmtNum(eaten)} of ${band}`,
+          }),
+        ]),
+        el('div.track-thin', {}, [
+          el('i', { style: { width: `${Math.max(2, pct * 100)}%`, background: colour } }),
+        ]),
+      ])
+    );
+  }
+
+  card.append(el('div.small.faint', { style: { marginTop: '-4px' },
+    text: 'Carbs are the energy left after protein and fat, not a target of their own. Inside the fat range nothing distinguishes one point from another — hit the floor and spend the rest wherever you like.' }));
+
+  wrap.append(card);
+  return wrap;
+}
+
+function goalPicker(targets) {
+  const seg = el('div.seg', { style: { marginBottom: '10px' } }, GOALS.map((g) =>
+    el('button', {
+      'aria-pressed': String(targets.goal === g.key),
+      onclick: async (e) => {
+        [...e.target.parentElement.children].forEach((b, i) =>
+          b.setAttribute('aria-pressed', String(GOALS[i].key === g.key)));
+        await store.setSetting('goal', g.key);
+      },
+    }, [g.label])
+  ));
+
+  const goal = GOALS.find((g) => g.key === targets.goal);
+  return el('div', {}, [
+    seg,
+    el('div.small.faint', { style: { marginBottom: '10px' },
+      text: targets.offset === 0
+        ? `Holding at ${fmtNum(targets.maintenance)} kcal, your measured maintenance — ${goal.blurb}.`
+        : `${targets.offset > 0 ? '+' : ''}${fmtNum(targets.offset)} kcal on your measured maintenance of ${fmtNum(targets.maintenance)} — about ${Math.abs(targets.kgPerWeek)} kg a week, ${goal.blurb}.` }),
+  ]);
+}
+
+function targetsSheet(targets) {
+  const fat = SOURCES.efsaFat;
+  const protein = SOURCES.protein2018;
+
+  openSheet('How the targets are set', el('div', {}, [
+    el('div.small.muted', {
+      text: 'In the order that actually decides them. There is no evidence-based macro ratio — "40/30/30" is folklore with a decimal point — but there is an evidence-based order, and this is it.',
+    }),
+
+    el('div.section-head', {}, [el('h2', { text: '1 · Calories' })]),
+    el('div.small.muted', {
+      text: targets.ok
+        ? `Your measured maintenance, ${fmtNum(targets.maintenance)} kcal, plus or minus the pace you picked. The pace — a quarter to a half percent of bodyweight a week — is training-practice convention rather than a trial result, and slow enough that a gain stays mostly muscle and a cut mostly does not cost any.`
+        : 'Your measured maintenance, plus or minus the pace you pick. It is derived from your own logging and your own scale, not from a formula.',
+    }),
+
+    el('div.section-head', {}, [el('h2', { text: '2 · Protein' })]),
+    el('div.small.muted', { text: protein.says }),
+
+    el('div.section-head', {}, [el('h2', { text: '3 · Fat' })]),
+    el('div.small.muted', { text: fat.says }),
+    el('a', {
+      href: fat.url, target: '_blank', rel: 'noopener',
+      style: { color: 'var(--accent-hi)', fontWeight: '620', fontSize: '14px' },
+      text: `${fat.short} ↗`,
+    }),
+
+    el('div.section-head', {}, [el('h2', { text: '4 · Carbohydrate' })]),
+    el('div.small.muted', {
+      text: 'Whatever energy is left. Not a target in its own right, and deliberately not given one — no carbohydrate intake has been shown to build more muscle than another once calories and protein are equal. The range you see is simply what fits between the fat floor and the fat ceiling.',
+    }),
+
+    el('div.section-head', {}, [el('h2', { text: 'What this cannot do' })]),
+    el('div.small.muted', {
+      text: 'It inherits every weakness of the maintenance estimate, under-logging first among them. Treat the calorie figure as a starting point and let the scale correct it over a few weeks — that feedback loop is worth more than any calculator.',
+    }),
+  ]));
 }
 
 /* ======================= macros ======================= */

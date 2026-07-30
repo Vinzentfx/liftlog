@@ -29,6 +29,10 @@ export const DEFAULT_SETTINGS = {
   // Olympic bar for the current unit" — a setting rather than a constant
   // because training bars, women's bars and safety-squat bars all differ.
   barWeight: null,
+  // What the calorie target is aimed at. Only ever three answers, because the
+  // rate that goes with each is a convention (0.25-0.5% of bodyweight a week)
+  // rather than something anyone has trialled at finer resolution.
+  goal: 'hold',           // 'lose' | 'hold' | 'gain'
   // Profile. sex and bodyweight drive the strength standards; height is
   // recorded for reference only and is deliberately not used in any rating
   // (no published standard normalises by height).

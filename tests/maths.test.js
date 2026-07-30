@@ -33,7 +33,7 @@ const { bodyweightAt, strengthAt } = await import('../js/history.js');
 const { decodeLink, planLink, resolveAgainstLibrary } = await import('../js/plan-share.js');
 const { weekSummary } = await import('../js/week-card.js');
 const { THRESHOLDS } = await import('../js/evidence.js');
-const { dayTotals, energySplit, maintenanceEstimate, NUTRIENTS } = await import('../js/nutrition.js');
+const { dayTotals, energySplit, maintenanceEstimate, NUTRIENTS, macroTargets } = await import('../js/nutrition.js');
 const { searchLibrary, searchFoods, toFoodFields } = await import('../js/foodsearch.js');
 const { parseNumber, plural } = await import('../js/ui.js');
 const { platePlan, describePlates } = await import('../js/plates.js');
@@ -374,6 +374,47 @@ test('maintenance subtracts what the scale accounts for', () => {
   assert.equal(est.meanIntake, 2600);
   assert.equal(est.kgPerWeek, 0.2);
   assert.equal(est.maintenance, 2380);
+});
+
+test('macro targets wait for a calorie figure they can trust', () => {
+  const settings = { bodyweight: 82, units: 'kg', sex: 'male', goal: 'hold' };
+  const t = macroTargets(settings, { ok: false, reason: 'days' });
+  assert.equal(t.ok, false);
+  // Protein does not depend on calories, so it is still answered.
+  assert.ok(t.protein.low > 0);
+});
+
+test('macro targets fall out of calories, not out of a ratio', () => {
+  const settings = { bodyweight: 82, units: 'kg', sex: 'male', goal: 'hold' };
+  const t = macroTargets(settings, { ok: true, maintenance: 2800 });
+
+  assert.equal(t.kcal, 2800, 'holding means maintenance, untouched');
+  // Fat is 20-35% of energy, at 9 kcal/g.
+  assert.equal(t.fat.low, Math.round(2800 * 0.20 / 9));
+  assert.equal(t.fat.high, Math.round(2800 * 0.35 / 9));
+
+  // Carbs are the remainder, so their range runs the other way: most carbs
+  // when fat sits at its floor.
+  assert.ok(t.carbs.high > t.carbs.low);
+  const proteinKcal = ((t.protein.low + t.protein.high) / 2) * 4;
+  assert.equal(t.carbs.low, Math.round((2800 - proteinKcal - t.fat.high * 9) / 4));
+
+  // And the whole thing adds up: protein + fat floor + max carbs ≈ the target.
+  const total = proteinKcal + t.fat.low * 9 + t.carbs.high * 4;
+  assert.ok(Math.abs(total - 2800) < 5, `expected ~2800 kcal, got ${total}`);
+});
+
+test('the goal moves calories in the right direction', () => {
+  const base = { bodyweight: 82, units: 'kg', sex: 'male' };
+  const hold = macroTargets({ ...base, goal: 'hold' }, { ok: true, maintenance: 2800 });
+  const gain = macroTargets({ ...base, goal: 'gain' }, { ok: true, maintenance: 2800 });
+  const lose = macroTargets({ ...base, goal: 'lose' }, { ok: true, maintenance: 2800 });
+
+  assert.ok(gain.kcal > hold.kcal && hold.kcal > lose.kcal);
+  assert.equal(gain.offset, -lose.offset, 'the pace is symmetric');
+  assert.ok(gain.kgPerWeek > 0 && lose.kgPerWeek < 0);
+  // 0.375% of 82 kg is about 0.31 kg a week — the convention, not a finding.
+  assert.ok(Math.abs(gain.kgPerWeek) < 0.5, 'and slow');
 });
 
 /* ========================== loading a bar ========================== */

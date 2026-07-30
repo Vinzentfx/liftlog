@@ -327,6 +327,79 @@ export function maintenanceEstimate(meals, bodyweightLog, { days = 28, endTs = D
   };
 }
 
+/**
+ * Daily targets for everything, derived in the order that actually decides them.
+ *
+ * There is no evidence-based macro *ratio*. "40/30/30" is folklore with a
+ * decimal point, and an app that hands one out is inventing precision. But
+ * there is an evidence-based *order*, and it is the one any competent coach
+ * uses:
+ *
+ *   1. Energy decides the direction — gaining, holding or losing.
+ *   2. Protein has its own band, from bodyweight, independent of the rest.
+ *   3. Fat has a floor worth respecting: below about 20% of energy you are
+ *      cutting into essential fatty acids and fat-soluble vitamins.
+ *   4. Carbohydrate is what is left. Not a target in its own right — the
+ *      remainder, which is exactly what it is in practice.
+ *
+ * So the carb and fat numbers here are arithmetic on the user's own calorie
+ * target, not a ratio pulled out of the air. Inside the fat range nothing
+ * distinguishes one point from another, and the UI says that rather than
+ * pretending the midpoint is special.
+ *
+ * Returns null when the calorie target cannot be known — which is most of the
+ * chain, because it rests on the measured maintenance estimate.
+ */
+export function macroTargets(settings, maintenance) {
+  const protein = proteinTarget(settings);
+  if (!maintenance || !maintenance.ok) {
+    return { ok: false, reason: 'maintenance', protein };
+  }
+
+  const bw = Number(settings?.bodyweight) || 0;
+  const kg = settings?.units === 'lb' ? bw * 0.45359237 : bw;
+  const goal = ['gain', 'lose'].includes(settings?.goal) ? settings.goal : 'hold';
+
+  // The rate is a share of bodyweight per week, converted to a daily energy
+  // offset through the same 7,700 kcal/kg the maintenance estimate uses.
+  const { low, high } = THRESHOLDS.weeklyChangePct;
+  const rate = goal === 'hold' ? 0 : (low + high) / 2;
+  const perDay = (kg * rate * THRESHOLDS.kcalPerKg.value) / 7;
+  const kcal = Math.round(maintenance.maintenance + (goal === 'gain' ? perDay : goal === 'lose' ? -perDay : 0));
+
+  const fat = {
+    low: Math.round((kcal * THRESHOLDS.fatShare.low) / 9),
+    high: Math.round((kcal * THRESHOLDS.fatShare.high) / 9),
+  };
+
+  // Carbs are the remainder, so the range runs the other way: most carbs when
+  // fat sits at its floor. Protein's midpoint is used, because a range on both
+  // sides would produce a carb window too wide to act on.
+  const proteinKcal = protein ? ((protein.low + protein.high) / 2) * 4 : 0;
+  const carbs = {
+    low: Math.max(0, Math.round((kcal - proteinKcal - fat.high * 9) / 4)),
+    high: Math.max(0, Math.round((kcal - proteinKcal - fat.low * 9) / 4)),
+  };
+
+  return {
+    ok: true,
+    goal,
+    kcal,
+    maintenance: maintenance.maintenance,
+    offset: kcal - maintenance.maintenance,
+    kgPerWeek: goal === 'hold' ? 0 : Math.round(kg * rate * (goal === 'lose' ? -1 : 1) * 100) / 100,
+    protein,
+    fat,
+    carbs,
+  };
+}
+
+export const GOALS = [
+  { key: 'lose', label: 'Lose', blurb: 'slow enough to keep muscle' },
+  { key: 'hold', label: 'Hold', blurb: 'stay where you are' },
+  { key: 'gain', label: 'Gain', blurb: 'slow enough to stay lean' },
+];
+
 /** Plain-language read on the weight trend, given what the user is trying to do. */
 export function trendVerdict(trend) {
   if (!trend) return { state: 'unknown', text: 'Log your bodyweight twice to see a direction' };

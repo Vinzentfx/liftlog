@@ -38,7 +38,7 @@ so the whole thing works with the network off.
 - **More** opens every nutrient the day's log knows, micronutrients included
 - Carbs, fat, fibre and water — recorded, with no training claim attached
 - Meals grouped by time of day; repeat yesterday in one tap
-- Maintenance calories derived from your own log and scale
+- Maintenance calories derived from your own log and scale, and targets that follow from them
 
 **Library**
 - ~776 exercises, searchable by name, muscle group and equipment
@@ -467,6 +467,32 @@ taken first-to-last, so a single heavy morning cannot swing the answer.
 What it cannot fix is under-logging, which every validation study finds and which
 this inherits in full. The sheet says so. It is still anchored to your own scale,
 which is more than a formula can say.
+
+### Carbohydrate and fat targets, without a macro ratio
+
+There is no evidence-based macro *ratio*. "40/30/30" is folklore with a decimal
+point, and an app that hands one out is inventing precision. But there is an
+evidence-based *order*, and the Targets card follows it:
+
+1. **Calories** — your measured maintenance, plus or minus a pace you pick. The
+   pace (0.25–0.5% of bodyweight a week) is training-practice convention, and
+   labelled as such.
+2. **Protein** — its own band from bodyweight, independent of everything else.
+3. **Fat** — 20–35% of energy. The lower edge is a floor worth respecting:
+   essential fatty acids, fat-soluble vitamins, and a hormonal cost below it
+   (EFSA 2010, and the ACSM/AND/DC position stand agrees for athletes).
+4. **Carbohydrate** — whatever is left. Not a target of its own, and not given
+   one, because no carbohydrate intake has been shown to build more muscle than
+   another once calories and protein match.
+
+So the carb and fat numbers are arithmetic on the user's own calorie figure, not
+a ratio pulled out of the air. Inside the fat range nothing distinguishes one
+point from another, and the card says so rather than implying the midpoint is
+special.
+
+The whole chain rests on the maintenance estimate, so it refuses as a unit: with
+too little logging there are no calorie, carb or fat targets, and the card says
+which piece is missing. Protein still appears, because it only needs bodyweight.
 
 ### Why there is no deload feature
 
