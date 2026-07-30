@@ -33,7 +33,7 @@ const { bodyweightAt, strengthAt } = await import('../js/history.js');
 const { decodeLink, planLink, resolveAgainstLibrary } = await import('../js/plan-share.js');
 const { weekSummary } = await import('../js/week-card.js');
 const { THRESHOLDS } = await import('../js/evidence.js');
-const { parseNumber } = await import('../js/ui.js');
+const { parseNumber, plural } = await import('../js/ui.js');
 const { platePlan, describePlates } = await import('../js/plates.js');
 const { stallReport, describeStall } = await import('../js/fatigue.js');
 
@@ -110,6 +110,14 @@ test('parseNumber says null rather than guessing', () => {
   }
   // 0 is a real value, not an absence — reps of 0 must not read as "blank".
   assert.equal(parseNumber('0'), 0);
+});
+
+test('plural counts one of a thing correctly', () => {
+  // "1 sessions" was on screen for months, in four different files.
+  assert.equal(plural(1, 'session'), '1 session');
+  assert.equal(plural(0, 'session'), '0 sessions');
+  assert.equal(plural(2, 'set'), '2 sets');
+  assert.equal(plural(1, 'exercise', 'exercises'), '1 exercise');
 });
 
 /* ============================== dates ============================== */

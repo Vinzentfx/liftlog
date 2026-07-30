@@ -85,9 +85,16 @@ export function lineChart(points, opts = {}) {
     });
 
     if (data.length < 2) {
-      svg.append(svgEl('text', {
+      // Node.append returns undefined — unlike appendChild — so reading a
+      // property off it threw, and this whole branch crashed the screen instead
+      // of drawing the placeholder it was written to draw. Callers should
+      // generally say something more useful than an empty plot area; this is
+      // the fallback for the ones that don't.
+      const label = svgEl('text', {
         x: W / 2, y: H / 2, class: 'axis', 'text-anchor': 'middle',
-      })).lastChild.textContent = data.length ? 'Need two sessions to plot a trend' : 'No data yet';
+      });
+      label.textContent = data.length ? 'One point — a line needs two' : 'No data yet';
+      svg.append(label);
       return svg;
     }
 

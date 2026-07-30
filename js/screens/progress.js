@@ -3,7 +3,7 @@
 import {
   el, fmtNum, fmtWeight, fmtDate, relDay, emptyState,
   openSheet, closeSheet, toast, confirmSheet, listItem,
-  numberInput, parseNumber, normaliseOnBlur,
+  numberInput, parseNumber, normaliseOnBlur, plural,
 } from '../ui.js';
 import * as store from '../store.js';
 import {
@@ -83,7 +83,7 @@ function overview() {
     root.append(el('div', { style: { marginTop: '10px' } }, frequent.map(({ ex, count }) =>
       listItem({
         title: ex.name,
-        sub: `${count} sessions`,
+        sub: plural(count, 'session'),
         ariaLabel: `Chart ${ex.name}`,
         onclick: () => navigate('progress', ex.id),
       })
@@ -178,6 +178,38 @@ function overview() {
   }
 
   return root;
+}
+
+/**
+ * What to show instead of a chart with one dot on it.
+ *
+ * A single-point plot looks like a finished thing that happens to be empty, and
+ * it wastes the one number there actually is. So the number gets the space, and
+ * the missing part is stated rather than drawn: a trend needs a second session,
+ * and that is a fact about the data, not a failure of the screen.
+ *
+ * Zero points is a different sentence. It does not mean "nothing logged" — the
+ * session list below will be full — it means this particular metric came out at
+ * zero every time, which is what a bodyweight movement does to volume and to an
+ * estimated 1RM.
+ */
+function thinChart(points, m, units) {
+  if (!points.length) {
+    return el('div.card', {}, [
+      el('div.small.muted', {
+        text: `Nothing to plot for ${m.noun}: every session so far comes out at zero. That is what a bodyweight movement does — with no load there is no volume and no estimated one-rep max. Log an added weight, or switch the metric above.`,
+      }),
+    ]);
+  }
+
+  const only = points[0];
+  return el('div.card', {}, [
+    el('div', { style: { fontSize: '32px', fontWeight: '760', letterSpacing: '-0.03em', lineHeight: '1.1' },
+      text: only.tip }),
+    el('div.small.faint', { style: { marginTop: '2px' }, text: `${m.noun} · ${relDay(only.x)}` }),
+    el('div.small.muted', { style: { marginTop: '12px' },
+      text: 'One session logged. A second one turns this into a trend — the chart, the percentage and the twelve-week slope all need at least two points to mean anything.' }),
+  ]);
 }
 
 /* ===================== strength over time ===================== */
@@ -335,7 +367,7 @@ function moversSection(done, units) {
     el('div.grow', {}, [
       el('div', { style: { fontWeight: '600', fontSize: '14.5px' }, text: r.ex.name }),
       el('div.small.faint', {
-        text: `${fmtWeight(Math.round(r.first), units)} → ${fmtWeight(Math.round(r.last), units)} est. 1RM · ${r.sessions} sessions`,
+        text: `${fmtWeight(Math.round(r.first), units)} → ${fmtWeight(Math.round(r.last), units)} est. 1RM · ${plural(r.sessions, 'session')}`,
       }),
     ]),
     el('div', { style: { textAlign: 'right', color: tone, fontWeight: '680', fontSize: '14px' } }, [
@@ -447,7 +479,7 @@ function exerciseView(exerciseId) {
   root.append(
     el('div', { style: { marginBottom: '14px' } }, [
       el('div', { style: { fontSize: '21px', fontWeight: '710', letterSpacing: '-0.02em' }, text: ex.name }),
-      el('div.small.faint', { text: `${ex.muscle} · ${ex.equipment} · ${series.length} sessions` }),
+      el('div.small.faint', { text: `${ex.muscle} · ${ex.equipment} · ${plural(series.length, 'session')}` }),
     ])
   );
 
@@ -505,6 +537,11 @@ function exerciseView(exerciseId) {
       tip: `${fmtNum(m.pick(p), metric === 'volume' ? 0 : 1)}${units}`,
     })).filter((p) => p.y > 0);
 
+    if (points.length < 2) {
+      chartHost.replaceChildren(thinChart(points, m, units));
+      return;
+    }
+
     chartHost.replaceChildren(
       el('div.card', {}, [
         lineChart(points, {
@@ -544,7 +581,7 @@ function exerciseView(exerciseId) {
   for (const p of [...series].reverse()) {
     root.append(listItem({
       title: relDay(p.t),
-      sub: `${p.sets} sets · top ${fmtWeight(p.topWeight, units)} · ${fmtNum(p.volume)}${units} · e1RM ${fmtNum(p.e1rm)}`,
+      sub: `${plural(p.sets, 'set')} · top ${fmtWeight(p.topWeight, units)} · ${fmtNum(p.volume)}${units} · e1RM ${fmtNum(p.e1rm)}`,
       onclick: () => navigate('calendar', p.sessionId),
     }));
   }

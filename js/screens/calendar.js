@@ -4,7 +4,7 @@
 import {
   el, fmtNum, fmtDuration, fmtDate, relDay, setsSummary,
   confirmSheet, toast, emptyState, listItem, debounce,
-  numberInput, parseNumber, normaliseOnBlur,
+  numberInput, parseNumber, normaliseOnBlur, plural,
 } from '../ui.js';
 import * as store from '../store.js';
 import { sessionStats, entryStats, isCounted, newSet, newEntry } from '../models.js';
@@ -270,7 +270,7 @@ function readEntry(entry, units) {
     ]),
     el('div.small', { style: { marginBottom: '6px' }, text: setsSummary(counted, units) }),
     el('div.row', { style: { gap: '14px' } }, [
-      el('span.small.faint', { text: `${stats.sets} sets` }),
+      el('span.small.faint', { text: plural(stats.sets, 'set') }),
       el('span.small.faint', { text: `${fmtNum(stats.volume)}${units} volume` }),
       stats.e1rm ? el('span.small.faint', { text: `e1RM ${fmtNum(stats.e1rm)}${units}` }) : null,
     ]),

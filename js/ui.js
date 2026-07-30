@@ -240,6 +240,11 @@ export function emptyState(title, hint, action) {
   return el('div.empty', {}, [el('strong', { text: title }), el('div', { text: hint }), action || null]);
 }
 
+/** `plural(1, 'session')` -> "1 session". One copy, so counts read the same everywhere. */
+export function plural(n, one, many = `${one}s`) {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
 export function debounce(fn, ms = 200) {
   let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }

@@ -2,7 +2,7 @@
 
 import {
   el, openSheet, closeSheet, confirmSheet, toast, fmtClock, fmtDate,
-  numberInput, parseNumber, normaliseOnBlur,
+  numberInput, parseNumber, normaliseOnBlur, plural,
 } from '../ui.js';
 import * as store from '../store.js';
 import * as db from '../db.js';
@@ -117,7 +117,6 @@ export function renderSettings() {
   autoRest.checked = !!s.autoStartRest;
   autoRest.addEventListener('change', () => store.setSetting('autoStartRest', autoRest.checked));
 
-  const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
   const counts = el('div.small.faint', {
     text: [
       plural(store.state.sessions.filter((x) => x.finishedAt).length, 'workout'),
