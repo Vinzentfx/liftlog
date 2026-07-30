@@ -16,8 +16,9 @@ import renderShare from './screens/share.js';
 import { renderSettings } from './screens/settings.js';
 
 /**
- * Five tabs plus `progress` and `nutrition`, both reachable from Home but
- * without a tab slot — five is already the most a thumb wants to aim at.
+ * Six tabs, plus `progress`, which is reachable from Home and from every
+ * section that hints at a trend. Nutrition earned its slot by being a
+ * several-times-a-day screen; Progress is a weekly read and does not.
  */
 const ROUTES = {
   home:      { title: 'Home',      render: renderHome },

@@ -332,7 +332,11 @@ export function newEntry(exerciseId, sets = []) {
  * as the same record, so where the numbers came from never constrains what the
  * app can do with them. `source` is recorded for honesty, not for logic.
  */
-export function newFood(uid, { name, portion, portionGrams, protein, kcal, source = 'manual', barcode = null, per100 = null }) {
+export function newFood(uid, {
+  name, portion, portionGrams, protein, kcal,
+  carbs = null, fat = null, fibre = null,
+  source = 'manual', barcode = null, per100 = null,
+}) {
   return {
     id: uid('f_'),
     name: String(name).trim(),
@@ -340,6 +344,13 @@ export function newFood(uid, { name, portion, portionGrams, protein, kcal, sourc
     portionGrams: Number(portionGrams) || null, // optional, for scaling later
     protein: Math.max(0, Number(protein) || 0),
     kcal: Math.max(0, Number(kcal) || 0),
+    // Carbs, fat and fibre stay nullable, and null is not zero. A food logged
+    // before these fields existed, or typed off a label that only lists protein,
+    // genuinely has no value here — counting it as 0 g would quietly understate
+    // every day it appears in. The totals carry the gap instead.
+    carbs: optionalGrams(carbs),
+    fat: optionalGrams(fat),
+    fibre: optionalGrams(fibre),
     source,                                     // 'manual' | 'barcode' | 'photo'
     // Kept so a second lookup of the same product answers from this list
     // instead of the network, and so the portion can be re-scaled later without
@@ -351,20 +362,51 @@ export function newFood(uid, { name, portion, portionGrams, protein, kcal, sourc
   };
 }
 
+/** Meal slots. Purely organisational — nothing in the app scores timing. */
+export const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
+
 /** A portion actually eaten. Values are copied, not referenced — see store.js. */
-export function newMeal(uid, food, { amount = 1, day = dayKey(), at = Date.now() } = {}) {
+export function newMeal(uid, food, { amount = 1, day = dayKey(), at = Date.now(), slot = null } = {}) {
+  const n = Number(amount) || 1;
+  const scale = (v) => (v === null || v === undefined ? null : Math.round(v * n * 10) / 10);
   return {
     id: uid('m_'),
     day,                       // 'YYYY-MM-DD', local
     at,
+    slot: MEAL_SLOTS.includes(slot) ? slot : slotFor(at),
     foodId: food.id,
     name: food.name,
     portion: food.portion,
-    amount: Number(amount) || 1,
-    protein: food.protein * (Number(amount) || 1),
-    kcal: food.kcal * (Number(amount) || 1),
+    amount: n,
+    protein: food.protein * n,
+    kcal: food.kcal * n,
+    carbs: scale(food.carbs ?? null),
+    fat: scale(food.fat ?? null),
+    fibre: scale(food.fibre ?? null),
   };
 }
+
+/**
+ * A default slot from the clock, so logging stays one tap.
+ *
+ * Boundaries are a convention about when people eat, nothing more — the app
+ * never scores meal timing, because total daily intake matters far more than
+ * distribution and the "anabolic window" is largely debunked. It is a way to
+ * group a list, and every entry can be moved by hand.
+ */
+export function slotFor(ts = Date.now()) {
+  const h = new Date(ts).getHours();
+  if (h < 11) return 'breakfast';
+  if (h < 15) return 'lunch';
+  if (h < 21) return 'dinner';
+  return 'snack';
+}
+
+const optionalGrams = (v) => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.max(0, n) : null;
+};
 
 /** Local calendar day as 'YYYY-MM-DD'. Local, not UTC — a 23:00 snack is today. */
 export function dayKey(ts = Date.now()) {

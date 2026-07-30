@@ -60,6 +60,7 @@ export const state = {
   sessions: [],       // newest first, includes the in-progress one
   bodyweight: [],     // newest first
   foods: [],          // the user's own food list
+  water: [],          // one row per day: { day, ml }
   meals: [],          // newest first
   settings: { ...DEFAULT_SETTINGS },
   exerciseById: new Map(),
@@ -83,13 +84,14 @@ function reindex() {
 }
 
 export async function load() {
-  const [exercises, plans, sessions, bodyweight, foods, meals, settingsRows] = await Promise.all([
+  const [exercises, plans, sessions, bodyweight, foods, meals, water, settingsRows] = await Promise.all([
     db.getAll(db.STORES.exercises),
     db.getAll(db.STORES.plans),
     db.recentSessions(0),
     db.getAll(db.STORES.bodyweight),
     db.getAll(db.STORES.foods),
     db.getAll(db.STORES.meals),
+    db.getAll(db.STORES.water),
     db.getAll(db.STORES.settings),
   ]);
 
@@ -99,6 +101,7 @@ export async function load() {
   state.bodyweight = bodyweight;
   state.foods = foods;
   state.meals = meals;
+  state.water = water;
   state.settings = { ...DEFAULT_SETTINGS };
   for (const row of settingsRows) state.settings[row.key] = row.value;
 
@@ -588,11 +591,11 @@ export async function deleteFood(id) {
 }
 
 /** Log a portion. Values are snapshotted so editing the food never rewrites the past. */
-export async function logMeal(foodId, { amount = 1, day = dayKey(), at = Date.now() } = {}) {
+export async function logMeal(foodId, { amount = 1, day = dayKey(), at = Date.now(), slot = null } = {}) {
   const food = state.foods.find((f) => f.id === foodId);
   if (!food) return null;
 
-  const meal = newMeal(db.uid, food, { amount, day, at });
+  const meal = newMeal(db.uid, food, { amount, day, at, slot });
   state.meals.unshift(meal);
   food.uses = (food.uses || 0) + 1;
 
@@ -608,6 +611,82 @@ export async function deleteMeal(id) {
   state.meals = state.meals.filter((m) => m.id !== id);
   await db.remove(db.STORES.meals, id);
   emit();
+}
+
+/** Move a logged portion between slots, or change how much of it there was. */
+export async function updateMeal(id, patch) {
+  const meal = state.meals.find((m) => m.id === id);
+  if (!meal) return null;
+
+  if (patch.amount !== undefined) {
+    // Rescale from the per-portion values rather than the current totals, so
+    // repeated edits cannot drift.
+    const factor = (Number(patch.amount) || 1) / (meal.amount || 1);
+    for (const key of ['protein', 'kcal', 'carbs', 'fat', 'fibre']) {
+      if (meal[key] !== null && meal[key] !== undefined) {
+        meal[key] = Math.round(meal[key] * factor * 10) / 10;
+      }
+    }
+    meal.amount = Number(patch.amount) || 1;
+  }
+  if (patch.slot !== undefined) meal.slot = patch.slot;
+
+  await db.put(db.STORES.meals, meal);
+  emit();
+  return meal;
+}
+
+/**
+ * Copy every portion from one day onto another.
+ *
+ * The meals are copied as they were logged, not re-derived from the food list —
+ * a day you repeat should be the day you actually ate, even if you have edited
+ * the food since. Returns how many were copied.
+ */
+export async function copyDay(fromDay, toDay = dayKey()) {
+  const source = mealsOn(fromDay);
+  if (!source.length) return 0;
+
+  const copies = source.map((m) => ({
+    ...m,
+    id: db.uid('m_'),
+    day: toDay,
+    // Same time of day, new date, so the order and the slots survive.
+    at: shiftToDay(m.at, toDay),
+  }));
+
+  state.meals.unshift(...copies);
+  await db.putMany(db.STORES.meals, copies);
+  reindex(); emit();
+  return copies.length;
+}
+
+function shiftToDay(at, day) {
+  const from = new Date(at);
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d, from.getHours(), from.getMinutes()).getTime();
+}
+
+// ---------- water ----------
+
+/** Millilitres drunk on a day, 0 when nothing is recorded. */
+export function waterOn(day = dayKey()) {
+  const row = state.water.find((w) => w.day === day);
+  return row ? row.ml : 0;
+}
+
+/** Add (or subtract) millilitres. Never goes below zero. */
+export async function addWater(ml, day = dayKey()) {
+  const next = Math.max(0, waterOn(day) + (Number(ml) || 0));
+  const row = { day, ml: next };
+  const existing = state.water.find((w) => w.day === day);
+  if (existing) existing.ml = next;
+  else state.water.push(row);
+
+  if (next === 0) await db.remove(db.STORES.water, day);
+  else await db.put(db.STORES.water, row);
+  emit();
+  return next;
 }
 
 export function mealsOn(day = dayKey()) {
@@ -681,6 +760,7 @@ export function exportData() {
     bodyweight: state.bodyweight,
     foods: state.foods,
     meals: state.meals,
+    water: state.water,
   };
 }
 
@@ -692,7 +772,7 @@ export async function importData(payload, { replace = true } = {}) {
   // and then writes, so a payload that passes the format check but carries a
   // truncated or wrong-typed body used to leave you with neither the backup nor
   // what you had. Cheap to verify, impossible to undo.
-  const lists = ['exercises', 'plans', 'sessions', 'bodyweight', 'foods', 'meals'];
+  const lists = ['exercises', 'plans', 'sessions', 'bodyweight', 'foods', 'meals', 'water'];
   for (const key of lists) {
     if (payload[key] !== undefined && !Array.isArray(payload[key])) {
       throw new Error(`This backup is damaged — "${key}" is not a list.`);
@@ -720,6 +800,7 @@ export async function importData(payload, { replace = true } = {}) {
     db.putMany(db.STORES.bodyweight, payload.bodyweight || []),
     db.putMany(db.STORES.foods, payload.foods || []),
     db.putMany(db.STORES.meals, payload.meals || []),
+    db.putMany(db.STORES.water, payload.water || []),
     db.putMany(db.STORES.settings, settingRows),
   ]);
   await load();

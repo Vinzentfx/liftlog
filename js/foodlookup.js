@@ -131,6 +131,12 @@ function toDraft(code, p) {
     per100: {
       protein: num(n.proteins_100g),
       kcal: num(n['energy-kcal_100g']),
+      // Null where the record has nothing, never 0 — a product that does not
+      // list its fibre has unknown fibre, and the totals depend on the
+      // difference.
+      carbs: num(n.carbohydrates_100g),
+      fat: num(n.fat_100g),
+      fibre: num(n.fiber_100g),
     },
     // A manufacturer serving if there is one, otherwise 100 g — a round number
     // beats a guess, and the user overrides it in the next field anyway.
@@ -143,9 +149,13 @@ function toDraft(code, p) {
 /** Scale per-100 g values to a portion. */
 export function scaleToPortion(per100, grams) {
   const f = (Number(grams) || 0) / 100;
+  const scale = (v) => (v === null || v === undefined ? null : round1(v * f));
   return {
     protein: round1((per100.protein || 0) * f),
     kcal: Math.round((per100.kcal || 0) * f),
+    carbs: scale(per100.carbs),
+    fat: scale(per100.fat),
+    fibre: scale(per100.fibre),
   };
 }
 

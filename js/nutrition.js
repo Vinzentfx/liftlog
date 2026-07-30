@@ -1,17 +1,24 @@
 // Daily targets and totals.
 //
-// Scope note, because this is the part that usually metastasises: this module
-// knows about protein and calories and nothing else. No micronutrients, no
-// macro splits, no "you should eat X". Protein is the one intake variable with
-// a defensible hypertrophy number attached; calories decide whether you gain or
-// lose. Everything else a food tracker usually shows would be numbers for their
-// own sake.
+// Scope note, because this is the part that usually metastasises. Protein and
+// calories are the two that carry a claim: protein is the one intake variable
+// with a defensible hypertrophy number attached, and calories decide whether
+// you gain or lose. Carbs, fat, fibre and water were added later and are held
+// to a different standard — they are *recorded*, and the app makes no training
+// claim about any of them. Fibre and water show a reference line with a source
+// and a caveat; carbs and fat are only ever shown as the split of a day's
+// energy, never as a target, because no macro ratio has an evidence base worth
+// printing.
 //
-// Calories are optional throughout. A protein-only log is a complete log here —
-// it answers the question the training data can actually be compared against.
+// Still no micronutrients, and still no "you should eat X".
+//
+// Everything past protein is optional throughout. A protein-only log is a
+// complete log here — it answers the question the training data can actually be
+// compared against, and a day with no carbs recorded says so rather than
+// pretending the number is zero.
 
 import { THRESHOLDS } from './evidence.js';
-import { dayKey } from './models.js';
+import { dayKey, linearFit } from './models.js';
 
 /**
  * Daily protein target as a range, from bodyweight.
@@ -35,14 +42,82 @@ export function proteinTarget(settings) {
   };
 }
 
-/** Totals for one day's meals. */
+/**
+ * Totals for one day's meals.
+ *
+ * Protein and calories are always present. Carbs, fat and fibre are not: a food
+ * typed off a label that only lists protein, or added before those fields
+ * existed, has null there — and null is not zero. Summing it as zero would make
+ * a day look lower in carbs the more incompletely it was logged, which is the
+ * exact opposite of useful. So each of those carries a count of how many items
+ * had nothing to contribute, and the UI can say "of 6 items, 2 have no carbs
+ * recorded" instead of printing a total that quietly means less than it looks.
+ */
 export function dayTotals(meals) {
-  let protein = 0, kcal = 0;
+  const out = {
+    protein: 0, kcal: 0,
+    carbs: 0, fat: 0, fibre: 0,
+    missing: { carbs: 0, fat: 0, fibre: 0 },
+    items: meals.length,
+  };
+
   for (const m of meals) {
-    protein += Number(m.protein) || 0;
-    kcal += Number(m.kcal) || 0;
+    out.protein += Number(m.protein) || 0;
+    out.kcal += Number(m.kcal) || 0;
+    for (const key of ['carbs', 'fat', 'fibre']) {
+      const v = m[key];
+      if (v === null || v === undefined) out.missing[key]++;
+      else out[key] += Number(v) || 0;
+    }
   }
-  return { protein: Math.round(protein), kcal: Math.round(kcal), items: meals.length };
+
+  out.protein = Math.round(out.protein);
+  out.kcal = Math.round(out.kcal);
+  for (const key of ['carbs', 'fat', 'fibre']) out[key] = Math.round(out[key]);
+  return out;
+}
+
+/**
+ * The day's calories split by where they came from, for the macro bar.
+ *
+ * Atwater factors: 4 kcal/g for protein and carbohydrate, 9 for fat. Returns
+ * null when too much is unrecorded to draw an honest split — a bar with a third
+ * of the day missing is a picture of the logging, not of the eating.
+ */
+export function energySplit(totals) {
+  if (!totals.items) return null;
+  if (totals.missing.carbs || totals.missing.fat) return null;
+
+  const parts = {
+    protein: totals.protein * 4,
+    carbs: totals.carbs * 4,
+    fat: totals.fat * 9,
+  };
+  const sum = parts.protein + parts.carbs + parts.fat;
+  if (!sum) return null;
+
+  return {
+    kcal: parts,
+    share: {
+      protein: parts.protein / sum,
+      carbs: parts.carbs / sum,
+      fat: parts.fat / sum,
+    },
+    // What the macros add up to, which is not always what the label said.
+    fromMacros: Math.round(sum),
+  };
+}
+
+/**
+ * Fibre and water references. Neither is a training number, and both say so.
+ */
+export function fibreTarget() {
+  return THRESHOLDS.fibrePerDay.value;
+}
+
+export function waterTarget(settings) {
+  const ml = THRESHOLDS.waterLitres[settings?.sex === 'female' ? 'female' : 'male'] * 1000;
+  return Math.round(ml);
 }
 
 /** Where a day's protein sits against the target band. */
@@ -132,6 +207,66 @@ export function weightTrend(bodyweightLog, weeks = 4) {
     perWeek: delta / spanWeeks,
     pctPerWeek: first.weight ? (delta / spanWeeks / first.weight) * 100 : 0,
     from: first, to: last,
+  };
+}
+
+/**
+ * Maintenance calories, measured rather than predicted.
+ *
+ * Every app that shows this number computes it from a formula — Mifflin-St Jeor
+ * and an activity multiplier picked off a dropdown. That is a population
+ * average dressed up as a personal figure, and the activity multiplier is a
+ * guess about your own life that you are asked to make before you have any data.
+ *
+ * This does it the other way round, from two things actually measured: what you
+ * logged, and what the scale did. If intake averaged 2,600 kcal while you gained
+ * 0.2 kg a week, maintenance was about 2,380. The arithmetic is simple; the
+ * honesty is in refusing to run it on thin data, so it returns null unless the
+ * window is genuinely logged and the scale genuinely moved across it.
+ *
+ * What it cannot correct for: under-logging, which is systematic and large in
+ * every validation study going. If you log 80% of what you eat, this reads 20%
+ * low — and it will still be a better guide than a formula, because it is at
+ * least anchored to your own weight.
+ */
+export function maintenanceEstimate(meals, bodyweightLog, { days = 28, endTs = Date.now() } = {}) {
+  const history = proteinHistory(meals, days, endTs);
+  const withCalories = history.filter((d) => d.logged && d.kcal > 0);
+
+  // Two separate bars: enough days to average, and enough of the window to
+  // trust that average as "what you eat" rather than "what you remembered".
+  const MIN_DAYS = 14;
+  const MIN_SHARE = 0.6;
+  if (withCalories.length < MIN_DAYS || withCalories.length / days < MIN_SHARE) {
+    return { ok: false, reason: 'days', logged: withCalories.length, needed: MIN_DAYS, days };
+  }
+
+  const since = endTs - days * 86400000;
+  const points = (bodyweightLog || [])
+    .filter((b) => b.date >= since && b.date <= endTs)
+    .sort((a, b) => a.date - b.date);
+  if (points.length < 2) return { ok: false, reason: 'weight', logged: points.length };
+
+  const spanDays = (points[points.length - 1].date - points[0].date) / 86400000;
+  if (spanDays < MIN_DAYS) return { ok: false, reason: 'span', spanDays: Math.round(spanDays) };
+
+  // Fitted rather than first-to-last: two weigh-ins can differ by a kilo of
+  // water and gut content, and a line through all of them is far less jumpy.
+  const fit = linearFit(points.map((b) => [(b.date - points[0].date) / 86400000, b.weight]));
+  if (!fit) return { ok: false, reason: 'weight', logged: points.length };
+
+  const kgPerDay = fit.slope;
+  const meanIntake = withCalories.reduce((n, d) => n + d.kcal, 0) / withCalories.length;
+  const fromWeight = kgPerDay * THRESHOLDS.kcalPerKg.value;
+
+  return {
+    ok: true,
+    maintenance: Math.round(meanIntake - fromWeight),
+    meanIntake: Math.round(meanIntake),
+    kgPerWeek: Math.round(kgPerDay * 7 * 100) / 100,
+    loggedDays: withCalories.length,
+    windowDays: days,
+    spanDays: Math.round(spanDays),
   };
 }
 

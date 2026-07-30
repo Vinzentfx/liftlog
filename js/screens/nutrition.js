@@ -1,23 +1,23 @@
 // Nutrition — today's log, your own food list, and the protein target.
 //
-// Deliberately small. Three numbers (protein, calories, bodyweight) and a list
-// you build yourself. No food database, no barcode, no network: 95% of what
-// anyone eats is the same thirty things, and typing those thirty in once is
-// less work than fighting a catalogue of three million products forever.
+// Still built around a list you write yourself: 95% of what anyone eats is the
+// same thirty things, and typing those in once beats fighting a catalogue of
+// three million products forever. The barcode lookup fills the same fields
+// rather than replacing that idea.
 //
-// Every food entry is source-agnostic — name, portion, protein, calories — so a
-// barcode lookup or a photo draft can fill the same fields later without any of
-// this changing.
+// Protein and calories carry the claims; carbs, fat, fibre and water are
+// recorded and shown without one. Anything not filled in stays *unknown* rather
+// than becoming zero, which is why the energy split can refuse to draw itself.
 
 import {
   el, toast, openSheet, closeSheet, confirmSheet, emptyState, listItem, fmtNum, fmtWeight, fmtDate,
-  numberInput, parseNumber, normaliseOnBlur,
+  numberInput, parseNumber, normaliseOnBlur, plural,
 } from '../ui.js';
 import * as store from '../store.js';
-import { dayKey } from '../models.js';
+import { dayKey, MEAL_SLOTS, slotFor } from '../models.js';
 import {
   proteinTarget, dayTotals, proteinVerdict, proteinHistory, proteinSummary,
-  weightTrend, trendVerdict,
+  weightTrend, trendVerdict, energySplit, fibreTarget, waterTarget, maintenanceEstimate,
 } from '../nutrition.js';
 import { THRESHOLDS, SOURCES } from '../evidence.js';
 import { lookupBarcode, scaleToPortion, ATTRIBUTION } from '../foodlookup.js';
@@ -38,11 +38,120 @@ export default function renderNutrition({ actions }) {
 
   root.append(dayHeader(day, isToday));
   root.append(targetCard(totals, target));
+  root.append(macroCard(totals));
+  root.append(waterCard(day));
   root.append(mealList(meals, day));
   root.append(quickAdd(day));
   root.append(trendSection());
 
   return root;
+}
+
+/* ======================= macros ======================= */
+
+/**
+ * Where the day's energy came from.
+ *
+ * Shown as a split, never as a target. No macro ratio has an evidence base
+ * worth printing — protein has one, and past that "40/30/30" is folklore with a
+ * decimal point. So this reports what was eaten and says nothing about what
+ * should have been.
+ */
+function macroCard(totals) {
+  const wrap = el('div');
+  if (!totals.items) return wrap;
+
+  const split = energySplit(totals);
+  const card = el('div.card', {});
+
+  card.append(el('div.row.between', {}, [
+    el('div.small', { style: { fontWeight: '650' }, text: 'Where the energy came from' }),
+    split ? el('span.small.faint', { text: `${fmtNum(split.fromMacros)} kcal` }) : null,
+  ]));
+
+  if (!split) {
+    // The honest failure: with carbs or fat unrecorded on some items, any bar
+    // drawn here would be a picture of the logging rather than the eating.
+    const gaps = [];
+    if (totals.missing.carbs) gaps.push(`${totals.missing.carbs} without carbs`);
+    if (totals.missing.fat) gaps.push(`${totals.missing.fat} without fat`);
+    card.append(el('div.small.muted', { style: { marginTop: '8px' },
+      text: gaps.length
+        ? `No split yet — of ${plural(totals.items, 'item')} logged, ${gaps.join(' and ')}. Fill those in on the food and this fills in with them.`
+        : 'No split yet — nothing logged carries carbohydrate or fat values.' }));
+    return wrap.append(card), wrap;
+  }
+
+  card.append(
+    el('div.macro-bar', {}, [
+      el('i.p', { style: { width: `${split.share.protein * 100}%` } }),
+      el('i.c', { style: { width: `${split.share.carbs * 100}%` } }),
+      el('i.f', { style: { width: `${split.share.fat * 100}%` } }),
+    ]),
+    el('div.macro-key', {}, [
+      macroKey('var(--accent-hi)', 'Protein', totals.protein, split.share.protein),
+      macroKey('#22D3EE', 'Carbs', totals.carbs, split.share.carbs),
+      macroKey('#C084FC', 'Fat', totals.fat, split.share.fat),
+    ])
+  );
+
+  if (totals.fibre || !totals.missing.fibre) {
+    const target = fibreTarget();
+    card.append(el('div.small.faint', { style: { marginTop: '10px' },
+      text: `${totals.fibre} g fibre${totals.missing.fibre ? ` (${totals.missing.fibre} item${totals.missing.fibre === 1 ? '' : 's'} without a value)` : ''} · ${target} g is the general-health reference, not a training number.` }));
+  }
+
+  wrap.append(card);
+  return wrap;
+}
+
+function macroKey(colour, label, grams, share) {
+  return el('div', {}, [
+    el('b', { style: { background: colour } }),
+    el('span.v', { text: `${grams} g` }),
+    el('span.k', { text: `${label} · ${Math.round(share * 100)}%` }),
+  ]);
+}
+
+/* ======================= water ======================= */
+
+/**
+ * Water as glasses, because nobody thinks in millilitres.
+ *
+ * The reference line is an adequate intake, not a goal to beat: requirements
+ * move with heat, training and bodyweight, and thirst covers the difference for
+ * most people. So the row fills up and then stops mattering — there is no
+ * "over" state and nothing turns red.
+ */
+function waterCard(day) {
+  const GLASS = 250;
+  const ml = store.waterOn(day);
+  const target = waterTarget(store.state.settings);
+  const glasses = Math.round(ml / GLASS);
+  const targetGlasses = Math.round(target / GLASS);
+
+  const card = el('div.card', {}, [
+    el('div.row.between', { style: { alignItems: 'baseline' } }, [
+      el('div', {}, [
+        el('span', { style: { fontSize: '20px', fontWeight: '740' }, text: `${(ml / 1000).toFixed(1)} L` }),
+        el('span.small.faint', { text: `  of about ${(target / 1000).toFixed(1)} L` }),
+      ]),
+      el('div.row', { style: { gap: '6px' } }, [
+        el('button.btn.quiet.sm', { 'aria-label': 'Remove a glass', onclick: () => store.addWater(-GLASS, day) }, ['−']),
+        el('button.btn.ghost.sm', { onclick: () => store.addWater(GLASS, day) }, ['+ Glass']),
+      ]),
+    ]),
+    el('div.glass-row', {},
+      Array.from({ length: Math.max(targetGlasses, glasses) }, (_, i) =>
+        el(`div.glass${i < glasses ? '.full' : ''}`, { 'aria-hidden': 'true' }))),
+    el('div.small.faint', { style: { marginTop: '10px' },
+      text: 'A glass is 250 ml. The line is an adequate intake for an average day, not a target to beat — heat, training and your size all move it, and thirst covers most of the difference.' }),
+  ]);
+
+  return el('div', {}, [
+    el('div.section-head', {}, [el('h2', { text: 'Water' })]),
+    card,
+  ]);
 }
 
 /* ======================= day navigation ======================= */
@@ -158,38 +267,122 @@ function targetSheet() {
 
 /* ======================= today's meals ======================= */
 
+const SLOT_LABEL = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snacks' };
+
 function mealList(meals, day) {
   const wrap = el('div');
-  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Logged' })]));
+
+  const yesterday = previousDay(day);
+  const canRepeat = store.mealsOn(yesterday).length > 0;
+
+  wrap.append(el('div.section-head', {}, [
+    el('h2', { text: 'Logged' }),
+    // Most days repeat most of the day before. One tap beats fifteen.
+    canRepeat && !meals.length
+      ? el('button.btn.quiet.sm', {
+          onclick: async () => {
+            const n = await store.copyDay(yesterday, day);
+            toast(`Copied ${plural(n, 'item')} from yesterday`);
+          },
+        }, ['Repeat yesterday'])
+      : null,
+  ]));
 
   if (!meals.length) {
     wrap.append(el('div.card', {}, [
-      el('div.small.muted', { text: 'Nothing logged for this day yet. Pick something from your list below, or add a new food.' }),
+      el('div.small.muted', {
+        text: canRepeat
+          ? 'Nothing logged for this day yet. Repeat yesterday above, pick from your list below, or add something new.'
+          : 'Nothing logged for this day yet. Pick something from your list below, or add a new food.',
+      }),
     ]));
     return wrap;
   }
 
-  for (const m of meals) {
-    wrap.append(
-      el('div.row.between', {
-        style: { padding: '10px 0', borderBottom: '1px solid var(--line-soft)', gap: '10px' },
-      }, [
-        el('div.grow', {}, [
-          el('div', { style: { fontWeight: '600', fontSize: '14.5px' },
-            text: m.amount === 1 ? m.name : `${m.amount}× ${m.name}` }),
-          el('div.small.faint', { text: `${m.portion}${m.kcal ? ` · ${Math.round(m.kcal)} kcal` : ''}` }),
-        ]),
-        el('div', { style: { fontWeight: '680', fontSize: '15px', whiteSpace: 'nowrap' },
-          text: `${Math.round(m.protein)} g` }),
-        el('button.btn.quiet.sm', {
-          'aria-label': `Remove ${m.name}`,
-          onclick: async () => { await store.deleteMeal(m.id); toast('Removed'); },
-        }, ['×']),
-      ])
-    );
+  // Grouped by time of day purely so a long list reads as a day rather than a
+  // heap. Nothing in the app scores meal timing — see slotFor in models.js.
+  for (const slot of MEAL_SLOTS) {
+    const inSlot = meals.filter((m) => (m.slot || slotFor(m.at)) === slot);
+    if (!inSlot.length) continue;
+
+    const slotProtein = Math.round(inSlot.reduce((n, m) => n + (Number(m.protein) || 0), 0));
+    const slotKcal = Math.round(inSlot.reduce((n, m) => n + (Number(m.kcal) || 0), 0));
+
+    wrap.append(el('div.slot-head', {}, [
+      el('span', { text: SLOT_LABEL[slot] }),
+      el('span', { text: `${slotProtein} g${slotKcal ? ` · ${fmtNum(slotKcal)} kcal` : ''}` }),
+    ]));
+
+    for (const m of inSlot) wrap.append(mealRow(m));
   }
-  void day;
+
   return wrap;
+}
+
+function mealRow(m) {
+  const detail = [m.portion];
+  if (m.kcal) detail.push(`${Math.round(m.kcal)} kcal`);
+  if (m.carbs !== null && m.carbs !== undefined) detail.push(`${Math.round(m.carbs)} C`);
+  if (m.fat !== null && m.fat !== undefined) detail.push(`${Math.round(m.fat)} F`);
+
+  return el('div.meal-row', {}, [
+    el('button.grow', {
+      style: { background: 'none', border: 0, textAlign: 'left', padding: '0' },
+      'aria-label': `Edit ${m.name}`,
+      onclick: () => mealSheet(m),
+    }, [
+      el('div', { style: { fontWeight: '600', fontSize: '14.5px' },
+        text: m.amount === 1 ? m.name : `${m.amount}× ${m.name}` }),
+      el('div.small.faint', { text: detail.join(' · ') }),
+    ]),
+    el('div', { style: { fontWeight: '680', fontSize: '15px', whiteSpace: 'nowrap' },
+      text: `${Math.round(m.protein)} g` }),
+    el('button.btn.quiet.sm', {
+      'aria-label': `Remove ${m.name}`,
+      onclick: async () => { await store.deleteMeal(m.id); toast('Removed'); },
+    }, ['×']),
+  ]);
+}
+
+/** Change how much of something you had, or which part of the day it belongs to. */
+function mealSheet(m) {
+  const amount = normaliseOnBlur(numberInput({ decimal: true, value: m.amount }));
+
+  const slots = el('div.seg', {}, MEAL_SLOTS.map((slot) =>
+    el('button', {
+      'aria-pressed': String((m.slot || slotFor(m.at)) === slot),
+      onclick: async (e) => {
+        [...e.target.parentElement.children].forEach((b, i) =>
+          b.setAttribute('aria-pressed', String(MEAL_SLOTS[i] === slot)));
+        await store.updateMeal(m.id, { slot });
+      },
+    }, [SLOT_LABEL[slot]])
+  ));
+
+  openSheet(m.name, el('div', {}, [
+    el('div.small.faint', { style: { marginBottom: '14px' },
+      text: `${m.portion} · ${Math.round(m.protein)} g protein${m.kcal ? ` · ${Math.round(m.kcal)} kcal` : ''} as logged` }),
+    el('label.field', {}, [el('span', { text: 'Portions' }), amount]),
+    el('button.btn.primary.full', {
+      onclick: async () => {
+        const n = parseNumber(amount.value);
+        if (n === null || n <= 0) { toast('How many portions?'); amount.focus(); return; }
+        await store.updateMeal(m.id, { amount: n });
+        closeSheet();
+        toast('Updated');
+      },
+    }, ['Save portions']),
+    el('div.section-head', {}, [el('h2', { text: 'Part of the day' })]),
+    slots,
+    el('div.small.faint', { style: { marginTop: '8px' },
+      text: 'Grouping only. Total intake over the day is what matters — nothing here scores when you ate.' }),
+  ]));
+}
+
+function previousDay(day) {
+  const d = new Date(`${day}T12:00:00`);
+  d.setDate(d.getDate() - 1);
+  return dayKey(d.getTime());
 }
 
 /* ======================= the food list ======================= */
@@ -276,6 +469,16 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
   });
   const protein = normaliseOnBlur(numberInput({ decimal: true, value: existing ? existing.protein : '' }));
   const kcal = el('input', { type: 'number', inputmode: 'numeric', step: '1', min: '0', value: existing ? existing.kcal : '' });
+  // Blank means unknown, not zero — see newFood. Leaving these empty is a
+  // perfectly complete entry; it just keeps the day's split honest about it.
+  const optional = (key) => normaliseOnBlur(numberInput({
+    decimal: true,
+    value: existing && existing[key] !== null && existing[key] !== undefined ? existing[key] : '',
+    placeholder: 'optional',
+  }));
+  const carbs = optional('carbs');
+  const fat = optional('fat');
+  const fibre = optional('fibre');
 
   // Only the barcode path gets this: the database stores per 100 g, and how
   // much of that you actually eat is the one thing it cannot know. Putting the
@@ -291,6 +494,9 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
       const scaled = scaleToPortion(draft.per100, grams.value);
       protein.value = String(scaled.protein);
       kcal.value = String(scaled.kcal);
+      carbs.value = scaled.carbs === null ? '' : String(scaled.carbs);
+      fat.value = scaled.fat === null ? '' : String(scaled.fat);
+      fibre.value = scaled.fibre === null ? '' : String(scaled.fibre);
       if (/^\d+\s*g$/.test(portion.value.trim()) || !portion.value.trim()) {
         portion.value = `${grams.value} g`;
       }
@@ -309,6 +515,9 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
       portion: portion.value.trim() || '1 Portion',
       protein: parseNumber(protein.value) ?? 0,
       kcal: Number(kcal.value) || 0,
+      carbs: parseNumber(carbs.value),
+      fat: parseNumber(fat.value),
+      fibre: parseNumber(fibre.value),
     };
     if (draft) {
       // Keep the barcode so a re-lookup answers from your own list, and the
@@ -361,6 +570,13 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
       text: 'Whatever unit you actually eat it in — a weight, a scoop, a bar. The numbers below are per one of those.' }),
     el('label.field', {}, [el('span', { text: 'Protein (g)' }), protein]),
     el('label.field', {}, [el('span', { text: 'Calories (optional)' }), kcal]),
+    el('div.row', { style: { gap: '10px' } }, [
+      el('label.field.grow', {}, [el('span', { text: 'Carbs (g)' }), carbs]),
+      el('label.field.grow', {}, [el('span', { text: 'Fat (g)' }), fat]),
+      el('label.field.grow', {}, [el('span', { text: 'Fibre (g)' }), fibre]),
+    ]),
+    el('div.small.faint', { style: { marginTop: '-6px', marginBottom: '14px' },
+      text: 'Leave these blank if the label does not say. Blank means unknown — the day\'s energy split waits for them rather than counting them as zero.' }),
     el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '14px' },
       text: 'Calories are optional. A protein-only log still answers the question your training data can be compared against.' }),
 
@@ -549,5 +765,78 @@ function trendSection() {
     ])
   );
 
+  wrap.append(maintenanceSection());
   return wrap;
+}
+
+/**
+ * Maintenance calories from what actually happened.
+ *
+ * Deliberately not Mifflin-St Jeor with an activity multiplier: that is a
+ * population average wearing your name, and the multiplier asks you to guess
+ * the very thing you opened the app to find out. This subtracts the energy your
+ * weight change accounts for from the energy you logged, which needs no guess
+ * about you at all — only enough data, which is the part it refuses to fake.
+ */
+function maintenanceSection() {
+  const wrap = el('div');
+  const est = maintenanceEstimate(store.state.meals, store.state.bodyweight);
+
+  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Maintenance calories' })]));
+
+  if (!est.ok) {
+    const why = {
+      days: `Needs at least ${est.needed} days with calories logged in the last ${est.days} — there ${est.logged === 1 ? 'is' : 'are'} ${est.logged}. Calories are optional in this app, so this is the one feature that asks for them.`,
+      weight: 'Needs at least two bodyweight entries in the window. One weigh-in cannot show a direction.',
+      span: `Your weigh-ins only span ${plural(est.spanDays, 'day')}. Below about two weeks the scale is mostly water and gut content, and the answer would be noise with a decimal point.`,
+    }[est.reason];
+
+    wrap.append(el('div.card', {}, [
+      el('div.small.muted', { text: why }),
+      el('div.small.faint', { style: { marginTop: '8px' },
+        text: 'Worth the wait: this is measured from your own intake and your own scale, not predicted from a formula about people your size.' }),
+    ]));
+    return wrap;
+  }
+
+  const direction = est.kgPerWeek > 0.05 ? 'gaining' : est.kgPerWeek < -0.05 ? 'losing' : 'holding';
+  wrap.append(
+    el('div.card.glow', {}, [
+      el('div', { style: { fontSize: '30px', fontWeight: '750', letterSpacing: '-0.03em', lineHeight: '1' },
+        text: `${fmtNum(est.maintenance)} kcal` }),
+      el('div.small.faint', { style: { marginTop: '3px' }, text: 'a day, to hold your weight' }),
+      el('div.small.muted', { style: { marginTop: '10px' },
+        text: `You averaged ${fmtNum(est.meanIntake)} kcal across ${plural(est.loggedDays, 'logged day')} while ${direction}${direction === 'holding' ? '' : ` ${Math.abs(est.kgPerWeek)} kg a week`}.` }),
+      el('button.btn.quiet.sm', { style: { padding: '4px 0', marginTop: '2px' }, onclick: maintenanceSheet },
+        ['How this is worked out']),
+    ])
+  );
+  return wrap;
+}
+
+function maintenanceSheet() {
+  const s = SOURCES.wishnofsky;
+  openSheet('Maintenance calories', el('div', {}, [
+    el('div.small.muted', {
+      text: 'Two measured things, no formula: what you logged, and what the scale did. If you averaged 2,600 kcal while gaining 0.2 kg a week, then about 220 kcal a day went into that gain, and maintenance was near 2,380.',
+    }),
+
+    el('div.section-head', {}, [el('h2', { text: 'Why not the usual calculator' })]),
+    el('div.small.muted', {
+      text: 'Mifflin-St Jeor and its cousins predict a population average from height, weight, age and sex, then multiply by an activity level you have to guess. The guess is the biggest term in the equation and it is the one thing you have no way to know. Your own scale already contains the answer.',
+    }),
+
+    el('div.section-head', {}, [el('h2', { text: 'What it cannot fix' })]),
+    el('div.small.muted', {
+      text: 'Under-logging. Every validation study finds people record less than they eat, often by 20% or more, and this estimate inherits that error in full — if you log four fifths of your intake, it reads a fifth low. It is still anchored to your own weight, which is more than a formula can say. Treat it as a starting point to adjust from, not a number to defend.',
+    }),
+
+    el('div.section-head', {}, [el('h2', { text: 'The one constant' })]),
+    el('div.small.muted', { text: s.says }),
+    el('a', {
+      href: s.url, target: '_blank', rel: 'noopener',
+      style: { color: 'var(--accent-hi)', fontWeight: '620', fontSize: '14px' },
+      text: `${s.short} ↗`,
+    }),
+  ]));
 }

@@ -25,7 +25,7 @@ import assert from 'node:assert/strict';
 // Set before any Date is constructed; imports above only define functions.
 process.env.TZ = 'Europe/Berlin';
 
-const { e1rm, isCounted, startOfWeek, entryStats } = await import('../js/models.js');
+const { e1rm, isCounted, startOfWeek, entryStats, newMeal, dayKey } = await import('../js/models.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
 const { regionProgress } = await import('../js/region-progress.js');
@@ -33,6 +33,7 @@ const { bodyweightAt, strengthAt } = await import('../js/history.js');
 const { decodeLink, planLink, resolveAgainstLibrary } = await import('../js/plan-share.js');
 const { weekSummary } = await import('../js/week-card.js');
 const { THRESHOLDS } = await import('../js/evidence.js');
+const { dayTotals, energySplit, maintenanceEstimate } = await import('../js/nutrition.js');
 const { parseNumber, plural } = await import('../js/ui.js');
 const { platePlan, describePlates } = await import('../js/plates.js');
 const { stallReport, describeStall } = await import('../js/fatigue.js');
@@ -252,6 +253,79 @@ test('bodyweightAt reads the entry in force at a moment', () => {
   assert.equal(bodyweightAt(log, at(2026, 5, 1)), null, 'nothing before the first entry');
   assert.equal(bodyweightAt(log, at(2026, 6, 15)), 80);
   assert.equal(bodyweightAt(log, at(2026, 8, 1)), 82);
+});
+
+/* ============================ nutrition ============================ */
+
+const meal = (over = {}) => ({
+  id: `m_${Math.random()}`, day: '2026-07-28', at: at(2026, 7, 28), slot: 'lunch',
+  name: 'Food', portion: '100 g', amount: 1,
+  protein: 20, kcal: 200, carbs: 10, fat: 5, fibre: 2, ...over,
+});
+
+test('unrecorded macros are unknown, not zero', () => {
+  // The whole reason carbs/fat/fibre are nullable: a food typed off a label
+  // that only lists protein must not drag the day's carb total down.
+  const totals = dayTotals([meal(), meal({ carbs: null, fat: null, fibre: null })]);
+  assert.equal(totals.protein, 40);
+  assert.equal(totals.carbs, 10, 'only the item that had a value counts');
+  assert.equal(totals.missing.carbs, 1);
+  assert.equal(totals.missing.fat, 1);
+  assert.equal(totals.items, 2);
+});
+
+test('the energy split refuses to draw itself on partial data', () => {
+  assert.equal(energySplit(dayTotals([meal(), meal({ carbs: null })])), null);
+  assert.equal(energySplit(dayTotals([])), null);
+
+  const split = energySplit(dayTotals([meal({ protein: 25, carbs: 50, fat: 10 })]));
+  // Atwater: 100 + 200 + 90 = 390 kcal accounted for.
+  assert.equal(split.fromMacros, 390);
+  assert.ok(Math.abs(split.share.carbs - 200 / 390) < 1e-9);
+});
+
+test('a meal scales every recorded macro and leaves the unknown ones alone', () => {
+  const food = { id: 'f1', name: 'Quark', portion: '250 g', protein: 30, kcal: 160, carbs: 10, fat: null, fibre: null };
+  const m = newMeal((p) => `${p}x`, food, { amount: 2 });
+  assert.equal(m.protein, 60);
+  assert.equal(m.carbs, 20);
+  assert.equal(m.fat, null, 'unknown times two is still unknown');
+  assert.equal(m.slot, 'lunch', 'a slot is picked from the clock when none is given');
+});
+
+test('maintenance refuses to answer on thin data', () => {
+  assert.equal(maintenanceEstimate([], []).ok, false);
+
+  // Enough days logged, but only one weigh-in: no direction, no answer.
+  const meals = [];
+  for (let i = 0; i < 28; i++) {
+    const d = new Date(at(2026, 7, 28)); d.setDate(d.getDate() - i);
+    meals.push(meal({ day: dayKey(d.getTime()), at: d.getTime(), kcal: 2600, protein: 150 }));
+  }
+  const only = maintenanceEstimate(meals, [{ id: 'b', date: at(2026, 7, 20), weight: 82 }], { endTs: at(2026, 7, 28) });
+  assert.equal(only.ok, false);
+  assert.equal(only.reason, 'weight');
+});
+
+test('maintenance subtracts what the scale accounts for', () => {
+  const END = at(2026, 7, 29);
+  const meals = [];
+  for (let i = 0; i < 28; i++) {
+    const d = new Date(END); d.setDate(d.getDate() - i);
+    meals.push(meal({ day: dayKey(d.getTime()), at: d.getTime(), kcal: 2600 }));
+  }
+  // +0.8 kg across exactly 28 days: 0.2 kg a week, which at 7,700 kcal/kg is
+  // 220 kcal a day of the 2,600 going into the gain. Maintenance was 2,380.
+  const weights = [
+    { id: 'a', date: at(2026, 7, 1), weight: 82 },
+    { id: 'b', date: END, weight: 82.8 },
+  ];
+  const est = maintenanceEstimate(meals, weights, { endTs: END });
+
+  assert.equal(est.ok, true);
+  assert.equal(est.meanIntake, 2600);
+  assert.equal(est.kgPerWeek, 0.2);
+  assert.equal(est.maintenance, 2380);
 });
 
 /* ========================== loading a bar ========================== */

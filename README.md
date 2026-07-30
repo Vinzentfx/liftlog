@@ -32,6 +32,12 @@ so the whole thing works with the network off.
 - Full workout history; tap any date to open that session
 - Edit a finished workout — fix a set, add or remove one, correct the date
 
+**Food** (own tab)
+- Protein against a range, plus the day's energy split across protein, carbs and fat
+- Carbs, fat, fibre and water — recorded, with no training claim attached
+- Meals grouped by time of day; repeat yesterday in one tap
+- Barcode lookup, and maintenance calories derived from your own log and scale
+
 **Library**
 - ~776 exercises, searchable by name, muscle group and equipment
 - Each one shows which muscles it hits on the same body map, plus step-by-step
@@ -184,7 +190,7 @@ warnings that do matter.
 | `js/plan-doctor.js` | Turns rating complaints into one-tap plan edits |
 | `js/swaps.js` | "Same muscle, better position" alternatives |
 | `js/history.js` | Strength, tonnage and per-lift trends over time |
-| `js/nutrition.js` | Protein targets, daily totals, bodyweight direction |
+| `js/nutrition.js` | Targets, daily totals, energy split, maintenance calories |
 | `js/foodlookup.js` | Open Food Facts barcode lookup — the only networked module |
 | `js/schedule.js` | Which plan day belongs to which weekday |
 | `js/plan-share.js` | Encode/decode a plan into a link — no server involved |
@@ -336,6 +342,45 @@ suggestion is plain double progression — clear the top of the rep range on eve
 set, then add weight — with RIR as an override in both directions. It is a way to
 turn "train close to failure" into a decision on the gym floor, not a research
 finding, and it says so.
+
+### What the food tab will and will not claim
+
+Protein and calories carry the claims: protein has a defensible hypertrophy
+number (as a band — see above), and calories decide whether you gain or lose.
+Carbs, fat, fibre and water are **recorded and shown without one**. Carbs and
+fat appear only as the split of a day's energy, never as a target, because no
+macro ratio has an evidence base worth printing — past protein, "40/30/30" is
+folklore with a decimal point. Fibre and water get a reference line, a source
+and a caveat, and neither is ever scored against training.
+
+**Unrecorded is not zero.** A food typed off a label that only lists protein has
+`null` carbs, not `0`. Summing those as zero would make a day look *lower* in
+carbs the more incompletely it was logged, which is precisely backwards. So
+`dayTotals` counts the gaps, and the energy split refuses to draw itself while
+any item is missing carbs or fat — a bar with a third of the day absent is a
+picture of the logging, not of the eating. The card says which items are missing
+what instead.
+
+### Maintenance calories, measured rather than predicted
+
+Every other tracker computes this from Mifflin-St Jeor and an activity
+multiplier off a dropdown: a population average wearing your name, where the
+biggest term in the equation is a guess you are asked to make about your own
+life before you have any data.
+
+This one subtracts the energy your weight change accounts for from the energy
+you logged. If you averaged 2,600 kcal while gaining 0.2 kg a week, about 220
+kcal a day went into the gain and maintenance was near 2,380. The arithmetic is
+trivial; the discipline is in refusing to run it — it needs 14 days with
+calories logged out of the last 28, two weigh-ins, and at least a fortnight
+between them, because below that the scale is mostly water and gut content.
+
+The bodyweight slope is fitted across every weigh-in in the window rather than
+taken first-to-last, so a single heavy morning cannot swing the answer.
+
+What it cannot fix is under-logging, which every validation study finds and which
+this inherits in full. The sheet says so. It is still anchored to your own scale,
+which is more than a formula can say.
 
 ### Why there is no deload feature
 

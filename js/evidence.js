@@ -64,6 +64,30 @@ export const SOURCES = {
     url: 'https://pubmed.ncbi.nlm.nih.gov/28698222/',
     says: 'The famous figure is 1.6 g of protein per kg of bodyweight per day, past which the meta-regression found no further gain. Two caveats travel with it and usually get dropped: the confidence interval reaches 2.2 g/kg, and later work argues the breakpoint may not exist at all — that intake and growth simply keep rising with diminishing returns, as weekly sets do. So this app shows a range, not a number.',
   },
+  wishnofsky: {
+    key: 'wishnofsky',
+    short: 'The 7,700 kcal per kg rule — and its limits',
+    cite: 'Wishnofsky M. Caloric equivalents of gained or lost weight. American Journal of Clinical Nutrition, 1958. See Hall KD et al., Lancet 2011, for why the linear version overpredicts.',
+    note: 'A rule of thumb from 1958, still the best simple number and known to be wrong at the edges.',
+    url: 'https://pubmed.ncbi.nlm.nih.gov/13594881/',
+    says: 'A kilogram of body tissue is treated as roughly 7,700 kcal. The figure assumes the change is mostly fat and that energy expenditure holds still, and neither is quite true — real weight change flattens as intake changes, so a long projection built on it drifts. Over a few weeks, against measured weight and measured intake, it is close enough to be useful and too rough to quote to the calorie.',
+  },
+  efsaFibre: {
+    key: 'efsaFibre',
+    short: 'EFSA — dietary reference values for carbohydrates and fibre',
+    cite: 'EFSA Panel on Dietetic Products, Nutrition and Allergies. Scientific Opinion on Dietary Reference Values for carbohydrates and dietary fibre. EFSA Journal, 2010.',
+    note: 'A population adequate intake for bowel function, not a performance figure.',
+    url: 'https://www.efsa.europa.eu/en/efsajournal/pub/1462',
+    says: '25 g of fibre a day is adequate for normal bowel function in adults. It is a general-health reference: no resistance-training outcome is tied to fibre intake, so this app shows it as a line to be aware of and never scores training against it.',
+  },
+  efsaWater: {
+    key: 'efsaWater',
+    short: 'EFSA — dietary reference values for water',
+    cite: 'EFSA Panel on Dietetic Products, Nutrition and Allergies. Scientific Opinion on Dietary Reference Values for water. EFSA Journal, 2010.',
+    note: 'Adequate intake at average activity in a temperate climate.',
+    url: 'https://www.efsa.europa.eu/en/efsajournal/pub/1459',
+    says: 'Adequate total water intake is about 2.5 L a day for men and 2.0 L for women, of which roughly 20–30% arrives in food — leaving about 2.0 L and 1.6 L to drink. Requirements move with heat, training and bodyweight, and thirst covers the difference for most people, so this is a reference line rather than a target to hit.',
+  },
   variation2024: {
     key: 'variation2024',
     short: 'Exercise variation & regional growth',
@@ -103,6 +127,24 @@ export const THRESHOLDS = {
    * honest reading is that anywhere inside is fine.
    */
   proteinPerKg: { low: 1.6, high: 2.2, source: 'protein2018' },
+
+  /**
+   * Dietary fibre, grams per day. A general-health adequate intake, not a
+   * training number — nothing links fibre to hypertrophy, and the app says so
+   * where it shows it.
+   */
+  fibrePerDay: { value: 25, source: 'efsaFibre' },
+
+  /**
+   * Drinking water, litres per day, by sex. Also an adequate intake for a
+   * temperate climate at average activity, and explicitly *total* water minus
+   * the ~20–30% that arrives in food. Training, heat and bodyweight all move it,
+   * which is why it is shown as a reference line and never as a score.
+   */
+  waterLitres: { male: 2.0, female: 1.6, source: 'efsaWater' },
+
+  /** Energy equivalent of a kilogram of bodyweight change. */
+  kcalPerKg: { value: 7700, source: 'wishnofsky' },
 };
 
 export const RATING_DISCLAIMER =
