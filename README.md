@@ -158,6 +158,39 @@ which is also how you'd move to a new phone. Home nags after 10 workouts or four
 weeks without one, because the export was never the missing part — remembering
 was.
 
+### The invite gate
+
+The app asks for a code before it opens. What that is honestly worth, said once
+so nothing downstream relies on more: this is a static page in a public
+repository and every screen runs on the device. Someone who wants past it can
+open the developer tools and set a flag. Making it a real lock would mean making
+the app need the server to function, which would cost it the ability to work in
+a gym basement. What the gate does buy, and this part is real: nobody stumbles
+in, and nothing reaches the server without a code.
+
+**It asks once.** Once a device is unlocked it stays unlocked, offline,
+indefinitely. The one place this app must never fail is halfway through a set
+with no reception, and a login check on every launch fails exactly there. The
+flag lives in the `keys` store, so it survives a restore and never travels
+inside a backup to someone else's phone.
+
+**Revocation is the one reason it is consulted twice.** With a connection, the
+app checks the profile row still exists. Delete it and that person's app locks
+the next time they have reception. Offline the check does nothing, and any error
+other than "the profile is gone" is treated as a bad connection rather than as
+grounds for locking someone out.
+
+**Being locked out does not take your own log away.** The gate offers a file
+export when there is training on the device. Revoking access is meant to stop
+someone using the app, not to hold their sessions hostage, and anyone determined
+could read them out of IndexedDB anyway.
+
+**Signing in is required; uploading is not.** Deliberately separate. A consent
+that is a condition of using the service is not freely given under Art. 7(4)
+GDPR, and this app would be asking for it over health data. So the code decides
+who may use the app, and a second, independent decision decides whether anything
+leaves the phone.
+
 ### Cloud backup, and what it deliberately cannot do
 
 **Status: working end to end.** Sign up, redeem an invite, see the recovery key
@@ -322,6 +355,7 @@ warnings that do matter.
 | `js/cloud-config.js` | Project URL and anon key, both public on purpose |
 | `js/sync.js` | Store plus crypto plus cloud: the only place the three meet |
 | `js/screens/account.js` | Sign-up, consent, recovery key, devices, restore |
+| `js/screens/gate.js` | The invite gate, asked once per device |
 | `server/schema.sql` | The entire server side: tables, access rules, two functions |
 | `js/nutrition.js` | Targets, daily totals, energy split, maintenance calories |
 | `js/foodlookup.js` | Open Food Facts barcode lookup — the only networked module |

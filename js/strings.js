@@ -49,6 +49,7 @@ export const STRINGS = {
     'common.edit': 'Edit',
     'common.done': 'Done',
     'common.close': 'Close',
+    'common.back': 'Back',
     'common.today': 'Today',
     'common.yesterday': 'Yesterday',
     'common.lastWeek': 'Last week',
@@ -1358,6 +1359,23 @@ export const STRINGS = {
     'cloud.err.DISABLED': 'Cloud backup is switched off.',
     'cloud.err.NO_CONSENT': 'Nothing is stored without your agreement.',
     'cloud.err.undefined': 'That did not work.',
+
+
+    // ---------- the invite gate ----------
+    'gate.title': 'LiftLog is invite-only',
+    'gate.intro': 'You need a code from whoever runs this. It is asked for once on this device; after that the app works offline, with or without reception.',
+    'gate.newAccount': 'I have a code',
+    'gate.haveAccount': 'I already have an account',
+    'gate.whyNote': 'The code keeps this to people who were meant to have it, and makes sure nothing reaches the server without one.',
+    'gate.signUpIntro': 'Your email and password are only for signing in. Neither of them can open your training data.',
+    'gate.start': 'Open LiftLog',
+    'gate.welcome': 'Welcome. Everything works offline from here.',
+    'gate.welcomeBack': 'Welcome back.',
+    'gate.signInIntro': 'Sign in with the account you already made.',
+    'gate.signInNote': 'This device will not be able to read a cloud backup until your main device allows it, or you use your recovery key. Your training on this phone is unaffected.',
+    'gate.backupSeparate': 'Cloud backup is a separate decision, and it stays off until you switch it on in Settings. The code is about who may use the app, not about what happens to your data.',
+
+    'gate.lockedOut': 'Already have training on this device and cannot get in? It is still yours. Export it as a file and keep it.',
   },
 
   de: {
@@ -1396,6 +1414,7 @@ export const STRINGS = {
     'common.edit': 'Bearbeiten',
     'common.done': 'Fertig',
     'common.close': 'Schließen',
+    'common.back': 'Zurück',
     'common.today': 'Heute',
     'common.yesterday': 'Gestern',
     'common.lastWeek': 'Letzte Woche',
@@ -2711,5 +2730,22 @@ export const STRINGS = {
     'cloud.err.DISABLED': 'Die Cloud-Sicherung ist ausgeschaltet.',
     'cloud.err.NO_CONSENT': 'Ohne deine Zustimmung wird nichts gespeichert.',
     'cloud.err.undefined': 'Das hat nicht funktioniert.',
+
+
+    // ---------- the invite gate ----------
+    'gate.title': 'LiftLog gibt es nur auf Einladung',
+    'gate.intro': 'Du brauchst einen Code von demjenigen, der das betreibt. Danach wird auf diesem Gerät nie wieder gefragt: die App läuft offline weiter, mit oder ohne Empfang.',
+    'gate.newAccount': 'Ich habe einen Code',
+    'gate.haveAccount': 'Ich habe schon ein Konto',
+    'gate.whyNote': 'Der Code hält das bei den Leuten, für die es gedacht ist, und sorgt dafür, dass ohne ihn nichts auf dem Server landet.',
+    'gate.signUpIntro': 'E-Mail und Passwort sind nur zum Anmelden da. Keins von beidem kann deine Trainingsdaten öffnen.',
+    'gate.start': 'LiftLog öffnen',
+    'gate.welcome': 'Willkommen. Ab hier läuft alles offline.',
+    'gate.welcomeBack': 'Willkommen zurück.',
+    'gate.signInIntro': 'Melde dich mit dem Konto an, das du schon hast.',
+    'gate.signInNote': 'Dieses Gerät kann ein Cloud-Backup erst lesen, wenn dein Hauptgerät es erlaubt oder du deinen Wiederherstellungsschlüssel nimmst. Dein Training auf diesem Handy ist davon nicht betroffen.',
+    'gate.backupSeparate': 'Die Cloud-Sicherung ist eine eigene Entscheidung und bleibt aus, bis du sie in den Einstellungen einschaltest. Der Code regelt, wer die App benutzen darf, nicht was mit deinen Daten passiert.',
+
+    'gate.lockedOut': 'Du hast schon Training auf diesem Gerät und kommst nicht rein? Es gehört trotzdem dir. Exportier es als Datei und behalt es.',
   },
 };

@@ -16,6 +16,7 @@ import renderProgress from './screens/progress.js';
 import renderNutrition from './screens/nutrition.js';
 import renderShare from './screens/share.js';
 import { renderSettings } from './screens/settings.js';
+import * as gate from './screens/gate.js';
 
 /**
  * Five tabs, plus `calendar` and `progress`, which are reached from Home.
@@ -54,8 +55,10 @@ export function navigate(name, param = null) {
 let rendering = false;
 let lastRouteKey = null;
 
+let locked = true;
+
 export function render() {
-  if (!store.state.ready || rendering) return;
+  if (locked || !store.state.ready || rendering) return;
   rendering = true;
   try {
     const { name, param } = currentRoute();
@@ -161,6 +164,20 @@ async function boot() {
     render();
   });
   setLanguage(store.state.settings.language);
+
+  // The gate asks once per device. After that it never runs again, so a phone
+  // with no reception behaves exactly as it did before any of this existed.
+  if (await gate.isUnlocked()) openApp();
+  else gate.show(openApp);
+
+  if ('serviceWorker' in navigator) {
+    // Only meaningful over https/localhost; silently skipped elsewhere.
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+}
+
+function openApp() {
+  locked = false;
   if (!location.hash) location.replace('#/home');
   render();
 
@@ -170,10 +187,10 @@ async function boot() {
   sync.subscribe(render);
   sync.onAppOpen().catch((err) => console.warn('[liftlog] sync', err));
 
-  if ('serviceWorker' in navigator) {
-    // Only meaningful over https/localhost; silently skipped elsewhere.
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  }
+  // Revocation, and the only reason the gate is ever consulted twice: if the
+  // account has been removed, the next launch with reception locks the app.
+  // Offline this does nothing, which is the point.
+  gate.recheck().catch(() => {});
 }
 
 window.addEventListener('error', (e) => {

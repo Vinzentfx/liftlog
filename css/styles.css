@@ -102,6 +102,10 @@ input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
   outline: none;
 }
 
+/* `hidden` alone loses to the display rule below, so the invite gate could not
+   actually take the tab bar away. Specificity, not the attribute, decides. */
+#tabbar[hidden] { display: none; }
+
 #tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
   height: calc(var(--tabbar-h) + var(--safe-b));
