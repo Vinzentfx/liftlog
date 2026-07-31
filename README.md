@@ -158,6 +158,35 @@ which is also how you'd move to a new phone. Home nags after 10 workouts or four
 weeks without one, because the export was never the missing part — remembering
 was.
 
+### The showcase backup
+
+`showcase-backup.json` in the repo root is half a year of plausible training and
+four months of food, for demoing the app without handing over your own log.
+Regenerate it with:
+
+```bash
+node tools/build_showcase.mjs > showcase-backup.json
+```
+
+Load it the same way as any backup: **⚙ → Restore from backup**. On a phone,
+open the raw file from GitHub, save it to Files, then pick it in the restore
+dialog. **It replaces everything on the device**, so export your own data first
+if the device has any.
+
+Two things about how it is built. The records come from `js/models.js`, not from
+JSON written by hand — otherwise the demo drifts out of shape the first time a
+field is added, and drifts *silently*, because the store reads fields rather than
+validating them. And the numbers have to hold together arithmetically: every
+figure on screen is derived, so a food log that averages 1,500 kcal for someone
+gaining weight produces a 1,984 kcal maintenance estimate and a calorie target
+built on top of it. The first draft did exactly that. The generator prints a
+summary to stderr for this reason, and it is worth reading before trusting the
+file.
+
+It is deliberately not a "load demo data" button in Settings. Importing replaces
+everything, and a button that erases a training log would sit in the app forever
+for the sake of a demo given twice.
+
 **On eviction, precisely.** An installed home-screen web app is *not* subject to
 Safari's seven-day cap on script-writable storage: it has its own usage counter
 and a browser-sized quota. It can still be evicted under real storage pressure,
@@ -192,6 +221,7 @@ warnings that do matter.
 | `sw.js` | Offline precache — **add new modules to `SHELL`** |
 | `tools/make_icons.py` | Regenerates the app icons |
 | `tools/devserver.py` | No-cache dev server |
+| `tools/build_showcase.mjs` | Generates `showcase-backup.json`, the demo dataset |
 | `tests/maths.test.js` | `node --test` over the DOM-free maths — dev only, never served |
 | `tests/i18n.test.js` | Key parity, placeholder parity, dead keys, house style |
 | `tools/build_library.py` | Regenerates `js/exercise-library.js` from free-exercise-db |
