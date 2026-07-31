@@ -132,3 +132,13 @@ test('the invite repair migration backfills missing grants and reloads PostgREST
   assert.match(sql, /grant execute on function public\.claim_invite\(text\) to authenticated/);
   assert.match(sql, /notify pgrst, 'reload schema'/);
 });
+
+test('authenticated RLS policies may execute their access helper', async () => {
+  for (const file of [
+    'server/patch-003-revocable-access.sql',
+    'server/patch-005-fix-access-policy-permission.sql',
+  ]) {
+    const sql = await read(file);
+    assert.match(sql, /grant execute on function public\.has_active_access\(\) to authenticated/i);
+  }
+});

@@ -7,6 +7,8 @@
 -- access grants checked by every cloud read and write.
 -- Finally apply server/patch-004-repair-invite-claims.sql, which repairs legacy
 -- partial activations and installs the self-contained invite claim RPC.
+-- Apply server/patch-005-fix-access-policy-permission.sql last so authenticated
+-- RLS policies can execute their boolean access helper.
 --
 -- Paste this into the Supabase SQL editor once. There is no other server code:
 -- the app talks to PostgREST over plain fetch, and what it is allowed to do is

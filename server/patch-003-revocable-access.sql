@@ -118,6 +118,7 @@ $$;
 
 revoke all on table public.access_grants from anon, authenticated;
 revoke all on function public.has_active_access() from public, anon, authenticated;
+grant execute on function public.has_active_access() to authenticated;
 revoke all on function public.access_status() from public, anon;
 grant execute on function public.access_status() to authenticated;
 

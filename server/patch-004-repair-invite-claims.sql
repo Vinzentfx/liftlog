@@ -67,6 +67,7 @@ $$;
 
 revoke all on function public.claim_invite(text) from public, anon;
 grant execute on function public.claim_invite(text) to authenticated;
+grant execute on function public.has_active_access() to authenticated;
 
 -- Make the replacement visible to PostgREST immediately.
 notify pgrst, 'reload schema';

@@ -196,7 +196,8 @@ leaves the phone.
 **Backend deployment order.** For a new Supabase project, apply `server/schema.sql`,
 `server/patch-002-device-capabilities.sql`, and then
 `server/patch-003-revocable-access.sql`, followed by
-`server/patch-004-repair-invite-claims.sql` in the SQL editor. For an existing
+`server/patch-004-repair-invite-claims.sql`, and finally
+`server/patch-005-fix-access-policy-permission.sql` in the SQL editor. For an existing
 project, apply each not-yet-applied patch in numeric order before deploying the matching JavaScript.
 The patch preserves encrypted backups; existing cloud users enter their recovery
 key once so the main device receives its new write capability.
@@ -368,6 +369,7 @@ warnings that do matter.
 | `server/patch-002-device-capabilities.sql` | Required cloud hardening migration; apply before the matching client is deployed |
 | `server/patch-003-revocable-access.sql` | Separates one-time invites from revocable ongoing access |
 | `server/patch-004-repair-invite-claims.sql` | Repairs partial invite activations and makes claims self-contained |
+| `server/patch-005-fix-access-policy-permission.sql` | Lets authenticated RLS policies execute their access check |
 | `js/nutrition.js` | Targets, daily totals, energy split, maintenance calories |
 | `js/foodlookup.js` | Open Food Facts barcode lookup — the only networked module |
 | `js/foodsearch.js` | Searching the bundled library and scaling an entry to a portion |
