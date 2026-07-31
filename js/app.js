@@ -73,7 +73,12 @@ export function render() {
     clear($('#topbar-actions'));
 
     const host = clear($('#screen'));
-    const node = route.render({ param, actions: $('#topbar-actions') });
+    // `fresh` separates arriving at a screen from re-rendering the one you are
+    // already on. A screen that remembers something across renders (which day
+    // the food log is showing) needs to know the difference: keeping it while
+    // you tap around that screen is right, keeping it after you have been to
+    // another tab and come back is how you log today's lunch into last Tuesday.
+    const node = route.render({ param, actions: $('#topbar-actions'), fresh: !samePlace });
     if (node) host.append(node);
 
     lastRouteKey = routeKey;

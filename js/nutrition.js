@@ -348,6 +348,14 @@ export function macroTargets(settings, maintenance) {
   if (!maintenance || !maintenance.ok) {
     return { ok: false, reason: 'maintenance', protein };
   }
+  // The chain is calories, then protein, then a fat floor, then carbs as the
+  // remainder. Without a protein band there is no remainder to take, and the
+  // carb figure would quietly hand protein's whole share to carbohydrate. The
+  // two can disagree because maintenance comes from the weigh-in log and the
+  // band comes from the profile setting; only the profile form writes both.
+  if (!protein) {
+    return { ok: false, reason: 'bodyweight', protein: null };
+  }
 
   const bw = Number(settings?.bodyweight) || 0;
   const kg = settings?.units === 'lb' ? bw * 0.45359237 : bw;

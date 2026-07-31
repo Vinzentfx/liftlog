@@ -4,7 +4,7 @@
 import * as idb from './db.js';
 import {
   DEFAULT_SETTINGS, seedExercises, newSession, newEntry, newSet,
-  newFood, newMeal, newTemplate, dayKey,
+  newFood, newMeal, newTemplate, dayKey, latestWeight,
   LIBRARY_VERSION, DATA_VERSION, normName, regionsForMuscle,
 } from './models.js';
 import { buildPlanDays, SETS_PER_EXERCISE, REP_TARGET } from './plan-builder.js';
@@ -770,6 +770,24 @@ export async function logBodyweight(weight, date = Date.now()) {
   if (existing) Object.assign(existing, rec);
   else state.bodyweight.push(rec);
   await db.put(db.STORES.bodyweight, rec);
+
+  // Keep the profile figure in step with the log.
+  //
+  // The app has two bodyweights and used to keep them in step in exactly one
+  // place, the profile form. Everything bodyweight-relative reads the profile
+  // one: the strength score on Home, the strength tier of every lift, the
+  // protein band, and through it the calorie and carb targets. The weekly
+  // strength history and the maintenance estimate read the log. So weighing in
+  // from the Progress screen moved one number and not the other, and the two
+  // then quietly disagreed for as long as you never opened Settings.
+  //
+  // Only the newest entry counts, because `date` is editable: correcting last
+  // Tuesday's weigh-in must not become "your weight now".
+  const latest = latestWeight(state.bodyweight);
+  if (latest !== null && latest !== Number(state.settings.bodyweight)) {
+    await setSetting('bodyweight', latest);
+  }
+
   reindex(); emit();
   return rec;
 }

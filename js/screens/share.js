@@ -5,7 +5,7 @@
 // library, because that is a side effect you should see coming rather than
 // discover afterwards.
 
-import { el, toast, emptyState, listItem } from '../ui.js';
+import { el, toast, emptyState } from '../ui.js';
 import * as store from '../store.js';
 import { decodeLink, resolveAgainstLibrary } from '../plan-share.js';
 import { weekdayShort } from '../schedule.js';

@@ -40,8 +40,14 @@ function bandFor(key, targets) {
   return targets[key] || null;
 }
 
-export default function renderNutrition({ actions }) {
+export default function renderNutrition({ actions, fresh }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
+
+  // Stepping back a day survives a re-render, which is what the stepper needs,
+  // but not a trip to another tab. Coming back to Food and finding it still on
+  // last Tuesday is how a lunch ends up logged five days late, and the only
+  // sign would have been the date under the heading.
+  if (fresh) viewDay = null;
 
   const root = el('div');
   const day = viewDay || dayKey();

@@ -29,11 +29,12 @@ const { e1rm, isCounted, startOfWeek, entryStats, newMeal, dayKey, slotFor } = a
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
 const { regionProgress } = await import('../js/region-progress.js');
-const { bodyweightAt, strengthAt } = await import('../js/history.js');
+const { bodyweightAt, strengthAt, strengthHistory } = await import('../js/history.js');
 const { decodeLink, planLink, resolveAgainstLibrary } = await import('../js/plan-share.js');
 const { weekSummary } = await import('../js/week-card.js');
 const { THRESHOLDS } = await import('../js/evidence.js');
 const { dayTotals, energySplit, maintenanceEstimate, NUTRIENTS, macroTargets } = await import('../js/nutrition.js');
+const { latestWeight } = await import('../js/models.js');
 const { searchLibrary, searchFoods, toFoodFields } = await import('../js/foodsearch.js');
 const { parseNumber, plural } = await import('../js/ui.js');
 const { platePlan, describePlates } = await import('../js/plates.js');
@@ -562,6 +563,68 @@ test('describeStall reports and never prescribes', () => {
   setLanguage('en');
 });
 
+test('a week boundary is a calendar week, not seven times 86400000', () => {
+  // Europe/Berlin puts the clocks forward on Sunday 29 March 2026, so the week
+  // starting Monday the 23rd is 167 hours long. Adding a fixed seven days of
+  // milliseconds to its start lands on Monday the 30th at 01:00, and everything
+  // logged in that first hour of the next week gets counted in this one.
+  //
+  // This is the third time this app has been bitten by fixed-millisecond week
+  // arithmetic. The first two only surfaced months later, at a clock change.
+  const now = new Date(2026, 3, 10, 12).getTime();        // 10 April 2026
+  const mondayAfter = new Date(2026, 2, 30, 0, 30).getTime();  // Mon 30 Mar, 00:30
+
+  const { weeks } = timeline(
+    { bodyweight: [{ id: 'b', date: mondayAfter, weight: 80 }] },
+    { weeks: 4, now },
+  );
+
+  const dstWeek = weeks.find((w) => new Date(w.week).getDate() === 23
+    && new Date(w.week).getMonth() === 2);
+  assert.ok(dstWeek, 'the week of 23 March is in the window');
+  assert.equal(dstWeek.bodyweight, null,
+    'a weigh-in on the Monday belongs to the Monday, not to the week before it');
+
+  const ownWeek = weeks.find((w) => new Date(w.week).getDate() === 30
+    && new Date(w.week).getMonth() === 2);
+  assert.equal(ownWeek.bodyweight, 80, 'and it does land in its own week');
+});
+
+/* ============ the app's two bodyweights ============ */
+
+test('macro targets refuse to answer without a protein band', () => {
+  // Reachable: maintenance is derived from the weigh-in log, the protein band
+  // from the profile setting, and only the profile form writes both. Log your
+  // weight from the Progress screen and never open the profile, and this pair
+  // disagrees. Returning ok:true here handed the screen a null protein band to
+  // read `.low` off, and carbs silently absorbed protein's whole share.
+  const maintenance = { ok: true, maintenance: 2400 };
+  const targets = macroTargets({ units: 'kg', goal: 'hold' }, maintenance);
+
+  assert.equal(targets.ok, false, 'no bodyweight means no protein band means no chain');
+  assert.equal(targets.protein, null);
+  assert.ok(targets.reason, 'and it says which part is missing');
+});
+
+test('macro targets still answer once the bodyweight is there', () => {
+  const targets = macroTargets({ units: 'kg', goal: 'hold', bodyweight: 82 },
+    { ok: true, maintenance: 2400 });
+  assert.equal(targets.ok, true);
+  assert.ok(targets.protein.low > 0 && targets.carbs.high > 0);
+});
+
+test('latestWeight is the newest weigh-in, whatever order the log is in', () => {
+  const log = [
+    { id: 'a', date: 1000, weight: 80 },
+    { id: 'c', date: 3000, weight: 84 },
+    { id: 'b', date: 2000, weight: 82 },
+  ];
+  assert.equal(latestWeight(log), 84);
+  // Backdating an entry must not become "your weight now".
+  assert.equal(latestWeight([...log, { id: 'old', date: 500, weight: 70 }]), 84);
+  assert.equal(latestWeight([]), null);
+});
+
 /* ================= eating next to training ================= */
 
 /** `n` days back from `at`, as the day key meals are stored under. */
@@ -762,6 +825,25 @@ test('the card reports a bodyweight move, because the score is relative to it', 
     ],
   }));
   assert.equal(s.bodyweightShift, 2);
+});
+
+test('the strength history buckets by calendar week, not by fixed milliseconds', () => {
+  // Same clock change as the timeline test: the week starting Monday 23 March
+  // 2026 is 167 hours long in Europe/Berlin. `week + 7 * 86400000` therefore
+  // lands at 01:00 on Monday the 30th, and a session lifted in that first hour
+  // of the new week was credited to the week before it.
+  const mondayAfter = new Date(2026, 2, 30, 0, 30).getTime();
+  const sessions = [session(mondayAfter, [entry(BENCH.id, [set(140, 5)])])];
+  const bw = [{ id: 'b', date: new Date(2026, 0, 5).getTime(), weight: 82 }];
+
+  const history = strengthHistory(sessions, bw, PROFILE, byId, 4, new Date(2026, 3, 10, 12).getTime());
+  const dstWeek = history.find((h) => new Date(h.week).getMonth() === 2
+    && new Date(h.week).getDate() === 23);
+
+  assert.equal(dstWeek, undefined,
+    'the week of 23 March saw no lifting, so it gets no score');
+  assert.ok(history.some((h) => new Date(h.week).getDate() === 30),
+    'the session counts from the week it actually happened in');
 });
 
 test('strengthAt is the score as it stood then, not as it stands now', () => {

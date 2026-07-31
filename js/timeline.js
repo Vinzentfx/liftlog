@@ -36,7 +36,7 @@ export const MIN_LOGGED_DAYS = 4;
 export function timeline({ sessions = [], meals = [], bodyweight = [] },
   { weeks = 12, now = Date.now() } = {}) {
 
-  const training = tonnageHistory(sessions, weeks);
+  const training = tonnageHistory(sessions, weeks, now);
 
   // Meals carry a day key rather than a timestamp, so the week they belong to
   // comes from parsing that key at midday: parsing a bare date as UTC and then
@@ -74,7 +74,15 @@ export function timeline({ sessions = [], meals = [], bodyweight = [] },
     // Only weigh-ins that happened inside the week. Carrying the last one
     // forward would draw a flat line through days nobody stood on a scale, and
     // a chart of bodyweight has to show weighing, not interpolation.
-    const weekEnd = bucket.week + 7 * 86400000;
+    //
+    // Stepped by calendar days rather than by 7 * 86400000: a week containing a
+    // clock change is 167 or 169 hours long, and the fixed-millisecond version
+    // put the boundary an hour into the Monday, so everything weighed in that
+    // hour landed in the week before. Twice already this app has shipped that
+    // bug and found out about it months later.
+    const end = new Date(bucket.week);
+    end.setDate(end.getDate() + 7);
+    const weekEnd = end.getTime();
     const inWeek = weighIns.filter((b) => b.date >= bucket.week && b.date < weekEnd);
     const weight = inWeek.length
       ? Math.round((inWeek.reduce((n, b) => n + b.weight, 0) / inWeek.length) * 10) / 10

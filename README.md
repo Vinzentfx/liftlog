@@ -723,6 +723,48 @@ one. Anything with a time window respects that: `regionProgress` takes a `now`,
 so a card about last week cannot see sessions logged since and quietly change
 what it said.
 
+### The app has two bodyweights
+
+`settings.bodyweight` is the profile figure. The `bodyweight` store is the log of
+weigh-ins. They measure the same thing and they are read by different halves of
+the app: the profile one drives the strength score on Home, every lift's tier,
+the protein band and — through it — the calorie and carb targets, while the log
+drives the weekly strength history, the maintenance estimate and the timeline.
+
+For a long time exactly one place kept them in step: the profile form in
+Settings. Weighing in from the Progress screen moved the log and left the profile
+where it was, so the two quietly disagreed for as long as you never opened
+Settings, and the headline score went on scoring you against a weight you no
+longer were.
+
+`logBodyweight()` now writes the profile figure too, but only from the newest
+entry (`latestWeight()` in `models.js`, which is pulled out of the store so it can
+be tested): the log accepts a date, and correcting last Tuesday's weigh-in must
+not become "your weight now".
+
+The same split had a second consequence. `macroTargets()` took maintenance from
+the log and the protein band from the profile, so with weigh-ins logged and no
+profile it returned `ok: true` with `protein: null`. The Food tab read `.low` off
+that null and the whole screen died with "Something broke". It now refuses as a
+whole and names the missing part, which is also the honest answer: carbs are what
+is left after protein and fat, and without a protein band there is no remainder
+to take — the old code silently handed protein's entire share to carbohydrate.
+
+### Week boundaries are calendar weeks
+
+Three times now. A week containing a clock change is 167 or 169 hours long, so
+`weekStart + 7 * 86400000` lands an hour off the following Monday and everything
+in that hour falls in the wrong bucket. It has been fixed in `weeklyMuscleSets`,
+in `weekStreak`, and most recently in `strengthHistory` (a session lifted at
+00:30 on the Monday after the spring change was credited to the week before) and
+in `timeline` (same, for weigh-ins).
+
+The rule, which the `WEEK` constant in `history.js` now carries in a comment:
+**milliseconds are fine for durations and lookback windows, never for deciding
+which week a timestamp belongs to.** For that, step by calendar days. Both fixes
+have a test that fails against the old arithmetic; both were checked by putting
+it back.
+
 ### Eating next to training
 
 Three charts on Progress, sharing one x-axis: average calories a day over the

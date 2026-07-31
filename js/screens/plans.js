@@ -13,7 +13,7 @@ import { rateExercise } from '../exercise-rating.js';
 import { exerciseRatingSheet, evidenceList, swapSheet } from '../rating-ui.js';
 import { diagnose } from '../plan-doctor.js';
 import { suggestSwaps } from '../swaps.js';
-import { WEEK_ORDER, weekdayName, weekdayShort, weekRows, isScheduled, scheduleConflict } from '../schedule.js';
+import { WEEK_ORDER, weekdayName, weekRows, isScheduled, scheduleConflict } from '../schedule.js';
 import { planLink } from '../plan-share.js';
 import { scoreFor, tierIndex, tierOf, isBenchmark, hasProfile, toNextTier } from '../standards.js';
 import { t, tn, tMuscle, tRegion, tTier } from '../i18n.js';

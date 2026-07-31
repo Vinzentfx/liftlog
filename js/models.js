@@ -12,6 +12,25 @@ export const MUSCLES = [
   'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Core', 'Other',
 ];
 
+/**
+ * The newest weigh-in in a log, whatever order it is stored in.
+ *
+ * Pulled out of the store so it can be tested: the store keeps `bodyweight`
+ * newest-first, but `logBodyweight` accepts a date, so a backdated correction
+ * arrives after entries that are newer than it. "The last one written" is not
+ * the same thing as "your weight now", and this app has a strength score
+ * hanging off the difference.
+ */
+export function latestWeight(log = []) {
+  let best = null;
+  for (const b of log) {
+    const w = Number(b?.weight);
+    if (!Number.isFinite(w) || w <= 0) continue;
+    if (!best || b.date > best.date) best = { date: b.date, weight: w };
+  }
+  return best ? best.weight : null;
+}
+
 export const DEFAULT_SETTINGS = {
   // Interface language. null follows the device, which is what a fresh install
   // on a German phone should do without being asked.

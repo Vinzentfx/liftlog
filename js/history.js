@@ -13,6 +13,9 @@
 import { startOfWeek, isCounted, e1rm, entryStats, linearFit } from './models.js';
 import { buildRating, isBenchmark, hasProfile } from './standards.js';
 
+// Only for durations and lookback windows, never for a week boundary: a week
+// containing a clock change is not this long. Anything that decides which week
+// a timestamp belongs to steps by calendar days instead.
 const WEEK = 7 * 86400000;
 
 /** Week-start timestamps, oldest first, stepping by calendar days for DST. */
@@ -34,8 +37,8 @@ function weekStarts(count, endTs = Date.now()) {
  * is the honest answer to "how much did I actually shift this week", and it is
  * the number that visibly climbs long before a 1RM does.
  */
-export function tonnageHistory(sessions, weeks = 12) {
-  const buckets = weekStarts(weeks).map((week) => ({
+export function tonnageHistory(sessions, weeks = 12, endTs = Date.now()) {
+  const buckets = weekStarts(weeks, endTs).map((week) => ({
     week, tonnage: 0, sets: 0, reps: 0, workouts: 0,
   }));
   const index = new Map(buckets.map((b) => [b.week, b]));
@@ -70,7 +73,8 @@ export function tonnageHistory(sessions, weeks = 12) {
  *
  * @returns [{ week, score, tier, lifts }] for weeks with enough data, or []
  */
-export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, weeks = 16) {
+export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, weeks = 16,
+  endTs = Date.now()) {
   if (!hasProfile(profile)) return [];
 
   const finished = sessions
@@ -83,8 +87,14 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
   let cursor = 0;                  // how far through `finished` we have walked
 
   const out = [];
-  for (const week of weekStarts(weeks)) {
-    const cutoff = week + WEEK;
+  for (const week of weekStarts(weeks, endTs)) {
+    // Stepped by calendar days, not by a fixed WEEK of milliseconds. A week
+    // containing a clock change is 167 or 169 hours long, so the fixed version
+    // put this boundary an hour into the Monday and folded that first hour of
+    // the next week into this week's score, twice a year.
+    const nextWeek = new Date(week);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    const cutoff = nextWeek.getTime();
 
     // Walk forward only — the cumulative max never needs revisiting.
     while (cursor < finished.length && finished[cursor].startedAt < cutoff) {
