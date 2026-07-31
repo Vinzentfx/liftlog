@@ -124,6 +124,11 @@ let dataKey = null;
 
 export const hasDataKey = () => !!dataKey;
 
+/** Whether this installation can authorize deletion without active access. */
+export async function canDeleteCloudData() {
+  return !!(await localMeta()).ownerToken;
+}
+
 /**
  * Get this device's copy of the data key, unwrapping it with the shared secret
  * the main device left for us.
@@ -394,9 +399,11 @@ export async function restore(version = null) {
  * existed.
  */
 export async function onAppOpen() {
-  if (!cloud.isSignedIn()) return;
+  if (!cloud.isSignedIn()) return { ok: false, code: 'AUTH' };
   await load();
-  if (!state.enabled || !state.isOwner) return;
+  if (state.lastError) return { ok: false, code: state.lastError };
+  if (!state.enabled) return { ok: false, code: 'DISABLED' };
+  if (!state.isOwner) return { ok: false, code: 'READ_ONLY' };
 
   // Do not re-upload an identical snapshot on every launch. An hour is short
   // enough that a lost phone costs at most one session, and long enough that
@@ -404,9 +411,9 @@ export async function onAppOpen() {
   const last = Number(store.state.settings.cloudLastSyncAt) || 0;
   if (Date.now() - last < 3600000) {
     set({ lastSyncAt: last });
-    return;
+    return { ok: true, skipped: true };
   }
-  await backupNow();
+  return backupNow();
 }
 
 export async function signOutEverywhere() {

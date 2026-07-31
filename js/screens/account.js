@@ -187,8 +187,9 @@ function signUpSheet() {
     status.style.color = 'var(--text-faint)';
     status.textContent = t('cloud.working');
     try {
-      await cloud.signUp(mail, password.value);
+      await cloud.signUp(mail, password.value, { persist: false });
       await cloud.claimInvite(invite.value);
+      cloud.persistSession();
       const recovery = await sync.createAccount({ consent: true });
       recoveryKeySheet(recovery);
     } catch (err) {
@@ -229,10 +230,12 @@ function signInSheet() {
     status.style.color = 'var(--text-faint)';
     status.textContent = t('cloud.working');
     try {
-      await cloud.signIn(email.value.trim(), password.value);
+      await cloud.signIn(email.value.trim(), password.value, { persist: false });
       if (!(await cloud.hasActiveAccess())) {
+        await cloud.signOut();
         throw Object.assign(new Error('ACCESS_REVOKED'), { code: 'ACCESS_REVOKED' });
       }
+      cloud.persistSession();
       await sync.load();
       closeSheet();
       // A phone signing in to an existing account is a second device until the

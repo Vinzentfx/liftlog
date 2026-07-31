@@ -50,8 +50,9 @@ const KEY = 'liftlog.session';
 
 let session = null;
 try { session = JSON.parse(store.get(KEY) || 'null'); } catch { session = null; }
+let sessionPersistent = !!session;
 
-function keepSession(next) {
+function keepSession(next, persistent = sessionPersistent) {
   session = next && next.access_token ? {
     access_token: next.access_token,
     refresh_token: next.refresh_token,
@@ -61,7 +62,8 @@ function keepSession(next) {
     user: next.user ? { id: next.user.id, email: next.user.email } : session?.user,
   } : null;
 
-  if (session) store.set(KEY, JSON.stringify(session));
+  sessionPersistent = !!session && persistent;
+  if (sessionPersistent) store.set(KEY, JSON.stringify(session));
   else store.remove(KEY);
   return session;
 }
@@ -155,26 +157,31 @@ async function refresh() {
     keepSession(null);                          // spent or revoked: really signed out
     throw fail('AUTH', 'session expired');
   }
-  keepSession(next);
+  keepSession(next, sessionPersistent);
 }
 
 /* ================================= account ================================= */
 
-export async function signUp(email, password) {
+export async function signUp(email, password, { persist = true } = {}) {
   const out = await raw(`${AUTH}/signup`, { method: 'POST', body: { email, password } });
   // With email confirmation switched off this carries a session straight away.
   // If it is ever switched on, there is no token here and the caller has to say
   // so rather than pretending the account is ready.
   if (!out?.access_token) throw fail('CONFIRM_EMAIL', 'this account needs email confirmation first');
-  return keepSession(out);
+  return keepSession(out, persist);
 }
 
-export async function signIn(email, password) {
+export async function signIn(email, password, { persist = true } = {}) {
   const out = await raw(`${AUTH}/token?grant_type=password`, {
     method: 'POST', body: { email, password },
   });
   if (!out?.access_token) throw fail('AUTH', 'wrong email or password');
-  return keepSession(out);
+  return keepSession(out, persist);
+}
+
+/** Persist a session only after the server has confirmed ongoing access. */
+export function persistSession() {
+  if (session) keepSession(session, true);
 }
 
 export async function signOut() {

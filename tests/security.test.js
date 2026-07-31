@@ -81,3 +81,29 @@ test('cloud maintenance retries when connectivity returns and at intervals', asy
   assert.match(app, /setInterval\(runCloudMaintenance, 15 \* 60 \* 1000\)/);
   assert.match(app, /gate\.recheck\(\)[\s\S]*sync\.onAppOpen\(\)/);
 });
+
+test('sign-in is only persisted after active access is confirmed', async () => {
+  const gate = await read('js/screens/gate.js');
+  const account = await read('js/screens/account.js');
+  assert.match(gate, /signIn\([^;]+persist: false[\s\S]*hasActiveAccess\(\)[\s\S]*persistSession\(\)/);
+  assert.match(account, /signIn\([^;]+persist: false[\s\S]*hasActiveAccess\(\)[\s\S]*signOut\(\)[\s\S]*persistSession\(\)/);
+});
+
+test('sign-up is only persisted after an invite is accepted', async () => {
+  const gate = await read('js/screens/gate.js');
+  const account = await read('js/screens/account.js');
+  for (const source of [gate, account]) {
+    assert.match(source, /signUp\([^;]+persist: false[\s\S]*claimInvite\([^;]+[\s\S]*persistSession\(\)/);
+  }
+});
+
+test('a revoked owner can still delete cloud data from the gate', async () => {
+  const gate = await read('js/screens/gate.js');
+  assert.match(gate, /canDeleteCloudData\(\)[\s\S]*paintRevoked/);
+  assert.match(gate, /paintRevoked[\s\S]*confirmSheet[\s\S]*deleteCloudData\(\)/);
+});
+
+test('unexpected automatic backup failures become visible', async () => {
+  const app = await read('js/app.js');
+  assert.match(app, /sync\.onAppOpen\(\)[\s\S]*cloud\.autoBackupFailed/);
+});

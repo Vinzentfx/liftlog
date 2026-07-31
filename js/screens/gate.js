@@ -18,7 +18,7 @@
 // alone and which never appears in an exported backup. So it survives restoring
 // a backup, and it does not travel to someone else's phone inside one.
 
-import { el, clear, $, toast, authField } from '../ui.js';
+import { el, clear, $, toast, authField, confirmSheet } from '../ui.js';
 import * as db from '../db.js';
 import * as cloud from '../cloud.js';
 import * as sync from '../sync.js';
@@ -187,10 +187,11 @@ function paintSignUp(pane, done) {
     status.style.color = 'var(--text-faint)';
     status.textContent = t('cloud.working');
     try {
-      await cloud.signUp(email.value.trim(), password.value);
+      await cloud.signUp(email.value.trim(), password.value, { persist: false });
       // The invite is what actually opens the door. An account without one can
       // sign in and do nothing, here or on the server.
       await cloud.claimInvite(code.value);
+      cloud.persistSession();
       await sync.load();
       await done();
       toast(t('gate.welcome'), 3000);
@@ -220,11 +221,16 @@ function paintSignIn(pane, done) {
     status.style.color = 'var(--text-faint)';
     status.textContent = t('cloud.working');
     try {
-      await cloud.signIn(email.value.trim(), password.value);
+      await cloud.signIn(email.value.trim(), password.value, { persist: false });
       if (!(await cloud.hasActiveAccess())) {
-        problem(status, { code: 'ACCESS_REVOKED' });
+        if (await sync.canDeleteCloudData()) paintRevoked(pane, done);
+        else {
+          await cloud.signOut();
+          problem(status, { code: 'ACCESS_REVOKED' });
+        }
         return;
       }
+      cloud.persistSession();
       const profile = await cloud.getProfile();
       if (!profile) {
         // Signed in, but this account never redeemed a code. Say which of the
@@ -250,5 +256,39 @@ function paintSignIn(pane, done) {
     el('button.btn.primary.full', { onclick: go }, [t('cloud.signIn')]),
     status,
     el('div.small.faint', { style: { marginTop: '16px' }, text: t('gate.signInNote') }),
+  );
+}
+
+function paintRevoked(pane, done) {
+  const status = el('div.small', { style: { marginTop: '10px' } });
+  const leave = async () => {
+    await cloud.signOut();
+    paintChoice(pane, done);
+  };
+
+  paint(pane,
+    el('div.gate-form-intro', { text: t('gate.revokedTitle') }),
+    el('div.small.muted', { style: { marginTop: '10px' }, text: t('gate.revokedDeleteIntro') }),
+    el('button.btn.danger.full', {
+      style: { marginTop: '18px' },
+      onclick: async () => {
+        const confirmed = await confirmSheet(
+          t('gate.deleteRevokedTitle'), t('gate.deleteRevokedConfirm'),
+          { confirmLabel: t('gate.deleteRevokedCloud'), danger: true });
+        if (!confirmed) return;
+        status.style.color = 'var(--text-faint)';
+        status.textContent = t('cloud.working');
+        try {
+          await sync.deleteCloudData();
+          await cloud.signOut();
+          await lock();
+          toast(t('cloud.deleted'), 3600);
+          paintChoice(pane, done);
+        } catch (err) { problem(status, err); }
+      },
+    }, [t('gate.deleteRevokedCloud')]),
+    el('button.btn.ghost.full', { style: { marginTop: '8px' }, onclick: leave }, [t('cloud.signOut')]),
+    status,
+    lockedOutExport(),
   );
 }

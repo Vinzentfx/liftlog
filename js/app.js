@@ -58,6 +58,7 @@ let lastRouteKey = null;
 let locked = true;
 let cloudMaintenanceStarted = false;
 let cloudMaintenanceRunning = false;
+let lastBackupWarningAt = 0;
 
 export function render() {
   if (locked || !store.state.ready || rendering) return;
@@ -201,7 +202,13 @@ async function runCloudMaintenance() {
   cloudMaintenanceRunning = true;
   try {
     if (await gate.recheck() === false) return;
-    await sync.onAppOpen();
+    const result = await sync.onAppOpen();
+    const quiet = ['AUTH', 'DISABLED', 'READ_ONLY', 'BUSY', 'OFFLINE'];
+    if (result && !result.ok && !quiet.includes(result.code)
+        && Date.now() - lastBackupWarningAt > 6 * 60 * 60 * 1000) {
+      lastBackupWarningAt = Date.now();
+      toast(t('cloud.autoBackupFailed'), 4200);
+    }
   } catch (err) {
     console.warn('[liftlog] cloud maintenance', err);
   } finally {
