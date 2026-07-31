@@ -418,7 +418,12 @@ export async function onAppOpen() {
 
 export async function signOutEverywhere() {
   dataKey = null;
-  await db.remove(db.STORES.keys, 'meta');
+  // Signing out is also leaving the invite-gated app, not merely disconnecting
+  // cloud backup. Remove both pieces of device-local authorization together.
+  await Promise.all([
+    db.remove(db.STORES.keys, 'meta'),
+    db.remove(db.STORES.keys, 'gate'),
+  ]);
   await cloud.signOut();
   await store.setSetting('cloudEnabled', false);
   await load();

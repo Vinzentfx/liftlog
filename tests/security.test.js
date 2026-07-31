@@ -148,3 +148,10 @@ test('an activated account without cloud consent is prompted on app load', async
   assert.match(app, /sync\.state\.signedIn[\s\S]*sync\.state\.profile[\s\S]*!sync\.state\.profile\.recovery_wrap/);
   assert.match(app, /account\.promptCloudSetup\(\)/);
 });
+
+test('signing out removes the local gate and reloads into the login screen', async () => {
+  const sync = await read('js/sync.js');
+  const account = await read('js/screens/account.js');
+  assert.match(sync, /signOutEverywhere[\s\S]*db\.remove\(db\.STORES\.keys, 'gate'\)/);
+  assert.match(account, /signOutEverywhere\(\)[\s\S]*location\.reload\(\)/);
+});

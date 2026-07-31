@@ -287,7 +287,7 @@ export function renderSettings() {
         await Promise.all(Object.values(db.STORES).map((st) => db.clear(st)));
         await sync.signOutEverywhere().catch(() => {});
         await store.load();
-        toast(t('settings.erased'));
+        location.reload();
       },
     }, [t('settings.erase')]),
 

@@ -570,7 +570,7 @@ function manageSheet() {
           if (!ok) return;
           await sync.signOutEverywhere();
           closeSheet();
-          toast(t('cloud.signedOut'));
+          location.reload();
         },
       }, [t('cloud.signOut')]),
 
