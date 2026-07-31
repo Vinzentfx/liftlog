@@ -46,6 +46,23 @@ alter table public.profiles enable row level security;
 create policy "own profile" on public.profiles
   for all using (auth.uid() = id) with check (auth.uid() = id);
 
+-- Does this account have a profile at all?
+--
+-- The invite code gates profile creation and nothing else, which turned out not
+-- to be the same thing as gating the account. Found by testing rather than by
+-- reading: a signed-up account with no invite happily wrote a backup row,
+-- because "own backups" only ever asked whether the row belonged to the caller,
+-- and it did. Not a leak, since everyone still sees only their own rows, but an
+-- open door to using this database as free storage.
+--
+-- Security definer so it can look at profiles without tripping over that
+-- table's own row-level security, and stable so the planner calls it once per
+-- statement rather than once per row.
+create or replace function public.has_profile()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles where id = auth.uid());
+$$;
+
 -- ----------------------------------------------------------------- devices --
 
 create table if not exists public.devices (
@@ -76,7 +93,9 @@ alter table public.devices enable row level security;
 -- phone is written by that phone while logged in as the same account, so this
 -- one policy covers requesting, approving and revoking.
 create policy "own devices" on public.devices
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all
+  using       (auth.uid() = user_id and public.has_profile())
+  with check  (auth.uid() = user_id and public.has_profile());
 
 -- ----------------------------------------------------------------- backups --
 
@@ -100,7 +119,9 @@ create table if not exists public.backups (
 alter table public.backups enable row level security;
 
 create policy "own backups" on public.backups
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all
+  using       (auth.uid() = user_id and public.has_profile())
+  with check  (auth.uid() = user_id and public.has_profile());
 
 -- The primary key is what makes a stale upload fail instead of overwriting.
 -- A device that has been offline uploads version 8 while the server is already
@@ -127,9 +148,11 @@ create trigger trim_backups
 
 -- ----------------------------------------------------------------- invites --
 
--- Signing up is possible for anyone; getting a profile is not. Without a
--- profile row every policy above denies everything, so an uninvited account can
--- log in and do precisely nothing.
+-- Signing up is possible for anyone; getting a profile is not, and every policy
+-- above additionally requires `has_profile()`. So an uninvited account can log
+-- in and do precisely nothing, which is a property worth re-testing rather than
+-- re-reading: the first version of this file only checked row ownership, and an
+-- uninvited account could write freely.
 create table if not exists public.invites (
   code       text primary key,
   note       text,
