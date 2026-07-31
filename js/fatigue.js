@@ -13,6 +13,7 @@
 // What to do about that is a training decision, and it stays with the person
 // doing the training.
 
+import { t } from './i18n.js';
 import { movers } from './history.js';
 import { analyseWeek } from './log-analysis.js';
 import { startOfWeek } from './models.js';
@@ -105,26 +106,31 @@ export function describeStall(report) {
 
   const { tracked, stalled, falling, names, sets, rir, weeks } = report;
   if (stalled === 0) {
-    lines.push(`All ${tracked} lifts with enough data are still climbing over the last ${weeks} weeks.`);
+    lines.push(t('fatigue.allClimbing', { tracked, weeks }));
   } else {
-    const list = names.slice(0, 3).join(', ');
-    lines.push(
-      `${stalled} of ${tracked} tracked lifts have not gained over the last ${weeks} weeks${falling ? `, and ${falling} ${falling === 1 ? 'is' : 'are'} going backwards` : ''}: ${list}${names.length > 3 ? `, +${names.length - 3} more` : ''}.`
-    );
+    const list = names.slice(0, 3).join(', ')
+      + (names.length > 3 ? t('planRating.andMore', { n: names.length - 3 }) : '');
+    lines.push(t(falling ? 'fatigue.stalledFalling' : 'fatigue.stalled', {
+      stalled, tracked, weeks, falling, list,
+    }));
   }
 
   if (sets.earlier) {
     const change = Math.round(((sets.recent - sets.earlier) / sets.earlier) * 100);
     lines.push(Math.abs(change) < 8
-      ? `Working sets held steady: ${sets.recent} in the last three weeks against ${sets.earlier} in the three before.`
-      : `Working sets are ${change > 0 ? 'up' : 'down'} ${Math.abs(change)}%: ${sets.recent} in the last three weeks against ${sets.earlier} in the three before.`);
+      ? t('fatigue.setsSteady', { recent: sets.recent, earlier: sets.earlier })
+      : t(change > 0 ? 'fatigue.setsUp' : 'fatigue.setsDown', {
+          pct: Math.abs(change), recent: sets.recent, earlier: sets.earlier,
+        }));
   }
 
   if (rir) {
     const delta = rir.recent - rir.earlier;
     lines.push(Math.abs(delta) < 0.3
-      ? `Effort is unchanged — about ${rir.recent.toFixed(1)} reps in reserve on average, both halves.`
-      : `Sets have been going ${delta < 0 ? 'closer to' : 'further from'} failure: ${rir.earlier.toFixed(1)} reps in reserve on average earlier, ${rir.recent.toFixed(1)} lately.`);
+      ? t('fatigue.effortSame', { rir: rir.recent.toFixed(1) })
+      : t(delta < 0 ? 'fatigue.effortCloser' : 'fatigue.effortFurther', {
+          earlier: rir.earlier.toFixed(1), recent: rir.recent.toFixed(1),
+        }));
   }
 
   return lines;

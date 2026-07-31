@@ -92,10 +92,17 @@ months because each screen counted its own way); and the honesty rules, which
 are the point of the app and exactly the sort of thing a refactor reverses
 without noticing.
 
+The honesty rules are checked in **both languages**, because the promise is about
+what the app is allowed to say, not about which table the sentence lives in: a
+German translation that slipped in a "solltest" would break the no-prescription
+rule exactly as thoroughly as an English "you should".
+
 A regression test is only worth having if it fails against the bug it describes.
 The DST cases were checked that way: reinstate the old fixed-millisecond week
 arithmetic and `weekStreak: counts consecutive weeks across a clock change` goes
-red on its own.
+red on its own. Same for the language guards: drop a key from one table, rename a
+placeholder on one side, or put "solltest" into a stall-report string, and the
+matching test goes red.
 
 ---
 
@@ -178,12 +185,15 @@ warnings that do matter.
 | `js/store.js` | In-memory state, actions, persistence, subscribe/notify |
 | `js/charts.js` | SVG line/bar/heatmap primitives with crosshair tooltips |
 | `js/ui.js` | DOM helpers, formatting, bottom sheet, toasts |
+| `js/i18n.js` | Interface language: lookup, plurals, static-markup pass |
+| `js/strings.js` | Every interface string, German and English side by side |
 | `js/pickers.js` | Exercise picker and create/edit form |
 | `js/screens/*.js` | One module per tab, plus the settings sheet |
 | `sw.js` | Offline precache — **add new modules to `SHELL`** |
 | `tools/make_icons.py` | Regenerates the app icons |
 | `tools/devserver.py` | No-cache dev server |
 | `tests/maths.test.js` | `node --test` over the DOM-free maths — dev only, never served |
+| `tests/i18n.test.js` | Key parity, placeholder parity, dead keys, house style |
 | `tools/build_library.py` | Regenerates `js/exercise-library.js` from free-exercise-db |
 | `js/exercise-library.js` | GENERATED catalogue — don't hand-edit |
 | `js/evidence.js` | The papers and thresholds both star ratings are built on |
@@ -242,6 +252,13 @@ To swap in different artwork entirely, keep the contract:
 **Adding a new JS module?** Add it to the `SHELL` array in `sw.js`, or the app
 breaks offline while working fine online — the failure won't show up in normal
 testing.
+
+**Writing a user-facing string?** It goes in `js/strings.js`, in both languages,
+and the code says `t('some.key')`. Never write the sentence at the call site.
+`tests/i18n.test.js` fails on a key that exists in one language only, on
+placeholders that differ between the two, on a `t()` key nobody defined, and on a
+key nobody says. It also enforces the house style: no em dashes, because they
+read as a stall mid-sentence on a phone.
 
 **Repairing stored records?** Bump `DATA_VERSION` in `models.js` and add a branch
 to `migrate()` in `store.js` — not `LIBRARY_VERSION`. They are separate because a

@@ -12,7 +12,7 @@
 
 import { rateExercise } from './exercise-rating.js';
 import { NOT_FOR_SLOTS } from './plan-builder.js';
-import { REGIONS } from './standards.js';
+import { tRegion, t } from './i18n.js';
 
 const BIAS_RANK = { short: 0, mixed: 1, long: 2 };
 
@@ -65,7 +65,9 @@ export function suggestSwaps(ex, exercises, limit = 3) {
 
     let reason;
     if (betterPosition) {
-      reason = betterStars ? `${r.length.why} — and rates higher overall` : r.length.why;
+      reason = betterStars
+        ? t('swaps.lengthAndStars', { why: t(r.length.why) })
+        : t(r.length.why);
     } else {
       reason = topGain(mine, r);
     }
@@ -92,12 +94,17 @@ function topGain(mine, theirs) {
     const d = theirs.criteria[i].points - mine.criteria[i].points;
     if (d > gap) { gap = d; best = theirs.criteria[i]; }
   }
-  return best ? `Scores better on ${best.label.toLowerCase()}: ${lowerFirst(best.detail)}` : 'Rates higher overall';
+  return best
+    ? t('swaps.scoresBetter', {
+        criterion: t(best.label).toLowerCase(),
+        detail: lowerFirst(t(best.detail, best.detailParams)),
+      })
+    : t('swaps.higherOverall');
 }
 
 /** Muscles a swap would cover, for the sheet subtitle. */
 export function targetLabel(ex) {
-  return (ex.primary || []).map((r) => REGIONS[r] || r).join(', ');
+  return (ex.primary || []).map(tRegion).join(', ');
 }
 
 const lowerFirst = (s) => (s ? s[0].toLowerCase() + s.slice(1) : s);

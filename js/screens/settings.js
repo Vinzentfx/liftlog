@@ -2,13 +2,14 @@
 
 import {
   el, openSheet, closeSheet, confirmSheet, toast, fmtClock, fmtDate,
-  numberInput, parseNumber, normaliseOnBlur, plural,
+  numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
 import * as db from '../db.js';
 import { hasProfile } from '../standards.js';
 import { DEFAULT_BAR } from '../plates.js';
 import { evidenceList } from '../rating-ui.js';
+import { t, tn, LANGUAGES, language } from '../i18n.js';
 
 /**
  * Profile — the inputs the strength standards actually need.
@@ -19,7 +20,7 @@ export function profileForm(onSaved = null) {
   const s = store.state.settings;
 
   const sexSeg = el('div.seg', {}, [
-    ['male', 'Male'], ['female', 'Female'],
+    ['male', t('settings.male')], ['female', t('settings.female')],
   ].map(([value, label]) =>
     el('button', {
       'aria-pressed': String(s.sex === value),
@@ -33,11 +34,11 @@ export function profileForm(onSaved = null) {
 
   const bodyweight = normaliseOnBlur(numberInput({
     decimal: true,
-    value: s.bodyweight ?? '', placeholder: `Weight in ${s.units}`,
+    value: s.bodyweight ?? '', placeholder: t('settings.weightIn', { units: s.units }),
   }));
   const age = el('input', {
     type: 'number', inputmode: 'numeric', step: '1', min: '10', max: '100',
-    value: s.age ?? '', placeholder: 'Years',
+    value: s.age ?? '', placeholder: t('settings.years'),
   });
   const height = el('input', {
     type: 'number', inputmode: 'numeric', step: '1', min: '100', max: '250',
@@ -46,9 +47,9 @@ export function profileForm(onSaved = null) {
 
   async function save() {
     const sex = [...sexSeg.children].find((b) => b.getAttribute('aria-pressed') === 'true');
-    if (!sex) { toast('Pick male or female'); return; }
+    if (!sex) { toast(t('settings.pickSex')); return; }
     const bw = parseNumber(bodyweight.value);
-    if (bw === null || bw <= 0) { toast('Enter your bodyweight'); bodyweight.focus(); return; }
+    if (bw === null || bw <= 0) { toast(t('settings.needBodyweight')); bodyweight.focus(); return; }
 
     await store.setSetting('sex', sex.dataset.sex);
     await store.setSetting('bodyweight', bw);
@@ -58,25 +59,23 @@ export function profileForm(onSaved = null) {
     await store.logBodyweight(bw);
 
     closeSheet();
-    toast('Profile saved');
+    toast(t('settings.profileSaved'));
     if (onSaved) onSaved();
   }
 
   const body = el('div', {}, [
-    el('div.small.muted', { style: { marginBottom: '14px' },
-      text: 'Strength standards are relative to bodyweight, sex and age. Without them a rating is meaningless.' }),
-    el('label.field', {}, [el('span', { text: 'Sex' }), sexSeg]),
-    el('label.field', {}, [el('span', { text: `Bodyweight (${s.units})` }), bodyweight]),
-    el('label.field', {}, [el('span', { text: 'Age' }), age]),
+    el('div.small.muted', { style: { marginBottom: '14px' }, text: t('settings.profileIntro') }),
+    el('label.field', {}, [el('span', { text: t('settings.sex') }), sexSeg]),
+    el('label.field', {}, [el('span', { text: t('settings.bodyweightField', { units: s.units }) }), bodyweight]),
+    el('label.field', {}, [el('span', { text: t('settings.age') }), age]),
     el('label.field', {}, [
-      el('span', { text: 'Height (cm) — optional' }), height,
-      el('div.small.faint', { style: { marginTop: '6px' },
-        text: 'Recorded for reference only. Height affects leverages but no strength standard uses it, so it does not change your rating.' }),
+      el('span', { text: t('settings.heightField') }), height,
+      el('div.small.faint', { style: { marginTop: '6px' }, text: t('settings.heightNote') }),
     ]),
-    el('button.btn.primary.full', { onclick: save }, ['Save profile']),
+    el('button.btn.primary.full', { onclick: save }, [t('settings.saveProfile')]),
   ]);
 
-  openSheet('Your profile', body);
+  openSheet(t('settings.profileTitle'), body);
 }
 
 export function renderSettings() {
@@ -92,9 +91,9 @@ export function renderSettings() {
       onclick: async (e) => {
         if (u !== s.units && store.state.sessions.some((x) => x.finishedAt)) {
           const ok = await confirmSheet(
-            `Switch to ${u}?`,
-            `Your logged weights are stored as plain numbers, so this changes the label, not the figures — a 100 ${s.units} lift will read as 100 ${u}. Only do this if you entered everything in ${u} already.`,
-            { danger: false, confirmLabel: `Use ${u}` }
+            t('settings.unitSwitchTitle', { unit: u }),
+            t('settings.unitSwitchBody', { from: s.units, to: u }),
+            { danger: false, confirmLabel: t('settings.useUnit', { unit: u }) }
           );
           if (!ok) return;
         }
@@ -119,10 +118,25 @@ export function renderSettings() {
 
   const counts = el('div.small.faint', {
     text: [
-      plural(store.state.sessions.filter((x) => x.finishedAt).length, 'workout'),
-      plural(store.state.exercises.length, 'exercise', 'exercises'),
-      plural(store.state.plans.length, 'plan'),
+      tn(store.state.sessions.filter((x) => x.finishedAt).length, 'unit.workout'),
+      tn(store.state.exercises.length, 'unit.exercise'),
+      tn(store.state.plans.length, 'unit.plan'),
     ].join(' · '),
+  });
+
+  // Language. Stored as null when it follows the device, which is what a fresh
+  // install should do; picking one here pins it.
+  const langSel = el('select', { 'aria-label': t('settings.language') }, [
+    el('option', { value: '', selected: !s.language }, [t('settings.languageAuto')]),
+    ...LANGUAGES.map((l) =>
+      el('option', { value: l.key, selected: s.language === l.key }, [l.label])),
+  ]);
+  langSel.addEventListener('change', () => {
+    store.setSetting('language', langSel.value || null);
+    // The store's subscriber applies the language and re-renders the screen
+    // behind the sheet; the sheet itself was built in the old one.
+    closeSheet();
+    renderSettings();
   });
 
   const ratingToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
@@ -161,7 +175,7 @@ export function renderSettings() {
     store.setSetting('barWeight', n !== null && n > 0 ? n : null);
   });
 
-  const defReps = el('input', { type: 'text', value: store.defaultReps(), placeholder: 'e.g. 6-10' });
+  const defReps = el('input', { type: 'text', value: store.defaultReps(), placeholder: t('settings.repsPlaceholder') });
   defReps.addEventListener('change', () => {
     const v = defReps.value.trim() || '6-10';
     defReps.value = v;
@@ -180,17 +194,22 @@ export function renderSettings() {
   ]);
 
   const profileSummary = hasProfile(s)
-    ? `${s.sex === 'female' ? 'Female' : 'Male'} · ${s.bodyweight}${s.units}${s.age ? ` · ${s.age}y` : ''}${s.height ? ` · ${s.height}cm` : ''}`
-    : 'Not set — ratings are disabled until you add it';
+    ? [
+        t(s.sex === 'female' ? 'settings.female' : 'settings.male'),
+        `${s.bodyweight}${s.units}`,
+        s.age ? t('settings.ageShort', { n: s.age }) : null,
+        s.height ? `${s.height}cm` : null,
+      ].filter(Boolean).join(' · ')
+    : t('settings.profileMissing');
 
   const body = el('div', {}, [
-    el('div.section-head', { style: { marginTop: '0' } }, [el('h2', { text: 'Profile' })]),
+    el('div.section-head', { style: { marginTop: '0' } }, [el('h2', { text: t('settings.profile') })]),
     el('button.list-item', {
       onclick: () => profileForm(),
-      'aria-label': 'Edit profile',
+      'aria-label': t('settings.editProfile'),
     }, [
       el('div.grow', {}, [
-        el('div.li-title', { text: 'Body data' }),
+        el('div.li-title', { text: t('settings.bodyData') }),
         el('div.li-sub', { text: profileSummary }),
       ]),
       el('span.chev', { text: '›', 'aria-hidden': 'true' }),
@@ -199,116 +218,113 @@ export function renderSettings() {
       el('div.row', { style: { gap: '10px' } }, [
         ratingToggle,
         el('span.grow', {
-          text: 'Show strength ratings',
+          text: t('settings.showRatings'),
           style: { textTransform: 'none', letterSpacing: '0', fontSize: '15px', fontWeight: '500', color: 'var(--text)', marginBottom: '0' },
         }),
       ]),
     ]),
 
-    el('div.section-head', {}, [el('h2', { text: 'Training' })]),
-    el('label.field', {}, [el('span', { text: 'Units' }), units]),
+    el('div.section-head', {}, [el('h2', { text: t('settings.appearance') })]),
+    el('label.field', {}, [el('span', { text: t('settings.language') }), langSel]),
+    el('div.small.faint', { style: { marginTop: '-4px', marginBottom: '14px' }, text: t('settings.languageNote') }),
+
+    el('div.section-head', {}, [el('h2', { text: t('route.train') })]),
+    el('label.field', {}, [el('span', { text: t('settings.units') }), units]),
 
     el('label.field', {}, [
       el('div.row.between', { style: { marginBottom: '6px' } }, [
-        el('span', { text: 'Default rest', style: { marginBottom: '0' } }),
+        el('span', { text: t('settings.defaultRest'), style: { marginBottom: '0' } }),
         restValue,
       ]),
       rest,
     ]),
 
-    checkRow(autoRest, 'Start rest timer automatically'),
-    checkRow(soundToggle, 'Chime when rest ends'),
-    checkRow(rirToggle, 'Log reps in reserve',
-      'Adds an RIR column to every set. Optional per set — how close to failure a set was drives growth more than which rep range it lands in, so it is worth recording, but a blank is treated as "unknown", never as "easy".'),
+    checkRow(autoRest, t('settings.autoRest')),
+    checkRow(soundToggle, t('settings.chime')),
+    checkRow(rirToggle, t('settings.logRir'), t('settings.logRirNote')),
 
-    el('div.section-head', {}, [el('h2', { text: 'New plan exercises' })]),
-    el('div.small.muted', { style: { marginBottom: '10px' },
-      text: 'What an exercise starts at when you add it to a plan — by hand, from a template, or through the plan doctor.' }),
+    el('div.section-head', {}, [el('h2', { text: t('settings.newPlanExercises') })]),
+    el('div.small.muted', { style: { marginBottom: '10px' }, text: t('settings.newPlanExercisesNote') }),
     el('div.row', { style: { gap: '10px' } }, [
-      el('label.field.grow', {}, [el('span', { text: 'Sets' }), defSets]),
-      el('label.field.grow', {}, [el('span', { text: 'Reps' }), defReps]),
+      el('label.field.grow', {}, [el('span', { text: t('train.sets') }), defSets]),
+      el('label.field.grow', {}, [el('span', { text: t('train.col.reps') }), defReps]),
     ]),
+    el('div.small.faint', { style: { marginTop: '-4px' }, text: t('settings.defaultsNote') }),
+
+    el('div.section-head', {}, [el('h2', { text: t('equipment.barbell') })]),
+    el('label.field', {}, [el('span', { text: t('settings.barWeight', { units: s.units }) }), barInput]),
     el('div.small.faint', { style: { marginTop: '-4px' },
-      text: '2 sets at 6–10 is the app default: spreading volume over more movements covers more of a muscle than piling sets onto one. That is a preference, not a finding — change it and everything follows.' }),
+      text: t('settings.barWeightNote', { bar: `${DEFAULT_BAR[s.units] ?? DEFAULT_BAR.kg}${s.units}` }) }),
 
-    el('div.section-head', {}, [el('h2', { text: 'Barbell' })]),
-    el('label.field', {}, [el('span', { text: `Bar weight (${s.units})` }), barInput]),
-    el('div.small.faint', { style: { marginTop: '-4px' },
-      text: `Used only by the plate maths in a workout. Blank means the standard Olympic bar for your unit (${DEFAULT_BAR[s.units] ?? DEFAULT_BAR.kg}${s.units}).` }),
+    el('div.section-head', {}, [el('h2', { text: t('settings.whatToShow') })]),
+    checkRow(starToggle, t('settings.stars'), t('settings.starsNote')),
 
-    el('div.section-head', {}, [el('h2', { text: 'What to show' })]),
-    checkRow(starToggle, 'Exercise and plan stars',
-      'Hides the 1–5 star scores and the rating cards. The plain-language feedback stays — "what works" and "what to fix" are useful even if you would rather not be given a grade. Your own personal rating stays too; that one is a note to yourself.'),
-
-    el('div.section-head', {}, [el('h2', { text: 'Backup' })]),
-    el('div.small.muted', { style: { marginBottom: '10px' },
-      text: 'Your data lives only on this device. Deleting the app, losing the phone or a restore going wrong takes it with you — none of which gives you a warning first.' }),
+    el('div.section-head', {}, [el('h2', { text: t('settings.backup') })]),
+    el('div.small.muted', { style: { marginBottom: '10px' }, text: t('settings.backupNote') }),
     storageLine(),
     counts,
     lastExportLine(),
     el('div.stack', { style: { marginTop: '12px' } }, [
-      el('button.btn.ghost.full', { onclick: doExport }, ['Export backup (.json)']),
-      el('button.btn.ghost.full', { onclick: doImport }, ['Restore from backup']),
+      el('button.btn.ghost.full', { onclick: doExport }, [t('settings.exportBackup')]),
+      el('button.btn.ghost.full', { onclick: doImport }, [t('settings.restoreBackup')]),
     ]),
 
-    el('div.section-head', {}, [el('h2', { text: 'Danger zone' })]),
+    el('div.section-head', {}, [el('h2', { text: t('settings.dangerZone') })]),
     el('button.btn.full.danger', {
       onclick: async () => {
         closeSheet();
-        const ok = await confirmSheet('Erase everything?',
-          'All workouts, plans, custom exercises, food entries and bodyweight entries will be permanently deleted. Export a backup first if you might want them back.',
-          { confirmLabel: 'Erase all data' });
+        const ok = await confirmSheet(t('settings.eraseTitle'), t('settings.eraseBody'),
+          { confirmLabel: t('settings.erase') });
         if (!ok) return;
         await Promise.all(Object.values(db.STORES).map((st) => db.clear(st)));
         await store.load();
-        toast('All data erased');
+        toast(t('settings.erased'));
       },
-    }, ['Erase all data']),
+    }, [t('settings.erase')]),
 
-    el('div.section-head', {}, [el('h2', { text: 'How ratings work' })]),
-    el('div.small.muted', { style: { marginBottom: '10px' },
-      text: 'Plans and exercises are starred against the resistance-training literature, reviewed July 2026. Every star in the app opens a breakdown showing which paper each point came from.' }),
-    evidenceList('Sources'),
+    el('div.section-head', {}, [el('h2', { text: t('settings.howRatingsWork') })]),
+    el('div.small.muted', { style: { marginBottom: '10px' }, text: t('settings.howRatingsWorkNote') }),
+    evidenceList(t('settings.sources')),
 
-    el('div.section-head', {}, [el('h2', { text: 'Credits' })]),
+    el('div.section-head', {}, [el('h2', { text: t('settings.credits') })]),
     el('div.small.faint', { style: { lineHeight: '1.65' } }, [
-      'Exercise data from ',
+      t('credits.exerciseData') + ' ',
       el('a', { href: 'https://github.com/yuhonas/free-exercise-db', target: '_blank', rel: 'noopener',
         style: { color: 'var(--accent-hi)' } }, ['free-exercise-db']),
-      ' (public domain). Exercise illustrations from ',
+      ' ' + t('credits.publicDomainIllustrations') + ' ',
       el('a', { href: 'https://github.com/everkinetic/data', target: '_blank', rel: 'noopener',
         style: { color: 'var(--accent-hi)' } }, ['everkinetic']),
-      ', licensed ',
+      ', ' + t('credits.licensed') + ' ',
       el('a', { href: 'https://creativecommons.org/licenses/by-sa/4.0/', target: '_blank', rel: 'noopener',
         style: { color: 'var(--accent-hi)' } }, ['CC BY-SA 4.0']),
-      '. Muscle map artwork from ',
+      '. ' + t('credits.muscleMap') + ' ',
       el('a', { href: 'https://github.com/vulovix/body-muscles', target: '_blank', rel: 'noopener',
         style: { color: 'var(--accent-hi)' } }, ['body-muscles']),
-      ', licensed ',
+      ', ' + t('credits.licensed') + ' ',
       el('a', { href: 'https://www.apache.org/licenses/LICENSE-2.0', target: '_blank', rel: 'noopener',
         style: { color: 'var(--accent-hi)' } }, ['Apache-2.0']),
-      '. Both were modified; see NOTICE in the repository. Barcode nutrition data from ',
+      '. ' + t('credits.modified') + ' ' + t('credits.barcode') + ' ',
       el('a', { href: 'https://world.openfoodfacts.org', target: '_blank', rel: 'noopener',
         style: { color: 'var(--accent-hi)' } }, ['Open Food Facts']),
-      ', licensed ',
+      ', ' + t('credits.licensed') + ' ',
       el('a', { href: 'https://opendatacommons.org/licenses/odbl/1-0/', target: '_blank', rel: 'noopener',
         style: { color: 'var(--accent-hi)' } }, ['ODbL']),
-      ' — queried live per lookup, never bundled. Generic foods from ',
+      '. ' + t('credits.liveOnly') + ' ' + t('credits.genericFoods') + ' ',
       el('a', { href: 'https://fdc.nal.usda.gov', target: '_blank', rel: 'noopener',
         style: { color: 'var(--accent-hi)' } }, ['USDA FoodData Central']),
-      ', public domain — bundled with the app. Branded products bundled from ',
+      '. ' + t('credits.bundledPublicDomain') + ' ' + t('credits.branded') + ' ',
       el('a', { href: 'https://world.openfoodfacts.org', target: '_blank', rel: 'noopener',
         style: { color: 'var(--accent-hi)' } }, ['Open Food Facts']),
-      ' under ',
+      ' ' + t('credits.under') + ' ',
       el('a', { href: 'https://opendatacommons.org/licenses/odbl/1-0/', target: '_blank', rel: 'noopener',
         style: { color: 'var(--accent-hi)' } }, ['ODbL v1.0']),
-      ' — that extracted database carries share-alike; see NOTICE.',
+      '. ' + t('credits.shareAlike'),
     ]),
 
     el('div.small.faint', { style: { textAlign: 'center', marginTop: '22px' }, text: 'LiftLog · v2' }),
   ]);
 
-  openSheet('Settings', body);
+  openSheet(t('common.settings'), body);
 }
 
 /**
@@ -320,15 +336,13 @@ export function renderSettings() {
  * this" when it will not just teaches you to ignore the warnings that matter.
  */
 function storageLine() {
-  const node = el('div.small.faint', { style: { marginBottom: '8px' }, text: 'Checking storage…' });
+  const node = el('div.small.faint', { style: { marginBottom: '8px' }, text: t('settings.checkingStorage') });
   db.storageStatus().then(({ persisted, usage }) => {
-    const size = usage ? `${(usage / 1048576).toFixed(1)} MB used` : null;
+    const size = usage ? t('settings.mbUsed', { mb: (usage / 1048576).toFixed(1) }) : null;
     node.textContent = [
-      persisted === true
-        ? 'Storage is marked persistent — iOS will not evict it to reclaim space.'
-        : persisted === false
-          ? 'Storage is best-effort: iOS may reclaim it under heavy storage pressure.'
-          : 'This browser does not report a storage guarantee.',
+      t(persisted === true ? 'settings.storagePersistent'
+        : persisted === false ? 'settings.storageBestEffort'
+        : 'settings.storageUnknown'),
       size,
     ].filter(Boolean).join(' · ');
   });
@@ -340,8 +354,9 @@ function lastExportLine() {
   return el('div.small.faint', {
     style: { marginTop: '4px' },
     text: last
-      ? `Last backup ${fmtDate(last)}${since ? ` · ${since} workout${since === 1 ? '' : 's'} since` : ' · up to date'}`
-      : 'Never backed up.',
+      ? t('settings.lastBackup', { date: fmtDate(last) })
+        + (since ? ` · ${t('settings.workoutsSince', { workouts: tn(since, 'unit.workout') })}` : ` · ${t('settings.upToDate')}`)
+      : t('settings.neverBackedUp'),
   });
 }
 
@@ -359,7 +374,7 @@ export async function doExport() {
   // kept the file", and nagging someone who just exported is worse than missing
   // one cancelled download.
   await store.markExported();
-  toast('Backup downloaded');
+  toast(t('settings.backupDownloaded'));
 }
 
 function doImport() {
@@ -374,15 +389,15 @@ function doImport() {
       const payload = JSON.parse(await file.text());
       closeSheet();
       const ok = await confirmSheet(
-        'Replace all data?',
-        `Restoring "${file.name}" will replace everything currently on this device.`,
-        { confirmLabel: 'Restore' });
+        t('settings.replaceTitle'),
+        t('settings.replaceBody', { file: file.name }),
+        { confirmLabel: t('settings.restore') });
       if (!ok) return;
       await store.importData(payload, { replace: true });
-      toast('Backup restored');
+      toast(t('settings.backupRestored'));
     } catch (err) {
       console.error('[liftlog] import failed', err);
-      toast(err.message || 'Could not read that file', 3200);
+      toast(err.message || t('settings.unreadableFile'), 3200);
     }
   });
 

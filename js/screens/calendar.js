@@ -4,12 +4,14 @@
 import {
   el, fmtNum, fmtDuration, fmtDate, relDay, setsSummary,
   confirmSheet, toast, emptyState, listItem, debounce,
-  numberInput, parseNumber, normaliseOnBlur, plural,
+  numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
 import { sessionStats, entryStats, isCounted, newSet, newEntry } from '../models.js';
 import { pickExercise } from '../pickers.js';
 import { navigate } from '../app.js';
+import { t, tn, locale } from '../i18n.js';
+import { WEEK_ORDER } from '../schedule.js';
 
 let cursor = null;      // first-of-month being viewed
 let editingId = null;   // which session is open for editing, if any
@@ -17,7 +19,7 @@ let editingId = null;   // which session is open for editing, if any
 const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
 
 export default function renderCalendar({ param, actions }) {
-  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': 'Settings' }, ['⚙']));
+  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
   if (param) return detailView(param);
   return monthView();
 }
@@ -29,7 +31,7 @@ function monthView() {
   const done = store.state.sessions.filter((s) => s.finishedAt);
 
   if (!done.length) {
-    return emptyState('No workouts yet', 'Finish a session and it will appear on your calendar.');
+    return emptyState(t('calendar.empty'), t('calendar.emptyHint'));
   }
 
   if (!cursor) { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); cursor = d.getTime(); }
@@ -57,13 +59,13 @@ function monthView() {
   root.append(
     el('div.row.between', { style: { marginBottom: '12px' } }, [
       el('button.icon-btn', {
-        'aria-label': 'Previous month',
+        'aria-label': t('calendar.prevMonth'),
         onclick: () => { const d = new Date(cursor); d.setMonth(d.getMonth() - 1); cursor = d.getTime(); navigate('calendar'); },
       }, ['‹']),
       el('div', { style: { fontWeight: '700', fontSize: '17px' },
-        text: view.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) }),
+        text: view.toLocaleDateString(locale(), { month: 'long', year: 'numeric' }) }),
       el('button.icon-btn', {
-        'aria-label': 'Next month',
+        'aria-label': t('calendar.nextMonth'),
         disabled: !canGoNext,
         style: canGoNext ? {} : { opacity: '.35', pointerEvents: 'none' },
         onclick: () => { const d = new Date(cursor); d.setMonth(d.getMonth() + 1); cursor = d.getTime(); navigate('calendar'); },
@@ -81,9 +83,9 @@ function monthView() {
     style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '5px' },
   });
 
-  for (const label of ['M', 'T', 'W', 'T', 'F', 'S', 'S']) {
+  for (const weekday of WEEK_ORDER) {
     grid.append(el('div.small.faint', {
-      text: label,
+      text: t(`weekday.${weekday}.initial`),
       style: { textAlign: 'center', fontWeight: '700', fontSize: '10.5px', paddingBottom: '4px' },
     }));
   }
@@ -98,7 +100,10 @@ function monthView() {
 
     const cell = el(trained ? 'button' : 'div', {
       'aria-label': trained
-        ? `${day} ${view.toLocaleDateString(undefined, { month: 'long' })} — ${sessions.map((s) => s.name).join(', ')}`
+        ? t('calendar.dayAria', {
+            date: date.toLocaleDateString(locale(), { day: 'numeric', month: 'long' }),
+            sessions: sessions.map((s) => s.name).join(', '),
+          })
         : undefined,
       onclick: trained ? () => navigate('calendar', sessions[0].id) : undefined,
       style: {
@@ -142,24 +147,24 @@ function monthView() {
     el('div.stat-grid', {}, [
       el('div.stat', {}, [
         el('span.stat-val', { text: String(monthSessions.length) }),
-        el('span.stat-key', { text: target ? `of ~${target} planned` : 'Workouts' }),
+        el('span.stat-key', { text: target ? t('calendar.ofPlanned', { n: target }) : t('home.stat.workouts') }),
       ]),
-      el('div.stat', {}, [el('span.stat-val', { text: String(sets) }), el('span.stat-key', { text: 'Sets' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: fmtNum(volume) }), el('span.stat-key', { text: `Volume ${store.units()}` })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(sets) }), el('span.stat-key', { text: t('train.sets') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: fmtNum(volume) }), el('span.stat-key', { text: t('train.volume', { units: store.units() }) })]),
     ])
   );
 
   if (plan) {
     root.append(el('div.small.faint', { style: { marginTop: '8px', textAlign: 'center' },
-      text: `Target is based on ${plan.name} — ${perWeek} ${perWeek === 1 ? 'day' : 'days'} per week.` }));
+      text: t('calendar.targetFrom', { plan: plan.name, days: tn(perWeek, 'unit.day') }) }));
   }
 
   // ---- history list ----
-  root.append(el('div.section-head', {}, [el('h2', { text: 'All workouts' })]));
+  root.append(el('div.section-head', {}, [el('h2', { text: t('calendar.allWorkouts') })]));
 
   let currentMonth = null;
   for (const s of done) {
-    const label = new Date(s.startedAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const label = new Date(s.startedAt).toLocaleDateString(locale(), { month: 'long', year: 'numeric' });
     if (label !== currentMonth) {
       currentMonth = label;
       root.append(el('div.small.faint', { style: { margin: '14px 0 6px', fontWeight: '700' }, text: label }));
@@ -167,7 +172,7 @@ function monthView() {
     const st = sessionStats(s);
     root.append(listItem({
       title: s.name,
-      sub: `${relDay(s.startedAt)} · ${st.exercises} exercises · ${st.sets} sets · ${fmtNum(st.volume)}${store.units()}`,
+      sub: `${relDay(s.startedAt)} · ${tn(st.exercises, 'unit.exercise')} · ${tn(st.sets, 'unit.set')} · ${fmtNum(st.volume)}${store.units()}`,
       onclick: () => navigate('calendar', s.id),
     }));
   }
@@ -185,11 +190,11 @@ function detailView(id) {
     el('button.btn.quiet.sm', {
       style: { marginBottom: '10px', paddingLeft: '0' },
       onclick: () => navigate('calendar'),
-    }, ['‹ Calendar'])
+    }, [`‹ ${t('route.calendar')}`])
   );
 
   if (!session) {
-    root.append(emptyState('Workout not found', 'It may have been deleted.'));
+    root.append(emptyState(t('calendar.notFound'), t('library.notFoundHint')));
     return root;
   }
 
@@ -203,7 +208,7 @@ function detailView(id) {
         el('div.grow', {}, [
           el('div', { style: { fontSize: '20px', fontWeight: '730', letterSpacing: '-0.02em' }, text: session.name }),
           el('div.small.muted', {
-            text: new Date(session.startedAt).toLocaleDateString(undefined,
+            text: new Date(session.startedAt).toLocaleDateString(locale(),
               { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
           }),
         ]),
@@ -212,12 +217,12 @@ function detailView(id) {
             editingId = editing ? null : session.id;
             navigate('calendar', session.id);
           },
-        }, [editing ? 'Done' : 'Edit']),
+        }, [t(editing ? 'common.done' : 'common.edit')]),
       ]),
       el('div.stat-grid', { style: { marginTop: '12px' } }, [
-        el('div.stat', {}, [el('span.stat-val', { text: fmtDuration(st.durationMs) }), el('span.stat-key', { text: 'Duration' })]),
-        el('div.stat', {}, [el('span.stat-val', { text: String(st.sets) }), el('span.stat-key', { text: 'Sets' })]),
-        el('div.stat', {}, [el('span.stat-val', { text: fmtNum(st.volume) }), el('span.stat-key', { text: `Volume ${units}` })]),
+        el('div.stat', {}, [el('span.stat-val', { text: fmtDuration(st.durationMs) }), el('span.stat-key', { text: t('calendar.duration') })]),
+        el('div.stat', {}, [el('span.stat-val', { text: String(st.sets) }), el('span.stat-key', { text: t('train.sets') })]),
+        el('div.stat', {}, [el('span.stat-val', { text: fmtNum(st.volume) }), el('span.stat-key', { text: t('train.volume', { units }) })]),
       ]),
     ])
   );
@@ -232,9 +237,9 @@ function detailView(id) {
           await store.updateSession(session.id, (s) => {
             s.entries.push(newEntry(ex.id, [{ ...newSet(), done: true }]));
           });
-          toast(`Added ${ex.name}`);
+          toast(t('picker.added', { name: ex.name }));
         }, session.entries.map((e) => e.exerciseId)),
-      }, ['+ Add exercise'])
+      }, [t('train.addExercise')])
     );
   } else {
     for (const entry of session.entries) root.append(readEntry(entry, units));
@@ -244,15 +249,15 @@ function detailView(id) {
     el('button.btn.full.danger', {
       style: { marginTop: '18px' },
       onclick: async () => {
-        const ok = await confirmSheet('Delete workout?',
-          `${session.name} from ${fmtDate(session.startedAt)} will be permanently deleted.`);
+        const ok = await confirmSheet(t('calendar.deleteTitle'),
+          t('calendar.deleteBody', { name: session.name, date: fmtDate(session.startedAt) }));
         if (!ok) return;
         await store.discardSession(session.id);
         editingId = null;
-        toast('Workout deleted');
+        toast(t('calendar.deleted'));
         navigate('calendar');
       },
-    }, ['Delete workout'])
+    }, [t('calendar.deleteWorkout')])
   );
 
   return root;
@@ -265,13 +270,13 @@ function readEntry(entry, units) {
 
   return el('div.card', {}, [
     el('div.row.between', { style: { marginBottom: '6px' } }, [
-      el('div', { style: { fontWeight: '650' }, text: ex ? ex.name : 'Unknown exercise' }),
-      ex ? el('button.btn.quiet.sm', { onclick: () => navigate('progress', ex.id) }, ['Chart ›']) : null,
+      el('div', { style: { fontWeight: '650' }, text: ex ? ex.name : t('train.unknownExercise') }),
+      ex ? el('button.btn.quiet.sm', { onclick: () => navigate('progress', ex.id) }, [`${t('calendar.chart')} ›`]) : null,
     ]),
     el('div.small', { style: { marginBottom: '6px' }, text: setsSummary(counted, units) }),
     el('div.row', { style: { gap: '14px' } }, [
-      el('span.small.faint', { text: plural(stats.sets, 'set') }),
-      el('span.small.faint', { text: `${fmtNum(stats.volume)}${units} volume` }),
+      el('span.small.faint', { text: tn(stats.sets, 'unit.set') }),
+      el('span.small.faint', { text: t('calendar.volumeOf', { volume: `${fmtNum(stats.volume)}${units}` }) }),
       stats.e1rm ? el('span.small.faint', { text: `e1RM ${fmtNum(stats.e1rm)}${units}` }) : null,
     ]),
     entry.note ? el('div.small.muted', { style: { marginTop: '8px' }, text: entry.note }) : null,
@@ -297,7 +302,7 @@ function readEntry(entry, units) {
 function editHeader(session) {
   const name = el('input', { type: 'text', value: session.name });
   name.addEventListener('input', () => {
-    session.name = name.value.trim() || 'Workout';
+    session.name = name.value.trim() || t('train.defaultName');
     saveSoon(session);
   });
 
@@ -316,16 +321,15 @@ function editHeader(session) {
       // day did not suddenly last three days.
       if (s.finishedAt) s.finishedAt += shift;
     });
-    if (ok) toast('Date corrected');
+    if (ok) toast(t('calendar.dateCorrected'));
     else date.value = toDateValue(session.startedAt);
   });
 
   return el('div.card', {}, [
-    el('label.field', {}, [el('span', { text: 'Workout name' }), name]),
+    el('label.field', {}, [el('span', { text: t('train.workoutName') }), name]),
     el('label.field', { style: { marginBottom: '0' } }, [
-      el('span', { text: 'Date' }), date,
-      el('div.small.faint', { style: { marginTop: '6px' },
-        text: 'Moving a workout moves it in every weekly figure too — the week it counts towards, the streak and the muscle map all follow the date.' }),
+      el('span', { text: t('calendar.date') }), date,
+      el('div.small.faint', { style: { marginTop: '6px' }, text: t('calendar.moveNote') }),
     ]),
   ]);
 }
@@ -336,25 +340,28 @@ function editEntry(session, entry, units) {
 
   block.append(
     el('div.exercise-head', {}, [
-      el('h3', { text: ex ? ex.name : 'Unknown exercise' }),
+      el('h3', { text: ex ? ex.name : t('train.unknownExercise') }),
       el('button.btn.quiet.sm', {
-        'aria-label': `Remove ${ex ? ex.name : 'exercise'} from this workout`,
+        'aria-label': t('calendar.removeAria', { name: ex ? ex.name : t('train.unknownExercise') }),
         onclick: async () => {
-          const ok = await confirmSheet('Remove exercise?',
-            `${ex ? ex.name : 'This exercise'} and its ${entry.sets.length} ${entry.sets.length === 1 ? 'set' : 'sets'} will be removed from this workout.`,
-            { confirmLabel: 'Remove' });
+          const ok = await confirmSheet(t('train.menu.removeTitle'),
+            t('calendar.removeBody', {
+              name: ex ? ex.name : t('train.unknownExercise'),
+              sets: tn(entry.sets.length, 'unit.set'),
+            }),
+            { confirmLabel: t('common.remove') });
           if (!ok) return;
           await store.updateSession(session.id, (s) => {
             s.entries = s.entries.filter((e) => e !== entry);
           });
         },
-      }, ['Remove']),
+      }, [t('common.remove')]),
     ])
   );
 
   block.append(el('div.set-labels.with-rir', {}, [
-    el('span', { text: 'Set' }), el('span', { text: units }),
-    el('span', { text: 'Reps' }), el('span', { text: 'RIR' }), el('span', { text: '' }),
+    el('span', { text: t('train.col.set') }), el('span', { text: units }),
+    el('span', { text: t('train.col.reps') }), el('span', { text: 'RIR' }), el('span', { text: '' }),
   ]));
 
   entry.sets.forEach((set, i) => block.append(editRow(session, entry, set, i)));
@@ -368,7 +375,7 @@ function editEntry(session, entry, units) {
           entry.sets.push({ ...newSet(prev), done: true });
         });
       },
-    }, ['+ Add set'])
+    }, [t('train.addSet')])
   );
 
   return block;
@@ -381,23 +388,23 @@ function editRow(session, entry, set, index) {
   row.append(
     el('button.set-no', {
       style: { background: 'none', border: 0 },
-      title: 'Tap to toggle warmup',
+      title: t('train.toggleWarmup'),
       onclick: async () => {
         await store.updateSession(session.id, () => {
           set.type = set.type === 'warmup' ? 'working' : 'warmup';
         });
       },
-    }, [set.type === 'warmup' ? 'W' : String(workingNo)])
+    }, [set.type === 'warmup' ? t('train.warmupLetter') : String(workingNo)])
   );
 
   const weight = normaliseOnBlur(numberInput({
-    decimal: true, value: set.weight ?? '', placeholder: '—', 'aria-label': 'Weight',
+    decimal: true, value: set.weight ?? '', placeholder: '–', 'aria-label': t('train.weight'),
   }));
   const reps = normaliseOnBlur(numberInput({
-    value: set.reps ?? '', placeholder: '—', 'aria-label': 'Reps',
+    value: set.reps ?? '', placeholder: '–', 'aria-label': t('train.col.reps'),
   }), { integer: true });
   const rir = normaliseOnBlur(numberInput({
-    class: 'rir', value: set.rir ?? '', placeholder: '–', 'aria-label': 'Reps in reserve',
+    class: 'rir', value: set.rir ?? '', placeholder: '–', 'aria-label': t('train.rirTitle'),
   }), { integer: true });
 
   weight.addEventListener('input', () => {
@@ -419,8 +426,8 @@ function editRow(session, entry, set, index) {
   row.append(weight, reps, rir);
   row.append(
     el('button.done-btn', {
-      'aria-label': `Delete set ${workingNo}`,
-      title: 'Delete this set',
+      'aria-label': t('calendar.deleteSet', { n: workingNo }),
+      title: t('calendar.deleteSetTitle'),
       style: { color: 'var(--danger)' },
       onclick: async () => {
         await store.updateSession(session.id, (s) => {

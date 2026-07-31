@@ -1,6 +1,7 @@
 // Exercise picker — shared by the active workout, the plan editor and the library.
 
 import { el, openSheet, closeSheet, toast, listItem } from './ui.js';
+import { t, tMuscle, tEquipment } from './i18n.js';
 import { MUSCLES } from './models.js';
 import * as store from './store.js';
 
@@ -18,10 +19,11 @@ export function pickExercise(onPick, exclude = []) {
 
   const results = el('div', { style: { minHeight: '160px' } });
   const search = el('input', {
-    type: 'text', placeholder: 'Search exercises…',
+    type: 'text', placeholder: t('picker.search'),
     autocomplete: 'off', autocorrect: 'off', spellcheck: 'false',
   });
 
+  // The filter holds the stored English value; only the chip is translated.
   let muscleFilter = 'All';
 
   const chips = el('div.row', {
@@ -36,7 +38,7 @@ export function pickExercise(onPick, exclude = []) {
       el('button.btn.sm' + (m === muscleFilter ? '.primary' : '.ghost'), {
         style: { flex: '0 0 auto' },
         onclick: () => { muscleFilter = m; renderChips(); renderResults(); },
-      }, [m])
+      }, [m === 'All' ? t('common.all') : tMuscle(m)])
     ));
   }
 
@@ -53,8 +55,11 @@ export function pickExercise(onPick, exclude = []) {
     if (!matches.length) {
       results.append(
         el('div.empty', {}, [
-          el('strong', { text: 'No match' }),
-          el('div', { text: q ? `Nothing called "${search.value.trim()}"` : 'No exercises in this group' }),
+          el('strong', { text: t('picker.noMatch') }),
+          el('div', {
+            text: q ? t('picker.nothingCalled', { query: search.value.trim() })
+                    : t('picker.emptyGroup'),
+          }),
         ])
       );
     }
@@ -64,9 +69,10 @@ export function pickExercise(onPick, exclude = []) {
       const already = excluded.has(ex.id);
       const row = listItem({
         title: (ex.favourite ? '★ ' : '') + ex.name,
-        sub: `${ex.muscle} · ${ex.equipment}${already ? ' · already added' : ''}`,
+        sub: `${tMuscle(ex.muscle)} · ${tEquipment(ex.equipment)}`
+          + (already ? ` · ${t('picker.alreadyAdded')}` : ''),
         chev: '+',
-        ariaLabel: `Add ${ex.name}`,
+        ariaLabel: t('picker.addNamed', { name: ex.name }),
         style: already ? { opacity: '.5' } : {},
         onclick: () => { onPick(ex); closeSheet(); },
       });
@@ -78,12 +84,12 @@ export function pickExercise(onPick, exclude = []) {
 
   const createBtn = el('button.btn.ghost.full.sm', {
     onclick: () => newExerciseForm(search.value.trim(), (ex) => { onPick(ex); closeSheet(); }),
-  }, ['+ Create new exercise']);
+  }, [t('picker.create')]);
 
   renderChips();
   renderResults();
 
-  openSheet('Add Exercise', el('div', {}, [
+  openSheet(t('picker.title'), el('div', {}, [
     el('div', { style: { marginBottom: '10px' } }, [search]),
     chips,
     results,
@@ -93,38 +99,39 @@ export function pickExercise(onPick, exclude = []) {
 
 /** Create-exercise form. Also used standalone from the Library screen. */
 export function newExerciseForm(prefillName = '', onCreated = null, existing = null) {
-  const name = el('input', { type: 'text', value: existing ? existing.name : prefillName, placeholder: 'e.g. Cable Pullover' });
+  const name = el('input', { type: 'text', value: existing ? existing.name : prefillName, placeholder: t('picker.namePlaceholder') });
+  // `value` stays the English catalogue term; only the visible label is translated.
   const muscle = el('select', {}, MUSCLES.map((m) =>
-    el('option', { value: m, selected: existing ? existing.muscle === m : m === 'Chest' }, [m])));
+    el('option', { value: m, selected: existing ? existing.muscle === m : m === 'Chest' }, [tMuscle(m)])));
   const equipment = el('select', {}, EQUIPMENT.map((eq) =>
-    el('option', { value: eq, selected: existing ? existing.equipment === eq : eq === 'Barbell' }, [eq])));
+    el('option', { value: eq, selected: existing ? existing.equipment === eq : eq === 'Barbell' }, [tEquipment(eq)])));
 
   async function submit() {
     const value = name.value.trim();
-    if (!value) { toast('Give it a name'); name.focus(); return; }
+    if (!value) { toast(t('picker.needName')); name.focus(); return; }
     const dupe = store.state.exercises.find(
       (e) => e.name.toLowerCase() === value.toLowerCase() && (!existing || e.id !== existing.id));
-    if (dupe) { toast(`"${dupe.name}" already exists`); return; }
+    if (dupe) { toast(t('picker.duplicate', { name: dupe.name })); return; }
 
     const ex = existing
       ? await store.updateExercise(existing.id, { name: value, muscle: muscle.value, equipment: equipment.value })
       : await store.addExercise({ name: value, muscle: muscle.value, equipment: equipment.value });
 
     closeSheet();
-    toast(existing ? 'Saved' : `Added ${ex.name}`);
+    toast(existing ? t('common.saved') : t('picker.added', { name: ex.name }));
     if (onCreated) onCreated(ex);
   }
 
   const body = el('div', {}, [
-    el('label.field', {}, [el('span', { text: 'Name' }), name]),
-    el('label.field', {}, [el('span', { text: 'Muscle group' }), muscle]),
-    el('label.field', {}, [el('span', { text: 'Equipment' }), equipment]),
+    el('label.field', {}, [el('span', { text: t('picker.field.name') }), name]),
+    el('label.field', {}, [el('span', { text: t('picker.field.muscle') }), muscle]),
+    el('label.field', {}, [el('span', { text: t('picker.field.equipment') }), equipment]),
     existing && !existing.isCustom
-      ? el('div.small.faint', { style: { marginBottom: '12px' },
-          text: 'Changing the muscle group replaces this exercise’s body-map regions with the coarse ones for that group.' })
+      ? el('div.small.faint', { style: { marginBottom: '12px' }, text: t('picker.regionsWarning') })
       : null,
-    el('button.btn.primary.full', { onclick: submit }, [existing ? 'Save changes' : 'Create exercise']),
+    el('button.btn.primary.full', { onclick: submit },
+      [existing ? t('picker.saveChanges') : t('picker.createExercise')]),
   ]);
 
-  openSheet(existing ? 'Edit Exercise' : 'New Exercise', body);
+  openSheet(t(existing ? 'picker.edit.title' : 'picker.new.title'), body);
 }

@@ -18,7 +18,7 @@
 // the seventeen.
 
 import { entryStats, linearFit } from './models.js';
-import { REGIONS } from './standards.js';
+import { tRegion, t, tn } from './i18n.js';
 
 const WEEK = 7 * 86400000;
 
@@ -140,22 +140,27 @@ export function progressFills(byRegion) {
 }
 
 export const PROGRESS_LABEL = {
-  climbing: 'Going up',
-  flat: 'Holding',
-  falling: 'Falling',
-  thin: 'Too few sessions to tell',
+  climbing: 'regionProgress.climbing',
+  flat: 'regionProgress.flat',
+  falling: 'regionProgress.falling',
+  thin: 'regionProgress.thin',
 };
 
 /** One-line summary for a region, in plain language. */
 export function describeRegion(region, p) {
-  const name = REGIONS[region] || region;
-  if (!p) return `${name} — nothing logged in this window.`;
+  const name = tRegion(region);
+  if (!p) return t('regionProgress.nothing', { muscle: name });
   if (p.state === 'thin') {
-    return `${name} — logged ${p.sessions} ${p.sessions === 1 ? 'time' : 'times'}, but no single movement has the three sessions a trend needs.`;
+    return t('regionProgress.tooThin', { muscle: name, times: tn(p.sessions, 'unit.time') });
   }
   // `-0.0%` is what a flat fit prints without this, and it reads like a bug.
   const v = Math.abs(p.pctPerWeek) < 0.05 ? 0 : p.pctPerWeek;
-  const rate = `${v > 0 ? '+' : ''}${v.toFixed(1)}% a week`;
-  const via = p.best ? ` Best mover: ${p.best.name}.` : '';
-  return `${name} — ${PROGRESS_LABEL[p.state].toLowerCase()} at ${rate} across ${p.exercises} ${p.exercises === 1 ? 'exercise' : 'exercises'}.${via}`;
+  const rate = t('regionProgress.rate', { pct: `${v > 0 ? '+' : ''}${v.toFixed(1)}` });
+  const via = p.best ? ` ${t('regionProgress.bestMover', { name: p.best.name })}` : '';
+  return t('regionProgress.summary', {
+    muscle: name,
+    state: t(PROGRESS_LABEL[p.state]).toLowerCase(),
+    rate,
+    exercises: tn(p.exercises, 'unit.exercise'),
+  }) + via;
 }

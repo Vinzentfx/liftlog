@@ -21,7 +21,7 @@ export const PLAN_BLUEPRINTS = [
   {
     key: 'pplul',
     name: 'PPL + Upper / Lower',
-    blurb: '5 days · every muscle 2x a week — the best frequency-to-recovery trade',
+    blurb: 'blueprint.ppl',
     recommended: true,
     days: [
       { name: 'Push',  slots: [['chest', 3], ['delts-front', 2], ['triceps', 2]] },
@@ -36,7 +36,7 @@ export const PLAN_BLUEPRINTS = [
   {
     key: 'ppl',
     name: 'Push / Pull / Legs',
-    blurb: '3 days · run it twice a week for the same frequency',
+    blurb: 'blueprint.fullSplit',
     perWeek: 2,
     days: [
       // Halved versus a once-weekly plan — this cycle runs twice, so the slot
@@ -49,7 +49,7 @@ export const PLAN_BLUEPRINTS = [
   {
     key: 'ul',
     name: 'Upper / Lower',
-    blurb: '4 days · two upper, two lower — simple and hard to get wrong',
+    blurb: 'blueprint.upperLower',
     days: [
       { name: 'Upper A', slots: [['chest', 3], ['lats', 3], ['delts-rear', 1], ['biceps', 1], ['triceps', 1]] },
       { name: 'Lower A', slots: [['quads', 3], ['hamstrings', 2], ['glutes', 1], ['calves', 2], ['abs', 1]] },
@@ -61,7 +61,7 @@ export const PLAN_BLUEPRINTS = [
     key: 'fullbody',
     name: 'Full Body',
     perWeek: 1,
-    blurb: '3 days · highest frequency of all — every muscle 3x a week',
+    blurb: 'blueprint.fullBody',
     days: [
       { name: 'Day A', slots: [['quads', 2], ['chest', 2], ['lats', 2], ['delts-front', 1], ['calves', 1]] },
       { name: 'Day B', slots: [['hamstrings', 2], ['lats', 2], ['delts-rear', 1], ['triceps', 1], ['biceps', 1], ['abs', 1]] },

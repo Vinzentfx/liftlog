@@ -24,6 +24,7 @@
 
 import { isBenchmark } from './standards.js';
 import { lengthBias, limiter, LENGTH_LABEL } from './exercise-science.js';
+import { t, tn } from './i18n.js';
 import { SOURCES } from './evidence.js';
 import { starString } from './ui.js';
 
@@ -71,74 +72,70 @@ export function rateExercise(ex) {
   const length = lengthBias(ex);
   const lengthPoints = { long: 3, mixed: 1.5, short: 0.5 }[length.bias];
   criteria.push({
-    label: 'Muscle length under load',
+    label: 'exRating.length',
     points: lengthPoints, max: 3,
-    detail: length.classified
-      ? `${LENGTH_LABEL[length.bias]} — ${lowerFirst(length.why)}`
-      : 'Not classified, so scored neutrally rather than guessed at',
+    detail: length.classified ? 'exRating.lengthDetail' : 'exRating.lengthUnclassified',
+    detailParams: length.classified
+      ? { label: t(LENGTH_LABEL[length.bias]), why: lowerFirst(t(length.why)) }
+      : null,
     source: SOURCES.wolf2025,
   });
-  if (length.bias === 'long' && length.classified) reasons.push(length.why);
+  if (length.bias === 'long' && length.classified) reasons.push(t(length.why));
   if (length.bias === 'short') {
-    caveats.push(`${length.why}. Pair it with something that loads the same muscle stretched.`);
+    caveats.push(t('exRating.pairStretched', { why: t(length.why) }));
   }
 
   // ---- 2. does the target muscle decide when the set ends (0–2) ----
   const limit = limiter(ex);
   const limitPoints = { target: 2, mixed: 1, other: 0.5 }[limit.level];
   criteria.push({
-    label: 'Target muscle is the limit',
+    label: 'exRating.limiter',
     points: limitPoints, max: 2,
     detail: limit.why,
-    source: null,   // training practice, not a study — say so
+    source: null,   // training practice, not a study, so say so
   });
-  if (limit.level === 'target') reasons.push(limit.why);
-  if (limit.level === 'other') caveats.push(limit.why);
+  if (limit.level === 'target') reasons.push(t(limit.why));
+  if (limit.level === 'other') caveats.push(t(limit.why));
 
   // ---- 3. progression you can measure (0–2) ----
   const loadPoints = LOADABILITY[ex.equipment] ?? 1;
   criteria.push({
-    label: 'Progression you can track',
+    label: 'exRating.progression',
     points: loadPoints, max: 2,
     detail: loadPoints >= 2
-      ? 'Loads in small steps, so week-to-week progress is a number'
+      ? 'exRating.fineSteps'
       : ex.equipment === 'Bodyweight'
-        ? 'Bodyweight — you progress in reps until you can hang plates on it'
+        ? 'exRating.bodyweightProgress'
         : ex.equipment === 'Bands'
-          ? 'Band tension is not measurable, so progress is guesswork'
-          : 'Loadable, but not in fine steps',
+          ? 'exRating.bandProgress'
+          : 'exRating.coarseSteps',
     source: SOURCES.haugen2023,
   });
-  if (ex.equipment === 'Bands') caveats.push('Band tension cannot be quantified — hard to progress deliberately');
+  if (ex.equipment === 'Bands') caveats.push(t('exRating.bandCaveat'));
 
   // ---- 4. muscle covered per set (0–1.5) ----
   const regions = (ex.primary || []).length + (ex.secondary || []).length;
   const compound = ex.mech === 'compound' || regions >= 4;
   const breadthPoints = compound ? 1.5 : regions >= 2 ? 1 : 0.5;
   criteria.push({
-    label: 'Muscle covered per set',
+    label: 'exRating.breadth',
     points: breadthPoints, max: 1.5,
-    detail: compound
-      ? `Compound — ${regions} muscle ${regions === 1 ? 'region' : 'regions'} per set, so your time goes further`
-      : regions >= 2
-        ? 'Reaches more than one muscle group'
-        : 'Isolation — one muscle group, which is a job, not a flaw',
+    detail: compound ? 'exRating.compound' : regions >= 2 ? 'exRating.twoGroups' : 'exRating.isolation',
+    detailParams: compound ? { regions: tn(regions, 'unit.region') } : null,
     source: SOURCES.pelland2026,
   });
-  if (compound) reasons.push('One set trains several muscles at once');
+  if (compound) reasons.push(t('exRating.compoundReason'));
 
   // ---- 5. published strength standards (0–0.5) ----
   const benchmark = isBenchmark(ex.name);
   criteria.push({
-    label: 'Has strength standards',
+    label: 'exRating.standards',
     points: benchmark ? 0.5 : 0, max: 0.5,
-    detail: benchmark
-      ? 'Published standards exist, so LiftLog can score you on it'
-      : 'No published standards for this movement',
+    detail: benchmark ? 'exRating.hasStandards' : 'exRating.noStandards',
     source: null,
   });
 
-  if (!(ex.instructions || []).length) caveats.push('No written technique steps for this one');
+  if (!(ex.instructions || []).length) caveats.push(t('exRating.noSteps'));
 
   const score = criteria.reduce((sum, c) => sum + c.points, 0);
   const scaled = 1 + ((score - STAR_FLOOR) / (STAR_CEIL - STAR_FLOOR)) * 4;

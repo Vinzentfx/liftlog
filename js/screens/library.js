@@ -5,7 +5,7 @@ import {
 } from '../ui.js';
 import * as store from '../store.js';
 import { MUSCLES } from '../models.js';
-import { REGIONS } from '../standards.js';
+import { t, tn, tMuscle, tEquipment, tRegion } from '../i18n.js';
 import { exerciseArt, hasArt } from '../exercise-art.js';
 import { newExerciseForm } from '../pickers.js';
 import { rateExercise } from '../exercise-rating.js';
@@ -15,11 +15,13 @@ import { navigate, render } from '../app.js';
 // Rendering 700+ rows is slow and useless — cap it and let search narrow.
 const PAGE = 60;
 
+// Keys, not labels: the visible text is looked up at render time so the
+// dropdown follows a language switch without the module being reloaded.
 const SORTS = {
-  muscle: 'By muscle',
-  rating: 'Best rated first',
-  mine: 'My rating first',
-  name: 'A–Z',
+  muscle: 'library.sort.muscle',
+  rating: 'library.sort.rating',
+  mine: 'library.sort.mine',
+  name: 'library.sort.name',
 };
 
 let query = '';
@@ -32,7 +34,7 @@ let limit = PAGE;
 const starsFor = (ex) => (store.starsShown() ? starBadge(rateExercise(ex).stars) : null);
 
 export default function renderLibrary({ param, actions }) {
-  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': 'Settings' }, ['⚙']));
+  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
   return param ? detailView(param) : listView();
 }
 
@@ -46,7 +48,7 @@ function listView() {
   const total = store.state.exercises.length;
 
   const search = el('input', {
-    type: 'text', placeholder: `Search ${total} exercises…`, value: query,
+    type: 'text', placeholder: t('library.search', { n: total }), value: query,
     autocomplete: 'off', autocorrect: 'off', spellcheck: 'false',
   });
 
@@ -54,11 +56,12 @@ function listView() {
     style: { gap: '6px', overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: '8px' },
   });
   const equipSel = el('select', {}, equipmentOptions().map((eq) =>
-    el('option', { value: eq, selected: eq === equipFilter }, [eq === 'All' ? 'Any equipment' : eq])));
+    el('option', { value: eq, selected: eq === equipFilter },
+      [eq === 'All' ? t('library.anyEquipment') : tEquipment(eq)])));
   const sortable = Object.entries(SORTS).filter(([k]) => k !== 'rating' || store.starsShown());
   if (!store.starsShown() && sort === 'rating') sort = 'muscle';
-  const sortSel = el('select', { 'aria-label': 'Sort exercises' }, sortable.map(([k, label]) =>
-    el('option', { value: k, selected: k === sort }, [label])));
+  const sortSel = el('select', { 'aria-label': t('library.sortAria') }, sortable.map(([k, key]) =>
+    el('option', { value: k, selected: k === sort }, [t(key)])));
   const list = el('div');
   const footer = el('div');
 
@@ -67,7 +70,7 @@ function listView() {
       el('button.btn.sm' + (m === muscleFilter ? '.primary' : '.ghost'), {
         style: { flex: '0 0 auto' },
         onclick: () => { muscleFilter = m; limit = PAGE; renderChips(); paint(); },
-      }, [m])
+      }, [m === 'All' ? t('common.all') : tMuscle(m)])
     ));
   }
 
@@ -89,7 +92,7 @@ function listView() {
     footer.replaceChildren();
 
     if (!found.length) {
-      list.append(emptyState('Nothing found', 'Try a different search or clear the filters.'));
+      list.append(emptyState(t('library.nothingFound'), t('library.nothingFoundHint')));
       return;
     }
 
@@ -103,15 +106,15 @@ function listView() {
       sub,
       right: starsFor(ex),
       ariaLabel: store.starsShown()
-        ? `Open ${ex.name} — ${rateExercise(ex).stars} of 5 stars`
-        : `Open ${ex.name}`,
+        ? t('library.openRated', { name: ex.name, stars: rateExercise(ex).stars })
+        : t('library.open', { name: ex.name }),
       onclick: () => navigate('library', ex.id),
     });
 
     if (favs.length && !query.trim()) {
-      list.append(el('div.section-head', { style: { marginTop: '4px' } }, [el('h2', { text: '★ Favourites' })]));
+      list.append(el('div.section-head', { style: { marginTop: '4px' } }, [el('h2', { text: `★ ${t('library.favourites')}` })]));
       for (const ex of favs.sort((a, b) => a.name.localeCompare(b.name))) {
-        list.append(row(ex, `${ex.muscle} · ${ex.equipment}`));
+        list.append(row(ex, `${tMuscle(ex.muscle)} · ${tEquipment(ex.equipment)}`));
       }
     }
 
@@ -124,14 +127,14 @@ function listView() {
     for (const ex of shown) {
       if (sort === 'muscle' && ex.muscle !== group) {
         group = ex.muscle;
-        list.append(el('div.section-head', {}, [el('h2', { text: group })]));
+        list.append(el('div.section-head', {}, [el('h2', { text: tMuscle(group) })]));
       }
       const uses = store.exerciseUsageCount(ex.id);
       list.append(row(ex, [
-        sort === 'muscle' ? ex.equipment : `${ex.muscle} · ${ex.equipment}`,
-        ex.myRating ? `mine ${ex.myRating}/5` : null,
-        uses ? `${uses} ${uses === 1 ? 'session' : 'sessions'}` : null,
-        ex.isCustom ? 'custom' : null,
+        sort === 'muscle' ? tEquipment(ex.equipment) : `${tMuscle(ex.muscle)} · ${tEquipment(ex.equipment)}`,
+        ex.myRating ? t('library.myRating', { n: ex.myRating }) : null,
+        uses ? tn(uses, 'unit.session') : null,
+        ex.isCustom ? t('library.custom') : null,
       ].filter(Boolean).join(' · ')));
     }
 
@@ -139,12 +142,12 @@ function listView() {
       footer.append(
         el('div.small.faint', {
           style: { textAlign: 'center', marginBottom: '10px' },
-          text: `Showing ${shown.length} of ${found.length}`,
+          text: t('common.of', { a: shown.length, b: found.length }),
         }),
-        el('button.btn.ghost.full', { onclick: () => { limit += PAGE; paint(); } }, ['Show more'])
+        el('button.btn.ghost.full', { onclick: () => { limit += PAGE; paint(); } }, [t('library.showMore')])
       );
     } else if (found.length > PAGE) {
-      footer.append(el('div.small.faint', { style: { textAlign: 'center' }, text: `${found.length} exercises` }));
+      footer.append(el('div.small.faint', { style: { textAlign: 'center' }, text: tn(found.length, 'unit.exercise') }));
     }
   }
 
@@ -159,7 +162,7 @@ function listView() {
     el('button.btn.primary.full', {
       style: { marginBottom: '14px' },
       onclick: () => newExerciseForm('', null),
-    }, ['+ New exercise']),
+    }, [t('library.newExercise')]),
     el('div', { style: { marginBottom: '8px' } }, [search]),
     chips,
     el('div.row', { style: { gap: '8px', marginBottom: '12px' } }, [equipSel, sortSel]),
@@ -190,11 +193,11 @@ function detailView(id) {
     el('button.btn.quiet.sm', {
       style: { marginBottom: '10px', paddingLeft: '0' },
       onclick: () => navigate('library'),
-    }, ['‹ Library'])
+    }, [`‹ ${t('route.library')}`])
   );
 
   if (!ex) {
-    root.append(emptyState('Exercise not found', 'It may have been deleted.'));
+    root.append(emptyState(t('library.notFound'), t('library.notFoundHint')));
     return root;
   }
 
@@ -203,14 +206,14 @@ function detailView(id) {
   const secondary = ex.secondary || [];
 
   const favBtn = el('button.icon-btn', {
-    'aria-label': ex.favourite ? `Remove ${ex.name} from favourites` : `Add ${ex.name} to favourites`,
+    'aria-label': t(ex.favourite ? 'library.unfavourite' : 'library.favourite', { name: ex.name }),
     'aria-pressed': String(!!ex.favourite),
     style: ex.favourite
       ? { color: 'var(--t4)', borderColor: 'color-mix(in srgb, var(--t4) 45%, transparent)' }
       : {},
     onclick: async () => {
       const now = await store.toggleFavourite(ex.id);
-      toast(now ? 'Added to favourites' : 'Removed from favourites');
+      toast(t(now ? 'library.favourited' : 'library.unfavourited'));
     },
   }, [ex.favourite ? '★' : '☆']);
 
@@ -219,7 +222,8 @@ function detailView(id) {
       el('div.grow', {}, [
         el('div', { style: { fontSize: '21px', fontWeight: '740', letterSpacing: '-0.025em' }, text: ex.name }),
         el('div.small.faint', {
-          text: `${ex.muscle} · ${ex.equipment}${uses ? ` · ${uses} ${uses === 1 ? 'session' : 'sessions'} logged` : ''}`,
+          text: `${tMuscle(ex.muscle)} · ${tEquipment(ex.equipment)}`
+            + (uses ? ` · ${t('library.sessionsLogged', { sessions: tn(uses, 'unit.session') })}` : ''),
         }),
       ]),
       favBtn,
@@ -245,22 +249,22 @@ function detailView(id) {
         illustrated
           ? null
           : el('div.legend', {}, [
-              el('span', {}, [el('b', { style: { background: 'var(--t4)' } }), 'Primary']),
-              el('span', {}, [el('b', { style: { background: 'var(--t1)' } }), 'Secondary']),
+              el('span', {}, [el('b', { style: { background: 'var(--t4)' } }), t('library.primary')]),
+              el('span', {}, [el('b', { style: { background: 'var(--t1)' } }), t('library.secondary')]),
             ]),
         el('div.small.muted', {
           style: { marginTop: '8px' },
           text: [
-            primary.map((r) => REGIONS[r] || r).join(', '),
-            secondary.length ? `also ${secondary.map((r) => REGIONS[r] || r).join(', ')}` : null,
-          ].filter(Boolean).join(' — '),
+            primary.map(tRegion).join(', '),
+            secondary.length ? t('library.also', { muscles: secondary.map(tRegion).join(', ') }) : null,
+          ].filter(Boolean).join(' · '),
         }),
       ])
     );
   }
 
   if (ex.instructions && ex.instructions.length) {
-    root.append(el('div.section-head', {}, [el('h2', { text: 'How to do it' })]));
+    root.append(el('div.section-head', {}, [el('h2', { text: t('train.menu.howTo') })]));
     root.append(
       el('div.card', {}, [
         el('ol', {
@@ -272,13 +276,13 @@ function detailView(id) {
 
   root.append(
     el('div.stack', { style: { marginTop: '18px' } }, [
-      uses ? el('button.btn.primary.full', { onclick: () => navigate('progress', ex.id) }, ['View progress']) : null,
-      el('button.btn.ghost.full', { onclick: () => newExerciseForm('', null, ex) }, ['Edit']),
+      uses ? el('button.btn.primary.full', { onclick: () => navigate('progress', ex.id) }, [t('library.viewProgress')]) : null,
+      el('button.btn.ghost.full', { onclick: () => newExerciseForm('', null, ex) }, [t('common.edit')]),
       el('button.btn.full.danger', {
         onclick: async () => {
           const inPlans = store.planUsageCount(ex.id);
           const planPart = inPlans
-            ? ` It will also be removed from ${inPlans} plan ${inPlans === 1 ? 'day' : 'days'}.`
+            ? ' ' + t('library.deletePlans', { days: tn(inPlans, 'unit.day') })
             : '';
           // Say what actually happens. The sets survive as rows in the session,
           // but every analysis looks the exercise up by id and skips what it
@@ -286,15 +290,15 @@ function detailView(id) {
           // the charts all quietly lose that work. "The name will be lost" was
           // true and misleading at the same time.
           const warn = uses
-            ? `${ex.name} appears in ${uses} logged ${uses === 1 ? 'session' : 'sessions'}. Those sets stay in your history, but they stop counting anywhere else: the exercise name, its volume, its muscle map colour and its part of your strength score all disappear. Consider renaming it instead.${planPart}`
-            : `${ex.name} will be removed from your library.${planPart}`;
-          const ok = await confirmSheet('Delete exercise?', warn);
+            ? t('library.deleteUsed', { name: ex.name, sessions: tn(uses, 'unit.session') }) + planPart
+            : t('library.deleteUnused', { name: ex.name }) + planPart;
+          const ok = await confirmSheet(t('library.deleteTitle'), warn);
           if (!ok) return;
           await store.deleteExercise(ex.id);
-          toast('Exercise deleted');
+          toast(t('library.deleted'));
           navigate('library');
         },
-      }, ['Delete']),
+      }, [t('common.delete')]),
     ])
   );
 

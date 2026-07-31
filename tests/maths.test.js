@@ -39,6 +39,7 @@ const { parseNumber, plural } = await import('../js/ui.js');
 const { platePlan, describePlates } = await import('../js/plates.js');
 const { warmupSets, warmupCount } = await import('../js/warmup.js');
 const { stallReport, describeStall } = await import('../js/fatigue.js');
+const { setLanguage } = await import('../js/i18n.js');
 
 const INDIRECT = THRESHOLDS.indirectSetWeight.value;
 
@@ -538,11 +539,26 @@ test('describeStall reports and never prescribes', () => {
     ...series(row, { weeks: 6, from: 70, step: 0 }),
   ];
 
-  const text = describeStall(stallReport(sessions, all)).join(' ').toLowerCase();
-  assert.ok(text.includes('3 of 3'));
-  for (const word of ['deload', 'should', 'need to', 'take a', 'too much', 'overtrain']) {
-    assert.ok(!text.includes(word), `the observation must not say "${word}"`);
+  const report = stallReport(sessions, all);
+
+  // Both languages, because the rule is about what the app is allowed to say,
+  // not about which table the sentence happens to live in. A German
+  // translation that slipped in a "solltest" would break the promise just as
+  // thoroughly as an English "you should".
+  const BANNED = {
+    en: ['deload', 'should', 'need to', 'take a', 'too much', 'overtrain'],
+    de: ['deload', 'solltest', 'musst', 'zu viel', 'übertrain', 'leg eine', 'nimm dir'],
+  };
+
+  for (const lang of ['en', 'de']) {
+    setLanguage(lang);
+    const text = describeStall(report).join(' ').toLowerCase();
+    assert.ok(text.includes('3'), `${lang}: the count has to survive translation`);
+    for (const word of BANNED[lang]) {
+      assert.ok(!text.includes(word), `${lang}: the observation must not say "${word}"`);
+    }
   }
+  setLanguage('en');
 });
 
 /* ======================= sharing a plan ======================= */

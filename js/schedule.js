@@ -9,14 +9,15 @@
 // plan day can sit on no weekday at all. Neither is an error state, so nothing
 // here validates them away.
 
-const NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+import { t } from './i18n.js';
 
 /** Monday-first order, because that is how a training week reads. */
 export const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
-export const weekdayName = (n) => NAMES[n] ?? '—';
-export const weekdayShort = (n) => SHORT[n] ?? '—';
+const isDay = (n) => Number.isInteger(n) && n >= 0 && n <= 6;
+
+export const weekdayName = (n) => (isDay(n) ? t(`weekday.${n}`) : t('common.empty'));
+export const weekdayShort = (n) => (isDay(n) ? t(`weekday.${n}.short`) : t('common.empty'));
 
 /** JS weekday for a timestamp (0 = Sunday). */
 export const weekdayOf = (ts = Date.now()) => new Date(ts).getDay();
@@ -94,8 +95,7 @@ export function scheduleConflict(plan) {
   return {
     scheduled: scheduledDays,
     expected,
-    text: scheduledDays < expected
-      ? `${scheduledDays} of ${expected} sessions a week are on the calendar — the rating counts all ${expected}.`
-      : `${scheduledDays} sessions scheduled but the plan describes ${expected} a week.`,
+    text: t(scheduledDays < expected ? 'schedule.fewer' : 'schedule.more',
+      { scheduled: scheduledDays, expected }),
   };
 }

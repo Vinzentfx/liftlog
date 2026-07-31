@@ -9,8 +9,9 @@ import {
   bestOneRepMaxByName, isCounted, startOfWeek, weeklyMuscleSets, sessionStats,
 } from '../models.js';
 import {
-  buildRating, hasProfile, REGIONS, TIERS, tierIndex, tierOf, LOW_CONFIDENCE,
+  buildRating, hasProfile, TIERS, tierIndex, tierOf, LOW_CONFIDENCE,
 } from '../standards.js';
+import { t, tn, tRegion, tTier } from '../i18n.js';
 import { bodyMap, tierLegend } from '../bodymap.js';
 import { barChart, lineChart } from '../charts.js';
 import { analyseWeek, compareToPlan, weekVerdict, weekStreak } from '../log-analysis.js';
@@ -27,7 +28,7 @@ import { profileForm, doExport } from './settings.js';
 let mapMode = 'strength';
 
 export default function renderHome({ actions }) {
-  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': 'Settings' }, ['⚙']));
+  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
 
   const root = el('div');
   const done = store.state.sessions.filter((s) => s.finishedAt);
@@ -40,12 +41,12 @@ export default function renderHome({ actions }) {
     const problem = store.state.storageError;
     root.append(
       el('div.card', { style: { borderColor: 'color-mix(in srgb, var(--danger) 45%, transparent)' } }, [
-        el('div', { style: { fontWeight: '680', color: 'var(--danger)' }, text: 'Something did not save' }),
+        el('div', { style: { fontWeight: '680', color: 'var(--danger)' }, text: t('home.write.title') }),
         el('div.small.muted', { style: { marginTop: '2px' },
           text: problem.quota
-            ? 'The phone refused the write because storage is full. Free some space, then export a backup — until then, new entries may not survive.'
-            : `The last write to the database failed (${problem.message}). Anything you logged since may not have been saved.` }),
-        el('button.btn.sm.ghost', { style: { marginTop: '10px' }, onclick: () => doExport() }, ['Export what is there']),
+            ? t('home.write.quota')
+            : t('home.write.failed', { message: problem.message }) }),
+        el('button.btn.sm.ghost', { style: { marginTop: '10px' }, onclick: () => doExport() }, [t('home.write.export')]),
       ])
     );
   }
@@ -58,10 +59,10 @@ export default function renderHome({ actions }) {
       el('div.card.glow', {}, [
         el('div.row.between', {}, [
           el('div.grow', {}, [
-            el('div', { style: { fontWeight: '680' }, text: 'Workout in progress' }),
+            el('div', { style: { fontWeight: '680' }, text: t('home.active.title') }),
             el('div.small.muted', { text: active.name }),
           ]),
-          el('button.btn.primary.sm', { onclick: () => navigate('train') }, ['Resume']),
+          el('button.btn.primary.sm', { onclick: () => navigate('train') }, [t('home.active.resume')]),
         ]),
       ])
     );
@@ -77,16 +78,16 @@ export default function renderHome({ actions }) {
       el('div.card', { style: { borderColor: 'color-mix(in srgb, var(--warn) 32%, transparent)' } }, [
         el('div.row.between', { style: { gap: '12px' } }, [
           el('div.grow', {}, [
-            el('div', { style: { fontWeight: '680', color: 'var(--warn)' }, text: 'Back up your training' }),
+            el('div', { style: { fontWeight: '680', color: 'var(--warn)' }, text: t('home.backup.title') }),
             el('div.small.muted', {
               text: backup.reason === 'never'
-                ? `${done.length} workouts logged and no backup yet. The file goes to your Downloads — put it in iCloud Drive and it survives this phone.`
+                ? t('home.backup.never', { n: done.length })
                 : backup.reason === 'workouts'
-                  ? `${backup.since} workouts since your last backup.`
-                  : `${backup.days} days since your last backup.`,
+                  ? t('home.backup.sinceWorkouts', { n: backup.since })
+                  : t('home.backup.sinceDays', { n: backup.days }),
             }),
           ]),
-          el('button.btn.sm.ghost', { onclick: () => doExport() }, ['Export']),
+          el('button.btn.sm.ghost', { onclick: () => doExport() }, [t('common.export')]),
         ]),
       ])
     );
@@ -94,9 +95,9 @@ export default function renderHome({ actions }) {
 
   if (!done.length) {
     root.append(emptyState(
-      'Nothing logged yet',
-      'Finish your first workout and your rating and muscle map appear here.',
-      el('button.btn.primary', { style: { marginTop: '14px' }, onclick: () => navigate('train') }, ['Start a workout'])
+      t('home.empty.title'),
+      t('home.empty.body'),
+      el('button.btn.primary', { style: { marginTop: '14px' }, onclick: () => navigate('train') }, [t('home.empty.action')])
     ));
     return root;
   }
@@ -113,15 +114,15 @@ export default function renderHome({ actions }) {
     (n, x) => n + x.entries.reduce((m, e) => m + e.sets.filter(isCounted).length, 0), 0);
 
   root.append(el('div.section-head', {}, [
-    el('h2', { text: 'This week' }),
-    el('button.btn.quiet.sm', { onclick: () => shareWeekSheet() }, ['Share ›']),
+    el('h2', { text: t('home.week.title') }),
+    el('button.btn.quiet.sm', { onclick: () => shareWeekSheet() }, [`${t('common.share')} ›`]),
   ]));
   root.append(
     el('div.stat-grid.two', {}, [
-      el('div.stat', {}, [el('span.stat-val', { text: String(thisWeek.length) }), el('span.stat-key', { text: 'Workouts' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: String(weekSets) }), el('span.stat-key', { text: 'Working sets' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: String(weekStreak(done)) }), el('span.stat-key', { text: 'Week streak' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: String(done.length) }), el('span.stat-key', { text: 'All time' })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(thisWeek.length) }), el('span.stat-key', { text: t('home.stat.workouts') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(weekSets) }), el('span.stat-key', { text: t('home.stat.workingSets') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(weekStreak(done)) }), el('span.stat-key', { text: t('home.stat.streak') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(done.length) }), el('span.stat-key', { text: t('home.stat.allTime') })]),
     ])
   );
 
@@ -134,22 +135,22 @@ export default function renderHome({ actions }) {
   // ---------- weekly workload ----------
   const buckets = weeklyMuscleSets(done, store.state.exerciseById, 10);
   root.append(el('div.section-head', {}, [
-    el('h2', { text: 'Workload' }),
+    el('h2', { text: t('home.workload.title') }),
     // The Progress tab has no slot on the tab bar, so every section that hints
     // at a trend needs to offer the way in.
-    el('button.btn.quiet.sm', { onclick: () => navigate('progress') }, ['Charts ›']),
+    el('button.btn.quiet.sm', { onclick: () => navigate('progress') }, [`${t('home.link.charts')} ›`]),
   ]));
   root.append(
     el('div.card', {}, [
       barChart(
         buckets.map((b, i) => ({
-          label: `Week of ${fmtDate(b.week)}`,
-          short: i === buckets.length - 1 ? 'Now' : fmtDate(b.week),
+          label: t('home.workload.weekOf', { date: fmtDate(b.week) }),
+          short: i === buckets.length - 1 ? t('home.workload.now') : fmtDate(b.week),
           value: b.total,
-          tip: `${b.total} working sets`,
+          tip: t('home.workload.tip', { n: b.total }),
           dim: i === buckets.length - 1,
         })),
-        { caption: 'Working sets per week — the last bar is the week in progress.', height: 155, everyNthLabel: 3 }
+        { caption: t('home.workload.caption'), height: 155, everyNthLabel: 3 }
       ),
     ])
   );
@@ -159,15 +160,19 @@ export default function renderHome({ actions }) {
   if (bw.length >= 2) {
     const delta = bw[bw.length - 1].weight - bw[0].weight;
     root.append(el('div.section-head', {}, [
-      el('h2', { text: 'Bodyweight' }),
-      el('button.btn.quiet.sm', { onclick: () => navigate('progress') }, ['More ›']),
+      el('h2', { text: t('home.bodyweight.title') }),
+      el('button.btn.quiet.sm', { onclick: () => navigate('progress') }, [`${t('common.more')} ›`]),
     ]));
     root.append(
       el('div.card', {}, [
         lineChart(
           bw.map((b) => ({ x: b.date, y: b.weight, tip: fmtWeight(b.weight, store.units()) })),
           {
-            caption: `${fmtWeight(bw[bw.length - 1].weight, store.units())} now · ${delta >= 0 ? '+' : ''}${fmtWeight(delta, store.units())} since ${fmtDate(bw[0].date)}`,
+            caption: t('home.bodyweight.caption', {
+              now: fmtWeight(bw[bw.length - 1].weight, store.units()),
+              delta: `${delta >= 0 ? '+' : ''}${fmtWeight(delta, store.units())}`,
+              since: fmtDate(bw[0].date),
+            }),
             format: (v) => fmtNum(v, 0), showTrend: true, height: 160,
           }
         ),
@@ -177,14 +182,14 @@ export default function renderHome({ actions }) {
 
   // ---------- recent ----------
   root.append(el('div.section-head', {}, [
-    el('h2', { text: 'Recent' }),
-    el('button.btn.quiet.sm', { onclick: () => navigate('calendar') }, ['Calendar ›']),
+    el('h2', { text: t('home.recent.title') }),
+    el('button.btn.quiet.sm', { onclick: () => navigate('calendar') }, [`${t('route.calendar')} ›`]),
   ]));
   for (const x of done.slice(0, 3)) {
     const st = sessionStats(x);
     root.append(listItem({
       title: x.name,
-      sub: `${fmtDate(x.startedAt)} · ${st.sets} sets · ${fmtNum(st.volume)}${store.units()}`,
+      sub: `${fmtDate(x.startedAt)} · ${tn(st.sets, 'unit.set')} · ${fmtNum(st.volume)}${store.units()}`,
       onclick: () => navigate('calendar', x.id),
     }));
   }
@@ -197,8 +202,8 @@ export default function renderHome({ actions }) {
   // its slot.
   root.append(
     el('div.stat-grid.two', { style: { marginTop: '18px' } }, [
-      wayIn('Calendar', 'Every gym day, month by month', () => navigate('calendar')),
-      wayIn('Progress', 'Charts, trends and records', () => navigate('progress')),
+      wayIn(t('route.calendar'), t('home.wayIn.calendar'), () => navigate('calendar')),
+      wayIn(t('route.progress'), t('home.wayIn.progress'), () => navigate('progress')),
     ])
   );
 
@@ -208,7 +213,7 @@ export default function renderHome({ actions }) {
 function wayIn(title, sub, onclick) {
   return el('button.stat', {
     onclick,
-    'aria-label': `${title} — ${sub}`,
+    'aria-label': `${title}, ${sub}`,
     style: { textAlign: 'left', cursor: 'pointer' },
   }, [
     el('div.row.between', { style: { alignItems: 'baseline' } }, [
@@ -229,35 +234,35 @@ function wayIn(title, sub, onclick) {
 function staleCard({ session, hours }) {
   const logged = session.entries.reduce((n, e) => n + e.sets.filter(isCounted).length, 0);
   const since = hours >= 48
-    ? `${Math.round(hours / 24)} days ago`
-    : `${Math.round(hours)} hours ago`;
+    ? t('home.stale.daysAgo', { n: Math.round(hours / 24) })
+    : t('home.stale.hoursAgo', { n: Math.round(hours) });
 
   return el('div.card', { style: { borderColor: 'color-mix(in srgb, var(--warn) 40%, transparent)' } }, [
-    el('div', { style: { fontWeight: '680', color: 'var(--warn)' }, text: 'A workout is still open' }),
+    el('div', { style: { fontWeight: '680', color: 'var(--warn)' }, text: t('home.stale.title') }),
     el('div.small.muted', { style: { marginTop: '2px' },
-      text: `${session.name} was started ${since} and never finished. Until it is closed, starting a new workout just reopens this one.` }),
+      text: t('home.stale.body', { name: session.name, since }) }),
     el('div.stack', { style: { marginTop: '12px' } }, [
       logged
         ? el('button.btn.primary.full.sm', {
             onclick: async () => {
               await store.finishSession(session.id);
-              toast(`Finished with ${logged} ${logged === 1 ? 'set' : 'sets'}`);
+              toast(t('home.stale.finished', { sets: tn(logged, 'unit.set') }));
             },
-          }, [`Finish it — keeps the ${logged} ${logged === 1 ? 'set' : 'sets'} you ticked`])
+          }, [t('home.stale.finish', { sets: tn(logged, 'unit.set') })])
         : null,
-      el('button.btn.ghost.full.sm', { onclick: () => navigate('train') }, ['Open it first']),
+      el('button.btn.ghost.full.sm', { onclick: () => navigate('train') }, [t('home.stale.open')]),
       el('button.btn.ghost.full.sm', {
         onclick: async () => {
-          const ok = await confirmSheet('Discard this workout?',
+          const ok = await confirmSheet(t('home.stale.discardTitle'),
             logged
-              ? `${logged} logged ${logged === 1 ? 'set' : 'sets'} will be permanently deleted.`
-              : 'Nothing was ticked in it, so nothing is lost.',
-            { confirmLabel: 'Discard' });
+              ? t('home.stale.discardBody', { sets: tn(logged, 'unit.set') })
+              : t('home.stale.discardEmpty'),
+            { confirmLabel: t('home.stale.discard') });
           if (!ok) return;
           await store.discardSession(session.id);
-          toast('Discarded');
+          toast(t('home.stale.discarded'));
         },
-      }, ['Discard it']),
+      }, [t('home.stale.discardIt')]),
     ]),
   ]);
 }
@@ -284,15 +289,15 @@ function todayCard(done) {
     && today.days.some((d) => d.id === s.dayId)
     && new Date(s.startedAt).toDateString() === new Date().toDateString());
 
-  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Today' })]));
+  wrap.append(el('div.section-head', {}, [el('h2', { text: t('common.today') })]));
 
   if (!today.days.length) {
     wrap.append(el('div.card', {}, [
-      el('div', { style: { fontWeight: '680' }, text: 'Rest day' }),
+      el('div', { style: { fontWeight: '680' }, text: t('home.today.rest') }),
       el('div.small.muted', { style: { marginTop: '2px' },
         text: today.next
-          ? `${today.next.day.name} is next, on ${weekdayName(today.next.weekday)}.`
-          : 'Nothing scheduled.' }),
+          ? t('home.today.next', { day: today.next.day.name, weekday: weekdayName(today.next.weekday) })
+          : t('home.today.nothing') }),
     ]));
     return wrap;
   }
@@ -305,8 +310,8 @@ function todayCard(done) {
             el('div', { style: { fontWeight: '700', fontSize: '17px' }, text: day.name }),
             el('div.small.muted', {
               text: trainedToday
-                ? 'Done today.'
-                : `${day.items.length} ${day.items.length === 1 ? 'exercise' : 'exercises'}`,
+                ? t('home.today.done')
+                : tn(day.items.length, 'unit.exercise'),
             }),
           ]),
           trainedToday
@@ -316,7 +321,7 @@ function todayCard(done) {
                   await store.startSession({ planId: plan.id, dayId: day.id });
                   navigate('train');
                 },
-              }, ['Start']),
+              }, [t('home.today.start')]),
         ]),
       ])
     );
@@ -345,8 +350,8 @@ function weekVsPlan(done) {
 
   const wrap = el('div');
   wrap.append(el('div.section-head', {}, [
-    el('h2', { text: 'This week vs. plan' }),
-    plan ? el('button.btn.quiet.sm', { onclick: () => navigate('plans', plan.id) }, ['Plan']) : null,
+    el('h2', { text: t('home.vsPlan.title') }),
+    plan ? el('button.btn.quiet.sm', { onclick: () => navigate('plans', plan.id) }, [t('home.vsPlan.plan')]) : null,
   ]));
 
   const card = el('div.card', {}, [
@@ -359,13 +364,13 @@ function weekVsPlan(done) {
     }),
     el('div.small.faint', { style: { marginTop: '2px' },
       text: planned
-        ? `Target is what ${plan.name} prescribes. Secondary muscles count as ${THRESHOLDS.indirectSetWeight.value} of a set.`
-        : `No active plan, so the target is the ${floor}-set weekly floor.` }),
+        ? t('home.vsPlan.target', { plan: plan.name, weight: THRESHOLDS.indirectSetWeight.value })
+        : t('home.vsPlan.noPlan', { floor }) }),
   ]);
 
   if (!rows.length) {
     card.append(el('div.small.muted', { style: { marginTop: '10px' },
-      text: 'Nothing logged yet this week.' }));
+      text: t('home.vsPlan.nothing') }));
   }
 
   // Green means "on pace for how far into the plan you are", not "finished".
@@ -385,7 +390,7 @@ function weekVsPlan(done) {
           ? 'linear-gradient(90deg, var(--accent), var(--accent-hi))'
           : 'var(--t0)';
     card.append(el('div.bar-row', { style: { marginTop: '8px' } }, [
-      el('span.name', { text: REGIONS[r.region] || r.region }),
+      el('span.name', { text: tRegion(r.region) }),
       el('div.track', {}, [el('div.fill', { style: { width: `${Math.max(3, pct * 100)}%`, background: tone } })]),
       el('span.val', { text: r.target > 0 ? `${trimNum(r.done)}/${trimNum(r.target)}` : String(trimNum(r.done)) }),
     ]));
@@ -393,16 +398,20 @@ function weekVsPlan(done) {
 
   if (rows.some((r) => r.target === 0)) {
     card.append(el('div.small.faint', { style: { marginTop: '10px' },
-      text: 'Grey: trained this week but not in the plan, so there is no target to measure it against.' }));
+      text: t('home.vsPlan.grey') }));
   }
 
   // Effort coverage. Stated as a share rather than an average, because a mean
   // RIR over sets you never rated would be a made-up number.
   if (week.totalSets) {
     card.append(el('div.small.faint', { style: { marginTop: '12px' },
-      text: week.effort.logged
-        ? `${week.effort.logged} of ${week.totalSets} sets have an RIR — ${Math.round(week.effort.hardShare * 100)}% of those were 0–2 in reserve. ${Math.round(week.longShare * 100)}% of sets loaded a muscle stretched.`
-        : `No RIR logged this week, so nothing here can tell you how hard the sets were. ${Math.round(week.longShare * 100)}% of sets loaded a muscle stretched.` }));
+      text: (week.effort.logged
+        ? t('home.vsPlan.rir', {
+            logged: week.effort.logged, total: week.totalSets,
+            hard: Math.round(week.effort.hardShare * 100),
+          })
+        : t('home.vsPlan.noRir'))
+        + ' ' + t('home.vsPlan.stretched', { pct: Math.round(week.longShare * 100) }) }));
   }
 
   wrap.append(card);
@@ -421,11 +430,9 @@ function ratingSection(done, settings) {
   if (!hasProfile(settings)) {
     wrap.append(
       el('div.card.glow', {}, [
-        el('div', { style: { fontWeight: '680', marginBottom: '4px' }, text: 'Unlock your strength rating' }),
-        el('div.small.muted', {
-          text: 'Strength standards are relative to bodyweight, sex and age — add those and every lift gets rated from Beginner to Elite.',
-        }),
-        el('button.btn.primary.full', { style: { marginTop: '12px' }, onclick: profileForm }, ['Add my details']),
+        el('div', { style: { fontWeight: '680', marginBottom: '4px' }, text: t('home.rating.unlock') }),
+        el('div.small.muted', { text: t('home.rating.unlockBody') }),
+        el('button.btn.primary.full', { style: { marginTop: '12px' }, onclick: profileForm }, [t('home.rating.addDetails')]),
       ])
     );
     return wrap;
@@ -437,10 +444,8 @@ function ratingSection(done, settings) {
   if (rating.overall === null) {
     wrap.append(
       el('div.card', {}, [
-        el('div', { style: { fontWeight: '680', marginBottom: '4px' }, text: 'No rated lifts yet' }),
-        el('div.small.muted', {
-          text: 'Ratings come from benchmark barbell lifts — bench, squat, deadlift, overhead press, rows, pull-ups. Log one of those and your map fills in.',
-        }),
+        el('div', { style: { fontWeight: '680', marginBottom: '4px' }, text: t('home.rating.none') }),
+        el('div.small.muted', { text: t('home.rating.noneBody') }),
       ])
     );
     return wrap;
@@ -454,10 +459,10 @@ function ratingSection(done, settings) {
       el('div.rating-hero', {}, [
         el('div.rating-val', { text: String(Math.round(rating.overall)) }),
         el('div', { style: { marginTop: '8px' } }, [
-          el('span.tier-chip', { text: tier.label }),
+          el('span.tier-chip', { text: tTier(tier.key) }),
         ]),
         el('div.rating-sub', {
-          text: `Overall strength · ${rating.ratedRegions} of ${rating.totalRegions} muscle groups rated`,
+          text: t('home.rating.overall', { rated: rating.ratedRegions, total: rating.totalRegions }),
         }),
       ]),
     ])
@@ -469,7 +474,7 @@ function ratingSection(done, settings) {
   // strongest / weakest lifts
   if (rating.lifts.length) {
     const shown = rating.lifts.slice(0, 5);
-    wrap.append(el('div.section-head', {}, [el('h2', { text: 'Your lifts' })]));
+    wrap.append(el('div.section-head', {}, [el('h2', { text: t('home.rating.yourLifts') })]));
     for (const lift of shown) {
       const li = tierIndex(lift.score);
       wrap.append(
@@ -479,12 +484,15 @@ function ratingSection(done, settings) {
               el('div', { style: { fontWeight: '640' }, text: lift.name }),
               el('div.small.faint', {
                 text: lift.next
-                  ? `${fmtWeight(Math.round(lift.next.weight), store.units())} for ${lift.next.tier.label}`
-                  : 'Top tier reached',
+                  ? t('home.rating.forTier', {
+                      weight: fmtWeight(Math.round(lift.next.weight), store.units()),
+                      tier: tTier(lift.next.tier.key),
+                    })
+                  : t('home.rating.topTier'),
               }),
             ]),
             el('div', { style: { textAlign: 'right' } }, [
-              el('span.tier-chip', { text: lift.tier.label }),
+              el('span.tier-chip', { text: tTier(lift.tier.key) }),
               el('div.small.faint', { style: { marginTop: '4px' },
                 text: `e1RM ${fmtWeight(Math.round(lift.oneRepMax), store.units())}` }),
             ]),
@@ -516,7 +524,7 @@ function mapSection(rating) {
   const done = store.state.sessions.filter((s) => s.finishedAt);
 
   const seg = el('div.seg', { style: { marginBottom: '12px' } },
-    [['strength', 'Strength'], ['progress', 'Progress']].map(([key, label]) =>
+    [['strength', t('home.map.strength')], ['progress', t('home.map.progress')]].map(([key, label]) =>
       el('button', {
         'aria-pressed': String(mapMode === key),
         onclick: (e) => {
@@ -534,8 +542,7 @@ function mapSection(rating) {
       host.replaceChildren(
         bodyMap(rating.regions, { onSelect: (region) => regionSheet(region, rating) }),
         tierLegend(),
-        el('div.small.faint', { style: { marginTop: '8px' },
-          text: 'Compared against published standards. Unlit means no benchmark lift trains it — machine work has no standard to compare against, so switch to Progress for those.' })
+        el('div.small.faint', { style: { marginTop: '8px' }, text: t('home.map.strengthNote') })
       );
       return;
     }
@@ -545,43 +552,41 @@ function mapSection(rating) {
     host.replaceChildren(
       bodyMap(progressFills(prog), { onSelect: (region) => progressSheet(region, prog[region]) }),
       el('div.legend', {}, [
-        el('span', {}, [el('b', { style: { background: 'var(--t4)' } }), 'Going up']),
-        el('span', {}, [el('b', { style: { background: 'var(--t1)' } }), 'Holding / too few sessions']),
-        el('span', {}, [el('b', { style: { background: 'var(--t0)' } }), 'Falling']),
+        el('span', {}, [el('b', { style: { background: 'var(--t4)' } }), t('home.map.up')]),
+        el('span', {}, [el('b', { style: { background: 'var(--t1)' } }), t('home.map.flat')]),
+        el('span', {}, [el('b', { style: { background: 'var(--t0)' } }), t('home.map.down')]),
       ]),
       el('div.small.faint', { style: { marginTop: '8px' },
-        text: lit
-          ? 'Estimated 1RM trend over 12 weeks, measured against yourself. No standards involved, so every exercise counts — machines included.'
-          : 'Nothing logged in the last 12 weeks yet. This map fills in from your own numbers, whatever equipment you use.' })
+        text: t(lit ? 'home.map.progressNote' : 'home.map.progressEmpty') })
     );
   }
 
   paint();
-  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Muscle map' })]), seg, el('div.card', {}, [host]));
+  wrap.append(el('div.section-head', {}, [el('h2', { text: t('home.map.title') })]), seg, el('div.card', {}, [host]));
   return wrap;
 }
 
 function progressSheet(region, p) {
-  openSheet(REGIONS[region] || region, el('div', {}, [
+  openSheet(tRegion(region), el('div', {}, [
     el('div.small.muted', { text: describeRegion(region, p) }),
     p && p.best
       ? el('div.card.tight', { style: { marginTop: '12px' } }, [
           el('div.small', { style: { fontWeight: '650' }, text: p.best.name }),
           el('div.small.faint', { style: { marginTop: '2px' },
-            text: `${fmtWeight(Math.round(p.best.from), store.units())} → ${fmtWeight(Math.round(p.best.to), store.units())} estimated 1RM` }),
+            text: t('home.map.e1rmRange', {
+              from: fmtWeight(Math.round(p.best.from), store.units()),
+              to: fmtWeight(Math.round(p.best.to), store.units()),
+            }) }),
         ])
       : null,
-    el('div.section-head', {}, [el('h2', { text: 'What this is' })]),
-    el('div.small.muted', {
-      text: 'The slope of your own estimated 1RM over the last 12 weeks, fitted per exercise and averaged across everything that trains this muscle. Secondary muscles count half. It says nothing about how strong you are — only about which direction you are going, which is the one comparison that stays valid on a machine.',
-    }),
-    el('div.small.faint', { style: { marginTop: '8px' },
-      text: 'A flat reading is not a failure. Nobody progresses on everything at once, and a muscle you are maintaining while pushing another is doing its job.' }),
+    el('div.section-head', {}, [el('h2', { text: t('home.map.whatThisIs') })]),
+    el('div.small.muted', { text: t('home.map.whatThisIsBody') }),
+    el('div.small.faint', { style: { marginTop: '8px' }, text: t('home.map.flatIsFine') }),
   ]));
 }
 
 function regionSheet(region, rating) {
-  const label = REGIONS[region] || region;
+  const label = tRegion(region);
   const info = rating.regions[region];
 
   const body = el('div', {}, [
@@ -590,22 +595,20 @@ function regionSheet(region, rating) {
           el('div.rating-hero', { style: { paddingBottom: '10px' } }, [
             el('div.rating-val', { style: { fontSize: '40px' }, text: String(Math.round(info.score)) }),
             el('div', { style: { marginTop: '8px' } }, [
-              el('span.tier-chip', { text: tierOf(info.score).label }),
+              el('span.tier-chip', { text: tTier(tierOf(info.score).key) }),
             ]),
           ]),
-          el('div.small.muted', { style: { textAlign: 'center' }, text: `Rated from your ${info.via}.` }),
+          el('div.small.muted', { style: { textAlign: 'center' }, text: t('home.region.via', { lift: info.via }) }),
           LOW_CONFIDENCE[info.via]
             ? el('div.small', { style: { marginTop: '10px', color: 'var(--warn)' },
                 text: `!  ${LOW_CONFIDENCE[info.via]}` })
             : null,
         ])
-      : el('div.small.muted', {
-          text: `No benchmark lift in your history trains ${label} yet. Standards exist for about seventeen barbell and bodyweight lifts and nothing else — a machine load cannot be compared between gyms, so there is nothing honest to rate it against. Switch the map to Progress to see this muscle measured against your own numbers instead.`,
-        }),
-    el('div.section-head', {}, [el('h2', { text: 'Tier scale' })]),
-    el('div', {}, TIERS.map((t, i) =>
+      : el('div.small.muted', { text: t('home.region.noBenchmark', { muscle: label }) }),
+    el('div.section-head', {}, [el('h2', { text: t('home.region.tierScale') })]),
+    el('div', {}, TIERS.map((tier, i) =>
       el(`div.row.between.tier-${i}`, { style: { padding: '7px 0', borderBottom: '1px solid var(--line-soft)' } }, [
-        el('span.tier-chip', { text: t.label }),
+        el('span.tier-chip', { text: tTier(tier.key) }),
         el('span.small.faint', { text: `${i * 20}–${(i + 1) * 20}` }),
       ])
     )),

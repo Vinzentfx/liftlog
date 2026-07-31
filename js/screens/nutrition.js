@@ -11,7 +11,7 @@
 
 import {
   el, toast, openSheet, closeSheet, confirmSheet, emptyState, listItem, fmtNum, fmtWeight, fmtDate,
-  numberInput, parseNumber, normaliseOnBlur, plural,
+  numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
 import { dayKey, MEAL_SLOTS, slotFor } from '../models.js';
@@ -28,6 +28,7 @@ import { THRESHOLDS, SOURCES } from '../evidence.js';
 import { lookupBarcode, scaleToPortion, ATTRIBUTION } from '../foodlookup.js';
 import { barChart } from '../charts.js';
 import { navigate } from '../app.js';
+import { t, tn } from '../i18n.js';
 
 let viewDay = null;      // null = today; set by the date stepper
 let trendMetric = 'protein';   // which metric the 14-day chart shows
@@ -40,7 +41,7 @@ function bandFor(key, targets) {
 }
 
 export default function renderNutrition({ actions }) {
-  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': 'Settings' }, ['⚙']));
+  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
 
   const root = el('div');
   const day = viewDay || dayKey();
@@ -79,16 +80,16 @@ function targetsSection(totals) {
   const targets = macroTargets(store.state.settings, maintenance);
 
   wrap.append(el('div.section-head', {}, [
-    el('h2', { text: 'Targets' }),
-    el('button.btn.quiet.sm', { onclick: () => targetsSheet(targets) }, ['How these are set']),
+    el('h2', { text: t('food.targets') }),
+    el('button.btn.quiet.sm', { onclick: () => targetsSheet(targets) }, [t('food.howSet')]),
   ]));
 
   if (!targets.ok) {
     wrap.append(el('div.card', {}, [
       el('div.small.muted', {
         text: targets.protein
-          ? `Protein is ${targets.protein.low}–${targets.protein.high} g, straight from your bodyweight. Calories, carbs and fat all hang off your maintenance figure, and that needs a few weeks of logging before it means anything — the Maintenance card below says what is still missing.`
-          : 'Add your bodyweight in Settings and the protein band appears. Everything else waits on the maintenance estimate further down.',
+          ? t('food.proteinOnly', { low: targets.protein.low, high: targets.protein.high })
+          : t('food.noBodyweight'),
       }),
     ]));
     return wrap;
@@ -97,10 +98,10 @@ function targetsSection(totals) {
   wrap.append(goalPicker(targets));
 
   const rows = [
-    ['Calories', `${fmtNum(targets.kcal)} kcal`, totals.kcal, targets.kcal, targets.kcal, 'var(--text)'],
-    ['Protein', `${targets.protein.low}–${targets.protein.high} g`, totals.protein, targets.protein.low, targets.protein.high, 'var(--accent-hi)'],
-    ['Carbs', `${targets.carbs.low}–${targets.carbs.high} g`, totals.carbs, targets.carbs.low, targets.carbs.high, '#22D3EE'],
-    ['Fat', `${targets.fat.low}–${targets.fat.high} g`, totals.fat, targets.fat.low, targets.fat.high, '#C084FC'],
+    [t('food.calories'), `${fmtNum(targets.kcal)} kcal`, totals.kcal, targets.kcal, targets.kcal, 'var(--text)'],
+    [t('food.protein'), `${targets.protein.low}–${targets.protein.high} g`, totals.protein, targets.protein.low, targets.protein.high, 'var(--accent-hi)'],
+    [t('food.carbs'), `${targets.carbs.low}–${targets.carbs.high} g`, totals.carbs, targets.carbs.low, targets.carbs.high, '#22D3EE'],
+    [t('food.fat'), `${targets.fat.low}–${targets.fat.high} g`, totals.fat, targets.fat.low, targets.fat.high, '#C084FC'],
   ];
 
   const card = el('div.card', {});
@@ -113,7 +114,7 @@ function targetsSection(totals) {
           el('span', { style: { fontSize: '13.5px', fontWeight: '640' }, text: label }),
           el('span.small', {
             style: { color: inRange ? 'var(--good)' : 'var(--text-dim)' },
-            text: `${fmtNum(eaten)} of ${band}`,
+            text: t('common.of', { a: fmtNum(eaten), b: band }),
           }),
         ]),
         el('div.track-thin', {}, [
@@ -123,8 +124,7 @@ function targetsSection(totals) {
     );
   }
 
-  card.append(el('div.small.faint', { style: { marginTop: '-4px' },
-    text: 'Carbs are the energy left after protein and fat, not a target of their own. Inside the fat range nothing distinguishes one point from another — hit the floor and spend the rest wherever you like.' }));
+  card.append(el('div.small.faint', { style: { marginTop: '-4px' }, text: t('food.carbsAreRest') }));
 
   wrap.append(card);
   return wrap;
@@ -139,7 +139,7 @@ function goalPicker(targets) {
           b.setAttribute('aria-pressed', String(GOALS[i].key === g.key)));
         await store.setSetting('goal', g.key);
       },
-    }, [g.label])
+    }, [t(g.label)])
   ));
 
   const goal = GOALS.find((g) => g.key === targets.goal);
@@ -147,8 +147,13 @@ function goalPicker(targets) {
     seg,
     el('div.small.faint', { style: { marginBottom: '10px' },
       text: targets.offset === 0
-        ? `Holding at ${fmtNum(targets.maintenance)} kcal, your measured maintenance — ${goal.blurb}.`
-        : `${targets.offset > 0 ? '+' : ''}${fmtNum(targets.offset)} kcal on your measured maintenance of ${fmtNum(targets.maintenance)} — about ${Math.abs(targets.kgPerWeek)} kg a week, ${goal.blurb}.` }),
+        ? t('food.goalHold', { kcal: fmtNum(targets.maintenance), blurb: t(goal.blurb) })
+        : t('food.goalOffset', {
+            offset: `${targets.offset > 0 ? '+' : ''}${fmtNum(targets.offset)}`,
+            maintenance: fmtNum(targets.maintenance),
+            kg: Math.abs(targets.kgPerWeek),
+            blurb: t(goal.blurb),
+          }) }),
   ]);
 }
 
@@ -156,38 +161,32 @@ function targetsSheet(targets) {
   const fat = SOURCES.efsaFat;
   const protein = SOURCES.protein2018;
 
-  openSheet('How the targets are set', el('div', {}, [
-    el('div.small.muted', {
-      text: 'In the order that actually decides them. There is no evidence-based macro ratio — "40/30/30" is folklore with a decimal point — but there is an evidence-based order, and this is it.',
-    }),
+  openSheet(t('food.howSetTitle'), el('div', {}, [
+    el('div.small.muted', { text: t('food.orderIntro') }),
 
-    el('div.section-head', {}, [el('h2', { text: '1 · Calories' })]),
+    el('div.section-head', {}, [el('h2', { text: t('food.step1') })]),
     el('div.small.muted', {
       text: targets.ok
-        ? `Your measured maintenance, ${fmtNum(targets.maintenance)} kcal, plus or minus the pace you picked. The pace — a quarter to a half percent of bodyweight a week — is training-practice convention rather than a trial result, and slow enough that a gain stays mostly muscle and a cut mostly does not cost any.`
-        : 'Your measured maintenance, plus or minus the pace you pick. It is derived from your own logging and your own scale, not from a formula.',
+        ? t('food.step1Body', { kcal: fmtNum(targets.maintenance) })
+        : t('food.step1BodyNoData'),
     }),
 
-    el('div.section-head', {}, [el('h2', { text: '2 · Protein' })]),
-    el('div.small.muted', { text: protein.says }),
+    el('div.section-head', {}, [el('h2', { text: t('food.step2') })]),
+    el('div.small.muted', { text: t(protein.says) }),
 
-    el('div.section-head', {}, [el('h2', { text: '3 · Fat' })]),
-    el('div.small.muted', { text: fat.says }),
+    el('div.section-head', {}, [el('h2', { text: t('food.step3') })]),
+    el('div.small.muted', { text: t(fat.says) }),
     el('a', {
       href: fat.url, target: '_blank', rel: 'noopener',
       style: { color: 'var(--accent-hi)', fontWeight: '620', fontSize: '14px' },
       text: `${fat.short} ↗`,
     }),
 
-    el('div.section-head', {}, [el('h2', { text: '4 · Carbohydrate' })]),
-    el('div.small.muted', {
-      text: 'Whatever energy is left. Not a target in its own right, and deliberately not given one — no carbohydrate intake has been shown to build more muscle than another once calories and protein are equal. The range you see is simply what fits between the fat floor and the fat ceiling.',
-    }),
+    el('div.section-head', {}, [el('h2', { text: t('food.step4') })]),
+    el('div.small.muted', { text: t('food.step4Body') }),
 
-    el('div.section-head', {}, [el('h2', { text: 'What this cannot do' })]),
-    el('div.small.muted', {
-      text: 'It inherits every weakness of the maintenance estimate, under-logging first among them. Treat the calorie figure as a starting point and let the scale correct it over a few weeks — that feedback loop is worth more than any calculator.',
-    }),
+    el('div.section-head', {}, [el('h2', { text: t('food.cannotDo') })]),
+    el('div.small.muted', { text: t('food.cannotDoBody') }),
   ]));
 }
 
@@ -209,7 +208,7 @@ function macroCard(totals) {
   const card = el('div.card', {});
 
   card.append(el('div.row.between', {}, [
-    el('div.small', { style: { fontWeight: '650' }, text: 'Where the energy came from' }),
+    el('div.small', { style: { fontWeight: '650' }, text: t('food.energyFrom') }),
     split ? el('span.small.faint', { text: `${fmtNum(split.fromMacros)} kcal` }) : null,
   ]));
 
@@ -217,12 +216,12 @@ function macroCard(totals) {
     // The honest failure: with carbs or fat unrecorded on some items, any bar
     // drawn here would be a picture of the logging rather than the eating.
     const gaps = [];
-    if (totals.missing.carbs) gaps.push(`${totals.missing.carbs} without carbs`);
-    if (totals.missing.fat) gaps.push(`${totals.missing.fat} without fat`);
+    if (totals.missing.carbs) gaps.push(t('food.withoutCarbs', { n: totals.missing.carbs }));
+    if (totals.missing.fat) gaps.push(t('food.withoutFat', { n: totals.missing.fat }));
     card.append(el('div.small.muted', { style: { marginTop: '8px' },
       text: gaps.length
-        ? `No split yet — of ${plural(totals.items, 'item')} logged, ${gaps.join(' and ')}. Fill those in on the food and this fills in with them.`
-        : 'No split yet — nothing logged carries carbohydrate or fat values.' }));
+        ? t('food.noSplitGaps', { items: tn(totals.items, 'unit.item'), gaps: gaps.join(t('food.and')) })
+        : t('food.noSplitAtAll') }));
     return wrap.append(card), wrap;
   }
 
@@ -233,16 +232,17 @@ function macroCard(totals) {
       el('i.f', { style: { width: `${split.share.fat * 100}%` } }),
     ]),
     el('div.macro-key', {}, [
-      macroKey('var(--accent-hi)', 'Protein', totals.protein, split.share.protein),
-      macroKey('#22D3EE', 'Carbs', totals.carbs, split.share.carbs),
-      macroKey('#C084FC', 'Fat', totals.fat, split.share.fat),
+      macroKey('var(--accent-hi)', t('food.protein'), totals.protein, split.share.protein),
+      macroKey('#22D3EE', t('food.carbs'), totals.carbs, split.share.carbs),
+      macroKey('#C084FC', t('food.fat'), totals.fat, split.share.fat),
     ])
   );
 
   if (totals.fibre || !totals.missing.fibre) {
     const target = fibreTarget();
     card.append(el('div.small.faint', { style: { marginTop: '10px' },
-      text: `${totals.fibre} g fibre${totals.missing.fibre ? ` (${totals.missing.fibre} item${totals.missing.fibre === 1 ? '' : 's'} without a value)` : ''} · ${target} g is the general-health reference, not a training number.` }));
+      text: t('food.fibreLine', { grams: totals.fibre, target })
+        + (totals.missing.fibre ? ` ${t('food.fibreMissing', { items: tn(totals.missing.fibre, 'unit.item') })}` : '') }));
   }
 
   wrap.append(card);
@@ -278,22 +278,21 @@ function waterCard(day) {
     el('div.row.between', { style: { alignItems: 'baseline' } }, [
       el('div', {}, [
         el('span', { style: { fontSize: '20px', fontWeight: '740' }, text: `${(ml / 1000).toFixed(1)} L` }),
-        el('span.small.faint', { text: `  of about ${(target / 1000).toFixed(1)} L` }),
+        el('span.small.faint', { text: `  ${t('food.ofAbout', { litres: (target / 1000).toFixed(1) })}` }),
       ]),
       el('div.row', { style: { gap: '6px' } }, [
-        el('button.btn.quiet.sm', { 'aria-label': 'Remove a glass', onclick: () => store.addWater(-GLASS, day) }, ['−']),
-        el('button.btn.ghost.sm', { onclick: () => store.addWater(GLASS, day) }, ['+ Glass']),
+        el('button.btn.quiet.sm', { 'aria-label': t('food.removeGlass'), onclick: () => store.addWater(-GLASS, day) }, ['−']),
+        el('button.btn.ghost.sm', { onclick: () => store.addWater(GLASS, day) }, [t('food.addGlass')]),
       ]),
     ]),
     el('div.glass-row', {},
       Array.from({ length: Math.max(targetGlasses, glasses) }, (_, i) =>
         el(`div.glass${i < glasses ? '.full' : ''}`, { 'aria-hidden': 'true' }))),
-    el('div.small.faint', { style: { marginTop: '10px' },
-      text: 'A glass is 250 ml. The line is an adequate intake for an average day, not a target to beat — heat, training and your size all move it, and thirst covers most of the difference.' }),
+    el('div.small.faint', { style: { marginTop: '10px' }, text: t('food.waterNote') }),
   ]);
 
   return el('div', {}, [
-    el('div.section-head', {}, [el('h2', { text: 'Water' })]),
+    el('div.section-head', {}, [el('h2', { text: t('food.water') })]),
     card,
   ]);
 }
@@ -312,14 +311,14 @@ function dayHeader(day, isToday) {
   };
 
   return el('div.row.between', { style: { marginBottom: '14px' } }, [
-    el('button.icon-btn', { 'aria-label': 'Previous day', onclick: () => step(-1) }, ['‹']),
+    el('button.icon-btn', { 'aria-label': t('food.prevDay'), onclick: () => step(-1) }, ['‹']),
     el('div', { style: { textAlign: 'center' } }, [
       el('div', { style: { fontWeight: '700', fontSize: '17px' },
-        text: isToday ? 'Today' : fmtDate(new Date(`${day}T12:00:00`).getTime(), { weekday: 'short' }) }),
+        text: isToday ? t('common.today') : fmtDate(new Date(`${day}T12:00:00`).getTime(), { weekday: 'short' }) }),
       el('div.small.faint', { text: day }),
     ]),
     el('button.icon-btn', {
-      'aria-label': 'Next day',
+      'aria-label': t('food.nextDay'),
       style: isToday ? { opacity: '.3' } : {},
       onclick: () => step(1),
     }, ['›']),
@@ -345,13 +344,13 @@ function targetCard(totals, target) {
       text: fmtNum(totals.kcal) }),
     el('div.small.faint', { style: { marginTop: '3px' },
       text: maintenance.ok
-        ? `kcal today · maintenance is around ${fmtNum(maintenance.maintenance)}`
-        : 'kcal today' }),
+        ? t('food.kcalTodayWith', { maintenance: fmtNum(maintenance.maintenance) })
+        : t('food.kcalToday') }),
 
     el('div.row', { style: { gap: '8px', marginTop: '14px' } }, [
-      macroPill('Protein', totals.protein, 'var(--accent-hi)'),
-      macroPill('Carbs', totals.carbs, '#22D3EE', totals.missing.carbs),
-      macroPill('Fat', totals.fat, '#C084FC', totals.missing.fat),
+      macroPill(t('food.protein'), totals.protein, 'var(--accent-hi)'),
+      macroPill(t('food.carbs'), totals.carbs, '#22D3EE', totals.missing.carbs),
+      macroPill(t('food.fat'), totals.fat, '#C084FC', totals.missing.fat),
     ]),
   ]);
 
@@ -377,9 +376,9 @@ function targetCard(totals, target) {
 
   card.append(
     el('div.row', { style: { gap: '4px', marginTop: '2px' } }, [
-      el('button.btn.quiet.sm', { style: { padding: '4px 0' }, onclick: targetSheet }, ['Where the target comes from']),
+      el('button.btn.quiet.sm', { style: { padding: '4px 0' }, onclick: targetSheet }, [t('food.whereTarget')]),
       el('button.btn.quiet.sm', { style: { padding: '4px 0', marginLeft: 'auto' },
-        onclick: () => detailSheet(totals) }, ['More ›']),
+        onclick: () => detailSheet(totals) }, [`${t('common.more')} ›`]),
     ])
   );
 
@@ -395,7 +394,7 @@ function macroPill(label, grams, colour, missing = 0) {
   }, [
     el('div', { style: { fontSize: '17px', fontWeight: '720' }, text: `${grams} g` }),
     el('div.small.faint', { style: { fontSize: '10.5px' },
-      text: missing ? `${label} · ${missing} unknown` : label }),
+      text: missing ? t('food.pillUnknown', { label, n: missing }) : label }),
   ]);
 }
 
@@ -419,7 +418,7 @@ function detailSheet(totals) {
     }, [
       el('span.grow', {
         style: { fontSize: n.sub ? '13px' : '14px', color: n.sub ? 'var(--text-dim)' : 'var(--text)' },
-        text: n.label,
+        text: t(n.label),
       }),
       cell.known
         ? el('div', { style: { textAlign: 'right' } }, [
@@ -427,21 +426,20 @@ function detailSheet(totals) {
               text: `${fmtNum(cell.value, cell.value < 10 && n.unit !== 'kcal' ? 1 : 0)} ${n.unit}` }),
             cell.missing
               ? el('div.small.faint', { style: { fontSize: '10.5px' },
-                  text: `${cell.missing} of ${totals.items} unknown` })
+                  text: t('common.unknownOf', { n: cell.missing, total: totals.items }) })
               : null,
           ])
-        : el('span.small.faint', { text: 'not recorded' }),
+        : el('span.small.faint', { text: t('common.notRecorded') }),
     ]);
   });
 
-  openSheet('Everything logged today', el('div', {}, [
+  openSheet(t('food.everythingToday'), el('div', {}, [
     el('div.small.muted', { style: { marginBottom: '10px' },
-      text: `${plural(totals.items, 'item')} logged. A value counts only the items that carry it — anything else is listed as unknown rather than added in as zero.` }),
+      text: t('food.everythingIntro', { items: tn(totals.items, 'unit.item') }) }),
     ...rows,
-    el('div.section-head', {}, [el('h2', { text: 'Where the numbers come from' })]),
-    el('div.small.muted', { text: LIBRARY_ATTRIBUTION }),
-    el('div.small.faint', { style: { marginTop: '8px' },
-      text: 'Foods you typed in yourself only carry what you entered, and a barcode record only carries what the manufacturer submitted — which for micronutrients is usually nothing. That is why most of this list stays empty until you build meals from the library.' }),
+    el('div.section-head', {}, [el('h2', { text: t('food.whereNumbers') })]),
+    el('div.small.muted', { text: t(LIBRARY_ATTRIBUTION) }),
+    el('div.small.faint', { style: { marginTop: '8px' }, text: t('food.microGaps') }),
   ]));
 }
 
@@ -450,35 +448,37 @@ function targetSheet() {
   const { low, high } = THRESHOLDS.proteinPerKg;
   const s = SOURCES.protein2018;
 
-  openSheet('Protein target', el('div', {}, [
+  openSheet(t('food.proteinTarget'), el('div', {}, [
     target
       ? el('div.card.tight', {}, [
-          el('div', { style: { fontSize: '20px', fontWeight: '720' }, text: `${target.low}–${target.high} g per day` }),
-          el('div.small.faint', { text: `${low}–${high} g per kg of bodyweight` }),
+          el('div', { style: { fontSize: '20px', fontWeight: '720' }, text: t('food.gPerDay', { low: target.low, high: target.high }) }),
+          el('div.small.faint', { text: t('food.gPerKg', { low, high }) }),
         ])
-      : el('div.small.muted', { text: 'Add your bodyweight in Settings and this becomes a number.' }),
+      : el('div.small.muted', { text: t('food.addBodyweight') }),
 
-    el('div.section-head', {}, [el('h2', { text: 'Why a range' })]),
-    el('div.small.muted', { text: s.says }),
+    el('div.section-head', {}, [el('h2', { text: t('food.whyRange') })]),
+    el('div.small.muted', { text: t(s.says) }),
 
-    el('div.section-head', {}, [el('h2', { text: 'What this does not track' })]),
-    el('div.small.muted', {
-      text: 'Only protein and calories. No micronutrients, no macro splits, no meal timing. Protein is the intake variable with a defensible number attached for muscle growth, and calories decide whether you gain or lose — the rest would be numbers for their own sake. Timing in particular: total daily intake matters far more than when you eat it, and the "anabolic window" is largely debunked.',
-    }),
+    el('div.section-head', {}, [el('h2', { text: t('food.notTracked') })]),
+    el('div.small.muted', { text: t('food.notTrackedBody') }),
 
-    el('div.section-head', {}, [el('h2', { text: 'Source' })]),
+    el('div.section-head', {}, [el('h2', { text: t('settings.sources') })]),
     el('a', {
       href: s.url, target: '_blank', rel: 'noopener',
       style: { color: 'var(--accent-hi)', fontWeight: '620', fontSize: '14px' },
       text: `${s.short} ↗`,
     }),
-    el('div.small.faint', { style: { marginTop: '2px' }, text: s.note }),
+    el('div.small.faint', { style: { marginTop: '2px' }, text: t(s.note) }),
   ]));
 }
 
 /* ======================= today's meals ======================= */
 
-const SLOT_LABEL = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snacks' };
+const SLOT_KEY = {
+  breakfast: 'food.slot.breakfast', lunch: 'food.slot.lunch',
+  dinner: 'food.slot.dinner', snack: 'food.slot.snack',
+};
+const slotLabel = (slot) => t(SLOT_KEY[slot]);
 
 function mealList(meals, day) {
   const wrap = el('div');
@@ -487,24 +487,22 @@ function mealList(meals, day) {
   const canRepeat = store.mealsOn(yesterday).length > 0;
 
   wrap.append(el('div.section-head', {}, [
-    el('h2', { text: 'Logged' }),
+    el('h2', { text: t('food.logged') }),
     // Most days repeat most of the day before. One tap beats fifteen.
     canRepeat && !meals.length
       ? el('button.btn.quiet.sm', {
           onclick: async () => {
             const n = await store.copyDay(yesterday, day);
-            toast(`Copied ${plural(n, 'item')} from yesterday`);
+            toast(t('food.copiedFromYesterday', { items: tn(n, 'unit.item') }));
           },
-        }, ['Repeat yesterday'])
+        }, [t('food.repeatYesterday')])
       : null,
   ]));
 
   if (!meals.length) {
     wrap.append(el('div.card', {}, [
       el('div.small.muted', {
-        text: canRepeat
-          ? 'Nothing logged for this day yet. Repeat yesterday above, pick from your list below, or add something new.'
-          : 'Nothing logged for this day yet. Pick something from your list below, or add a new food.',
+        text: t(canRepeat ? 'food.emptyDayRepeat' : 'food.emptyDay'),
       }),
     ]));
     return wrap;
@@ -520,7 +518,7 @@ function mealList(meals, day) {
     const slotKcal = Math.round(inSlot.reduce((n, m) => n + (Number(m.kcal) || 0), 0));
 
     wrap.append(el('div.slot-head', {}, [
-      el('span', { text: SLOT_LABEL[slot] }),
+      el('span', { text: slotLabel(slot) }),
       el('div.row', { style: { gap: '10px', alignItems: 'baseline' } }, [
         el('span', { text: `${slotProtein} g${slotKcal ? ` · ${fmtNum(slotKcal)} kcal` : ''}` }),
         // The cheapest place to create a saved meal is the moment you have just
@@ -529,7 +527,7 @@ function mealList(meals, day) {
           ? el('button.btn.quiet.sm', {
               style: { padding: '0 4px', minHeight: '22px', fontSize: '11px' },
               onclick: () => saveMealSheet(inSlot, slot),
-            }, ['Save'])
+            }, [t('common.save')])
           : null,
       ]),
     ]));
@@ -549,7 +547,7 @@ function mealRow(m) {
   return el('div.meal-row', {}, [
     el('button.grow', {
       style: { background: 'none', border: 0, textAlign: 'left', padding: '0' },
-      'aria-label': `Edit ${m.name}`,
+      'aria-label': t('food.editMeal', { name: m.name }),
       onclick: () => mealSheet(m),
     }, [
       el('div', { style: { fontWeight: '600', fontSize: '14.5px' },
@@ -559,8 +557,8 @@ function mealRow(m) {
     el('div', { style: { fontWeight: '680', fontSize: '15px', whiteSpace: 'nowrap' },
       text: `${Math.round(m.protein)} g` }),
     el('button.btn.quiet.sm', {
-      'aria-label': `Remove ${m.name}`,
-      onclick: async () => { await store.deleteMeal(m.id); toast('Removed'); },
+      'aria-label': t('food.removeMeal', { name: m.name }),
+      onclick: async () => { await store.deleteMeal(m.id); toast(t('plans.removed')); },
     }, ['×']),
   ]);
 }
@@ -577,26 +575,28 @@ function mealSheet(m) {
           b.setAttribute('aria-pressed', String(MEAL_SLOTS[i] === slot)));
         await store.updateMeal(m.id, { slot });
       },
-    }, [SLOT_LABEL[slot]])
+    }, [slotLabel(slot)])
   ));
 
   openSheet(m.name, el('div', {}, [
     el('div.small.faint', { style: { marginBottom: '14px' },
-      text: `${m.portion} · ${Math.round(m.protein)} g protein${m.kcal ? ` · ${Math.round(m.kcal)} kcal` : ''} as logged` }),
-    el('label.field', {}, [el('span', { text: 'Portions' }), amount]),
+      text: t('food.asLogged', {
+        portion: m.portion,
+        protein: Math.round(m.protein),
+      }) + (m.kcal ? ` · ${Math.round(m.kcal)} kcal` : '') }),
+    el('label.field', {}, [el('span', { text: t('food.portions') }), amount]),
     el('button.btn.primary.full', {
       onclick: async () => {
         const n = parseNumber(amount.value);
-        if (n === null || n <= 0) { toast('How many portions?'); amount.focus(); return; }
+        if (n === null || n <= 0) { toast(t('food.howManyPortions')); amount.focus(); return; }
         await store.updateMeal(m.id, { amount: n });
         closeSheet();
-        toast('Updated');
+        toast(t('food.updated'));
       },
-    }, ['Save portions']),
-    el('div.section-head', {}, [el('h2', { text: 'Part of the day' })]),
+    }, [t('food.savePortions')]),
+    el('div.section-head', {}, [el('h2', { text: t('food.partOfDay') })]),
     slots,
-    el('div.small.faint', { style: { marginTop: '8px' },
-      text: 'Grouping only. Total intake over the day is what matters — nothing here scores when you ate.' }),
+    el('div.small.faint', { style: { marginTop: '8px' }, text: t('food.groupingOnly') }),
   ]));
 }
 
@@ -617,33 +617,33 @@ function saveMealSheet(meals, slot) {
 
   const name = el('input', {
     type: 'text',
-    placeholder: 'e.g. Usual breakfast',
+    placeholder: t('food.mealNamePlaceholder'),
     value: meals.map((m) => m.name).slice(0, 2).join(' + '),
   });
 
-  openSheet('Save as a meal', el('div', {}, [
+  openSheet(t('food.saveAsMeal'), el('div', {}, [
     el('div.small.muted', { style: { marginBottom: '14px' },
-      text: `${plural(resolvable.length, 'item')} from this ${SLOT_LABEL[slot].toLowerCase().replace(/s$/, '')}. Saved meals store the foods, not the numbers — correct a food later and this follows.` }),
-    el('label.field', {}, [el('span', { text: 'Name' }), name]),
+      text: t('food.saveMealIntro', { items: tn(resolvable.length, 'unit.item'), slot: slotLabel(slot) }) }),
+    el('label.field', {}, [el('span', { text: t('picker.field.name') }), name]),
     ...resolvable.map((m) => el('div.small.faint', { style: { marginBottom: '4px' },
       text: `${m.amount === 1 ? '' : `${m.amount}× `}${m.name} · ${m.portion}` })),
     orphans
       ? el('div.small', { style: { color: 'var(--warn)', marginTop: '10px' },
-          text: `${plural(orphans, 'item')} cannot be saved — the food behind it was deleted. It stays in this day's history either way.` })
+          text: t('food.orphans', { items: tn(orphans, 'unit.item') }) })
       : null,
     el('button.btn.primary.full', {
       style: { marginTop: '14px' },
       onclick: async () => {
-        if (!resolvable.length) { toast('Nothing here can be saved'); return; }
+        if (!resolvable.length) { toast(t('food.nothingSaveable')); return; }
         const saved = await store.saveTemplate({
           name: name.value,
           slot,
           items: resolvable.map((m) => ({ foodId: m.foodId, amount: m.amount })),
         });
         closeSheet();
-        toast(`Saved “${saved.name}”`);
+        toast(t('food.mealSaved', { name: saved.name }));
       },
-    }, ['Save this meal']),
+    }, [t('food.saveThisMeal')]),
   ]));
 }
 
@@ -654,70 +654,72 @@ function savedMeals(day) {
   if (!templates.length) return wrap;
 
   wrap.append(el('div.section-head', {}, [
-    el('h2', { text: 'Saved meals' }),
-    el('span.small.faint', { text: plural(templates.length, 'meal') }),
+    el('h2', { text: t('food.savedMeals') }),
+    el('span.small.faint', { text: tn(templates.length, 'unit.meal') }),
   ]));
 
-  for (const t of templates.slice(0, 8)) {
+  for (const tpl of templates.slice(0, 8)) {
     // Totals are computed from the foods now, not from when it was saved — the
     // whole point of storing references rather than values.
-    const items = t.items
+    const items = tpl.items
       .map((i) => ({ food: store.state.foods.find((f) => f.id === i.foodId), amount: i.amount }))
       .filter((x) => x.food);
     const kcal = Math.round(items.reduce((n, x) => n + (x.food.kcal || 0) * x.amount, 0));
     const protein = Math.round(items.reduce((n, x) => n + (x.food.protein || 0) * x.amount, 0));
-    const gone = t.items.length - items.length;
+    const gone = tpl.items.length - items.length;
 
     wrap.append(listItem({
-      title: t.name,
+      title: tpl.name,
       sub: items.length
-        ? `${plural(items.length, 'item')} · ${protein} g protein${kcal ? ` · ${kcal} kcal` : ''}${gone ? ` · ${gone} missing` : ''}`
-        : 'Every food in this meal has been deleted',
+        ? `${tn(items.length, 'unit.item')} · ${t('food.gProtein', { n: protein })}`
+          + (kcal ? ` · ${kcal} kcal` : '')
+          + (gone ? ` · ${t('food.nMissing', { n: gone })}` : '')
+        : t('food.allFoodsDeleted'),
       right: el('span.small.faint', { text: '+' }),
       chev: '',
-      ariaLabel: `Log ${t.name}`,
+      ariaLabel: t('food.logNamed', { name: tpl.name }),
       onclick: async () => {
-        if (!items.length) { toast('Nothing left to log'); return; }
-        const res = await store.logTemplate(t.id, { day });
+        if (!items.length) { toast(t('food.nothingLeftToLog')); return; }
+        const res = await store.logTemplate(tpl.id, { day });
         toast(res.missing
-          ? `${res.name}: ${plural(res.logged, 'item')} logged, ${res.missing} missing`
-          : `${res.name} logged`);
+          ? t('food.loggedPartly', { name: res.name, items: tn(res.logged, 'unit.item'), missing: res.missing })
+          : t('food.loggedNamed', { name: res.name }));
       },
     }));
   }
 
   wrap.append(
     el('button.btn.ghost.full.sm', { style: { marginTop: '8px' }, onclick: manageMealsSheet },
-      ['Edit saved meals'])
+      [t('food.editSavedMeals')])
   );
   return wrap;
 }
 
 function manageMealsSheet() {
   const body = el('div', {}, [
-    el('div.small.muted', { style: { marginBottom: '12px' },
-      text: 'Saved meals hold food references, so editing a food updates every meal that uses it. Deleting one here never touches anything already logged.' }),
-    ...store.state.templates.map((t) =>
+    el('div.small.muted', { style: { marginBottom: '12px' }, text: t('food.manageMealsIntro') }),
+    ...store.state.templates.map((tpl) =>
       el('div.row.between', { style: { padding: '10px 0', borderBottom: '1px solid var(--line-soft)' } }, [
         el('div.grow', {}, [
-          el('div', { style: { fontWeight: '620' }, text: t.name }),
-          el('div.small.faint', { text: `${plural(t.items.length, 'item')}${t.uses ? ` · logged ${plural(t.uses, 'time')}` : ''}` }),
+          el('div', { style: { fontWeight: '620' }, text: tpl.name }),
+          el('div.small.faint', { text: tn(tpl.items.length, 'unit.item')
+            + (tpl.uses ? ` · ${t('food.loggedTimes', { times: tn(tpl.uses, 'unit.time') })}` : '') }),
         ]),
         el('button.btn.quiet.sm', {
-          'aria-label': `Delete ${t.name}`,
+          'aria-label': t('food.deleteNamed', { name: tpl.name }),
           onclick: async () => {
-            const ok = await confirmSheet('Delete saved meal?',
-              `“${t.name}” will be removed. Days you already logged it on keep their entries.`,
-              { confirmLabel: 'Delete' });
+            const ok = await confirmSheet(t('food.deleteMealTitle'),
+              t('food.deleteMealBody', { name: tpl.name }),
+              { confirmLabel: t('common.delete') });
             if (!ok) return;
-            await store.deleteTemplate(t.id);
-            toast('Deleted');
+            await store.deleteTemplate(tpl.id);
+            toast(t('progress.deleted'));
           },
         }, ['×']),
       ])
     ),
   ]);
-  openSheet('Saved meals', body);
+  openSheet(t('food.savedMeals'), body);
 }
 
 function previousDay(day) {
@@ -733,27 +735,27 @@ function quickAdd(day) {
   const foods = store.state.foods;
 
   wrap.append(el('div.section-head', {}, [
-    el('h2', { text: 'My foods' }),
+    el('h2', { text: t('food.myFoods') }),
     el('div.row', { style: { gap: '4px' } }, [
-      el('button.btn.quiet.sm', { onclick: () => barcodeSheet(day) }, ['Barcode']),
-      el('button.btn.quiet.sm', { onclick: () => foodForm(null, day) }, ['+ New']),
+      el('button.btn.quiet.sm', { onclick: () => barcodeSheet(day) }, [t('food.barcode')]),
+      el('button.btn.quiet.sm', { onclick: () => foodForm(null, day) }, [t('food.new')]),
     ]),
   ]));
 
   if (!foods.length) {
     wrap.append(emptyState(
-      'Your list is empty',
-      'Add the things you actually eat — protein and calories per portion. Thirty entries covers almost everyone, and after that logging is one tap.',
+      t('food.listEmpty'),
+      t('food.listEmptyHint'),
       el('div.stack', { style: { marginTop: '14px' } }, [
-        el('button.btn.primary', { onclick: () => foodForm(null, day) }, ['Add your first food']),
-        el('button.btn.ghost', { onclick: () => barcodeSheet(day) }, ['Look up a barcode']),
+        el('button.btn.primary', { onclick: () => foodForm(null, day) }, [t('food.addFirst')]),
+        el('button.btn.ghost', { onclick: () => barcodeSheet(day) }, [t('food.lookUpBarcode')]),
       ])
     ));
     return wrap;
   }
 
   const search = el('input', {
-    type: 'text', placeholder: `Search your list and ${TOTAL_SIZE} foods…`,
+    type: 'text', placeholder: t('food.searchPlaceholder', { n: TOTAL_SIZE }),
     autocomplete: 'off', autocorrect: 'off', spellcheck: 'false',
   });
   const list = el('div');
@@ -766,11 +768,12 @@ function quickAdd(day) {
     for (const f of found) {
       list.append(listItem({
         title: f.name,
-        sub: `${f.portion} · ${Math.round(f.protein)} g protein${f.kcal ? ` · ${Math.round(f.kcal)} kcal` : ''}`,
+        sub: `${f.portion} · ${t('food.gProtein', { n: Math.round(f.protein) })}`
+          + (f.kcal ? ` · ${Math.round(f.kcal)} kcal` : ''),
         right: el('span.small.faint', { text: '+' }),
         chev: '',
-        ariaLabel: `Log ${f.name}`,
-        onclick: async () => { await store.logMeal(f.id, { day }); toast(`${f.name} logged`); },
+        ariaLabel: t('food.logNamed', { name: f.name }),
+        onclick: async () => { await store.logMeal(f.id, { day }); toast(t('food.loggedNamed', { name: f.name })); },
       }));
     }
 
@@ -783,8 +786,8 @@ function quickAdd(day) {
       if (!group.length) continue;
 
       list.append(el('div.slot-head', {}, [
-        el('span', { text: kind === 'generic' ? 'Generic foods · measured' : 'Branded · as labelled' }),
-        el('span', { text: plural(group.length, 'match', 'matches') }),
+        el('span', { text: t(kind === 'generic' ? 'food.genericHeading' : 'food.brandHeading') }),
+        el('span', { text: tn(group.length, 'unit.match') }),
       ]));
 
       for (const hit of group) {
@@ -792,10 +795,10 @@ function quickAdd(day) {
         const title = hit.entry.brand ? `${hit.entry.name} · ${hit.entry.brand}` : hit.entry.name;
         list.append(listItem({
           title,
-          sub: `per 100 g · ${Math.round(p.protein)} g protein · ${Math.round(p.kcal)} kcal`,
+          sub: `${t('food.per100')} · ${t('food.gProtein', { n: Math.round(p.protein) })} · ${Math.round(p.kcal)} kcal`,
           right: el('span.small.faint', { text: '+' }),
           chev: '',
-          ariaLabel: `Add ${hit.entry.name}`,
+          ariaLabel: t('picker.addNamed', { name: hit.entry.name }),
           onclick: () => libraryPortionSheet(hit.entry, day, hit.kind),
         }));
       }
@@ -804,10 +807,11 @@ function quickAdd(day) {
     if (!found.length && !hits.length) {
       list.append(el('div.small.faint', { style: { padding: '10px 0' },
         text: q
-          ? `Nothing in your list or the ${TOTAL_SIZE} bundled foods matches. Add it as a new food, or scan its barcode.`
-          : 'Nothing matches. Add it as a new food.' }));
+          ? t('food.noMatchBundled', { n: TOTAL_SIZE })
+          : t('food.noMatch') }));
     } else if (!q && foods.length > 12) {
-      list.append(el('div.small.faint', { style: { textAlign: 'center' }, text: `Search to reach the other ${foods.length - 12}, plus ${TOTAL_SIZE} bundled foods` }));
+      list.append(el('div.small.faint', { style: { textAlign: 'center' },
+        text: t('food.searchForMore', { rest: foods.length - 12, bundled: TOTAL_SIZE }) }));
     }
   };
 
@@ -817,9 +821,8 @@ function quickAdd(day) {
   wrap.append(
     el('div', { style: { marginBottom: '8px' } }, [search]),
     list,
-    el('div.small.faint', { style: { marginTop: '10px' },
-      text: 'Tap to log one portion. The list sorts by how often you eat something, so your staples stay on top.' }),
-    el('button.btn.ghost.full.sm', { style: { marginTop: '8px' }, onclick: manageSheet }, ['Edit my foods'])
+    el('div.small.faint', { style: { marginTop: '10px' }, text: t('food.tapToLog') }),
+    el('button.btn.ghost.full.sm', { style: { marginTop: '8px' }, onclick: manageSheet }, [t('food.editMyFoods')])
   );
   return wrap;
 }
@@ -833,7 +836,7 @@ function quickAdd(day) {
  * makes, in the same place.
  */
 function libraryPortionSheet(entry, day, kind = 'generic') {
-  const grams = normaliseOnBlur(numberInput({ value: String(entry.serving || 100), 'aria-label': 'Grams' }), { integer: true });
+  const grams = normaliseOnBlur(numberInput({ value: String(entry.serving || 100), 'aria-label': t('food.grams') }), { integer: true });
   const preview = el('div.small.faint', { style: { marginTop: '-6px', marginBottom: '14px' } });
   const cov = coverage(entry);
 
@@ -841,15 +844,15 @@ function libraryPortionSheet(entry, day, kind = 'generic') {
     const g = parseNumber(grams.value) || 0;
     const f = toFoodFields(entry, g);
     preview.textContent = g > 0
-      ? `${f.kcal ?? 0} kcal · ${f.protein ?? 0} g protein · ${f.carbs ?? 0} g carbs · ${f.fat ?? 0} g fat`
-      : 'Enter a weight in grams.';
+      ? `${f.kcal ?? 0} kcal · ${t('food.gProtein', { n: f.protein ?? 0 })} · ${t('food.gCarbs', { n: f.carbs ?? 0 })} · ${t('food.gFat', { n: f.fat ?? 0 })}`
+      : t('food.enterGrams');
   };
   grams.addEventListener('input', paint);
   paint();
 
   const add = async (alsoLog) => {
     const g = parseNumber(grams.value);
-    if (g === null || g <= 0) { toast('How many grams?'); grams.focus(); return; }
+    if (g === null || g <= 0) { toast(t('food.howManyGrams')); grams.focus(); return; }
     const fields = toFoodFields(entry, g);
     if (kind === 'brand') {
       // Keep the barcode: a later scan of the same packet then answers from
@@ -862,27 +865,27 @@ function libraryPortionSheet(entry, day, kind = 'generic') {
     closeSheet();
     if (alsoLog) {
       await store.logMeal(food.id, { day });
-      toast(`${food.name} added and logged`);
+      toast(t('food.addedAndLogged', { name: food.name }));
     } else {
-      toast(`${food.name} added to your list`);
+      toast(t('food.addedToList', { name: food.name }));
     }
   };
 
   openSheet(entry.name, el('div', {}, [
-    el('label.field', {}, [el('span', { text: 'How much do you eat? (g)' }), grams]),
+    el('label.field', {}, [el('span', { text: t('food.howMuch') }), grams]),
     preview,
     el('div.stack', {}, [
-      el('button.btn.primary.full', { onclick: () => add(true) }, ['Add and log it']),
-      el('button.btn.ghost.full', { onclick: () => add(false) }, ['Just add to my list']),
+      el('button.btn.primary.full', { onclick: () => add(true) }, [t('food.addAndLog')]),
+      el('button.btn.ghost.full', { onclick: () => add(false) }, [t('food.justAdd')]),
     ]),
-    el('div.section-head', {}, [el('h2', { text: 'Source' })]),
+    el('div.section-head', {}, [el('h2', { text: t('settings.sources') })]),
     el('div.small.muted', {
       text: kind === 'generic'
-        ? `USDA FoodData Central: “${entry.usda}”. ${cov.known} of ${cov.total} nutrients recorded.`
-        : `Open Food Facts, barcode ${entry.code}. ${cov.known} of ${cov.total} nutrients recorded — branded entries rarely carry micronutrients.`,
+        ? t('food.sourceUsda', { name: entry.usda, known: cov.known, total: cov.total })
+        : t('food.sourceOff', { code: entry.code, known: cov.known, total: cov.total }),
     }),
     el('div.small.faint', { style: { marginTop: '8px' },
-      text: kind === 'generic' ? LIBRARY_ATTRIBUTION : BRAND_ATTRIBUTION }),
+      text: t(kind === 'generic' ? LIBRARY_ATTRIBUTION : BRAND_ATTRIBUTION) }),
   ]));
 }
 
@@ -892,11 +895,11 @@ function libraryPortionSheet(entry, day, kind = 'generic') {
  */
 function foodForm(existing = null, day = dayKey(), draft = null) {
   const name = el('input', {
-    type: 'text', placeholder: 'e.g. Magerquark',
+    type: 'text', placeholder: t('food.namePlaceholder'),
     value: existing ? existing.name : draft ? draft.name : '',
   });
   const portion = el('input', {
-    type: 'text', placeholder: 'e.g. 250 g, 1 Scoop, 1 Riegel',
+    type: 'text', placeholder: t('food.portionPlaceholder'),
     value: existing ? existing.portion : draft ? `${draft.suggestedGrams} g` : '',
   });
   const protein = normaliseOnBlur(numberInput({ decimal: true, value: existing ? existing.protein : '' }));
@@ -906,7 +909,7 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
   const optional = (key) => normaliseOnBlur(numberInput({
     decimal: true,
     value: existing && existing[key] !== null && existing[key] !== undefined ? existing[key] : '',
-    placeholder: 'optional',
+    placeholder: t('food.optional'),
   }));
   const carbs = optional('carbs');
   const fat = optional('fat');
@@ -939,12 +942,12 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
 
   async function submit(alsoLog) {
     const value = name.value.trim();
-    if (!value) { toast('Give it a name'); name.focus(); return; }
-    if (parseNumber(protein.value) === null) { toast('Protein per portion is the one number this needs'); protein.focus(); return; }
+    if (!value) { toast(t('picker.needName')); name.focus(); return; }
+    if (parseNumber(protein.value) === null) { toast(t('food.needProtein')); protein.focus(); return; }
 
     const fields = {
       name: value,
-      portion: portion.value.trim() || '1 Portion',
+      portion: portion.value.trim() || t('food.defaultPortion'),
       protein: parseNumber(protein.value) ?? 0,
       kcal: Number(kcal.value) || 0,
       carbs: parseNumber(carbs.value),
@@ -968,55 +971,53 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
     closeSheet();
     if (alsoLog && !existing) {
       await store.logMeal(food.id, { day });
-      toast(`${food.name} added and logged`);
+      toast(t('food.addedAndLogged', { name: food.name }));
     } else {
-      toast(existing ? 'Saved' : `${food.name} added`);
+      toast(existing ? t('common.saved') : t('picker.added', { name: food.name }));
     }
   }
 
-  openSheet(existing ? 'Edit food' : draft ? 'From barcode' : 'New food', el('div', {}, [
+  openSheet(t(existing ? 'food.editFood' : draft ? 'food.fromBarcode' : 'food.newFood'), el('div', {}, [
     draft
       ? el('div.card.tight', { style: { marginBottom: '14px' } }, [
-          el('div.small', { style: { fontWeight: '650' }, text: 'Found in Open Food Facts' }),
+          el('div.small', { style: { fontWeight: '650' }, text: t('food.foundInOff') }),
           el('div.small.faint', { style: { marginTop: '2px' },
-            text: `Per 100 g: ${draft.per100.protein ?? '?'} g protein${draft.per100.kcal ? `, ${Math.round(draft.per100.kcal)} kcal` : ''}${draft.quantity ? ` · Packung ${draft.quantity}` : ''}` }),
-          el('div.small.faint', { style: { marginTop: '4px' },
-            text: 'Community data — worth a glance at the packet before you trust it.' }),
+            text: t('food.per100Line', { protein: draft.per100.protein ?? '?' })
+              + (draft.per100.kcal ? `, ${Math.round(draft.per100.kcal)} kcal` : '')
+              + (draft.quantity ? ` · ${t('food.pack', { quantity: draft.quantity })}` : '') }),
+          el('div.small.faint', { style: { marginTop: '4px' }, text: t('food.communityData') }),
         ])
       : null,
 
-    el('label.field', {}, [el('span', { text: 'Name' }), name]),
+    el('label.field', {}, [el('span', { text: t('picker.field.name') }), name]),
 
     grams
       ? el('div', {}, [
-          el('label.field', {}, [el('span', { text: 'How much do you eat? (g)' }), grams]),
+          el('label.field', {}, [el('span', { text: t('food.howMuch') }), grams]),
           el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '12px' },
             text: draft.servingLabel
-              ? `The packet calls ${draft.servingLabel} a serving. Use what you actually eat — the numbers below follow along.`
-              : 'No serving size on record, so this starts at 100 g. The numbers below follow along.' }),
+              ? t('food.packetServing', { serving: draft.servingLabel })
+              : t('food.noServing') }),
         ])
       : null,
 
-    el('label.field', {}, [el('span', { text: 'Portion' }), portion]),
-    el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '12px' },
-      text: 'Whatever unit you actually eat it in — a weight, a scoop, a bar. The numbers below are per one of those.' }),
-    el('label.field', {}, [el('span', { text: 'Protein (g)' }), protein]),
-    el('label.field', {}, [el('span', { text: 'Calories (optional)' }), kcal]),
+    el('label.field', {}, [el('span', { text: t('food.portion') }), portion]),
+    el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '12px' }, text: t('food.portionNote') }),
+    el('label.field', {}, [el('span', { text: t('food.proteinField') }), protein]),
+    el('label.field', {}, [el('span', { text: t('food.caloriesField') }), kcal]),
     el('div.row', { style: { gap: '10px' } }, [
-      el('label.field.grow', {}, [el('span', { text: 'Carbs (g)' }), carbs]),
-      el('label.field.grow', {}, [el('span', { text: 'Fat (g)' }), fat]),
-      el('label.field.grow', {}, [el('span', { text: 'Fibre (g)' }), fibre]),
+      el('label.field.grow', {}, [el('span', { text: t('food.carbsField') }), carbs]),
+      el('label.field.grow', {}, [el('span', { text: t('food.fatField') }), fat]),
+      el('label.field.grow', {}, [el('span', { text: t('food.fibreField') }), fibre]),
     ]),
-    el('div.small.faint', { style: { marginTop: '-6px', marginBottom: '14px' },
-      text: 'Leave these blank if the label does not say. Blank means unknown — the day\'s energy split waits for them rather than counting them as zero.' }),
-    el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '14px' },
-      text: 'Calories are optional. A protein-only log still answers the question your training data can be compared against.' }),
+    el('div.small.faint', { style: { marginTop: '-6px', marginBottom: '14px' }, text: t('food.blankMeansUnknown') }),
+    el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '14px' }, text: t('food.caloriesOptional') }),
 
     existing
-      ? el('button.btn.primary.full', { onclick: () => submit(false) }, ['Save'])
+      ? el('button.btn.primary.full', { onclick: () => submit(false) }, [t('common.save')])
       : el('div.stack', {}, [
-          el('button.btn.primary.full', { onclick: () => submit(true) }, ['Add and log it now']),
-          el('button.btn.ghost.full', { onclick: () => submit(false) }, ['Just add to my list']),
+          el('button.btn.primary.full', { onclick: () => submit(true) }, [t('food.addAndLogNow')]),
+          el('button.btn.ghost.full', { onclick: () => submit(false) }, [t('food.justAdd')]),
         ]),
   ]));
 }
@@ -1031,10 +1032,10 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
 function barcodeSheet(day) {
   const input = el('input', {
     type: 'text', inputmode: 'numeric', autocomplete: 'off',
-    placeholder: 'z. B. 4008400202037',
+    placeholder: t('food.barcodePlaceholder'),
   });
   const status = el('div.small.faint', { style: { marginTop: '10px' } });
-  const go = el('button.btn.primary.full', { style: { marginTop: '12px' } }, ['Look it up']);
+  const go = el('button.btn.primary.full', { style: { marginTop: '12px' } }, [t('food.lookItUp')]);
 
   async function run() {
     const code = input.value.trim();
@@ -1046,13 +1047,13 @@ function barcodeSheet(day) {
     if (known) {
       closeSheet();
       await store.logMeal(known.id, { day });
-      toast(`${known.name} logged`);
+      toast(t('food.loggedNamed', { name: known.name }));
       return;
     }
 
     go.disabled = true;
     status.style.color = 'var(--text-faint)';
-    status.textContent = 'Asking Open Food Facts…';
+    status.textContent = t('food.askingOff');
 
     const res = await lookupBarcode(code);
     go.disabled = false;
@@ -1075,17 +1076,15 @@ function barcodeSheet(day) {
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
   go.addEventListener('click', run);
 
-  openSheet('Barcode', el('div', {}, [
-    el('div.small.muted', {
-      text: 'Type the number printed under the barcode. Once per product — after that it is in your list and works offline forever.',
-    }),
-    el('label.field', { style: { marginTop: '12px' } }, [el('span', { text: 'Barcode (EAN)' }), input]),
+  openSheet(t('food.barcode'), el('div', {}, [
+    el('div.small.muted', { text: t('food.barcodeIntro') }),
+    el('label.field', { style: { marginTop: '12px' } }, [el('span', { text: t('food.barcodeField') }), input]),
     go,
     status,
     el('div.small.faint', { style: { marginTop: '16px' } }, [
-      'Data from ',
+      t('food.dataFrom') + ' ',
       el('a', { href: ATTRIBUTION.url, target: '_blank', rel: 'noopener', style: { color: 'var(--accent-hi)' } }, [ATTRIBUTION.name]),
-      `, licensed ${ATTRIBUTION.licence}. It is community-maintained, so coverage is patchy and the numbers are only as good as whoever typed them in — check them against the packet.`,
+      ', ' + t('credits.licensed') + ` ${ATTRIBUTION.licence}. ` + t('food.offCaveat'),
     ]),
   ]));
   setTimeout(() => input.focus(), 60);
@@ -1096,11 +1095,10 @@ function manageSheet() {
   const paint = () => {
     body.replaceChildren();
     if (!store.state.foods.length) {
-      body.append(el('div.small.muted', { text: 'Nothing in your list yet.' }));
+      body.append(el('div.small.muted', { text: t('food.listEmptyShort') }));
       return;
     }
-    body.append(el('div.small.muted', { style: { marginBottom: '10px' },
-      text: 'Deleting a food removes it from this list only — days you already logged keep their entries and their numbers.' }));
+    body.append(el('div.small.muted', { style: { marginBottom: '10px' }, text: t('food.deleteFoodNote') }));
 
     for (const f of store.state.foods) {
       body.append(
@@ -1109,17 +1107,18 @@ function manageSheet() {
         }, [
           el('div.grow', {}, [
             el('div', { style: { fontWeight: '600', fontSize: '14.5px' }, text: f.name }),
-            el('div.small.faint', { text: `${f.portion} · ${Math.round(f.protein)} g${f.kcal ? ` · ${Math.round(f.kcal)} kcal` : ''} · ${f.uses || 0}×` }),
+            el('div.small.faint', { text: `${f.portion} · ${Math.round(f.protein)} g`
+              + (f.kcal ? ` · ${Math.round(f.kcal)} kcal` : '') + ` · ${f.uses || 0}×` }),
           ]),
-          el('button.btn.sm.ghost', { onclick: () => { closeSheet(); foodForm(f); } }, ['Edit']),
+          el('button.btn.sm.ghost', { onclick: () => { closeSheet(); foodForm(f); } }, [t('common.edit')]),
           el('button.btn.quiet.sm', {
-            'aria-label': `Delete ${f.name}`,
+            'aria-label': t('food.deleteNamed', { name: f.name }),
             onclick: async () => {
-              const ok = await confirmSheet('Delete food?', `${f.name} will be removed from your list. Logged days keep their entries.`);
+              const ok = await confirmSheet(t('food.deleteFoodTitle'), t('food.deleteFoodBody', { name: f.name }));
               if (!ok) return;
               await store.deleteFood(f.id);
               paint();
-              toast('Deleted');
+              toast(t('progress.deleted'));
             },
           }, ['×']),
         ])
@@ -1127,7 +1126,7 @@ function manageSheet() {
     }
   };
   paint();
-  openSheet('My foods', body);
+  openSheet(t('food.myFoods'), body);
 }
 
 /* ======================= trends ======================= */
@@ -1149,20 +1148,20 @@ function trendSection() {
   const logged = history.filter((d) => d.logged);
   const targets = macroTargets(store.state.settings, maintenanceEstimate(store.state.meals, store.state.bodyweight));
 
-  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Last 14 days' })]));
+  wrap.append(el('div.section-head', {}, [el('h2', { text: t('food.last14') })]));
 
   if (!logged.length) {
     wrap.append(el('div.card', {}, [
-      el('div.small.muted', { text: 'Log a few days and the pattern shows up here — plus how it lines up with your bodyweight and your lifts.' }),
+      el('div.small.muted', { text: t('food.last14Empty') }),
     ]));
     return wrap;
   }
 
   const METRICS = [
-    { key: 'protein', label: 'Protein', unit: 'g' },
-    { key: 'kcal', label: 'Calories', unit: 'kcal' },
-    { key: 'carbs', label: 'Carbs', unit: 'g' },
-    { key: 'fat', label: 'Fat', unit: 'g' },
+    { key: 'protein', label: t('food.protein'), unit: 'g' },
+    { key: 'kcal', label: t('food.calories'), unit: 'kcal' },
+    { key: 'carbs', label: t('food.carbs'), unit: 'g' },
+    { key: 'fat', label: t('food.fat'), unit: 'g' },
   ];
 
   const host = el('div.card', {});
@@ -1184,22 +1183,25 @@ function trendSection() {
           label: d.day,
           short: d.day.slice(8),
           value: d[m.key],
-          tip: d.logged ? `${fmtNum(d[m.key])} ${m.unit}` : 'not logged',
+          tip: d.logged ? `${fmtNum(d[m.key])} ${m.unit}` : t('food.notLogged'),
           dim: !d.logged,
         })),
         {
-          caption: band
-            ? `Daily ${m.label.toLowerCase()} against your ${fmtNum(band.low)}${band.low === band.high ? '' : `–${fmtNum(band.high)}`} ${m.unit} target. Days you did not log are blank, not zero.`
-            : `Daily ${m.label.toLowerCase()}. Days you did not log are blank, not zero.`,
+          caption: (band
+            ? t('food.dailyAgainst', {
+                metric: m.label,
+                target: `${fmtNum(band.low)}${band.low === band.high ? '' : `–${fmtNum(band.high)}`} ${m.unit}`,
+              })
+            : t('food.daily', { metric: m.label }))
+            + ' ' + t('food.blankNotZero'),
           height: 150, everyNthLabel: 2,
         }
       ),
       el('div.small.faint', { style: { marginTop: '10px' },
         text: mean === null
-          ? `Nothing logged carries ${m.label.toLowerCase()} yet.`
-          : band
-            ? `${fmtNum(mean)} ${m.unit} average across ${plural(withValue.length, 'day')} — ${inBand} of them inside the target.`
-            : `${fmtNum(mean)} ${m.unit} average across ${plural(withValue.length, 'day')}.` })
+          ? t('food.noneCarry', { metric: m.label })
+          : t('food.averageAcross', { mean: `${fmtNum(mean)} ${m.unit}`, days: tn(withValue.length, 'unit.day') })
+            + (band ? ` ${t('food.insideTarget', { n: inBand })}` : '') })
     );
   };
 
@@ -1222,8 +1224,8 @@ function trendSection() {
   const trend = weightTrend(store.state.bodyweight, 4);
   const tv = trendVerdict(trend);
   wrap.append(el('div.section-head', {}, [
-    el('h2', { text: 'Bodyweight direction' }),
-    el('button.btn.quiet.sm', { onclick: () => navigate('progress') }, ['Charts ›']),
+    el('h2', { text: t('food.bodyweightDirection') }),
+    el('button.btn.quiet.sm', { onclick: () => navigate('progress') }, [`${t('home.link.charts')} ›`]),
   ]));
   wrap.append(
     el('div.card', {}, [
@@ -1236,10 +1238,13 @@ function trendSection() {
       }),
       trend
         ? el('div.small.faint', { style: { marginTop: '3px' },
-            text: `${fmtWeight(trend.from.weight, units)} → ${fmtWeight(trend.to.weight, units)} over ${trend.spanWeeks} weeks` })
+            text: t('food.trendSpan', {
+              from: fmtWeight(trend.from.weight, units),
+              to: fmtWeight(trend.to.weight, units),
+              weeks: tn(trend.spanWeeks, 'unit.week'),
+            }) })
         : null,
-      el('div.small.muted', { style: { marginTop: '10px' },
-        text: 'Roughly 0.25–0.5% of bodyweight a week is the usual range in either direction. That is training practice rather than a meta-analysis — unlike the protein band above, nobody has run the trial.' }),
+      el('div.small.muted', { style: { marginTop: '10px' }, text: t('food.paceNote') }),
     ])
   );
 
@@ -1260,19 +1265,18 @@ function maintenanceSection() {
   const wrap = el('div');
   const est = maintenanceEstimate(store.state.meals, store.state.bodyweight);
 
-  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Maintenance calories' })]));
+  wrap.append(el('div.section-head', {}, [el('h2', { text: t('food.maintenance') })]));
 
   if (!est.ok) {
     const why = {
-      days: `Needs at least ${est.needed} days with calories logged in the last ${est.days} — there ${est.logged === 1 ? 'is' : 'are'} ${est.logged}. Calories are optional in this app, so this is the one feature that asks for them.`,
-      weight: 'Needs at least two bodyweight entries in the window. One weigh-in cannot show a direction.',
-      span: `Your weigh-ins only span ${plural(est.spanDays, 'day')}. Below about two weeks the scale is mostly water and gut content, and the answer would be noise with a decimal point.`,
+      days: t('food.needDays', { needed: est.needed, window: est.days, logged: est.logged }),
+      weight: t('food.needWeighins'),
+      span: t('food.needSpan', { days: tn(est.spanDays, 'unit.day') }),
     }[est.reason];
 
     wrap.append(el('div.card', {}, [
       el('div.small.muted', { text: why }),
-      el('div.small.faint', { style: { marginTop: '8px' },
-        text: 'Worth the wait: this is measured from your own intake and your own scale, not predicted from a formula about people your size.' }),
+      el('div.small.faint', { style: { marginTop: '8px' }, text: t('food.worthTheWait') }),
     ]));
     return wrap;
   }
@@ -1282,11 +1286,17 @@ function maintenanceSection() {
     el('div.card.glow', {}, [
       el('div', { style: { fontSize: '30px', fontWeight: '750', letterSpacing: '-0.03em', lineHeight: '1' },
         text: `${fmtNum(est.maintenance)} kcal` }),
-      el('div.small.faint', { style: { marginTop: '3px' }, text: 'a day, to hold your weight' }),
+      el('div.small.faint', { style: { marginTop: '3px' }, text: t('food.aDayToHold') }),
       el('div.small.muted', { style: { marginTop: '10px' },
-        text: `You averaged ${fmtNum(est.meanIntake)} kcal across ${plural(est.loggedDays, 'logged day')} while ${direction}${direction === 'holding' ? '' : ` ${Math.abs(est.kgPerWeek)} kg a week`}.` }),
+        text: direction === 'holding'
+          ? t('food.averagedHolding', { kcal: fmtNum(est.meanIntake), days: tn(est.loggedDays, 'unit.loggedDay') })
+          : t(direction === 'gaining' ? 'food.averagedGaining' : 'food.averagedLosing', {
+              kcal: fmtNum(est.meanIntake),
+              days: tn(est.loggedDays, 'unit.loggedDay'),
+              kg: Math.abs(est.kgPerWeek),
+            }) }),
       el('button.btn.quiet.sm', { style: { padding: '4px 0', marginTop: '2px' }, onclick: maintenanceSheet },
-        ['How this is worked out']),
+        [t('food.howWorkedOut')]),
     ])
   );
   return wrap;
@@ -1294,23 +1304,17 @@ function maintenanceSection() {
 
 function maintenanceSheet() {
   const s = SOURCES.wishnofsky;
-  openSheet('Maintenance calories', el('div', {}, [
-    el('div.small.muted', {
-      text: 'Two measured things, no formula: what you logged, and what the scale did. If you averaged 2,600 kcal while gaining 0.2 kg a week, then about 220 kcal a day went into that gain, and maintenance was near 2,380.',
-    }),
+  openSheet(t('food.maintenance'), el('div', {}, [
+    el('div.small.muted', { text: t('food.maintIntro') }),
 
-    el('div.section-head', {}, [el('h2', { text: 'Why not the usual calculator' })]),
-    el('div.small.muted', {
-      text: 'Mifflin-St Jeor and its cousins predict a population average from height, weight, age and sex, then multiply by an activity level you have to guess. The guess is the biggest term in the equation and it is the one thing you have no way to know. Your own scale already contains the answer.',
-    }),
+    el('div.section-head', {}, [el('h2', { text: t('food.whyNotCalculator') })]),
+    el('div.small.muted', { text: t('food.whyNotCalculatorBody') }),
 
-    el('div.section-head', {}, [el('h2', { text: 'What it cannot fix' })]),
-    el('div.small.muted', {
-      text: 'Under-logging. Every validation study finds people record less than they eat, often by 20% or more, and this estimate inherits that error in full — if you log four fifths of your intake, it reads a fifth low. It is still anchored to your own weight, which is more than a formula can say. Treat it as a starting point to adjust from, not a number to defend.',
-    }),
+    el('div.section-head', {}, [el('h2', { text: t('food.cannotFix') })]),
+    el('div.small.muted', { text: t('food.cannotFixBody') }),
 
-    el('div.section-head', {}, [el('h2', { text: 'The one constant' })]),
-    el('div.small.muted', { text: s.says }),
+    el('div.section-head', {}, [el('h2', { text: t('food.oneConstant') })]),
+    el('div.small.muted', { text: t(s.says) }),
     el('a', {
       href: s.url, target: '_blank', rel: 'noopener',
       style: { color: 'var(--accent-hi)', fontWeight: '620', fontSize: '14px' },

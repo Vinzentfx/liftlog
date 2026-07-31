@@ -15,13 +15,13 @@ import { diagnose } from '../plan-doctor.js';
 import { suggestSwaps } from '../swaps.js';
 import { WEEK_ORDER, weekdayName, weekdayShort, weekRows, isScheduled, scheduleConflict } from '../schedule.js';
 import { planLink } from '../plan-share.js';
-import { REGIONS } from '../standards.js';
 import { scoreFor, tierIndex, tierOf, isBenchmark, hasProfile, toNextTier } from '../standards.js';
+import { t, tn, tMuscle, tRegion, tTier } from '../i18n.js';
 import { pickExercise } from '../pickers.js';
 import { navigate } from '../app.js';
 
 export default function renderPlans({ param, actions }) {
-  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': 'Settings' }, ['⚙']));
+  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
   if (param) return planView(param);
   return listView();
 }
@@ -36,41 +36,47 @@ function listView() {
   if (!plans.length) {
     root.append(
       el('div.card.glow', {}, [
-        el('div', { style: { fontWeight: '680', marginBottom: '4px' }, text: 'Start from a preset' }),
-        el('div.small.muted', { text: 'Pick a proven split — you can rename days and swap exercises afterwards.' }),
+        el('div', { style: { fontWeight: '680', marginBottom: '4px' }, text: t('plans.presetTitle') }),
+        el('div.small.muted', { text: t('plans.presetBody') }),
       ])
     );
   } else {
-    root.append(el('div.section-head', { style: { marginTop: '4px' } }, [el('h2', { text: 'Your plans' })]));
+    root.append(el('div.section-head', { style: { marginTop: '4px' } }, [el('h2', { text: t('plans.yours') })]));
     for (const p of plans) {
       const dayCount = p.days.length;
       const exCount = p.days.reduce((n, d) => n + d.items.length, 0);
       const a = analysePlan(p, store.state.exerciseById);
       root.append(listItem({
         title: p.name + (p.id === activeId ? '  ★' : ''),
-        sub: `${dayCount} ${dayCount === 1 ? 'day' : 'days'} · ${exCount} exercises${p.id === activeId ? ' · active' : ''}`,
+        sub: `${tn(dayCount, 'unit.day')} · ${tn(exCount, 'unit.exercise')}`
+          + (p.id === activeId ? ` · ${t('plans.active')}` : ''),
         right: exCount && store.starsShown() ? starBadge(a.stars) : null,
-        ariaLabel: `Open ${p.name}${exCount && store.starsShown() ? ` — ${a.stars} of 5 stars` : ''}`,
+        ariaLabel: exCount && store.starsShown()
+          ? t('plans.openRated', { name: p.name, stars: a.stars })
+          : t('plans.open', { name: p.name }),
         onclick: () => navigate('plans', p.id),
       }));
     }
   }
 
-  root.append(el('div.section-head', {}, [el('h2', { text: 'Templates' })]));
+  root.append(el('div.section-head', {}, [el('h2', { text: t('plans.templates') })]));
   root.append(el('div.small.faint', { style: { marginBottom: '10px' },
-    text: `Every exercise gets ${store.defaultSets()} sets at ${store.defaultReps()} reps — change that in Settings.${store.starsShown() ? ' Stars are what the template scores once it is filled in with your library.' : ''}` }));
+    text: t('plans.templatesNote', { sets: store.defaultSets(), reps: store.defaultReps() })
+      + (store.starsShown() ? ` ${t('plans.templatesStars')}` : '') }));
 
   for (const bp of PLAN_BLUEPRINTS) {
     const slots = bp.days.reduce((n, d) => n + d.slots.reduce((m, [, c]) => m + c, 0), 0);
     const preview = previewBlueprint(bp);
     root.append(
       el('button.list-item' + (bp.recommended ? '.glow' : ''), {
-        'aria-label': store.starsShown() ? `Create ${bp.name} — ${preview.stars} of 5 stars` : `Create ${bp.name}`,
+        'aria-label': store.starsShown()
+          ? t('plans.createRated', { name: bp.name, stars: preview.stars })
+          : t('plans.create', { name: bp.name }),
         onclick: () => blueprintSheet(bp, preview),
       }, [
         el('div.grow', {}, [
           el('div.li-title', { text: bp.name + (bp.recommended ? '  ★' : '') }),
-          el('div.li-sub', { text: `${bp.blurb} · ${slots} exercises, ${slots * store.defaultSets()} sets/week` }),
+          el('div.li-sub', { text: `${t(bp.blurb)} · ${t('plans.slotSummary', { exercises: slots, sets: slots * store.defaultSets() })}` }),
         ]),
         store.starsShown() ? starBadge(preview.stars) : null,
         el('span.chev', { text: '+', 'aria-hidden': 'true' }),
@@ -82,10 +88,10 @@ function listView() {
     el('button.btn.ghost.full', {
       style: { marginTop: '14px' },
       onclick: async () => {
-        const plan = await store.savePlan({ name: 'My Plan', days: [] });
+        const plan = await store.savePlan({ name: t('plans.myPlan'), days: [] });
         navigate('plans', plan.id);
       },
-    }, ['+ Build one from scratch'])
+    }, [t('plans.fromScratch')])
   );
 
   return root;
@@ -117,53 +123,51 @@ const previewCache = new Map();
 function blueprintSheet(bp, preview = previewBlueprint(bp)) {
   const perDay = bp.days.map((d) => {
     const n = d.slots.reduce((m, [, c]) => m + c, 0);
-    return `${d.name} — ${n} exercises`;
+    return `${d.name}: ${tn(n, 'unit.exercise')}`;
   });
 
   const body = el('div', {}, [
-    el('div.small.muted', { text: bp.blurb }),
+    el('div.small.muted', { text: t(bp.blurb) }),
 
     el('div.card.tight.glow', { style: { marginTop: '12px' } }, [
       el('div.row.between', {}, [
         store.starsShown()
           ? starBadge(preview.stars, { size: '19px' })
-          : el('span.small.faint', { text: 'Plan check' }),
-        el('button.btn.sm.ghost', { onclick: () => breakdownSheet(bp.name, preview) }, ['Details']),
+          : el('span.small.faint', { text: t('plans.planCheck') }),
+        el('button.btn.sm.ghost', { onclick: () => breakdownSheet(bp.name, preview) }, [t('plans.details')]),
       ]),
-      ...preview.good.slice(0, 1).map((t) =>
-        el('div.small', { style: { marginTop: '7px', color: 'var(--good)' }, text: `✓  ${t}` })),
-      ...preview.missing.slice(0, 1).map((t) =>
-        el('div.small', { style: { marginTop: '7px', color: 'var(--warn)' }, text: `!  ${t}` })),
+      ...preview.good.slice(0, 1).map((line) =>
+        el('div.small', { style: { marginTop: '7px', color: 'var(--good)' }, text: `✓  ${line}` })),
+      ...preview.missing.slice(0, 1).map((line) =>
+        el('div.small', { style: { marginTop: '7px', color: 'var(--warn)' }, text: `!  ${line}` })),
     ]),
 
     el('div.card.tight', { style: { marginTop: '12px' } }, [
       el('div.small', { style: { fontWeight: '650', marginBottom: '6px' },
-        text: `Target: ${store.defaultReps()} reps · ${store.defaultSets()} sets per exercise` }),
-      ...perDay.map((t) => el('div.small.faint', { text: t })),
+        text: t('plans.blueprintTarget', { reps: store.defaultReps(), sets: store.defaultSets() }) }),
+      ...perDay.map((line) => el('div.small.faint', { text: line })),
     ]),
 
-    el('div.section-head', {}, [el('h2', { text: 'How do you want it?' })]),
+    el('div.section-head', {}, [el('h2', { text: t('plans.howDoYouWantIt') })]),
     el('button.btn.primary.full', {
       onclick: async () => {
         closeSheet();
         const plan = await store.createPlanFromBlueprint(bp, { empty: false });
-        toast(`${plan.name} created`);
+        toast(t('plans.created', { name: plan.name }));
         navigate('plans', plan.id);
       },
-    }, ['Fill it in for me']),
-    el('div.small.faint', { style: { margin: '6px 0 14px' },
-      text: 'Picks exercises for each muscle slot — favourites first, then the best-rated movement for that muscle.' }),
+    }, [t('plans.fillIn')]),
+    el('div.small.faint', { style: { margin: '6px 0 14px' }, text: t('plans.fillInNote') }),
 
     el('button.btn.ghost.full', {
       onclick: async () => {
         closeSheet();
         const plan = await store.createPlanFromBlueprint(bp, { empty: true });
-        toast('Empty plan created');
+        toast(t('plans.emptyCreated'));
         navigate('plans', plan.id);
       },
-    }, ['Just the layout — I pick my own']),
-    el('div.small.faint', { style: { marginTop: '6px' },
-      text: 'Creates the days with the muscle targets shown, but no exercises. You add them yourself.' }),
+    }, [t('plans.layoutOnly')]),
+    el('div.small.faint', { style: { marginTop: '6px' }, text: t('plans.layoutOnlyNote') }),
   ]);
 
   openSheet(bp.name, body);
@@ -179,11 +183,11 @@ function planView(planId) {
     el('button.btn.quiet.sm', {
       style: { marginBottom: '10px', paddingLeft: '0' },
       onclick: () => navigate('plans'),
-    }, ['‹ Plans'])
+    }, [`‹ ${t('route.plans')}`])
   );
 
   if (!plan) {
-    root.append(emptyState('Plan not found', 'It may have been deleted.'));
+    root.append(emptyState(t('plans.notFound'), t('library.notFoundHint')));
     return root;
   }
 
@@ -193,13 +197,13 @@ function planView(planId) {
     el('div.row.between', { style: { marginBottom: '14px' } }, [
       el('div.grow', {}, [
         el('div', { style: { fontSize: '21px', fontWeight: '740', letterSpacing: '-0.025em' }, text: plan.name }),
-        el('div.small.faint', { text: `${plan.days.length} training days` }),
+        el('div.small.faint', { text: t('plans.trainingDays', { n: plan.days.length }) }),
       ]),
       el('div.row', { style: { gap: '6px' } }, [
         plan.days.some((d) => d.items.length)
-          ? el('button.btn.sm.ghost', { onclick: () => shareSheet(plan) }, ['Share'])
+          ? el('button.btn.sm.ghost', { onclick: () => shareSheet(plan) }, [t('common.share')])
           : null,
-        el('button.btn.sm.ghost', { onclick: () => renamePlan(plan) }, ['Rename']),
+        el('button.btn.sm.ghost', { onclick: () => renamePlan(plan) }, [t('train.rename')]),
       ]),
     ])
   );
@@ -208,12 +212,12 @@ function planView(planId) {
     root.append(
       el('button.btn.primary.full', {
         style: { marginBottom: '14px' },
-        onclick: async () => { await store.setSetting('activePlanId', plan.id); toast(`${plan.name} is now active`); },
-      }, ['Make this my active plan'])
+        onclick: async () => { await store.setSetting('activePlanId', plan.id); toast(t('plans.nowActive', { name: plan.name })); },
+      }, [t('plans.makeActive')])
     );
   } else {
     root.append(el('div.card.tight.glow', { style: { marginBottom: '14px' } }, [
-      el('div.small', { text: '★  Active plan — its days show up on the Train tab and drive your calendar.' }),
+      el('div.small', { text: `★  ${t('plans.activeNote')}` }),
     ]));
   }
 
@@ -226,23 +230,23 @@ function planView(planId) {
     el('button.btn.ghost.full', {
       style: { marginTop: '4px' },
       onclick: async () => {
-        plan.days.push({ id: `d_${Date.now().toString(36)}`, name: `Day ${plan.days.length + 1}`, items: [] });
+        plan.days.push({ id: `d_${Date.now().toString(36)}`, name: t('plans.dayN', { n: plan.days.length + 1 }), items: [] });
         await store.savePlan(plan);
       },
-    }, ['+ Add a day'])
+    }, [t('plans.addDay')])
   );
 
   root.append(
     el('button.btn.full.danger', {
       style: { marginTop: '22px' },
       onclick: async () => {
-        const ok = await confirmSheet('Delete plan?', `${plan.name} will be removed. Logged workouts are not affected.`);
+        const ok = await confirmSheet(t('plans.deleteTitle'), t('plans.deleteBody', { name: plan.name }));
         if (!ok) return;
         await store.deletePlan(plan.id);
-        toast('Plan deleted');
+        toast(t('plans.deleted'));
         navigate('plans');
       },
-    }, ['Delete plan'])
+    }, [t('plans.deletePlan')])
   );
 
   return root;
@@ -261,19 +265,16 @@ function weekCard(plan) {
   if (!plan.days.length) return wrap;
 
   if (!isScheduled(plan)) {
-    wrap.append(el('div.section-head', {}, [el('h2', { text: 'Week' })]));
+    wrap.append(el('div.section-head', {}, [el('h2', { text: t('plans.week') })]));
     wrap.append(el('div.card', {}, [
-      el('div.small.muted', {
-        text: 'No fixed weekdays. The Train tab suggests whichever day has gone longest without being trained — which is the right answer if you train when you can rather than on a schedule.',
-      }),
-      el('div.small.faint', { style: { marginTop: '8px' },
-        text: 'To pin days down, open a day’s ··· menu and set "Trained on".' }),
+      el('div.small.muted', { text: t('plans.noWeekdays') }),
+      el('div.small.faint', { style: { marginTop: '8px' }, text: t('plans.noWeekdaysHint') }),
     ]));
     return wrap;
   }
 
   const conflict = scheduleConflict(plan);
-  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Week' })]));
+  wrap.append(el('div.section-head', {}, [el('h2', { text: t('plans.week') })]));
 
   const card = el('div.card', {});
   for (const row of weekRows(plan)) {
@@ -295,8 +296,8 @@ function weekCard(plan) {
         row.days.length
           ? el('span.grow', { style: { fontSize: '14.5px', fontWeight: '600' },
               text: row.days.map((d) => `${d.name} · ${d.items.length}`).join('   ') })
-          : el('span.grow.small.faint', { text: 'Rest' }),
-        row.isToday ? el('span.pill.accent', { text: 'Today' }) : null,
+          : el('span.grow.small.faint', { text: t('plans.rest') }),
+        row.isToday ? el('span.pill.accent', { text: t('common.today') }) : null,
       ])
     );
   }
@@ -317,16 +318,18 @@ function qualityCard(plan) {
       el('div.grow', {}, [
         store.starsShown() ? starBadge(a.stars, { size: '22px' }) : null,
         el('div.small.faint', {
-          text: `${a.exerciseCount} exercises · ${a.totalSets} sets a week · ${Math.round(a.longShare * 100)}% loaded stretched`,
+          text: t('plans.qualitySummary', {
+            exercises: a.exerciseCount, sets: a.totalSets,
+            stretched: Math.round(a.longShare * 100),
+          }),
         }),
       ]),
-      el('button.btn.sm.ghost', { onclick: () => breakdownSheet(plan.name, a) }, ['Details']),
+      el('button.btn.sm.ghost', { onclick: () => breakdownSheet(plan.name, a) }, [t('plans.details')]),
     ])
   );
 
   if (!a.exerciseCount) {
-    card.append(el('div.small.muted', { style: { marginTop: '8px' },
-      text: 'Add exercises and this rates the plan on volume, coverage, session size and exercise selection.' }));
+    card.append(el('div.small.muted', { style: { marginTop: '8px' }, text: t('plans.qualityEmpty') }));
     return card;
   }
 
@@ -338,7 +341,7 @@ function qualityCard(plan) {
   }
   if (a.good.length + a.missing.length > 4) {
     card.append(el('div.small.faint', { style: { marginTop: '8px' },
-      text: `+${a.good.length + a.missing.length - 4} more in Details` }));
+      text: t('plans.moreInDetails', { n: a.good.length + a.missing.length - 4 }) }));
   }
 
   const fixes = diagnose(plan, a, store.state.exercises, store.state.exerciseById, { sets: store.defaultSets() });
@@ -346,7 +349,7 @@ function qualityCard(plan) {
     card.append(el('button.btn.ghost.full.sm', {
       style: { marginTop: '12px' },
       onclick: () => doctorSheet(plan, fixes),
-    }, [`Fix it — ${fixes.length} suggested ${fixes.length === 1 ? 'change' : 'changes'}`]));
+    }, [t('plans.fixIt', { changes: tn(fixes.length, 'unit.change') })]));
   }
 
   return card;
@@ -359,9 +362,7 @@ function qualityCard(plan) {
  */
 function doctorSheet(plan, fixes) {
   const body = el('div');
-  body.append(el('div.small.muted', {
-    text: 'Each of these is one small edit to one day, taken straight from what the rating flagged. Apply the ones you agree with and ignore the rest — a plan you will actually run beats a plan that scores well.',
-  }));
+  body.append(el('div.small.muted', { text: t('plans.doctorIntro') }));
 
   for (const fix of fixes) {
     const row = el('div.card.tight', { style: { marginTop: '10px' } });
@@ -371,12 +372,12 @@ function doctorSheet(plan, fixes) {
         // the rating, the Train tab and the calendar all see it at once.
         fix.apply(plan);
         await store.savePlan(plan);
-        applyBtn.replaceChildren('Applied');
+        applyBtn.replaceChildren(t('plans.applied'));
         applyBtn.disabled = true;
         row.style.opacity = '.55';
-        toast('Plan updated');
+        toast(t('plans.updated'));
       },
-    }, ['Apply']);
+    }, [t('plans.apply')]);
 
     row.append(
       el('div.row.between', { style: { gap: '10px', alignItems: 'flex-start' } }, [
@@ -390,17 +391,17 @@ function doctorSheet(plan, fixes) {
     body.append(row);
   }
 
-  openSheet(`${plan.name} — fixes`, body);
+  openSheet(t('plans.fixesTitle', { name: plan.name }), body);
 }
 
 // Kept short — .bar-row gives the label an 84px column and ellipsises the rest.
 const PART_LABEL = {
-  volume: 'Volume', coverage: 'Coverage', session: 'Session',
-  selection: 'Selection', variety: 'Variety', frequency: 'Frequency',
+  volume: 'plans.part.volume', coverage: 'plans.part.coverage', session: 'plans.part.session',
+  selection: 'plans.part.selection', variety: 'plans.part.variety', frequency: 'plans.part.frequency',
 };
 
 function breakdownSheet(title, a) {
-  const label = (r) => REGIONS[r] || r;
+  const label = tRegion;
   const floor = THRESHOLDS.weeklyFloor.value;
   const uncharted = THRESHOLDS.weeklyUncharted.value;
 
@@ -413,12 +414,12 @@ function breakdownSheet(title, a) {
   // tenth of the score reads very differently from a 40% on volume.
   const part = (key) => el('div', { style: { marginBottom: '10px' } }, [
     el('div.bar-row', { style: { marginBottom: '2px' } }, [
-      el('span.name', { text: PART_LABEL[key] }),
+      el('span.name', { text: t(PART_LABEL[key]) }),
       el('div.track', {}, [el('div.fill', { style: { width: `${Math.round(a.parts[key] * 100)}%` } })]),
       el('span.val', { text: `${Math.round(a.parts[key] * 100)}%` }),
     ]),
     el('div.small.faint', { style: { fontSize: '12px' },
-      text: `Worth ${Math.round(WEIGHTS[key] * 100)}% — ${WEIGHT_WHY[key]}` }),
+      text: t('plans.partWorth', { pct: Math.round(WEIGHTS[key] * 100), why: t(WEIGHT_WHY[key]) }) }),
   ]);
 
   const body = el('div', {}, [
@@ -426,20 +427,22 @@ function breakdownSheet(title, a) {
       ? el('div', { style: { fontSize: '26px', letterSpacing: '.06em', color: 'var(--t4)', textAlign: 'center' },
           text: starString(a.stars) })
       : null,
-    el('div.small.muted', { style: { textAlign: 'center', marginBottom: '14px' }, text: RATING_DISCLAIMER }),
+    el('div.small.muted', { style: { textAlign: 'center', marginBottom: '14px' }, text: t(RATING_DISCLAIMER) }),
 
-    el('div.section-head', {}, [el('h2', { text: 'Score breakdown' })]),
+    el('div.section-head', {}, [el('h2', { text: t('plans.scoreBreakdown') })]),
     ...Object.keys(PART_LABEL).map(part),
 
-    a.good.length ? el('div.section-head', {}, [el('h2', { text: 'What works' })]) : null,
-    ...a.good.map((t) => el('div.small', { style: { marginBottom: '7px', color: 'var(--good)' }, text: `✓  ${t}` })),
+    a.good.length ? el('div.section-head', {}, [el('h2', { text: t('plans.whatWorks') })]) : null,
+    ...a.good.map((line) => el('div.small', { style: { marginBottom: '7px', color: 'var(--good)' }, text: `✓  ${line}` })),
 
-    a.missing.length ? el('div.section-head', {}, [el('h2', { text: 'What to fix' })]) : null,
-    ...a.missing.map((t) => el('div.small', { style: { marginBottom: '7px', color: 'var(--warn)' }, text: `!  ${t}` })),
+    a.missing.length ? el('div.section-head', {}, [el('h2', { text: t('plans.whatToFix') })]) : null,
+    ...a.missing.map((line) => el('div.small', { style: { marginBottom: '7px', color: 'var(--warn)' }, text: `!  ${line}` })),
 
-    el('div.section-head', {}, [el('h2', { text: 'Weekly sets per muscle' })]),
+    el('div.section-head', {}, [el('h2', { text: t('plans.weeklySets') })]),
     el('div.small.faint', { style: { marginBottom: '10px' },
-      text: `At least ${floor} is the floor and more keeps helping with diminishing returns; past ${uncharted} the research runs out rather than turning against you. A secondary muscle counts as ${THRESHOLDS.indirectSetWeight.value} of a set.` }),
+      text: t('plans.weeklySetsNote', {
+        floor, uncharted, weight: THRESHOLDS.indirectSetWeight.value,
+      }) }),
     ...rows.map(([r, v]) => el('div.bar-row', {}, [
       el('span.name', { text: label(r) }),
       el('div.track', {}, [el('div.fill', {
@@ -451,9 +454,9 @@ function breakdownSheet(title, a) {
       el('span.val', { text: String(Math.round(v)) }),
     ])),
 
-    el('div.section-head', {}, [el('h2', { text: 'Biggest single session per muscle' })]),
+    el('div.section-head', {}, [el('h2', { text: t('plans.peakSession') })]),
     el('div.small.faint', { style: { marginBottom: '10px' },
-      text: `Sets past about ${THRESHOLDS.sessionPerMuscle.value} for one muscle in one workout stop producing a detectable advantage. Grey means you are inside that.` }),
+      text: t('plans.peakSessionNote', { n: THRESHOLDS.sessionPerMuscle.value }) }),
     ...Object.entries(a.peakSession)
       .filter(([, v]) => v > 0)
       .sort((x, y) => y[1] - x[1])
@@ -469,10 +472,10 @@ function breakdownSheet(title, a) {
         el('span.val', { text: String(Math.round(v)) }),
       ])),
 
-    evidenceList('What this is based on'),
+    evidenceList(t('plans.basedOn')),
   ]);
 
-  openSheet(`${title} — rating`, body);
+  openSheet(t('plans.ratingTitle', { name: title }), body);
 }
 
 function dayCard(plan, day, index) {
@@ -482,24 +485,24 @@ function dayCard(plan, day, index) {
     el('div.row.between', { style: { marginBottom: '10px' } }, [
       el('div.grow', {}, [
         el('div', { style: { fontWeight: '680', fontSize: '16px' }, text: day.name }),
-        el('div.small.faint', { text: `${day.items.length} exercises` }),
+        el('div.small.faint', { text: tn(day.items.length, 'unit.exercise') }),
       ]),
       el('button.btn.sm.primary', {
         onclick: async () => {
           await store.startSession({ planId: plan.id, dayId: day.id });
-          toast(`Started ${day.name}`);
+          toast(t('train.startedDay', { day: day.name }));
           navigate('train');
         },
-      }, ['Start']),
+      }, [t('home.today.start')]),
       el('button.btn.quiet.sm', {
-        'aria-label': `Options for ${day.name}`,
+        'aria-label': t('train.optionsFor', { name: day.name }),
         onclick: () => dayMenu(plan, day, index),
       }, ['···']),
     ])
   );
 
   if (!day.items.length) {
-    card.append(el('div.small.faint', { style: { padding: '6px 0' }, text: 'No exercises yet.' }));
+    card.append(el('div.small.faint', { style: { padding: '6px 0' }, text: t('plans.noExercisesYet') }));
   }
 
   for (const item of day.items) {
@@ -519,9 +522,9 @@ function dayCard(plan, day, index) {
           note: '',
         });
         await store.savePlan(plan);
-        toast(`Added ${ex.name}`);
+        toast(t('picker.added', { name: ex.name }));
       }, day.items.map((i) => i.exerciseId)),
-    }, ['+ Add exercise'])
+    }, [t('train.addExercise')])
   );
 
   return card;
@@ -544,10 +547,10 @@ function exerciseRow(plan, day, item) {
         const idx = tierIndex(score);
         const next = toNextTier(ex.name, score, settings);
         chip = el(`div.tier-${idx}`, { style: { textAlign: 'right' } }, [
-          el('span.tier-chip', { text: tierOf(score).label }),
+          el('span.tier-chip', { text: tTier(tierOf(score).key) }),
           next
             ? el('div.small.faint', { style: { marginTop: '3px' },
-                text: `${fmtWeight(Math.round(next.weight), settings.units)} → ${next.tier.label}` })
+                text: `${fmtWeight(Math.round(next.weight), settings.units)} → ${tTier(next.tier.key)}` })
             : null,
         ]);
       }
@@ -561,19 +564,19 @@ function exerciseRow(plan, day, item) {
   }, [
     el('div.grow', {}, [
       el('div', { style: { fontWeight: '600', fontSize: '14.5px' }, text: ex.name }),
-      el('div.small.faint', { text: `${item.targetSets} × ${item.targetReps || '8-12'} · ${ex.muscle}` }),
+      el('div.small.faint', { text: `${item.targetSets} × ${item.targetReps || '8-12'} · ${tMuscle(ex.muscle)}` }),
       // Tapping the stars explains them; the row's own ··· menu edits the item.
       store.starsShown()
         ? el('button.btn.quiet.sm', {
             style: { padding: '2px 0', marginTop: '2px' },
-            'aria-label': `Why ${ex.name} is rated ${rating.stars} of 5`,
+            'aria-label': t('plans.whyRated', { name: ex.name, stars: rating.stars }),
             onclick: () => exerciseRatingSheet(ex),
           }, [starBadge(rating.stars, { size: '12px' })])
         : null,
     ]),
     chip,
     el('button.btn.quiet.sm', {
-      'aria-label': `Edit ${ex.name}`,
+      'aria-label': t('plans.editItem', { name: ex.name }),
       onclick: () => itemMenu(plan, day, item, ex),
     }, ['···']),
   ]);
@@ -585,13 +588,13 @@ function itemMenu(plan, day, item, ex) {
   const sets = el('input', {
     type: 'number', inputmode: 'numeric', min: '1', max: '20', value: item.targetSets,
   });
-  const reps = el('input', { type: 'text', value: item.targetReps || '8-12', placeholder: 'e.g. 8-12' });
+  const reps = el('input', { type: 'text', value: item.targetReps || '8-12', placeholder: t('plans.repsPlaceholder') });
 
   const swaps = suggestSwaps(ex, store.state.exercises);
 
   const body = el('div', {}, [
-    el('label.field', {}, [el('span', { text: 'Target sets' }), sets]),
-    el('label.field', {}, [el('span', { text: 'Target reps' }), reps]),
+    el('label.field', {}, [el('span', { text: t('plans.targetSets') }), sets]),
+    el('label.field', {}, [el('span', { text: t('plans.targetReps') }), reps]),
     el('button.btn.primary.full', {
       onclick: async () => {
         item.targetSets = Math.max(1, Math.min(20, Number(sets.value) || 3));
@@ -599,16 +602,16 @@ function itemMenu(plan, day, item, ex) {
         await store.savePlan(plan);
         closeSheet();
       },
-    }, ['Save']),
+    }, [t('common.save')]),
     swaps.length
       ? el('button.btn.ghost.full', {
           style: { marginTop: '10px' },
           onclick: () => swapSheet(ex, swaps, async (pick) => {
             item.exerciseId = pick.id;
             await store.savePlan(plan);
-            toast(`Swapped to ${pick.name}`);
+            toast(t('plans.swapped', { name: pick.name }));
           }),
-        }, [`Swap for something better (${swaps.length})`])
+        }, [t('plans.swapFor', { n: swaps.length })])
       : null,
     el('button.btn.full.danger', {
       style: { marginTop: '10px' },
@@ -616,9 +619,9 @@ function itemMenu(plan, day, item, ex) {
         day.items = day.items.filter((i) => i !== item);
         await store.savePlan(plan);
         closeSheet();
-        toast('Removed');
+        toast(t('plans.removed'));
       },
-    }, ['Remove from day']),
+    }, [t('plans.removeFromDay')]),
   ]);
 
   openSheet(ex.name, body);
@@ -640,16 +643,15 @@ function dayMenu(plan, day, index) {
   // suggestion the Train tab has always used, which is the better answer for
   // anyone training on feel rather than on a calendar.
   const weekday = el('select', {}, [
-    el('option', { value: '', selected: !Number.isInteger(day.weekday) }, ['Any day — no fixed weekday']),
+    el('option', { value: '', selected: !Number.isInteger(day.weekday) }, [t('plans.anyDay')]),
     ...WEEK_ORDER.map((n) =>
       el('option', { value: String(n), selected: day.weekday === n }, [weekdayName(n)])),
   ]);
 
   const body = el('div', {}, [
-    el('label.field', {}, [el('span', { text: 'Day name' }), name]),
-    el('label.field', {}, [el('span', { text: 'Trained on' }), weekday]),
-    el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '12px' },
-      text: 'Leave this on "Any day" and the Train tab keeps suggesting whatever has gone longest without being trained.' }),
+    el('label.field', {}, [el('span', { text: t('plans.dayName') }), name]),
+    el('label.field', {}, [el('span', { text: t('plans.trainedOn') }), weekday]),
+    el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '12px' }, text: t('plans.anyDayNote') }),
     el('button.btn.primary.full', {
       onclick: async () => {
         day.name = name.value.trim() || day.name;
@@ -657,19 +659,20 @@ function dayMenu(plan, day, index) {
         await store.savePlan(plan);
         closeSheet();
       },
-    }, ['Save']),
+    }, [t('common.save')]),
     el('div.stack', { style: { marginTop: '12px' } }, [
-      el('button.btn.ghost.full', { disabled: index === 0, onclick: () => move(-1) }, ['↑ Move up']),
-      el('button.btn.ghost.full', { disabled: index === plan.days.length - 1, onclick: () => move(1) }, ['↓ Move down']),
+      el('button.btn.ghost.full', { disabled: index === 0, onclick: () => move(-1) }, [`↑ ${t('train.menu.up')}`]),
+      el('button.btn.ghost.full', { disabled: index === plan.days.length - 1, onclick: () => move(1) }, [`↓ ${t('train.menu.down')}`]),
       el('button.btn.full.danger', {
         onclick: async () => {
           closeSheet();
-          const ok = await confirmSheet('Delete day?', `${day.name} and its exercises will be removed from ${plan.name}.`);
+          const ok = await confirmSheet(t('plans.deleteDayTitle'),
+            t('plans.deleteDayBody', { day: day.name, plan: plan.name }));
           if (!ok) return;
           plan.days = plan.days.filter((d) => d !== day);
           await store.savePlan(plan);
         },
-      }, ['Delete day']),
+      }, [t('plans.deleteDay')]),
     ]),
   ]);
 
@@ -683,14 +686,12 @@ function dayMenu(plan, day, index) {
  * send it to.
  */
 function shareSheet(plan) {
-  const status = el('div.small.faint', { style: { marginTop: '10px' }, text: 'Building the link…' });
+  const status = el('div.small.faint', { style: { marginTop: '10px' }, text: t('plans.buildingLink') });
   const body = el('div', {}, [
-    el('div.small.muted', {
-      text: 'The plan travels inside the link itself — no account, no server, nothing uploaded. Whoever opens it sees what it contains and decides whether to import.',
-    }),
+    el('div.small.muted', { text: t('plans.shareIntro') }),
     status,
   ]);
-  openSheet(`Share ${plan.name}`, body);
+  openSheet(t('plans.shareTitle', { name: plan.name }), body);
 
   planLink(plan, store.state.exerciseById).then((url) => {
     const exCount = plan.days.reduce((n, d) => n + d.items.length, 0);
@@ -701,50 +702,49 @@ function shareSheet(plan) {
     field.addEventListener('focus', () => field.select());
 
     body.append(
-      el('label.field', { style: { marginTop: '4px' } }, [el('span', { text: 'Link' }), field]),
+      el('label.field', { style: { marginTop: '4px' } }, [el('span', { text: t('plans.link') }), field]),
       el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '14px' },
-        text: `${exCount} exercises · ${url.length} characters. Long links survive most messengers, but if a friend gets a "damaged link" message, the app it came through cut it — send it as a plain text message instead.` }),
+        text: t('plans.linkNote', { exercises: tn(exCount, 'unit.exercise'), chars: url.length }) }),
       el('div.stack', {}, [
         // navigator.share opens the iOS share sheet, which is the fastest path
         // into a chat. Not available everywhere, hence the copy fallback below.
         navigator.share
           ? el('button.btn.primary.full', {
-              onclick: () => navigator.share({ title: plan.name, text: `${plan.name} — LiftLog plan`, url })
+              onclick: () => navigator.share({ title: plan.name, text: t('plans.shareText', { name: plan.name }), url })
                 .catch(() => { /* user dismissed the sheet */ }),
-            }, ['Send…'])
+            }, [t('plans.send')])
           : null,
         el('button.btn.ghost.full', {
           onclick: async () => {
             try {
               await navigator.clipboard.writeText(url);
-              toast('Link copied');
+              toast(t('plans.linkCopied'));
             } catch {
               field.select();
-              toast('Select the link and copy it');
+              toast(t('plans.copyManually'));
             }
           },
-        }, ['Copy link']),
+        }, [t('plans.copyLink')]),
       ]),
-      el('div.small.faint', { style: { marginTop: '14px' },
-        text: 'Exercises are matched by name on the other side. Anything they do not have gets added to their library as a custom exercise — their own plans and workouts are never touched.' })
+      el('div.small.faint', { style: { marginTop: '14px' }, text: t('plans.shareMatching') })
     );
   }).catch((err) => {
     status.style.color = 'var(--warn)';
-    status.textContent = `Could not build a link: ${err.message}`;
+    status.textContent = t('plans.linkFailed', { message: err.message });
   });
 }
 
 function renamePlan(plan) {
   const input = el('input', { type: 'text', value: plan.name });
   const body = el('div', {}, [
-    el('label.field', {}, [el('span', { text: 'Plan name' }), input]),
+    el('label.field', {}, [el('span', { text: t('plans.planName') }), input]),
     el('button.btn.primary.full', {
       onclick: async () => {
         plan.name = input.value.trim() || plan.name;
         await store.savePlan(plan);
         closeSheet();
       },
-    }, ['Save']),
+    }, [t('common.save')]),
   ]);
-  openSheet('Rename plan', body);
+  openSheet(t('plans.renameTitle'), body);
 }

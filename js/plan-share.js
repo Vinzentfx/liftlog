@@ -14,6 +14,7 @@
 // inside what messengers pass through intact.
 
 import { normName } from './models.js';
+import { t } from './i18n.js';
 
 const VERSION = 1;
 
@@ -79,18 +80,18 @@ export async function decodeLink(code) {
     // Some decode failures throw with an empty message; an empty parenthetical
     // reads like a bug of its own.
     const why = err && err.message ? ` (${err.message})` : '';
-    return { ok: false, detail: `This link is damaged or incomplete${why}. Messengers sometimes cut long links — ask for it again.` };
+    return { ok: false, detail: t('shareLink.damaged', { why }) };
   }
 
   let p;
   try {
     p = JSON.parse(json);
   } catch {
-    return { ok: false, detail: 'This link does not contain a plan.' };
+    return { ok: false, detail: t('shareLink.noPlan') };
   }
 
   if (!p || p.v !== VERSION || !Array.isArray(p.d)) {
-    return { ok: false, detail: 'This link was made by a different version of LiftLog.' };
+    return { ok: false, detail: t('shareLink.wrongVersion') };
   }
 
   return {

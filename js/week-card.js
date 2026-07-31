@@ -11,7 +11,8 @@
 
 import { fmtNum, fmtWeight, fmtDate } from './ui.js';
 import { startOfWeek, isCounted, e1rm, entryStats } from './models.js';
-import { REGIONS, tierIndex, tierOf, hasProfile } from './standards.js';
+import { tierIndex, tierOf, hasProfile } from './standards.js';
+import { t, tRegion, tTier } from './i18n.js';
 import { strengthAt, bodyweightAt } from './history.js';
 import { analyseWeek, compareToPlan, weekVerdict, weekStreak } from './log-analysis.js';
 import { analysePlan } from './plan-rating.js';
@@ -134,9 +135,9 @@ export function weekSummary({
 }
 
 function strengthReason(settings, rating) {
-  if (settings.showRatings === false) return 'Strength ratings are switched off in settings.';
-  if (!hasProfile(settings)) return 'Add bodyweight, sex and age in settings to unlock the strength score.';
-  if (!rating) return 'No benchmark lift logged yet — the score comes from about seventeen barbell and bodyweight lifts.';
+  if (settings.showRatings === false) return t('weekCard.ratingsOff');
+  if (!hasProfile(settings)) return t('weekCard.needProfile');
+  if (!rating) return t('weekCard.noBenchmark');
   return null;
 }
 
@@ -219,14 +220,12 @@ function muscleMap(mapMode, { finished, exerciseById, rating, weekEnd }) {
       mapMode: 'progress',
       mapFills: colours,
       mapLegend: [
-        { colour: C.tier[4], label: PROGRESS_LABEL.climbing },
-        { colour: C.tier[1], label: 'Holding / too few sessions' },
-        { colour: C.tier[0], label: PROGRESS_LABEL.falling },
+        { colour: C.tier[4], label: t(PROGRESS_LABEL.climbing) },
+        { colour: C.tier[1], label: t('home.map.flat') },
+        { colour: C.tier[0], label: t(PROGRESS_LABEL.falling) },
       ],
-      mapTitle: 'Progress',
-      mapNote: Object.keys(colours).length
-        ? 'Estimated 1RM trend over 12 weeks, measured against yourself. No standards involved, so every exercise counts.'
-        : 'Nothing logged in the last 12 weeks yet.',
+      mapTitle: t('home.map.progress'),
+      mapNote: t(Object.keys(colours).length ? 'weekCard.progressNote' : 'home.map.progressEmpty'),
     };
   }
 
@@ -237,9 +236,9 @@ function muscleMap(mapMode, { finished, exerciseById, rating, weekEnd }) {
   return {
     mapMode: 'strength',
     mapFills: colours,
-    mapLegend: [0, 1, 2, 3, 4].map((i) => ({ colour: C.tier[i], label: tierOf(i * 20 + 10).label })),
-    mapTitle: 'Strength',
-    mapNote: 'Compared against published standards. Unlit means no benchmark lift trains it — machine work has none to compare against.',
+    mapLegend: [0, 1, 2, 3, 4].map((i) => ({ colour: C.tier[i], label: tTier(tierOf(i * 20 + 10).key) })),
+    mapTitle: t('home.map.strength'),
+    mapNote: t('weekCard.strengthNote'),
   };
 }
 
@@ -336,22 +335,24 @@ function hero(ctx, d, y) {
     const big = String(Math.round(d.strength.score));
     drawText(ctx, big, x, y + 20, { size: 56, weight: 780, color: C.text, baseline: 'top' });
     const w = textWidth(ctx, big, { size: 56, weight: 780 });
-    chip(ctx, x + w + 14, y + 44, d.strength.tier.label, accent);
+    chip(ctx, x + w + 14, y + 44, tTier(d.strength.tier.key), accent);
 
-    drawText(ctx, `Overall strength · ${d.strength.rated} of ${d.strength.total} muscle groups rated`,
+    drawText(ctx, t('home.rating.overall', { rated: d.strength.rated, total: d.strength.total }),
       x, y + 86, { size: 12.5, weight: 500, color: C.dim, baseline: 'top', max: INNER - 44 });
 
     if (d.strength.delta !== null) deltaBadge(ctx, d.strength.delta, y);
     if (d.bodyweightShift !== null) {
       drawText(ctx,
-        `Score is relative to bodyweight — yours moved ${d.bodyweightShift > 0 ? '+' : ''}${fmtWeight(round1(d.bodyweightShift), d.units)} this week.`,
+        t('weekCard.bodyweightShift', {
+          delta: `${d.bodyweightShift > 0 ? '+' : ''}${fmtWeight(round1(d.bodyweightShift), d.units)}`,
+        }),
         x, y + 104, { size: 11, weight: 500, color: C.faint, baseline: 'top', max: INNER - 44 });
     }
   } else {
     const big = String(d.workouts);
     drawText(ctx, big, x, y + 20, { size: 56, weight: 780, color: C.text, baseline: 'top' });
     const w = textWidth(ctx, big, { size: 56, weight: 780 });
-    drawText(ctx, d.workouts === 1 ? 'workout' : 'workouts', x + w + 14, y + 60,
+    drawText(ctx, t(d.workouts === 1 ? 'weekCard.workoutOne' : 'weekCard.workoutOther'), x + w + 14, y + 60,
       { size: 15, weight: 640, color: C.dim, baseline: 'top' });
     for (const [i, line] of wrapLines(ctx, d.strengthMissing || '', INNER - 44, { size: 11.5 }).slice(0, 2).entries()) {
       drawText(ctx, line, x, y + 86 + i * 15, { size: 11.5, weight: 500, color: C.faint, baseline: 'top' });
@@ -362,12 +363,12 @@ function hero(ctx, d, y) {
 
 function deltaBadge(ctx, v, y) {
   const colour = v > 0 ? C.good : v < 0 ? C.dim : C.faint;
-  drawText(ctx, v === 0 ? 'no change' : `${v > 0 ? '+' : ''}${v}`, CARD_W - PAD - 22, y + 30, {
+  drawText(ctx, v === 0 ? t('weekCard.noChange') : `${v > 0 ? '+' : ''}${v}`, CARD_W - PAD - 22, y + 30, {
     size: v === 0 ? 15 : 26, weight: 740, color: colour, align: 'right', baseline: 'top',
   });
   // Not "vs last week": on a card about last week the comparison is against the
   // week before that one.
-  drawText(ctx, 'over the week', CARD_W - PAD - 22, y + (v === 0 ? 50 : 62), {
+  drawText(ctx, t('weekCard.overTheWeek'), CARD_W - PAD - 22, y + (v === 0 ? 50 : 62), {
     size: 11, weight: 600, color: C.faint, align: 'right', baseline: 'top',
   });
 }
@@ -379,10 +380,12 @@ function stats(ctx, d, y) {
   const w = (INNER - gap * 3) / 4;
   const h = 62;
   const tiles = [
-    [String(d.workouts), 'Workouts'],
-    [String(d.sets), 'Working sets'],
-    [d.tonnage ? `${fmtNum(Math.round(d.tonnage))}${d.units}` : '—', 'Moved'],
-    [String(d.streak), 'Week streak'],
+    [String(d.workouts), t('home.stat.workouts')],
+    [String(d.sets), t('home.stat.workingSets')],
+    [d.tonnage ? `${fmtNum(Math.round(d.tonnage))}${d.units}` : t('common.empty'), t('weekCard.moved')],
+    // Its own key rather than Home's: the tile is 12 characters wide and the
+    // German for "week streak" does not fit in it.
+    [String(d.streak), t('weekCard.streak')],
   ];
 
   tiles.forEach(([value, key], i) => {
@@ -405,7 +408,7 @@ function stats(ctx, d, y) {
 /* ---------- muscle map ---------- */
 
 function map(ctx, d, art, y, measure = false) {
-  const top = sectionHead(ctx, 'Muscle map', y, d.mapTitle);
+  const top = sectionHead(ctx, t('home.map.title'), y, d.mapTitle);
 
   const noteLines = wrapLines(ctx, d.mapNote, INNER - 32, { size: 11.5 });
   const legendRows = layoutLegend(ctx, d.mapLegend, INNER - 32);
@@ -420,7 +423,8 @@ function map(ctx, d, art, y, measure = false) {
   const fillFor = (region) => d.mapFills[region] || null;
   art.forEach((piece, i) => {
     if (!measure) drawPaths(ctx, piece, startX + i * (figureW + gap), top + 16, figureW, { fillFor, glow: 5 });
-    drawText(ctx, i === 0 ? 'FRONT' : 'BACK', startX + figureW / 2 + i * (figureW + gap), top + 16 + figureH + 6, {
+    drawText(ctx, t(i === 0 ? 'bodymap.front' : 'bodymap.back').toUpperCase(),
+      startX + figureW / 2 + i * (figureW + gap), top + 16 + figureH + 6, {
       size: 9.5, weight: 750, track: 0.8, color: C.faint, align: 'center', baseline: 'top',
     });
   });
@@ -459,7 +463,7 @@ function layoutLegend(ctx, items, max) {
 /* ---------- new bests ---------- */
 
 function bests(ctx, d, y) {
-  const top = sectionHead(ctx, 'New bests', y, 'estimated 1RM');
+  const top = sectionHead(ctx, t('weekCard.newBests'), y, t('progress.metric.e1rmNoun'));
   const rowH = 42;
   const h = 12 + d.bests.length * rowH + 4;
   panel(ctx, PAD, top, INNER, h);
@@ -482,7 +486,8 @@ function bests(ctx, d, y) {
 /* ---------- volume vs plan ---------- */
 
 function volume(ctx, d, y) {
-  const top = sectionHead(ctx, 'Volume', y, d.planName ? `vs ${d.planName}` : 'no active plan');
+  const top = sectionHead(ctx, t('plans.part.volume'), y,
+    d.planName ? t('weekCard.vsPlan', { plan: d.planName }) : t('weekCard.noPlan'));
 
   const headLines = wrapLines(ctx, d.verdict.headline, INNER - 32, { size: 13, weight: 650 });
   const untargeted = d.rows.some((r) => r.target === 0);
@@ -504,7 +509,7 @@ function volume(ctx, d, y) {
   ry += 8;
 
   if (empty) {
-    drawText(ctx, 'Nothing logged this week.', PAD + 16, ry, {
+    drawText(ctx, t('weekCard.nothingThisWeek'), PAD + 16, ry, {
       size: 12, weight: 500, color: C.faint, baseline: 'top',
     });
     return top + h;
@@ -519,7 +524,7 @@ function volume(ctx, d, y) {
   const trackW = INNER - 32 - nameW - valW - 20;
 
   for (const r of d.rows) {
-    drawText(ctx, REGIONS[r.region] || r.region, PAD + 16, ry + 1, {
+    drawText(ctx, tRegion(r.region), PAD + 16, ry + 1, {
       size: 12, weight: 500, color: C.dim, baseline: 'top', max: nameW,
     });
 
@@ -567,7 +572,7 @@ function footer(ctx, d, y) {
   ctx.lineTo(CARD_W - PAD, y);
   ctx.stroke();
 
-  drawText(ctx, 'Made with LiftLog', PAD, y + 12, {
+  drawText(ctx, t('weekCard.madeWith'), PAD, y + 12, {
     size: 11.5, weight: 650, color: C.faint, baseline: 'top',
   });
   drawText(ctx, appUrl(), CARD_W - PAD, y + 12, {

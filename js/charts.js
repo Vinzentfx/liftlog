@@ -3,6 +3,7 @@
 // so axis text stays at its intended size instead of stretching with the card.
 
 import { el } from './ui.js';
+import { t, tn, locale } from './i18n.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 
@@ -67,7 +68,7 @@ function niceTicks(min, max, count = 4) {
 export function lineChart(points, opts = {}) {
   const {
     height = 190, format = (v) => String(Math.round(v)),
-    xFormat = (t) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
+    xFormat = (ts) => new Date(ts).toLocaleDateString(locale(), { day: 'numeric', month: 'short' }),
     showTrend = false, showArea = true, caption = null,
   } = opts;
 
@@ -81,7 +82,7 @@ export function lineChart(points, opts = {}) {
     const svg = svgEl('svg', {
       class: 'chart', width: W, height: H,
       viewBox: `0 0 ${W} ${H}`, role: 'img',
-      'aria-label': caption || 'Line chart',
+      'aria-label': caption || t('chart.line'),
     });
 
     if (data.length < 2) {
@@ -93,7 +94,7 @@ export function lineChart(points, opts = {}) {
       const label = svgEl('text', {
         x: W / 2, y: H / 2, class: 'axis', 'text-anchor': 'middle',
       });
-      label.textContent = data.length ? 'One point — a line needs two' : 'No data yet';
+      label.textContent = t(data.length ? 'chart.onePoint' : 'chart.noData');
       svg.append(label);
       return svg;
     }
@@ -109,11 +110,11 @@ export function lineChart(points, opts = {}) {
     const sy = (y) => padT + plotH - ((y - yMin) / (yMax - yMin || 1)) * plotH;
 
     // --- recessive grid + y labels ---
-    for (const t of niceTicks(yMin, yMax, 4)) {
-      const y = sy(t);
+    for (const tick of niceTicks(yMin, yMax, 4)) {
+      const y = sy(tick);
       svg.append(svgEl('line', { class: 'grid', x1: padL, x2: W - padR, y1: y, y2: y }));
       const label = svgEl('text', { class: 'axis', x: padL - 6, y: y + 3.5, 'text-anchor': 'end' });
-      label.textContent = format(t);
+      label.textContent = format(tick);
       svg.append(label);
     }
 
@@ -224,13 +225,13 @@ export function barChart(bars, opts = {}) {
 
     const svg = svgEl('svg', {
       class: 'chart', width: W, height: H, viewBox: `0 0 ${W} ${H}`,
-      role: 'img', 'aria-label': caption || 'Bar chart',
+      role: 'img', 'aria-label': caption || t('chart.bar'),
     });
 
     if (!bars.length) {
-      const t = svgEl('text', { x: W / 2, y: H / 2, class: 'axis', 'text-anchor': 'middle' });
-      t.textContent = 'No data yet';
-      svg.append(t);
+      const note = svgEl('text', { x: W / 2, y: H / 2, class: 'axis', 'text-anchor': 'middle' });
+      note.textContent = t('chart.noData');
+      svg.append(note);
       return svg;
     }
 
@@ -239,11 +240,11 @@ export function barChart(bars, opts = {}) {
     const top = Math.max(...ticks, maxV);
     const sy = (v) => padT + plotH - (v / top) * plotH;
 
-    for (const t of ticks) {
-      const y = sy(t);
+    for (const tick of ticks) {
+      const y = sy(tick);
       svg.append(svgEl('line', { class: 'grid', x1: padL, x2: W - padR, y1: y, y2: y }));
       const label = svgEl('text', { class: 'axis', x: padL - 6, y: y + 3.5, 'text-anchor': 'end' });
-      label.textContent = format(t);
+      label.textContent = format(tick);
       svg.append(label);
     }
 
@@ -337,7 +338,7 @@ export function heatmap(days, weeks = 18) {
     const level = v === 0 ? 0 : v <= 8 ? 1 : v <= 16 ? 2 : 3;
     cells.push(el('i', {
       dataset: { v: String(level) },
-      title: `${d.toLocaleDateString()} — ${v ? `${v} sets` : 'rest'}`,
+      title: `${d.toLocaleDateString(locale())}: ${v ? tn(v, 'unit.set') : t('chart.restDay')}`,
     }));
   }
 

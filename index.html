@@ -32,41 +32,41 @@
     <nav id="tabbar" role="tablist">
       <button class="tab" data-route="home" role="tab" aria-selected="true">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>
-        <span>Home</span>
+        <span data-i18n="tab.home">Home</span>
       </button>
       <button class="tab" data-route="train" role="tab" aria-selected="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6M8 6v12M16 6v12M20 9v6M8 12h8"/></svg>
-        <span>Train</span>
+        <span data-i18n="tab.train">Train</span>
       </button>
       <button class="tab" data-route="nutrition" role="tab" aria-selected="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v7a3 3 0 0 0 6 0V3M9 10v11"/><path d="M18 3c-1.7 1.6-2.5 3.6-2.5 6 0 1.7.6 3 1.8 3.7V21"/></svg>
-        <span>Food</span>
+        <span data-i18n="tab.food">Food</span>
       </button>
       <button class="tab" data-route="plans" role="tab" aria-selected="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M9 9h6M9 13h6M9 17h3"/></svg>
-        <span>Plans</span>
+        <span data-i18n="tab.plans">Plans</span>
       </button>
       <button class="tab" data-route="library" role="tab" aria-selected="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h5v16H5zM14 4h5v16h-5"/></svg>
-        <span>Library</span>
+        <span data-i18n="tab.library">Library</span>
       </button>
     </nav>
   </div>
 
   <div id="rest-bar" hidden>
-    <button id="rest-dismiss" aria-label="Stop rest timer">&times;</button>
+    <button id="rest-dismiss" data-i18n-aria="rest.stop" aria-label="Stop rest timer">&times;</button>
     <div id="rest-info">
       <strong id="rest-remaining">1:30</strong>
-      <span id="rest-label">Rest</span>
+      <span id="rest-label" data-i18n="rest.label">Rest</span>
     </div>
-    <button id="rest-add" aria-label="Add 30 seconds">+30s</button>
+    <button id="rest-add" data-i18n-aria="rest.add30" aria-label="Add 30 seconds">+30s</button>
     <div id="rest-progress"><i></i></div>
   </div>
 
   <div id="sheet-host" hidden>
     <div id="sheet-scrim"></div>
     <section id="sheet" role="dialog" aria-modal="true">
-      <header><h2 id="sheet-title"></h2><button id="sheet-close" aria-label="Close">&times;</button></header>
+      <header><h2 id="sheet-title"></h2><button id="sheet-close" data-i18n-aria="common.close" aria-label="Close">&times;</button></header>
       <div id="sheet-body"></div>
     </section>
   </div>

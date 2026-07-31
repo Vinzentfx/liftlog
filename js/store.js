@@ -9,6 +9,7 @@ import {
 } from './models.js';
 import { buildPlanDays, SETS_PER_EXERCISE, REP_TARGET } from './plan-builder.js';
 import { DEFAULT_BAR } from './plates.js';
+import { t } from './i18n.js';
 
 /**
  * Every write goes through this wrapper, so a failed one can never be silent.
@@ -496,7 +497,9 @@ export async function startSession({ planId = null, dayId = null, name } = {}) {
   const session = newSession(db.uid, {
     planId,
     dayId,
-    name: name || label || 'Quick Workout',
+    // Translated at creation time, then it is data like any other name the
+    // user could have typed. A later language switch does not rewrite history.
+    name: name || label || t('train.quickWorkout'),
     entries,
   });
   state.sessions.unshift(session);

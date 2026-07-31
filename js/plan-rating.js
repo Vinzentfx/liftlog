@@ -27,7 +27,7 @@
 // half-set method predicted the meta-analytic results better than counting
 // indirect sets fully or ignoring them (SOURCES.pelland2026).
 
-import { REGIONS } from './standards.js';
+import { tRegion, t } from './i18n.js';
 import { THRESHOLDS, SOURCES } from './evidence.js';
 import { rateExercise } from './exercise-rating.js';
 import { starString } from './ui.js';
@@ -44,13 +44,14 @@ export const WEIGHTS = {
   frequency: 0.10,
 };
 
+// Keys; see js/strings.js.
 export const WEIGHT_WHY = {
-  volume: 'The single best-supported lever there is. More weekly sets, more growth, with diminishing returns.',
-  coverage: 'A muscle you never train does not grow. Cheap to fix, so it is worth real weight.',
-  session: 'Sets past roughly 11 for one muscle in one workout stop paying for themselves.',
-  selection: 'Exercises that load a muscle stretched beat ones that only load it short.',
-  variety: 'Muscles grow unevenly — two movements cover more of one than a single movement does.',
-  frequency: 'Low weight on purpose: at equal weekly volume its own effect is negligible. It matters as the way you keep sessions from getting too big.',
+  volume: 'planRating.why.volume',
+  coverage: 'planRating.why.coverage',
+  session: 'planRating.why.session',
+  selection: 'planRating.why.selection',
+  variety: 'planRating.why.variety',
+  frequency: 'planRating.why.frequency',
 };
 
 /** Groups a hypertrophy plan is expected to cover. Forearms are trained indirectly. */
@@ -216,24 +217,26 @@ export function analysePlan(plan, byId, perWeek = plan.perWeek || 1) {
 function verdict(a) {
   const good = [];
   const missing = [];
-  const name = (r) => REGIONS[r] || r;
+  const name = tRegion;
 
   // --- volume ---
   const atFloor = a.trained.filter((r) => a.volume[r] >= FLOOR);
   if (atFloor.length && atFloor.length === a.trained.length) {
-    good.push(`Every muscle you train clears ${FLOOR} sets a week`);
+    good.push(t('planRating.allClearFloor', { floor: FLOOR }));
   } else if (atFloor.length >= a.trained.length * 0.6) {
-    good.push(`${atFloor.length} of ${a.trained.length} muscles clear the ${FLOOR}-set weekly floor`);
+    good.push(t('planRating.someClearFloor', { at: atFloor.length, total: a.trained.length, floor: FLOOR }));
   }
 
   const under = a.trained.filter((r) => a.volume[r] < FLOOR);
   if (under.length) {
-    missing.push(`Under ${FLOOR} sets a week: ${listOf(under.map((r) => `${name(r)} (${round(a.volume[r])})`))}`);
+    missing.push(t('planRating.underFloor', {
+      floor: FLOOR, muscles: listOf(under.map((r) => `${name(r)} (${round(a.volume[r])})`)),
+    }));
   }
 
   const high = a.trained.filter((r) => a.volume[r] > UNCHARTED);
   if (high.length) {
-    missing.push(`Over ${UNCHARTED} sets a week on ${listOf(high.map(name))} — not scored against you, the research finds no ceiling, but that is past where the studies can guide you. Judge it by whether you recover.`);
+    missing.push(t('planRating.overUncharted', { uncharted: UNCHARTED, muscles: listOf(high.map(name)) }));
   }
 
   // --- per-session load ---
@@ -241,51 +244,59 @@ function verdict(a) {
     .filter((r) => (a.peakSession[r] || 0) > PER_SESSION)
     .sort((x, y) => a.peakSession[y] - a.peakSession[x]);
   if (crowded.length) {
-    missing.push(`${listOf(crowded.map((r) => `${name(r)} (${round(a.peakSession[r])} sets in one session)`))} — past about ${PER_SESSION} sets for one muscle in one workout the extra sets stop paying. Move some to another day.`);
+    missing.push(t('planRating.crowded', {
+      muscles: listOf(crowded.map((r) => t('planRating.setsInOneSession', {
+        muscle: name(r), n: round(a.peakSession[r]),
+      }))),
+      perSession: PER_SESSION,
+    }));
   } else if (a.trained.length) {
-    good.push(`No muscle gets more than ${PER_SESSION} sets in a single session`);
+    good.push(t('planRating.sessionOk', { perSession: PER_SESSION }));
   }
 
   // --- coverage ---
-  if (a.untrained.length) missing.push(`Not trained at all: ${a.untrained.map(name).join(', ')}`);
-  else if (a.trained.length) good.push('No major muscle group is left out');
+  if (a.untrained.length) missing.push(t('planRating.untrained', { muscles: a.untrained.map(name).join(', ') }));
+  else if (a.trained.length) good.push(t('planRating.allCovered'));
 
   // --- frequency ---
   const once = a.trained.filter((r) => (a.frequency[r] || 0) < THRESHOLDS.minFrequency.value);
   if (once.length) {
-    missing.push(`Only once a week: ${listOf(once.map(name))} — at equal weekly volume that costs little growth, but it forces bigger single sessions`);
+    missing.push(t('planRating.onceAWeek', { muscles: listOf(once.map(name)) }));
   } else if (a.trained.length) {
-    good.push('Every muscle you train is hit at least twice a week');
+    good.push(t('planRating.twiceAWeek'));
   }
 
   // --- exercise selection ---
   if (a.longShare >= 0.5) {
-    good.push(`${Math.round(a.longShare * 100)}% of your sets load the muscle at a long length — the selection is doing work for you`);
+    good.push(t('planRating.longShareGood', { pct: Math.round(a.longShare * 100) }));
   } else if (a.exerciseCount && a.longShare < 0.3) {
-    missing.push(`Only ${Math.round(a.longShare * 100)}% of sets load a muscle stretched. Swapping a few short-position movements (pushdowns, hip thrusts, lateral raises) for stretched ones (overhead extensions, deep split squats, incline curls) is free growth at the same volume.`);
+    missing.push(t('planRating.longShareLow', { pct: Math.round(a.longShare * 100) }));
   }
-  if (a.meanStars >= 3.75) good.push(`Exercise selection averages ${a.meanStars.toFixed(1)} stars`);
+  if (a.meanStars >= 3.75) good.push(t('planRating.starsGood', { stars: a.meanStars.toFixed(1) }));
   else if (a.exerciseCount && a.meanStars < 2.75) {
-    missing.push(`Exercise selection averages only ${a.meanStars.toFixed(1)} stars — open a few in the Library to see what is dragging them down`);
+    missing.push(t('planRating.starsLow', { stars: a.meanStars.toFixed(1) }));
   }
 
   // --- variety ---
   const single = a.trained.filter((r) => (a.exercisesPer[r] || 0) === 1 && a.volume[r] >= 8);
   if (single.length) {
-    missing.push(`All ${listOf(single.map(name))} volume comes from one movement — muscles grow unevenly, so a second angle covers more of it`);
+    missing.push(t('planRating.oneMovement', { muscles: listOf(single.map(name)) }));
   }
 
   // --- rep targets ---
   if (a.repFlags.length) {
-    missing.push(`Rep targets outside ${THRESHOLDS.repWindow.low}–${THRESHOLDS.repWindow.high} on ${listOf(a.repFlags.map((f) => `${f.name} (${f.reps})`))} — anything inside that window grows muscle if the set is taken close to failure, outside it you are training something else`);
+    missing.push(t('planRating.repFlags', {
+      low: THRESHOLDS.repWindow.low, high: THRESHOLDS.repWindow.high,
+      exercises: listOf(a.repFlags.map((f) => `${f.name} (${f.reps})`)),
+    }));
   }
 
   // --- balance (practice, not evidence) ---
   const push = sum(PUSH.map((r) => a.volume[r] || 0));
   const pull = sum(PULL.map((r) => a.volume[r] || 0));
   if (push > 0 && pull > 0) {
-    if (pull < push * 0.8) missing.push('More pushing than pulling volume — the reverse is kinder to your shoulders');
-    else good.push('Pushing and pulling volume are balanced');
+    if (pull < push * 0.8) missing.push(t('planRating.pushHeavy'));
+    else good.push(t('planRating.balanced'));
   }
 
   return { good, missing };
@@ -300,7 +311,8 @@ function repRange(spec) {
   return { low: Math.min(...ns), high: Math.max(...ns) };
 }
 
-const listOf = (xs) => xs.slice(0, 4).join(', ') + (xs.length > 4 ? `, +${xs.length - 4} more` : '');
+const listOf = (xs) => xs.slice(0, 4).join(', ')
+  + (xs.length > 4 ? t('planRating.andMore', { n: xs.length - 4 }) : '');
 const round = (n) => Math.round(n * 10) / 10;
 const avg = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const sum = (xs) => xs.reduce((a, b) => a + b, 0);

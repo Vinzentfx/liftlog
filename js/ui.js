@@ -1,5 +1,7 @@
 // DOM + formatting helpers shared by every screen.
 
+import { t, locale } from './i18n.js';
+
 /** el('div.card', {onclick}, [children]) */
 export function el(spec, props = {}, children = []) {
   const [tagPart, ...classes] = String(spec).split('.');
@@ -101,8 +103,9 @@ export function fmtClock(seconds) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/** Dates follow the interface language, not the phone's. */
 export function fmtDate(ts, opts = {}) {
-  return new Date(ts).toLocaleDateString(undefined,
+  return new Date(ts).toLocaleDateString(locale(),
     { day: 'numeric', month: 'short', ...opts });
 }
 
@@ -110,10 +113,10 @@ export function relDay(ts) {
   const d = new Date(ts); d.setHours(0, 0, 0, 0);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const days = Math.round((today - d) / 86400000);
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days} days ago`;
-  if (days < 14) return 'Last week';
+  if (days === 0) return t('common.today');
+  if (days === 1) return t('common.yesterday');
+  if (days < 7) return t('common.daysAgo', { n: days });
+  if (days < 14) return t('common.lastWeek');
   return fmtDate(ts, { year: days > 300 ? 'numeric' : undefined });
 }
 
@@ -148,7 +151,7 @@ export function starBadge(stars, { size = '13px', dim = false } = {}) {
       color: dim ? 'var(--text-faint)' : 'var(--t4)',
       whiteSpace: 'nowrap',
     },
-    'aria-label': `${stars} out of 5 stars`,
+    'aria-label': t('common.stars', { n: stars }),
     role: 'img',
     text: starString(stars),
   });
@@ -202,14 +205,15 @@ export function initSheet() {
 }
 
 /** Promise-based confirm rendered in the sheet, so it matches the app. */
-export function confirmSheet(title, message, { danger = true, confirmLabel = 'Delete' } = {}) {
+export function confirmSheet(title, message, { danger = true, confirmLabel = null } = {}) {
   return new Promise((resolve) => {
     let settled = false;
     const finish = (v) => { if (settled) return; settled = true; resolve(v); closeSheet(); };
     const body = el('div.stack', {}, [
       el('p.muted', { text: message, style: { margin: '0 0 4px' } }),
-      el('button.btn.full' + (danger ? '.danger' : '.primary'), { onclick: () => finish(true) }, [confirmLabel]),
-      el('button.btn.full.ghost', { onclick: () => finish(false) }, ['Cancel']),
+      el('button.btn.full' + (danger ? '.danger' : '.primary'),
+        { onclick: () => finish(true) }, [confirmLabel || t('common.delete')]),
+      el('button.btn.full.ghost', { onclick: () => finish(false) }, [t('common.cancel')]),
     ]);
     openSheet(title, body, { onClose: () => finish(false) });
   });
@@ -225,7 +229,7 @@ export function listItem({ title, sub, onclick, chev = '›', ariaLabel, style, 
   return el('button.list-item', {
     onclick,
     style,
-    'aria-label': ariaLabel || (sub ? `${title} — ${sub}` : title),
+    'aria-label': ariaLabel || (sub ? `${title}, ${sub}` : title),
   }, [
     el('div.grow', {}, [
       el('div.li-title', { text: title }),
@@ -240,7 +244,15 @@ export function emptyState(title, hint, action) {
   return el('div.empty', {}, [el('strong', { text: title }), el('div', { text: hint }), action || null]);
 }
 
-/** `plural(1, 'session')` -> "1 session". One copy, so counts read the same everywhere. */
+/**
+ * `plural(1, 'Satz', 'Sätze')` -> "1 Satz". One copy, so counts read the same
+ * everywhere.
+ *
+ * Both words come from the caller, which is what makes it work in a language
+ * whose plural is not "add an s". Where a count belongs to a noun the app says
+ * often, prefer `tn(n, 'unit.set')` from i18n.js: the two forms live in the
+ * string table and the parity test can see them.
+ */
 export function plural(n, one, many = `${one}s`) {
   return `${n} ${n === 1 ? one : many}`;
 }

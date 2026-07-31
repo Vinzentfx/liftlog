@@ -112,14 +112,6 @@ export const LIBRARY_SIZE = FOOD_LIBRARY.length;
 export const BRAND_SIZE = BRAND_LIBRARY.length;
 export const TOTAL_SIZE = LIBRARY_SIZE + BRAND_SIZE;
 
-export const LIBRARY_ATTRIBUTION =
-  'Generic foods from USDA FoodData Central (SR Legacy), a work of the US '
-  + 'federal government and in the public domain. Values are per 100 g of the '
-  + 'food as described — raw where it says raw, cooked where it says cooked.';
+export const LIBRARY_ATTRIBUTION = 'attribution.usda';
 
-export const BRAND_ATTRIBUTION =
-  'Branded products from Open Food Facts, licensed ODbL v1.0 and bundled with '
-  + 'the app. Crowd-sourced: a value is only as good as the contributor who '
-  + 'typed it off the packet, which is worth knowing before trusting one to the '
-  + 'gram. Scanning the barcode of the packet in front of you asks the same '
-  + 'database live and gets whatever has been corrected since.';
+export const BRAND_ATTRIBUTION = 'attribution.off';

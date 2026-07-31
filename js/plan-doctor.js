@@ -8,7 +8,7 @@
 // plan: no fix removes a training day, changes the split, or touches an exercise
 // you picked deliberately without saying so.
 
-import { REGIONS } from './standards.js';
+import { tRegion, t } from './i18n.js';
 import { THRESHOLDS } from './evidence.js';
 import { rateExercise } from './exercise-rating.js';
 import { pickForRegion, SETS_PER_EXERCISE, REP_TARGET } from './plan-builder.js';
@@ -17,8 +17,7 @@ import { suggestSwaps } from './swaps.js';
 const FLOOR = THRESHOLDS.weeklyFloor.value;
 const PER_SESSION = THRESHOLDS.sessionPerMuscle.value;
 
-const name = (r) => REGIONS[r] || r;
-const article = (word) => (/^[aeiou]/i.test(word) ? 'an' : 'a');
+const name = tRegion;
 
 /**
  * @param plan      the plan being edited (not mutated here)
@@ -41,8 +40,8 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
     fixes.push({
       id: `cover-${region}`,
       severity: 3,
-      title: `Add ${name(region)} to ${day.name}`,
-      detail: `${pick.name}, ${sets} sets. ${name(region)} is not trained at all right now.`,
+      title: t('planDoctor.coverTitle', { muscle: name(region), day: day.name }),
+      detail: t('planDoctor.coverDetail', { exercise: pick.name, sets, muscle: name(region) }),
       apply: (p) => addItem(p, day.id, pick.id, sets),
     });
   }
@@ -61,8 +60,8 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
     fixes.push({
       id: `volume-${region}`,
       severity: 2,
-      title: `Add ${article(name(region))} ${name(region)} exercise to ${day.name}`,
-      detail: `${pick.name}, ${sets} sets — ${name(region)} is ${gap} short of the ${FLOOR}-set floor.`,
+      title: t('planDoctor.volumeTitle', { muscle: name(region), day: day.name }),
+      detail: t('planDoctor.volumeDetail', { exercise: pick.name, sets, muscle: name(region), gap, floor: FLOOR }),
       apply: (p) => addItem(p, day.id, pick.id, sets),
     });
   }
@@ -76,8 +75,10 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
     fixes.push({
       id: `session-${region}`,
       severity: 2,
-      title: `Move ${move.exName} to ${move.toDay.name}`,
-      detail: `${name(region)} gets ${Math.round(peak)} sets in ${move.fromDay.name}. Past about ${PER_SESSION} in one session the extra sets stop paying.`,
+      title: t('planDoctor.moveTitle', { exercise: move.exName, day: move.toDay.name }),
+      detail: t('planDoctor.moveDetail', {
+        muscle: name(region), sets: Math.round(peak), day: move.fromDay.name, perSession: PER_SESSION,
+      }),
       apply: (p) => moveItem(p, move.fromDay.id, move.toDay.id, move.exerciseId),
     });
   }
@@ -94,8 +95,8 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
       fixes.push({
         id: `swap-${item.exerciseId}`,
         severity: 1,
-        title: `Swap ${ex.name} for ${better.ex.name}`,
-        detail: `${r.length.why}. ${better.reason}.`,
+        title: t('planDoctor.swapTitle', { from: ex.name, to: better.ex.name }),
+        detail: `${t(r.length.why)}. ${better.reason}.`,
         apply: (p) => replaceItem(p, day.id, item.exerciseId, better.ex.id),
       });
     }
@@ -113,8 +114,8 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
     fixes.push({
       id: `variety-${region}`,
       severity: 1,
-      title: `Add a second ${name(region)} movement`,
-      detail: `${pick.name} on ${day.name}. All your ${name(region)} volume comes from one exercise, and muscles do not grow evenly.`,
+      title: t('planDoctor.varietyTitle', { muscle: name(region) }),
+      detail: t('planDoctor.varietyDetail', { exercise: pick.name, day: day.name, muscle: name(region) }),
       apply: (p) => addItem(p, day.id, pick.id, sets),
     });
   }

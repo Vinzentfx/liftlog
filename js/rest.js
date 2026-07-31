@@ -2,6 +2,7 @@
 // so it stays correct when iOS throttles timers or the screen sleeps.
 
 import { $, fmtClock, haptic } from './ui.js';
+import { t } from './i18n.js';
 
 let endsAt = 0;
 let total = 0;
@@ -52,7 +53,7 @@ function tick() {
   if (remainingMs <= 0) {
     if (!chimed) {
       chimed = true;
-      $('#rest-label').textContent = 'Done';
+      $('#rest-label').textContent = t('rest.done');
       haptic([90, 60, 90]);
       if (sound) chime();
       if (onDone) onDone();
@@ -61,7 +62,7 @@ function tick() {
     return;
   }
 
-  $('#rest-label').textContent = 'Rest';
+  $('#rest-label').textContent = t('rest.label');
   raf = requestAnimationFrame(() => setTimeout(tick, 200));
 }
 

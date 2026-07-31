@@ -8,6 +8,7 @@
 // chat), a download, and a long press on the preview, which is what most people
 // actually do with an image they can see.
 
+import { t } from './i18n.js';
 import { el, openSheet, toast } from './ui.js';
 import * as store from './store.js';
 import { startOfWeek } from './models.js';
@@ -36,16 +37,16 @@ export function shareWeekSheet() {
 
   const preview = el('div.card', {
     style: { padding: '10px', display: 'flex', justifyContent: 'center', minHeight: '180px' },
-  }, [el('div.small.faint', { text: 'Drawing your week…' })]);
+  }, [el('div.small.faint', { text: t('weekShare.drawing') })]);
 
   const actions = el('div.stack', { style: { marginTop: '14px' } });
   const note = el('div.small.faint', { style: { marginTop: '12px' } });
 
-  const mapSeg = seg([['strength', 'Strength map'], ['progress', 'Progress map']], () => mapMode,
+  const mapSeg = seg([['strength', t('weekShare.strengthMap')], ['progress', t('weekShare.progressMap')]], () => mapMode,
     (v) => { mapMode = v; draw(); }, { marginTop: '8px' });
 
   const body = el('div', {}, [
-    seg([['this', 'This week'], ['last', 'Last week']], () => which, (v) => { which = v; draw(); }),
+    seg([['this', t('home.week.title')], ['last', t('common.lastWeek')]], () => which, (v) => { which = v; draw(); }),
     mapSeg,
     el('div', { style: { marginTop: '12px' } }, [preview]),
     actions,
@@ -83,7 +84,7 @@ export function shareWeekSheet() {
     mapMode = summary.mapMode;
     const strengthPossible = !!summary.strength;
     mapSeg.children[0].disabled = !strengthPossible;
-    mapSeg.children[0].title = strengthPossible ? '' : 'No strength rating for this week';
+    mapSeg.children[0].title = strengthPossible ? '' : t('weekShare.noStrength');
     for (const [i, b] of [...mapSeg.children].entries()) {
       b.setAttribute('aria-pressed', String(['strength', 'progress'][i] === mapMode));
     }
@@ -98,7 +99,7 @@ export function shareWeekSheet() {
       url = URL.createObjectURL(blob);
       preview.replaceChildren(el('img', {
         src: url,
-        alt: `Week card for ${summary.label}`,
+        alt: t('weekShare.alt', { label: summary.label }),
         style: { display: 'block', width: '100%', borderRadius: '12px' },
       }));
       buttons(summary, start);
@@ -106,7 +107,7 @@ export function shareWeekSheet() {
       if (mine !== token) return;
       console.error('[liftlog] week card', err);
       preview.replaceChildren(el('div.small', { style: { color: 'var(--warn)' },
-        text: `Could not draw the card: ${err.message}` }));
+        text: t('weekShare.failed', { message: err.message }) }));
     }
   }
 
@@ -122,7 +123,7 @@ export function shareWeekSheet() {
         ? el('button.btn.primary.full', {
             onclick: () => navigator.share({ files: [fileFrom(blob, name)], title: `LiftLog · ${summary.label}` })
               .catch(() => { /* dismissed, or the target refused the file */ }),
-          }, ['Send…'])
+          }, [t('plans.send')])
         : null,
       el('button.btn.ghost.full', {
         onclick: () => {
@@ -130,9 +131,9 @@ export function shareWeekSheet() {
           document.body.append(a);
           a.click();
           a.remove();
-          toast('Image saved');
+          toast(t('weekShare.saved'));
         },
-      }, ['Save image']),
+      }, [t('weekShare.save')]),
       // Clipboard images are Safari 13.1+ and Chrome 76+, but write() is behind
       // a permission in some builds, so this stays an extra rather than the
       // main path.
@@ -141,21 +142,21 @@ export function shareWeekSheet() {
             onclick: async () => {
               try {
                 await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-                toast('Image copied');
+                toast(t('weekShare.copied'));
               } catch {
-                toast('Press and hold the picture to copy it');
+                toast(t('weekShare.holdToCopy'));
               }
             },
-          }, ['Copy image'])
+          }, [t('weekShare.copy')])
         : null,
     ].filter(Boolean));
 
     note.textContent = canShareFile
-      ? 'Nothing leaves your phone until you send it — the card is drawn here, offline. Press and hold the picture to save it straight to Photos.'
-      : 'Nothing leaves your phone until you send it — the card is drawn here, offline. Press and hold the picture to save or copy it.';
+      ? t('weekShare.privacyIos')
+      : t('weekShare.privacy');
   }
 
-  openSheet('Share your week', body, {
+  openSheet(t('weekShare.title'), body, {
     onClose: () => {
       token++;                              // orphan any render still in flight
       if (url) URL.revokeObjectURL(url);

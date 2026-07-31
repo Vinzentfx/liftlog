@@ -3,7 +3,7 @@
 import {
   el, fmtNum, fmtWeight, fmtDate, relDay, emptyState,
   openSheet, closeSheet, toast, confirmSheet, listItem,
-  numberInput, parseNumber, normaliseOnBlur, plural,
+  numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
 import {
@@ -19,12 +19,13 @@ import { TIERS, tierIndex, hasProfile } from '../standards.js';
 import { pickExercise } from '../pickers.js';
 import { profileForm } from './settings.js';
 import { navigate } from '../app.js';
+import { t, tn, tMuscle, tEquipment, tTier } from '../i18n.js';
 
 let metric = 'e1rm';      // per-exercise chart, remembered across renders
 let workMetric = 'sets';  // weekly workload chart
 
 export default function renderProgress({ param, actions }) {
-  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': 'Settings' }, ['⚙']));
+  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
   return param ? exerciseView(param) : overview();
 }
 
@@ -36,7 +37,7 @@ function overview() {
   const root = el('div');
 
   if (!done.length) {
-    return emptyState('Nothing to chart yet', 'Log a couple of workouts and your progress shows up here.');
+    return emptyState(t('progress.empty'), t('progress.emptyHint'));
   }
 
   // --- headline numbers ---
@@ -52,30 +53,30 @@ function overview() {
 
   root.append(
     el('div.stat-grid.two', {}, [
-      el('div.stat', {}, [el('span.stat-val', { text: String(thisWeek.length) }), el('span.stat-key', { text: 'This week' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: String(weekSets) }), el('span.stat-key', { text: 'Sets' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: String(weekStreak(done)) }), el('span.stat-key', { text: 'Week streak' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: String(done.length) }), el('span.stat-key', { text: 'Workouts' })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(thisWeek.length) }), el('span.stat-key', { text: t('home.week.title') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(weekSets) }), el('span.stat-key', { text: t('train.sets') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(weekStreak(done)) }), el('span.stat-key', { text: t('home.stat.streak') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(done.length) }), el('span.stat-key', { text: t('home.stat.workouts') })]),
     ])
   );
   root.append(
     el('div.card.tight', { style: { marginTop: '10px', textAlign: 'center' } }, [
       el('div', { style: { fontSize: '22px', fontWeight: '740', letterSpacing: '-0.02em' },
         text: `${fmtNum(Math.round(lifetime))} ${units}` }),
-      el('div.small.faint', { text: 'moved all time' }),
+      el('div.small.faint', { text: t('progress.movedAllTime') }),
     ])
   );
   root.append(
     el('button.btn.ghost.full', { style: { marginTop: '10px' }, onclick: () => shareWeekSheet() },
-      ['Share this week as an image'])
+      [t('progress.shareWeek')])
   );
 
   // --- per-exercise entry point (the thing people actually want) ---
-  root.append(el('div.section-head', {}, [el('h2', { text: 'Exercise progress' })]));
+  root.append(el('div.section-head', {}, [el('h2', { text: t('progress.exerciseProgress') })]));
   root.append(
     el('button.btn.primary.full', {
       onclick: () => pickExercise((ex) => navigate('progress', ex.id)),
-    }, ['Pick an exercise to chart'])
+    }, [t('progress.pickExercise')])
   );
 
   const frequent = mostTrained(done, 5);
@@ -83,8 +84,8 @@ function overview() {
     root.append(el('div', { style: { marginTop: '10px' } }, frequent.map(({ ex, count }) =>
       listItem({
         title: ex.name,
-        sub: plural(count, 'session'),
-        ariaLabel: `Chart ${ex.name}`,
+        sub: tn(count, 'unit.session'),
+        ariaLabel: t('progress.chartAria', { name: ex.name }),
         onclick: () => navigate('progress', ex.id),
       })
     )));
@@ -101,7 +102,7 @@ function overview() {
 
   // --- weekly volume of work ---
   const buckets = weeklyMuscleSets(done, store.state.exerciseById, 10);
-  root.append(el('div.section-head', {}, [el('h2', { text: 'Weekly workload' })]));
+  root.append(el('div.section-head', {}, [el('h2', { text: t('progress.weeklyWorkload') })]));
   root.append(workloadSection(done, units));
 
   // --- muscle split over the last 4 weeks ---
@@ -111,23 +112,23 @@ function overview() {
     for (const [m, n] of Object.entries(b.byMuscle)) byMuscle[m] = (byMuscle[m] || 0) + n;
   }
   const muscleRows = MUSCLES
-    .map((m) => ({ label: m, value: byMuscle[m] || 0 }))
+    .map((m) => ({ label: tMuscle(m), value: byMuscle[m] || 0 }))
     .filter((r) => r.value > 0)
     .sort((a, b) => b.value - a.value);
 
   if (muscleRows.length) {
-    root.append(el('div.section-head', {}, [el('h2', { text: 'Muscle split · last 4 weeks' })]));
+    root.append(el('div.section-head', {}, [el('h2', { text: t('progress.muscleSplit') })]));
     root.append(
       el('div.card', {}, [
         el('figcaption', { style: { fontSize: '12.5px', color: 'var(--text-dim)', marginBottom: '10px' },
-          text: 'Total working sets per muscle group.' }),
+          text: t('progress.muscleSplitCaption') }),
         hBars(muscleRows),
       ])
     );
   }
 
   // --- consistency ---
-  root.append(el('div.section-head', {}, [el('h2', { text: 'Consistency' })]));
+  root.append(el('div.section-head', {}, [el('h2', { text: t('progress.consistency') })]));
   const dayMap = new Map();
   for (const s of done) {
     const key = new Date(s.startedAt).toISOString().slice(0, 10);
@@ -138,8 +139,8 @@ function overview() {
     el('div.card', {}, [
       heatmap([...dayMap].map(([key, value]) => ({ key, value })), 18),
       el('div.legend', {}, [
-        el('span', {}, [el('b', { style: { background: 'var(--line-soft)' } }), 'Rest']),
-        el('span', {}, [el('b', { style: { background: 'color-mix(in srgb, var(--accent) 38%, var(--line-soft))' } }), '1–8 sets']),
+        el('span', {}, [el('b', { style: { background: 'var(--line-soft)' } }), t('plans.rest')]),
+        el('span', {}, [el('b', { style: { background: 'color-mix(in srgb, var(--accent) 38%, var(--line-soft))' } }), t('progress.heat18')]),
         el('span', {}, [el('b', { style: { background: 'color-mix(in srgb, var(--accent) 70%, var(--line-soft))' } }), '9–16']),
         el('span', {}, [el('b', { style: { background: 'var(--accent)' } }), '17+']),
       ]),
@@ -148,8 +149,8 @@ function overview() {
 
   // --- bodyweight ---
   root.append(el('div.section-head', {}, [
-    el('h2', { text: 'Bodyweight' }),
-    el('button.btn.quiet.sm', { onclick: bodyweightForm }, ['+ Log']),
+    el('h2', { text: t('home.bodyweight.title') }),
+    el('button.btn.quiet.sm', { onclick: bodyweightForm }, [t('progress.logShort')]),
   ]));
 
   const bw = [...store.state.bodyweight].sort((a, b) => a.date - b.date);
@@ -160,7 +161,11 @@ function overview() {
         lineChart(
           bw.map((b) => ({ x: b.date, y: b.weight, tip: fmtWeight(b.weight, units) })),
           {
-            caption: `${fmtWeight(bw[bw.length - 1].weight, units)} now · ${delta >= 0 ? '+' : ''}${fmtWeight(delta, units)} since ${fmtDate(bw[0].date)}`,
+            caption: t('home.bodyweight.caption', {
+              now: fmtWeight(bw[bw.length - 1].weight, units),
+              delta: `${delta >= 0 ? '+' : ''}${fmtWeight(delta, units)}`,
+              since: fmtDate(bw[0].date),
+            }),
             format: (v) => fmtNum(v, 0), showTrend: true, height: 170,
           }
         ),
@@ -170,10 +175,10 @@ function overview() {
     root.append(el('div.card', {}, [
       el('div.small.muted', {
         text: bw.length
-          ? `One entry so far (${fmtWeight(bw[0].weight, units)}). Log another to see a trend.`
-          : 'Log your bodyweight to see it plotted against your lifts.',
+          ? t('progress.oneBodyweight', { weight: fmtWeight(bw[0].weight, units) })
+          : t('progress.noBodyweight'),
       }),
-      el('button.btn.ghost.full.sm', { style: { marginTop: '10px' }, onclick: bodyweightForm }, ['Log bodyweight']),
+      el('button.btn.ghost.full.sm', { style: { marginTop: '10px' }, onclick: bodyweightForm }, [t('progress.logBodyweight')]),
     ]));
   }
 
@@ -196,9 +201,7 @@ function overview() {
 function thinChart(points, m, units) {
   if (!points.length) {
     return el('div.card', {}, [
-      el('div.small.muted', {
-        text: `Nothing to plot for ${m.noun}: every session so far comes out at zero. That is what a bodyweight movement does — with no load there is no volume and no estimated one-rep max. Log an added weight, or switch the metric above.`,
-      }),
+      el('div.small.muted', { text: t('progress.allZero', { metric: m.noun }) }),
     ]);
   }
 
@@ -207,8 +210,7 @@ function thinChart(points, m, units) {
     el('div', { style: { fontSize: '32px', fontWeight: '760', letterSpacing: '-0.03em', lineHeight: '1.1' },
       text: only.tip }),
     el('div.small.faint', { style: { marginTop: '2px' }, text: `${m.noun} · ${relDay(only.x)}` }),
-    el('div.small.muted', { style: { marginTop: '12px' },
-      text: 'One session logged. A second one turns this into a trend — the chart, the percentage and the twelve-week slope all need at least two points to mean anything.' }),
+    el('div.small.muted', { style: { marginTop: '12px' }, text: t('progress.onePoint') }),
   ]);
 }
 
@@ -236,15 +238,15 @@ function noteHistory(exerciseId) {
   notes.sort((a, b) => b.at - a.at);
 
   wrap.append(el('div.section-head', {}, [
-    el('h2', { text: 'Notes' }),
-    el('span.small.faint', { text: plural(notes.length, 'note') }),
+    el('h2', { text: t('progress.notes') }),
+    el('span.small.faint', { text: tn(notes.length, 'unit.note') }),
   ]));
 
   for (const n of notes.slice(0, 12)) {
     wrap.append(
       el('button.card.tight', {
         style: { display: 'block', width: '100%', textAlign: 'left' },
-        'aria-label': `Note from ${relDay(n.at)}`,
+        'aria-label': t('progress.noteFrom', { when: relDay(n.at) }),
         onclick: () => navigate('calendar', n.sessionId),
       }, [
         el('div.small.faint', { text: relDay(n.at) }),
@@ -255,7 +257,7 @@ function noteHistory(exerciseId) {
 
   if (notes.length > 12) {
     wrap.append(el('div.small.faint', { style: { textAlign: 'center' },
-      text: `${notes.length - 12} older ${notes.length - 12 === 1 ? 'note' : 'notes'} in the sessions below` }));
+      text: t('progress.olderNotes', { notes: tn(notes.length - 12, 'unit.note') }) }));
   }
   return wrap;
 }
@@ -273,14 +275,12 @@ function strengthSection(done) {
   const settings = store.state.settings;
   if (settings.showRatings === false) return wrap;
 
-  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Strength over time' })]));
+  wrap.append(el('div.section-head', {}, [el('h2', { text: t('progress.strengthOverTime') })]));
 
   if (!hasProfile(settings)) {
     wrap.append(el('div.card', {}, [
-      el('div.small.muted', {
-        text: 'Strength is scored relative to bodyweight, sex and age. Add those and this becomes a line you can watch.',
-      }),
-      el('button.btn.ghost.full.sm', { style: { marginTop: '10px' }, onclick: () => profileForm() }, ['Add my details']),
+      el('div.small.muted', { text: t('progress.needProfile') }),
+      el('button.btn.ghost.full.sm', { style: { marginTop: '10px' }, onclick: () => profileForm() }, [t('home.rating.addDetails')]),
     ]));
     return wrap;
   }
@@ -290,9 +290,7 @@ function strengthSection(done) {
 
   if (history.length < 2) {
     wrap.append(el('div.card', {}, [
-      el('div.small.muted', {
-        text: 'Log a benchmark lift — squat, bench, deadlift, overhead press, row — across a few weeks and your score gets plotted here.',
-      }),
+      el('div.small.muted', { text: t('progress.needBenchmark') }),
     ]));
     return wrap;
   }
@@ -307,10 +305,10 @@ function strengthSection(done) {
         history.map((h) => ({
           x: h.week,
           y: h.score,
-          tip: `${Math.round(h.score)} · ${h.tier.label}`,
+          tip: `${Math.round(h.score)} · ${tTier(h.tier.key)}`,
         })),
         {
-          caption: `Overall score across ${last.lifts} rated ${last.lifts === 1 ? 'lift' : 'lifts'}. Each week uses the best you had shown by then, scored against your bodyweight at the time — so a dip usually means the scale moved, not that you got weaker.`,
+          caption: t('progress.strengthCaption', { lifts: tn(last.lifts, 'unit.lift') }),
           // A few months of training spans only a handful of points, and
           // rounding those to whole numbers prints "30, 30, 31" up the axis.
           format: axisFormat(history.map((h) => h.score)),
@@ -320,18 +318,23 @@ function strengthSection(done) {
       ),
       el('div.row.between', { style: { marginTop: '10px', alignItems: 'center' } }, [
         el(`div.tier-${tierIndex(last.score)}`, {}, [
-          el('span.tier-chip', { text: last.tier.label }),
+          el('span.tier-chip', { text: tTier(last.tier.key) }),
         ]),
         el('div.small', {
           style: { color: delta >= 0 ? 'var(--good)' : 'var(--text-dim)', fontWeight: '650' },
-          text: `${delta >= 0 ? '+' : ''}${Math.round(delta)} points over ${weeks} week${weeks === 1 ? '' : 's'}`,
+          text: t('progress.pointsOver', {
+            delta: `${delta >= 0 ? '+' : ''}${Math.round(delta)}`,
+            weeks: tn(weeks, 'unit.week'),
+          }),
         }),
       ]),
       // The tier thresholds are the thing people actually want to know their
       // distance from, and reading them off an unlabelled y-axis is guesswork.
       // Bands are 20 points wide — see tierIndex() in standards.js.
       el('div.small.faint', { style: { marginTop: '6px' },
-        text: `Tier bands are 20 points wide: ${TIERS.map((t, i) => `${t.short} ${i * 20}`).join(' · ')}. ${nextTierNote(last.score)}` }),
+        text: t('progress.tierBands', {
+          bands: TIERS.map((tier, i) => `${tTier(tier.key, { short: true })} ${i * 20}`).join(' · '),
+        }) + ` ${nextTierNote(last.score)}` }),
     ])
   );
 
@@ -348,9 +351,9 @@ function axisFormat(values) {
 /** How far to the next tier, in the units the chart is drawn in. */
 function nextTierNote(score) {
   const i = tierIndex(score);
-  if (i >= TIERS.length - 1) return 'You are in the top band.';
+  if (i >= TIERS.length - 1) return t('progress.topBand');
   const gap = (i + 1) * 20 - score;
-  return `${gap.toFixed(1)} points to ${TIERS[i + 1].label}.`;
+  return t('progress.pointsTo', { points: gap.toFixed(1), tier: tTier(TIERS[i + 1].key) });
 }
 
 /* ===================== movers ===================== */
@@ -373,7 +376,7 @@ function stallSection(done) {
   const lines = describeStall(report);
   const worthAttention = report.stalled >= Math.ceil(report.tracked / 2);
 
-  wrap.append(el('div.section-head', {}, [el('h2', { text: 'Still moving?' })]));
+  wrap.append(el('div.section-head', {}, [el('h2', { text: t('progress.stillMoving') })]));
   wrap.append(
     el('div.card', {}, [
       el('div', {
@@ -381,13 +384,10 @@ function stallSection(done) {
           fontWeight: '650', fontSize: '14px',
           color: worthAttention ? 'var(--warn)' : 'var(--good)',
         },
-        text: worthAttention
-          ? 'Most of your lifts have stopped gaining'
-          : 'Most of your lifts are still gaining',
+        text: t(worthAttention ? 'progress.stallWorse' : 'progress.stallBetter'),
       }),
-      ...lines.map((text) => el('div.small.muted', { style: { marginTop: '8px' }, text })),
-      el('div.small.faint', { style: { marginTop: '12px' },
-        text: 'These are observations, not instructions. There is no good evidence for a scheduled deload — no trial says when one is due or that taking one beats carrying on — so the app will not tell you to take one. A stall can equally mean the weight jumps are too big, sleep, or a run of bad sessions.' }),
+      ...lines.map((line) => el('div.small.muted', { style: { marginTop: '8px' }, text: line })),
+      el('div.small.faint', { style: { marginTop: '12px' }, text: t('progress.stallCaveat') }),
     ])
   );
   return wrap;
@@ -401,7 +401,7 @@ function moversSection(done, units) {
   const climbing = rows.filter((r) => r.perWeek > 0.05).slice(0, 5);
   const stalled = rows.filter((r) => r.perWeek <= 0.05).slice(-4).reverse();
 
-  wrap.append(el('div.section-head', {}, [el('h2', { text: 'What is moving · 12 weeks' })]));
+  wrap.append(el('div.section-head', {}, [el('h2', { text: t('progress.whatIsMoving') })]));
 
   const card = el('div.card', {});
   const line = (r, tone) => el('button.row.between', {
@@ -409,34 +409,37 @@ function moversSection(done, units) {
       width: '100%', background: 'none', border: 0, textAlign: 'left',
       padding: '9px 0', borderTop: '1px solid var(--line-soft)', gap: '10px',
     },
-    'aria-label': `Chart ${r.ex.name}`,
+    'aria-label': t('progress.chartAria', { name: r.ex.name }),
     onclick: () => navigate('progress', r.ex.id),
   }, [
     el('div.grow', {}, [
       el('div', { style: { fontWeight: '600', fontSize: '14.5px' }, text: r.ex.name }),
       el('div.small.faint', {
-        text: `${fmtWeight(Math.round(r.first), units)} → ${fmtWeight(Math.round(r.last), units)} est. 1RM · ${plural(r.sessions, 'session')}`,
+        text: t('progress.moverLine', {
+          from: fmtWeight(Math.round(r.first), units),
+          to: fmtWeight(Math.round(r.last), units),
+          sessions: tn(r.sessions, 'unit.session'),
+        }),
       }),
     ]),
     el('div', { style: { textAlign: 'right', color: tone, fontWeight: '680', fontSize: '14px' } }, [
       `${r.perWeek >= 0 ? '+' : ''}${r.perWeek.toFixed(1)}`,
-      el('div.small.faint', { style: { fontWeight: '500' }, text: `${units}/week` }),
+      el('div.small.faint', { style: { fontWeight: '500' }, text: t('progress.perWeekUnits', { units }) }),
     ]),
   ]);
 
   if (climbing.length) {
-    card.append(el('div.small', { style: { fontWeight: '650', color: 'var(--good)' }, text: 'Going up' }));
+    card.append(el('div.small', { style: { fontWeight: '650', color: 'var(--good)' }, text: t('home.map.up') }));
     climbing.forEach((r) => card.append(line(r, 'var(--good)')));
   }
   if (stalled.length) {
     card.append(el('div.small', {
       style: { fontWeight: '650', color: 'var(--text-dim)', marginTop: climbing.length ? '14px' : '0' },
-      text: 'Flat or falling',
+      text: t('progress.flatOrFalling'),
     }));
     stalled.forEach((r) => card.append(line(r, 'var(--text-dim)')));
   }
-  card.append(el('div.small.faint', { style: { marginTop: '12px' },
-    text: 'Slope of estimated 1RM per week, so adding reps counts as progress too. A flat lift is not a failure — but it is the first place to look.' }));
+  card.append(el('div.small.faint', { style: { marginTop: '12px' }, text: t('progress.moversNote') }));
 
   wrap.append(card);
   return wrap;
@@ -456,12 +459,12 @@ function workloadSection(done, units) {
   const compact = (v) => (v >= 10000 ? `${Math.round(v / 1000)}k` : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)));
 
   const WORK = {
-    sets:    { label: 'Sets',    pick: (b) => b.sets,    fmt: (v) => `${v} sets`, axis: (v) => String(Math.round(v)),
-               caption: 'Working sets per week. This is the metric weekly volume is judged on.' },
-    tonnage: { label: 'Volume',  pick: (b) => b.tonnage, fmt: (v) => `${fmtNum(v, 0)}${units}`, axis: compact,
-               caption: `Total weight moved per week — weight x reps across every working set, in ${units}.` },
-    reps:    { label: 'Reps',    pick: (b) => b.reps,    fmt: (v) => `${v} reps`, axis: compact,
-               caption: 'Total working reps per week.' },
+    sets:    { label: t('train.sets'), pick: (b) => b.sets, fmt: (v) => tn(v, 'unit.set'), axis: (v) => String(Math.round(v)),
+               caption: t('progress.work.setsCaption') },
+    tonnage: { label: t('plans.part.volume'), pick: (b) => b.tonnage, fmt: (v) => `${fmtNum(v, 0)}${units}`, axis: compact,
+               caption: t('progress.work.tonnageCaption', { units }) },
+    reps:    { label: t('train.col.reps'), pick: (b) => b.reps, fmt: (v) => tn(v, 'unit.rep'), axis: compact,
+               caption: t('progress.work.repsCaption') },
   };
 
   const chart = el('div');
@@ -486,13 +489,13 @@ function workloadSection(done, units) {
       el('div.card', {}, [
         barChart(
           buckets.map((b, i) => ({
-            label: `Week of ${fmtDate(b.week)}`,
-            short: i === buckets.length - 1 ? 'Now' : fmtDate(b.week),
+            label: t('home.workload.weekOf', { date: fmtDate(b.week) }),
+            short: i === buckets.length - 1 ? t('home.workload.now') : fmtDate(b.week),
             value: Math.round(m.pick(b)),
             tip: m.fmt(Math.round(m.pick(b))),
             dim: i === buckets.length - 1,
           })),
-          { caption: `${m.caption} The last bar is the week in progress.`, height: 160, everyNthLabel: 3, format: m.axis }
+          { caption: `${m.caption} ${t('progress.lastBar')}`, height: 160, everyNthLabel: 3, format: m.axis }
         ),
       ])
     );
@@ -514,11 +517,11 @@ function exerciseView(exerciseId) {
     el('button.btn.quiet.sm', {
       style: { marginBottom: '10px', paddingLeft: '0' },
       onclick: () => navigate('progress'),
-    }, ['‹ Progress'])
+    }, [`‹ ${t('route.progress')}`])
   );
 
   if (!ex) {
-    root.append(emptyState('Exercise not found', 'It may have been deleted.'));
+    root.append(emptyState(t('library.notFound'), t('library.notFoundHint')));
     return root;
   }
 
@@ -527,12 +530,12 @@ function exerciseView(exerciseId) {
   root.append(
     el('div', { style: { marginBottom: '14px' } }, [
       el('div', { style: { fontSize: '21px', fontWeight: '710', letterSpacing: '-0.02em' }, text: ex.name }),
-      el('div.small.faint', { text: `${ex.muscle} · ${ex.equipment} · ${plural(series.length, 'session')}` }),
+      el('div.small.faint', { text: `${tMuscle(ex.muscle)} · ${tEquipment(ex.equipment)} · ${tn(series.length, 'unit.session')}` }),
     ])
   );
 
   if (!series.length) {
-    root.append(emptyState('No data for this lift yet', 'Log it in a workout and the chart fills in.'));
+    root.append(emptyState(t('progress.noLiftData'), t('progress.noLiftDataHint')));
     return root;
   }
 
@@ -542,24 +545,27 @@ function exerciseView(exerciseId) {
     el('div.stat-grid', { style: { marginBottom: '4px' } }, [
       prs.e1rm ? el('div.stat', {}, [
         el('span.stat-val', { text: fmtWeight(Math.round(prs.e1rm.value), units) }),
-        el('span.stat-key', { text: 'Best e1RM' }),
+        el('span.stat-key', { text: t('progress.bestE1rm') }),
       ]) : null,
       prs.weight ? el('div.stat', {}, [
         el('span.stat-val', { text: fmtWeight(prs.weight.value, units) }),
-        el('span.stat-key', { text: 'Top weight' }),
+        el('span.stat-key', { text: t('progress.topWeight') }),
       ]) : null,
       prs.reps ? el('div.stat', {}, [
         el('span.stat-val', { text: String(prs.reps.value) }),
-        el('span.stat-key', { text: 'Most reps' }),
+        el('span.stat-key', { text: t('progress.mostReps') }),
       ]) : null,
     ].filter(Boolean))
   );
 
   // --- metric switch ---
   const METRICS = {
-    e1rm:   { label: 'Est. 1RM', noun: 'estimated 1RM', pick: (p) => p.e1rm,      caption: 'Estimated one-rep max (Epley). The cleanest single progress signal — it folds weight and reps together.' },
-    top:    { label: 'Top set',  noun: 'top set',       pick: (p) => p.topWeight, caption: 'Heaviest working set in each session.' },
-    volume: { label: 'Volume',   noun: 'session volume', pick: (p) => p.volume,   caption: 'Weight × reps across all working sets in the session.' },
+    e1rm:   { label: t('progress.metric.e1rm'), noun: t('progress.metric.e1rmNoun'), pick: (p) => p.e1rm,
+              caption: t('progress.metric.e1rmCaption') },
+    top:    { label: t('progress.metric.top'), noun: t('progress.metric.topNoun'), pick: (p) => p.topWeight,
+              caption: t('progress.metric.topCaption') },
+    volume: { label: t('plans.part.volume'), noun: t('progress.metric.volumeNoun'), pick: (p) => p.volume,
+              caption: t('progress.metric.volumeCaption') },
   };
 
   const chartHost = el('div');
@@ -617,7 +623,7 @@ function exerciseView(exerciseId) {
         el('div.card.tight', {}, [
           el('div.small', {}, [
             el('b', { text: `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% `, class: pct >= 0 ? 'mono-accent' : '' }),
-            `over ${weeks} week${weeks === 1 ? '' : 's'} on ${m.noun}.`,
+            t('progress.trendTail', { weeks: tn(weeks, 'unit.week'), metric: m.noun }),
           ]),
         ])
       );
@@ -627,11 +633,11 @@ function exerciseView(exerciseId) {
   root.append(noteHistory(exerciseId));
 
   // --- session table (the accessible alternative to reading the chart) ---
-  root.append(el('div.section-head', {}, [el('h2', { text: 'Every session' })]));
+  root.append(el('div.section-head', {}, [el('h2', { text: t('progress.everySession') })]));
   for (const p of [...series].reverse()) {
     root.append(listItem({
       title: relDay(p.t),
-      sub: `${plural(p.sets, 'set')} · top ${fmtWeight(p.topWeight, units)} · ${fmtNum(p.volume)}${units} · e1RM ${fmtNum(p.e1rm)}`,
+      sub: `${tn(p.sets, 'unit.set')} · ${t('progress.topOf', { weight: fmtWeight(p.topWeight, units) })} · ${fmtNum(p.volume)}${units} · e1RM ${fmtNum(p.e1rm)}`,
       onclick: () => navigate('calendar', p.sessionId),
     }));
   }
@@ -662,7 +668,7 @@ function bodyweightForm() {
   const input = normaliseOnBlur(numberInput({
     decimal: true,
     value: latest ? String(latest.weight) : '',
-    placeholder: `Weight in ${units}`,
+    placeholder: t('settings.weightIn', { units }),
   }));
   const date = el('input', { type: 'date', value: new Date().toISOString().slice(0, 10) });
 
@@ -672,10 +678,11 @@ function bodyweightForm() {
       el('div.row', { style: { gap: '10px' } }, [
         el('span.small', { style: { fontWeight: '650' }, text: fmtWeight(b.weight, units) }),
         el('button.btn.quiet.sm', {
-          'aria-label': 'Delete entry',
+          'aria-label': t('progress.deleteEntry'),
           onclick: async () => {
-            const ok = await confirmSheet('Delete entry?', `${fmtWeight(b.weight, units)} on ${fmtDate(b.date)}.`);
-            if (ok) { await store.deleteBodyweight(b.id); toast('Deleted'); }
+            const ok = await confirmSheet(t('progress.deleteEntry'),
+              t('progress.deleteEntryBody', { weight: fmtWeight(b.weight, units), date: fmtDate(b.date) }));
+            if (ok) { await store.deleteBodyweight(b.id); toast(t('progress.deleted')); }
           },
         }, ['×']),
       ]),
@@ -683,23 +690,23 @@ function bodyweightForm() {
   ));
 
   const body = el('div', {}, [
-    el('label.field', {}, [el('span', { text: `Weight (${units})` }), input]),
-    el('label.field', {}, [el('span', { text: 'Date' }), date]),
+    el('label.field', {}, [el('span', { text: t('progress.weightField', { units }) }), input]),
+    el('label.field', {}, [el('span', { text: t('calendar.date') }), date]),
     el('button.btn.primary.full', {
       onclick: async () => {
         const v = parseNumber(input.value);
-        if (!v || v <= 0) { toast('Enter a weight'); input.focus(); return; }
+        if (!v || v <= 0) { toast(t('progress.enterWeight')); input.focus(); return; }
         await store.logBodyweight(v, new Date(`${date.value}T12:00:00`).getTime());
         closeSheet();
-        toast('Logged');
+        toast(t('progress.logged'));
       },
-    }, ['Save']),
+    }, [t('common.save')]),
     store.state.bodyweight.length
-      ? el('div', {}, [el('div.section-head', {}, [el('h2', { text: 'Recent' })]), history])
+      ? el('div', {}, [el('div.section-head', {}, [el('h2', { text: t('home.recent.title') })]), history])
       : null,
   ]);
 
-  openSheet('Log bodyweight', body);
+  openSheet(t('progress.logBodyweight'), body);
 }
 
 export { entryStats };

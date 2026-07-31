@@ -22,6 +22,7 @@
 // pretending the number is zero.
 
 import { THRESHOLDS } from './evidence.js';
+import { t } from './i18n.js';
 import { dayKey, linearFit } from './models.js';
 
 /**
@@ -56,23 +57,23 @@ export function proteinTarget(settings) {
  * get printed next to a number.
  */
 export const NUTRIENTS = [
-  { key: 'kcal',        label: 'Energy',             unit: 'kcal', core: true },
-  { key: 'protein',     label: 'Protein',            unit: 'g',    core: true },
-  { key: 'carbs',       label: 'Carbohydrate',       unit: 'g',    core: true },
-  { key: 'sugars',      label: 'of which sugars',    unit: 'g',    sub: true },
-  { key: 'fibre',       label: 'Fibre',              unit: 'g',    core: true },
-  { key: 'fat',         label: 'Fat',                unit: 'g',    core: true },
-  { key: 'satFat',      label: 'of which saturates', unit: 'g',    sub: true },
-  { key: 'sodium',      label: 'Sodium',             unit: 'mg' },
-  { key: 'cholesterol', label: 'Cholesterol',        unit: 'mg' },
-  { key: 'potassium',   label: 'Potassium',          unit: 'mg' },
-  { key: 'calcium',     label: 'Calcium',            unit: 'mg' },
-  { key: 'magnesium',   label: 'Magnesium',          unit: 'mg' },
-  { key: 'iron',        label: 'Iron',               unit: 'mg' },
-  { key: 'zinc',        label: 'Zinc',               unit: 'mg' },
-  { key: 'vitaminC',    label: 'Vitamin C',          unit: 'mg' },
-  { key: 'vitaminD',    label: 'Vitamin D',          unit: 'µg' },
-  { key: 'vitaminB12',  label: 'Vitamin B12',        unit: 'µg' },
+  { key: 'kcal',        label: 'nutrient.kcal',             unit: 'kcal', core: true },
+  { key: 'protein',     label: 'nutrient.protein',            unit: 'g',    core: true },
+  { key: 'carbs',       label: 'nutrient.carbs',       unit: 'g',    core: true },
+  { key: 'sugars',      label: 'nutrient.sugars',    unit: 'g',    sub: true },
+  { key: 'fibre',       label: 'nutrient.fibre',              unit: 'g',    core: true },
+  { key: 'fat',         label: 'nutrient.fat',                unit: 'g',    core: true },
+  { key: 'satFat',      label: 'nutrient.satFat', unit: 'g',    sub: true },
+  { key: 'sodium',      label: 'nutrient.sodium',             unit: 'mg' },
+  { key: 'cholesterol', label: 'nutrient.cholesterol',        unit: 'mg' },
+  { key: 'potassium',   label: 'nutrient.potassium',          unit: 'mg' },
+  { key: 'calcium',     label: 'nutrient.calcium',            unit: 'mg' },
+  { key: 'magnesium',   label: 'nutrient.magnesium',          unit: 'mg' },
+  { key: 'iron',        label: 'nutrient.iron',               unit: 'mg' },
+  { key: 'zinc',        label: 'nutrient.zinc',               unit: 'mg' },
+  { key: 'vitaminC',    label: 'nutrient.vitaminC',          unit: 'mg' },
+  { key: 'vitaminD',    label: 'nutrient.vitaminD',          unit: 'µg' },
+  { key: 'vitaminB12',  label: 'nutrient.vitaminB12',        unit: 'µg' },
 ];
 
 export const CORE_KEYS = NUTRIENTS.filter((n) => n.core).map((n) => n.key);
@@ -183,18 +184,18 @@ export function waterTarget(settings) {
 
 /** Where a day's protein sits against the target band. */
 export function proteinVerdict(protein, target) {
-  if (!target) return { state: 'unknown', text: 'Add your bodyweight to get a protein target' };
+  if (!target) return { state: 'unknown', text: t('verdict.noTarget') };
   // "128 g short of 128" is technically true and reads like a bug.
-  if (!protein) return { state: 'under', text: `Target ${target.low}–${target.high} g` };
+  if (!protein) return { state: 'under', text: t('verdict.target', { low: target.low, high: target.high }) };
   if (protein >= target.low && protein <= target.high) {
-    return { state: 'hit', text: `In range (${target.low}–${target.high} g)` };
+    return { state: 'hit', text: t('verdict.inRange', { low: target.low, high: target.high }) };
   }
   if (protein > target.high) {
     // Not a warning. Above the band is not a mistake — the band's upper edge is
     // where the evidence stops, not where harm starts.
-    return { state: 'over', text: `Above the ${target.high} g band — no evidence that is a problem` };
+    return { state: 'over', text: t('verdict.above', { high: target.high }) };
   }
-  return { state: 'under', text: `${target.low - protein} g short of ${target.low}` };
+  return { state: 'under', text: t('verdict.short', { gap: target.low - protein, low: target.low }) };
 }
 
 /**
@@ -387,24 +388,24 @@ export function macroTargets(settings, maintenance) {
 }
 
 export const GOALS = [
-  { key: 'lose', label: 'Lose', blurb: 'slow enough to keep muscle' },
-  { key: 'hold', label: 'Hold', blurb: 'stay where you are' },
-  { key: 'gain', label: 'Gain', blurb: 'slow enough to stay lean' },
+  { key: 'lose', label: 'goal.lose', blurb: 'goal.loseBlurb' },
+  { key: 'hold', label: 'goal.hold', blurb: 'goal.holdBlurb' },
+  { key: 'gain', label: 'goal.gain', blurb: 'goal.gainBlurb' },
 ];
 
 /** Plain-language read on the weight trend, given what the user is trying to do. */
 export function trendVerdict(trend) {
-  if (!trend) return { state: 'unknown', text: 'Log your bodyweight twice to see a direction' };
+  if (!trend) return { state: 'unknown', text: t('verdict.noTrend') };
   const pct = trend.pctPerWeek;
   const rate = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}% a week`;
 
-  if (Math.abs(pct) < 0.1) return { state: 'flat', text: `Holding steady (${rate})` };
+  if (Math.abs(pct) < 0.1) return { state: 'flat', text: t('verdict.steady', { rate }) };
   if (pct > 0) {
     return pct <= 0.5
-      ? { state: 'gain', text: `Gaining at ${rate} — the usual range for adding size` }
-      : { state: 'fast', text: `Gaining at ${rate} — faster than most people want to add` };
+      ? { state: 'gain', text: t('verdict.gainOk', { rate }) }
+      : { state: 'fast', text: t('verdict.gainFast', { rate }) };
   }
   return pct >= -0.5
-    ? { state: 'cut', text: `Losing at ${rate} — the usual range for keeping muscle` }
-    : { state: 'fast', text: `Losing at ${rate} — fast enough to cost you strength` };
+    ? { state: 'cut', text: t('verdict.loseOk', { rate }) }
+    : { state: 'fast', text: t('verdict.loseFast', { rate }) };
 }

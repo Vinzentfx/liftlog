@@ -8,6 +8,7 @@
 // convention — primary muscles get the full set, secondary muscles half of one
 // (SOURCES.pelland2026) — so "planned" and "done" are finally comparable.
 
+import { t } from './i18n.js';
 import { startOfWeek, isCounted } from './models.js';
 import { rateExercise } from './exercise-rating.js';
 import { THRESHOLDS } from './evidence.js';
@@ -159,7 +160,7 @@ function previousWeek(weekStart) {
  * @param plannedDays how many sessions the active plan has, or 0 without one
  */
 export function weekVerdict(week, rows, plannedDays = 0) {
-  if (!week.workouts) return { headline: 'Nothing logged this week yet', tone: 'faint', behind: [], pace: 0 };
+  if (!week.workouts) return { headline: t('weekVerdict.nothing'), tone: 'faint', behind: [], pace: 0 };
 
   const daysIn = Math.min(7, Math.floor((Date.now() - week.weekStart) / 86400000) + 1);
   const pace = plannedDays
@@ -174,13 +175,18 @@ export function weekVerdict(week, rows, plannedDays = 0) {
   return {
     headline: withTarget.length
       ? done
-        ? `${withTarget.filter((r) => r.ratio >= 1).length} of ${withTarget.length} muscles hit this week's target`
+        ? t('weekVerdict.hit', {
+            hit: withTarget.filter((r) => r.ratio >= 1).length, total: withTarget.length,
+          })
         // Without a plan there is no session count to be part-way through, and
-        // "2 of ? sessions in" reads like a bug — say only what is known.
+        // "2 of ? sessions in" reads like a bug, so say only what is known.
         : plannedDays
-          ? `${onTrack.length} of ${withTarget.length} muscles are on pace — ${week.workouts} of ${plannedDays} sessions in`
-          : `${onTrack.length} of ${withTarget.length} muscles are on pace`
-      : `${week.totalSets} sets logged`,
+          ? t('weekVerdict.onPaceWithPlan', {
+              onTrack: onTrack.length, total: withTarget.length,
+              done: week.workouts, planned: plannedDays,
+            })
+          : t('weekVerdict.onPace', { onTrack: onTrack.length, total: withTarget.length })
+      : t('weekVerdict.setsLogged', { n: week.totalSets }),
     tone: behind.length > withTarget.length * 0.4 ? 'warn' : 'good',
     behind,
     pace,

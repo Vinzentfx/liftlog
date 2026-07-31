@@ -32,84 +32,84 @@ const LENGTH_RULES = [
   // "Reverse Machine Flyes" has to lose to this rule and not to the chest-fly
   // one below, hence the gap allowance rather than a straight "reverse fly".
   { re: /reverse.{0,16}(fly|flye|pec deck)|rear (delt|deltoid)|bent[- ]?over.{0,12}(lateral|rear|fly|flye)/i,
-    bias: SHORT, why: 'Peak resistance lands with the rear delt already contracted' },
+    bias: SHORT, why: 'science.reverseFlyFlye' },
   { re: /(spider|concentration) curl/i,
-    bias: SHORT, why: 'Shoulder flexed, so the biceps never reaches a long length under load' },
-  { re: /drag curl/i, bias: SHORT, why: 'The elbow travels back, shortening the biceps as you lift' },
+    bias: SHORT, why: 'science.spiderConcentrationCurl' },
+  { re: /drag curl/i, bias: SHORT, why: 'science.dragCurl' },
   { re: /cable.{0,16}(lateral|side) raise|lean[- ]?away|cross[- ]?body (lateral|raise)/i,
-    bias: MIXED, why: 'A cable from behind the body keeps tension on where the delt is longer' },
+    bias: MIXED, why: 'science.cableLateralSide' },
 
   // --- long: load lands on a stretched muscle ---
-  { re: /pullover/i, bias: LONG, why: 'Loads the muscle overhead, at its longest' },
+  { re: /pullover/i, bias: LONG, why: 'science.pullover' },
   { re: /incline.{0,16}curl|bayesian/i,
-    bias: LONG, why: 'Arm behind the body puts the biceps under load at full stretch' },
+    bias: LONG, why: 'science.inclineCurlBayesian' },
   { re: /preacher|scott curl/i,
-    bias: LONG, why: 'Hardest at the bottom, where the biceps is stretched' },
+    bias: LONG, why: 'science.preacherScottCurl' },
   { re: /bent[- ]?over.{0,26}tricep/i,
-    bias: SHORT, why: 'A kickback finishes where the triceps is already short' },
+    bias: SHORT, why: 'science.bentOverTricep' },
   { re: /skull ?crusher|nose breaker|french press|overhead.{0,16}(tricep|extension)|(lying|incline|seated|decline).{0,16}tricep/i,
-    bias: LONG, why: 'Elbow overhead or behind you — the long head of the triceps is loaded stretched' },
+    bias: LONG, why: 'science.skullCrusherNose' },
   { re: /romanian deadlift|\brdl\b|stiff[- ]?leg|straight[- ]?leg deadlift|good morning|nordic|glute[- ]?ham|pull[- ]?through/i,
-    bias: LONG, why: 'A hip hinge loads the hamstrings at full length at the bottom' },
+    bias: LONG, why: 'science.romanianDeadliftBrdl' },
   { re: /seated leg curl/i,
-    bias: LONG, why: 'Hips flexed, so the hamstrings work from a longer position than a lying curl' },
+    bias: LONG, why: 'science.seatedLegCurl' },
   { re: /pec deck|chest fly|cable (cross|fly|flye)|dumbbell (fly|flye)|\bflyes?\b|butterfly|iron cross|cross[- ]?over/i,
-    bias: LONG, why: 'A fly stretches the working muscle under load at the bottom' },
-  { re: /\bdips?\b/i, bias: LONG, why: 'The deep bottom position loads the muscle stretched' },
+    bias: LONG, why: 'science.pecDeckChest' },
+  { re: /\bdips?\b/i, bias: LONG, why: 'science.bdips' },
   // Shoulder pressing has to be taken out before the dumbbell-press rule below.
   // Without this "Arnold Dumbbell Press" reads as a chest movement and the app
   // explains a delt exercise in terms of pectoral stretch — which is how the
   // swap suggestions first exposed the bug.
   { re: /(shoulder|overhead|military|arnold|bradford).{0,12}press/i,
-    bias: MIXED, why: 'Delts work through the middle of the range' },
+    bias: MIXED, why: 'science.shoulderOverheadMilitary' },
   { re: /press/i, when: (ex) => ex.muscle === 'Shoulders',
-    bias: MIXED, why: 'Delts work through the middle of the range' },
+    bias: MIXED, why: 'science.press' },
   // Guarded by the muscle field as well as the name: "Seated Dumbbell Press" is
   // a shoulder movement that the name rule alone would happily call a chest one.
   { re: /(dumbbell|db) (bench |incline |decline )?press/i, when: (ex) => ex.muscle === 'Chest',
-    bias: LONG, why: 'Dumbbells let the chest reach a longer stretch than a bar allows' },
+    bias: LONG, why: 'science.dumbbellDbBench' },
   { re: /hack squat|sissy squat|pendulum squat|(bulgarian|split) squat|\blunge/i,
-    bias: LONG, why: 'Deep knee and hip flexion — the quads are loaded at length' },
+    bias: LONG, why: 'science.hackSquatSissy' },
   { re: /\bsquats?\b/i,
-    bias: LONG, why: 'Loaded through deep knee and hip flexion — provided you actually go deep' },
+    bias: LONG, why: 'science.bsquats' },
   { re: /pull[- ]?up|chin[- ]?up|pull[- ]?down/i,
-    bias: LONG, why: 'The lats start fully lengthened overhead' },
+    bias: LONG, why: 'science.pullUpChin' },
   { re: /calf (raise|press)|calves press|donkey|toe press/i,
-    bias: LONG, why: 'The bottom of a calf raise is the stretched position — do not cut it short' },
+    bias: LONG, why: 'science.calfRaisePress' },
   { re: /hanging (leg|knee)|ab wheel|ab roller|roll[- ]?out|dragon flag/i,
-    bias: LONG, why: 'Loads the abs lengthened rather than crunched' },
+    bias: LONG, why: 'science.hangingLegKnee' },
   { re: /deadlift/i,
-    bias: LONG, why: 'Hamstrings and glutes are loaded long off the floor' },
+    bias: LONG, why: 'science.deadlift' },
 
   // --- short: peak resistance where the muscle is already shortened ---
   { re: /hip thrust|glute bridge|kick[- ]?back|glute machine|bridg(e|ing)|hip (extension|lift) with band/i,
-    bias: SHORT, why: 'Hardest at lockout, where the glutes are fully contracted' },
+    bias: SHORT, why: 'science.hipThrustGlute' },
   { re: /rack pull/i,
-    bias: SHORT, why: 'Starts above the knee, so the hamstrings never reach full length' },
+    bias: SHORT, why: 'science.rackPull' },
   { re: /(board|floor|pin) press/i,
-    bias: SHORT, why: 'Cuts the bottom of the press off on purpose — the chest never stretches' },
+    bias: SHORT, why: 'science.boardFloorPin' },
   { re: /front (dumbbell |cable |barbell |plate )?raise/i,
-    bias: SHORT, why: 'Front delt peaks where it is already contracted' },
-  { re: /shrug/i, bias: SHORT, why: 'Traps are already short where the load peaks' },
+    bias: SHORT, why: 'science.frontDumbbellCable' },
+  { re: /shrug/i, bias: SHORT, why: 'science.shrug' },
   { re: /push[- ]?down|press[- ]?down/i,
-    bias: SHORT, why: 'Elbow pinned at your side — the triceps long head never gets stretched' },
-  { re: /crunch|sit[- ]?up|ab machine/i, bias: SHORT, why: 'Abs are loaded in the shortened position' },
-  { re: /upright row/i, bias: SHORT, why: 'Delts peak where they are already contracted' },
-  { re: /face pull/i, bias: SHORT, why: 'Resistance peaks with the rear delts contracted' },
+    bias: SHORT, why: 'science.pushDownPress' },
+  { re: /crunch|sit[- ]?up|ab machine/i, bias: SHORT, why: 'science.crunchSitUp' },
+  { re: /upright row/i, bias: SHORT, why: 'science.uprightRow' },
+  { re: /face pull/i, bias: SHORT, why: 'science.facePull' },
   { re: /(lateral|side) raise/i,
-    bias: SHORT, why: 'A free-weight lateral raise is hardest at the top, where the delt is short' },
+    bias: SHORT, why: 'science.lateralSideRaise' },
 
   // --- mixed: tension across the range, or it depends how you do it ---
   { re: /leg extension/i,
-    bias: MIXED, why: 'Resistance peaks near lockout, but the vasti still work at depth' },
-  { re: /leg press/i, bias: MIXED, why: 'Depends entirely on how deep you go' },
-  { re: /leg curl/i, bias: MIXED, why: 'Hips extended, so less hamstring stretch than a seated curl' },
-  { re: /\brows?\b|rowing/i, bias: MIXED, why: 'Rowing works the back through the middle of its range' },
-  { re: /(bench|chest) press|push[- ]?up/i, bias: MIXED, why: 'A bar or the floor stops the stretch early' },
-  { re: /(shoulder|overhead|military|arnold) press/i, bias: MIXED, why: 'Delts work through the middle of the range' },
-  { re: /(tricep|triceps) (extension|press)/i, bias: MIXED, why: 'Depends on where the elbow sits — check yours' },
-  { re: /hyper[- ]?extension|back extension/i, bias: MIXED, why: 'Erectors work through the middle of the range' },
-  { re: /curl/i, bias: MIXED, why: 'Loads the muscle through the middle of its range' },
+    bias: MIXED, why: 'science.legExtension' },
+  { re: /leg press/i, bias: MIXED, why: 'science.legPress' },
+  { re: /leg curl/i, bias: MIXED, why: 'science.legCurl' },
+  { re: /\brows?\b|rowing/i, bias: MIXED, why: 'science.browsRowing' },
+  { re: /(bench|chest) press|push[- ]?up/i, bias: MIXED, why: 'science.benchChestPress' },
+  { re: /(shoulder|overhead|military|arnold) press/i, bias: MIXED, why: 'science.shoulderOverheadMilitary2' },
+  { re: /(tricep|triceps) (extension|press)/i, bias: MIXED, why: 'science.tricepTricepsExtension' },
+  { re: /hyper[- ]?extension|back extension/i, bias: MIXED, why: 'science.hyperExtensionBack' },
+  { re: /curl/i, bias: MIXED, why: 'science.curl' },
 ];
 
 /**
@@ -120,19 +120,19 @@ const LENGTH_RULES = [
  */
 const LIMITER_RULES = [
   { re: /deadlift|rack pull|snatch[- ]?grip|farmer|shrug/i,
-    level: 'other', why: 'Grip and lower back usually quit before the target muscle does' },
+    level: 'other', why: 'science.deadliftRackPull' },
   { re: /(bent[- ]?over|pendlay|barbell) row|t[- ]?bar/i,
-    level: 'other', why: 'Holding the torso over costs more than the lats spend' },
+    level: 'other', why: 'science.bentOverPendlay' },
   { re: /good morning|back extension|hyper[- ]?extension/i,
-    level: 'other', why: 'Lower-back fatigue is the limit here, not the hamstrings' },
+    level: 'other', why: 'science.goodMorningBack' },
   { re: /(back|front|zercher|overhead) squat|^squat|clean|snatch|jerk|thruster/i,
-    level: 'mixed', why: 'Systemic and lower-back fatigue add to what the legs cost' },
+    level: 'mixed', why: 'science.backFrontZercher' },
   { re: /(military|standing.{0,12}overhead|barbell shoulder) press/i,
-    level: 'mixed', why: 'Core and balance take a share of the effort' },
+    level: 'mixed', why: 'science.militaryStandingOverhead' },
   { re: /pull[- ]?up|chin[- ]?up/i,
-    level: 'mixed', why: 'Grip can end the set, and adding load needs a belt or a machine' },
+    level: 'mixed', why: 'science.pullUpChin2' },
   { re: /(dumbbell|db|one[- ]?arm|single[- ]?arm).{0,12}row/i,
-    level: 'mixed', why: 'Grip fades before the lats on higher-rep sets' },
+    level: 'mixed', why: 'science.dumbbellDbOne' },
 ];
 
 /** @returns {{bias:'long'|'mixed'|'short', why:string, classified:boolean}} */
@@ -147,7 +147,7 @@ export function lengthBias(ex) {
   }
   return {
     bias: MIXED,
-    why: 'Not classified — no published read on where this one loads the muscle',
+    why: 'science.notClassified',
     classified: false,
   };
 }
@@ -159,20 +159,21 @@ export function limiter(ex) {
     if (rule.re.test(name)) return { level: rule.level, why: rule.why, classified: true };
   }
   if (ex?.mech === 'isolation') {
-    return { level: 'target', why: 'Single joint — the muscle you are training is what fails', classified: true };
+    return { level: 'target', why: 'science.singleJoint', classified: true };
   }
   // Supported multi-joint work. Being braced by a machine or a cable stack is
   // exactly what removes balance and torso fatigue from the equation — which is
   // a fatigue argument, not the growth claim the old rating used to make about
   // free weights (SOURCES.haugen2023).
   if (ex?.equipment === 'Machine' || ex?.equipment === 'Cable') {
-    return { level: 'target', why: 'Supported, so the target muscle is what runs out', classified: true };
+    return { level: 'target', why: 'science.supported', classified: true };
   }
-  return { level: 'mixed', why: 'Multi-joint, but nothing obvious gives out before the target', classified: false };
+  return { level: 'mixed', why: 'science.multiJoint', classified: false };
 }
 
+// Keys, resolved by the caller. See js/strings.js.
 export const LENGTH_LABEL = {
-  long: 'Loaded at long muscle length',
-  mixed: 'Loaded through the middle of the range',
-  short: 'Loaded at short muscle length',
+  long: 'science.label.long',
+  mixed: 'science.label.mixed',
+  short: 'science.label.short',
 };

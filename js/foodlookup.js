@@ -19,6 +19,8 @@
 // be a derived database and would carry share-alike obligations. Attribution
 // sits in Settings → Credits either way.
 
+import { t } from './i18n.js';
+
 const ENDPOINT = 'https://world.openfoodfacts.org/api/v2/product';
 
 // Only the fields we use — a full product record is enormous and most of it is
@@ -59,10 +61,10 @@ export function normaliseBarcode(input) {
 export async function lookupBarcode(code, { signal } = {}) {
   const ean = normaliseBarcode(code);
   if (!ean) {
-    return { ok: false, reason: 'invalid', detail: 'A barcode is 8 to 14 digits — check the number under the stripes.' };
+    return { ok: false, reason: 'invalid', detail: t('lookup.invalid') };
   }
   if (!navigator.onLine) {
-    return { ok: false, reason: 'offline', detail: 'No connection. Add the food by hand and it works exactly the same.' };
+    return { ok: false, reason: 'offline', detail: t('lookup.offline') };
   }
 
   let res;
@@ -72,24 +74,24 @@ export async function lookupBarcode(code, { signal } = {}) {
       headers: { 'X-User-Agent': IDENT },
     });
   } catch (err) {
-    return { ok: false, reason: 'network', detail: `Could not reach Open Food Facts (${err.message}).` };
+    return { ok: false, reason: 'network', detail: t('lookup.network', { message: err.message }) };
   }
 
   if (!res.ok) {
-    return { ok: false, reason: 'http', detail: `Open Food Facts answered ${res.status}.` };
+    return { ok: false, reason: 'http', detail: t('lookup.http', { status: res.status }) };
   }
 
   let body;
   try {
     body = await res.json();
   } catch {
-    return { ok: false, reason: 'parse', detail: 'Open Food Facts sent something unreadable.' };
+    return { ok: false, reason: 'parse', detail: t('lookup.parse') };
   }
 
   if (body.status !== 1 || !body.product) {
     return {
       ok: false, reason: 'notfound',
-      detail: 'Not in the database. It is community-maintained, so plenty of products are missing — type it in and you are done.',
+      detail: t('lookup.notFound'),
     };
   }
 
@@ -97,7 +99,7 @@ export async function lookupBarcode(code, { signal } = {}) {
   if (!draft.per100.protein && draft.per100.protein !== 0) {
     return {
       ok: false, reason: 'nonutrition',
-      detail: `Found "${draft.name}", but nobody has filled in its protein value. Read it off the packet.`,
+      detail: t('lookup.noNutrition', { name: draft.name }),
       draft,
     };
   }

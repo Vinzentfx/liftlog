@@ -3,7 +3,8 @@
 // this hit" illustration in the exercise library, so one asset serves both.
 
 import { el } from './ui.js';
-import { REGIONS, TIERS, tierIndex } from './standards.js';
+import { t, tRegion, tTier } from './i18n.js';
+import { TIERS, tierIndex } from './standards.js';
 
 const SRC = { front: 'assets/body-front.svg', back: 'assets/body-back.svg' };
 const cache = {};
@@ -31,7 +32,7 @@ function paint(svg, fills, { lit = true } = {}) {
       shape.style.removeProperty('--m-fill');
       shape.classList.remove('lit');
     }
-    const label = REGIONS[region] || region;
+    const label = tRegion(region);
     shape.setAttribute('role', 'img');
     shape.setAttribute('aria-label', label);
     const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
@@ -60,7 +61,7 @@ export function bodyMap(byRegion = {}, opts = {}) {
     fills[region] = `var(--t${Math.max(0, Math.min(4, idx))})`;
   }
 
-  const host = el('div.bodymap', { 'aria-label': 'Muscle rating map' });
+  const host = el('div.bodymap', { 'aria-label': t('bodymap.aria') });
   host.append(
     el('div', {}, [el('div.small.faint', { text: '…' })]),
     el('div')
@@ -71,8 +72,8 @@ export function bodyMap(byRegion = {}, opts = {}) {
       paint(front, fills, { lit });
       paint(back, fills, { lit });
       host.replaceChildren(
-        el('div', {}, [front, el('div.bodymap-caption', { text: 'Front' })]),
-        el('div', {}, [back, el('div.bodymap-caption', { text: 'Back' })])
+        el('div', {}, [front, el('div.bodymap-caption', { text: t('bodymap.front') })]),
+        el('div', {}, [back, el('div.bodymap-caption', { text: t('bodymap.back') })])
       );
       if (onSelect) {
         for (const shape of host.querySelectorAll('.muscle')) {
@@ -82,7 +83,7 @@ export function bodyMap(byRegion = {}, opts = {}) {
     })
     .catch((err) => {
       console.error('[liftlog] body map', err);
-      host.replaceChildren(el('div.small.faint', { text: 'Body map unavailable.' }));
+      host.replaceChildren(el('div.small.faint', { text: t('bodymap.unavailable') }));
     });
 
   return host;
@@ -98,10 +99,10 @@ export function muscleHighlight(primary = [], secondary = []) {
 
 /** Legend row — tiers are never communicated by colour alone. */
 export function tierLegend() {
-  return el('div.legend', {}, TIERS.map((t, i) =>
+  return el('div.legend', {}, TIERS.map((tier, i) =>
     el('span', {}, [
       el('b', { style: { background: `var(--t${i})` } }),
-      t.label,
+      tTier(tier.key),
     ])
   ));
 }

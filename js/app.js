@@ -1,6 +1,7 @@
 // Bootstrap + hash router.
 
 import { $, clear, el, initSheet, closeSheet, toast } from './ui.js';
+import { t, setLanguage } from './i18n.js';
 import * as store from './store.js';
 import * as db from './db.js';
 import * as rest from './rest.js';
@@ -25,15 +26,15 @@ import { renderSettings } from './screens/settings.js';
  * section head.
  */
 const ROUTES = {
-  home:      { title: 'Home',      render: renderHome },
-  train:     { title: 'Train',     render: renderTrain },
-  plans:     { title: 'Plans',     render: renderPlans },
-  library:   { title: 'Library',   render: renderLibrary },
-  calendar:  { title: 'Calendar',  render: renderCalendar },
-  progress:  { title: 'Progress',  render: renderProgress },
-  nutrition: { title: 'Nutrition', render: renderNutrition },
+  home:      { title: 'route.home',      render: renderHome },
+  train:     { title: 'route.train',     render: renderTrain },
+  plans:     { title: 'route.plans',     render: renderPlans },
+  library:   { title: 'route.library',   render: renderLibrary },
+  calendar:  { title: 'route.calendar',  render: renderCalendar },
+  progress:  { title: 'route.progress',  render: renderProgress },
+  nutrition: { title: 'route.nutrition', render: renderNutrition },
   // Arrives from a link someone sent; never navigated to from inside the app.
-  share:     { title: 'Shared plan', render: renderShare },
+  share:     { title: 'route.share',     render: renderShare },
 };
 
 /** Parsed from location.hash: `#/route/param`. */
@@ -68,7 +69,7 @@ export function render() {
       tab.setAttribute('aria-selected', String(tab.dataset.route === name));
     });
 
-    $('#screen-title').textContent = route.title;
+    $('#screen-title').textContent = t(route.title);
     clear($('#topbar-actions'));
 
     const host = clear($('#screen'));
@@ -81,7 +82,7 @@ export function render() {
     console.error('[liftlog] render failed', err);
     clear($('#screen')).append(
       el('div.empty', {}, [
-        el('strong', { text: 'Something broke' }),
+        el('strong', { text: t('app.broke') }),
         el('div', { text: String(err && err.message || err) }),
       ])
     );
@@ -107,6 +108,9 @@ function wireChrome() {
 }
 
 async function boot() {
+  // Before anything can be said out loud, including the two failures below,
+  // which happen before there are any settings to read a preference from.
+  setLanguage(null);
   initSheet();
   rest.init();
   wireChrome();
@@ -124,14 +128,10 @@ async function boot() {
     const blocked = err && err.message === 'BLOCKED';
     clear($('#screen')).append(
       el('div.empty', {}, [
-        el('strong', { text: blocked ? 'LiftLog is open somewhere else' : 'Could not open the database' }),
-        el('div', {
-          text: blocked
-            ? 'This version needs to update the database, and another tab or window still has the old one open. Close the others and reload.'
-            : 'Private browsing blocks local storage. Open LiftLog in a normal tab.',
-        }),
+        el('strong', { text: t(blocked ? 'app.blocked.title' : 'app.nodb.title') }),
+        el('div', { text: t(blocked ? 'app.blocked.body' : 'app.nodb.body') }),
         blocked
-          ? el('button.btn.primary', { style: { marginTop: '14px' }, onclick: () => location.reload() }, ['Reload'])
+          ? el('button.btn.primary', { style: { marginTop: '14px' }, onclick: () => location.reload() }, [t('app.reload')])
           : null,
       ])
     );
@@ -144,15 +144,17 @@ async function boot() {
   // wired here instead — one place, every screen.
   let announced = 0;
   store.subscribe(() => {
+    // One place syncs the language, so a switch in Settings reaches the tab bar
+    // and the rest bar as well as whatever screen is currently mounted.
+    setLanguage(store.state.settings.language);
     const problem = store.state.storageError;
     if (problem && problem.at !== announced) {
       announced = problem.at;
-      toast(problem.quota
-        ? 'Not saved — the phone is out of storage'
-        : 'Not saved — that entry did not reach the disk', 4000);
+      toast(t(problem.quota ? 'app.write.quota' : 'app.write.failed'), 4000);
     }
     render();
   });
+  setLanguage(store.state.settings.language);
   if (!location.hash) location.replace('#/home');
   render();
 
@@ -174,7 +176,7 @@ window.addEventListener('unhandledrejection', (e) => {
   // one second, is worse than one.
   const problem = store.state.storageError;
   if (problem && Date.now() - problem.at < 2000) return;
-  toast('Something went wrong');
+  toast(t('app.error.generic'));
 });
 
 boot();

@@ -8,13 +8,14 @@ import { rateExercise } from './exercise-rating.js';
 import { LENGTH_LABEL } from './exercise-science.js';
 import { RATING_DISCLAIMER, SOURCE_LIST } from './evidence.js';
 import { suggestSwaps, targetLabel } from './swaps.js';
+import { t, tn } from './i18n.js';
 
 /** Coloured chip for where an exercise loads the muscle. */
 export function lengthChip(length) {
   const tone = { long: 'var(--good)', mixed: 'var(--text-dim)', short: 'var(--warn)' }[length.bias];
   return el('span.pill', {
     style: { color: tone, borderColor: `color-mix(in srgb, ${tone} 40%, transparent)` },
-    text: length.classified ? LENGTH_LABEL[length.bias] : 'Length not classified',
+    text: t(length.classified ? LENGTH_LABEL[length.bias] : 'rating.notClassified'),
   });
 }
 
@@ -27,9 +28,9 @@ export function exerciseRatingCard(ex) {
     el('div.row.between', { style: { gap: '12px' } }, [
       el('div.grow', {}, [
         starBadge(r.stars, { size: '22px' }),
-        el('div.small.faint', { style: { marginTop: '2px' }, text: 'Rated for muscle growth' }),
+        el('div.small.faint', { style: { marginTop: '2px' }, text: t('rating.forGrowth') }),
       ]),
-      el('button.btn.sm.ghost', { onclick: () => exerciseRatingSheet(ex) }, ['Why']),
+      el('button.btn.sm.ghost', { onclick: () => exerciseRatingSheet(ex) }, [t('rating.why')]),
     ]),
     el('div', { style: { marginTop: '10px' } }, [lengthChip(r.length)]),
   ]);
@@ -46,7 +47,7 @@ export function exerciseRatingCard(ex) {
     card.append(el('button.btn.ghost.full.sm', {
       style: { marginTop: '12px' },
       onclick: () => swapSheet(ex, swaps),
-    }, [`${swaps.length} better ${swaps.length === 1 ? 'option' : 'options'} for the same muscle`]));
+    }, [t('rating.betterOptions', { options: tn(swaps.length, 'unit.option') })]));
   }
   return card;
 }
@@ -63,13 +64,13 @@ export function exerciseRatingCard(ex) {
  */
 export function myRatingRow(ex, { onChange } = {}) {
   const row = el('div.myrating');
-  const label = el('div.small.faint', { style: { marginBottom: '4px' }, text: 'My rating — how well it works for you' });
+  const label = el('div.small.faint', { style: { marginBottom: '4px' }, text: t('rating.myRating') });
 
   const stars = el('div.row', { style: { gap: '2px' } });
   const paint = () => {
     stars.replaceChildren(...[1, 2, 3, 4, 5].map((n) =>
       el('button.mystar' + (ex.myRating >= n ? '.on' : ''), {
-        'aria-label': `Rate ${n} out of 5`,
+        'aria-label': t('rating.rateN', { n }),
         'aria-pressed': String(ex.myRating >= n),
         onclick: async () => {
           // Tapping the star you already sit on clears it — otherwise there is
@@ -77,14 +78,14 @@ export function myRatingRow(ex, { onChange } = {}) {
           const next = ex.myRating === n ? 0 : n;
           await store.setMyRating(ex.id, next);
           paint();
-          toast(next ? `Rated ${next}/5` : 'Rating cleared');
+          toast(next ? t('rating.rated', { n: next }) : t('rating.cleared'));
           if (onChange) onChange();
         },
       }, [ex.myRating >= n ? '★' : '☆'])
     ));
     if (ex.myRating) {
       stars.append(el('span.small.faint', { style: { marginLeft: '8px', alignSelf: 'center' },
-        text: 'steers the plan generator' }));
+        text: t('rating.steersGenerator') }));
     }
   };
   paint();
@@ -98,11 +99,11 @@ export function myRatingRow(ex, { onChange } = {}) {
 export function swapSheet(ex, swaps = suggestSwaps(ex, store.state.exercises), onPick = null) {
   const body = el('div', {}, [
     el('div.small.muted', {
-      text: `Alternatives that train ${targetLabel(ex) || 'the same muscle'} and score better. Same sets, same time — only the position the load lands in changes.`,
+      text: t('rating.swapIntro', { muscle: targetLabel(ex) || t('rating.sameMuscle') }),
     }),
     ...swaps.map((s) => el('button.list-item', {
       style: { marginTop: '10px' },
-      'aria-label': `Swap to ${s.ex.name}`,
+      'aria-label': t('rating.swapTo', { name: s.ex.name }),
       onclick: () => {
         if (onPick) { onPick(s.ex); closeSheet(); }
         else { closeSheet(); location.hash = `#/library/${s.ex.id}`; }
@@ -115,10 +116,9 @@ export function swapSheet(ex, swaps = suggestSwaps(ex, store.state.exercises), o
       starBadge(s.stars),
       el('span.chev', { text: onPick ? '⇄' : '›', 'aria-hidden': 'true' }),
     ])),
-    el('div.small.faint', { style: { marginTop: '14px' },
-      text: 'Nothing here says your current pick is bad. Swapping exercises constantly costs more than it buys — change one thing and give it a few weeks.' }),
+    el('div.small.faint', { style: { marginTop: '14px' }, text: t('rating.swapCaveat') }),
   ]);
-  openSheet(`Instead of ${ex.name}`, body);
+  openSheet(t('rating.insteadOf', { name: ex.name }), body);
 }
 
 /** Full breakdown: every criterion, its points, and the source behind it. */
@@ -128,7 +128,7 @@ export function exerciseRatingSheet(ex) {
 
   const rows = r.criteria.map((c) => el('div', { style: { marginBottom: '12px' } }, [
     el('div.row.between', { style: { alignItems: 'baseline' } }, [
-      el('span', { style: { fontWeight: '620', fontSize: '14px' }, text: c.label }),
+      el('span', { style: { fontWeight: '620', fontSize: '14px' }, text: t(c.label) }),
       el('span.small', {
         style: { fontWeight: '680', color: c.points >= c.max * 0.75 ? 'var(--good)' : c.points <= c.max * 0.25 ? 'var(--warn)' : 'var(--text-dim)' },
         text: `${trim(c.points)} / ${trim(c.max)}`,
@@ -137,52 +137,52 @@ export function exerciseRatingSheet(ex) {
     el('div.track-thin', {}, [
       el('i', { style: { width: `${Math.round((c.points / c.max) * 100)}%` } }),
     ]),
-    el('div.small.faint', { style: { marginTop: '4px' }, text: c.detail }),
+    el('div.small.faint', { style: { marginTop: '4px' }, text: t(c.detail, c.detailParams) }),
     c.source
       ? el('a.small', {
           href: c.source.url, target: '_blank', rel: 'noopener',
           style: { color: 'var(--accent-hi)', fontSize: '12px' },
-          text: `Source: ${c.source.short} ↗`,
+          text: `${t('common.source', { source: t(c.source.short) })} ↗`,
         })
-      : el('div.small.faint', { style: { fontSize: '12px' }, text: 'Training practice, not a study result' }),
+      : el('div.small.faint', { style: { fontSize: '12px' }, text: t('rating.practiceNotStudy') }),
   ]));
 
-  openSheet(`${ex.name} — rating`, el('div', {}, [
+  openSheet(t('plans.ratingTitle', { name: ex.name }), el('div', {}, [
     el('div', { style: { textAlign: 'center', fontSize: '28px', letterSpacing: '.06em', color: 'var(--t4)' },
       text: starString(r.stars) }),
     el('div.small.faint', { style: { textAlign: 'center', marginBottom: '4px' },
-      text: `${trim(r.score)} points — stars are spread across the ${trim(r.band[0])}–${trim(r.band[1])} band real movements land in, not the ${trim(r.max)} available on paper` }),
-    el('div.small.muted', { style: { textAlign: 'center', marginBottom: '16px' }, text: RATING_DISCLAIMER }),
+      text: t('rating.pointsBand', {
+        score: trim(r.score), low: trim(r.band[0]), high: trim(r.band[1]), max: trim(r.max),
+      }) }),
+    el('div.small.muted', { style: { textAlign: 'center', marginBottom: '16px' }, text: t(RATING_DISCLAIMER) }),
 
-    el('div.section-head', {}, [el('h2', { text: 'How it scored' })]),
+    el('div.section-head', {}, [el('h2', { text: t('rating.howItScored') })]),
     ...rows,
 
-    r.caveats.length ? el('div.section-head', {}, [el('h2', { text: 'Worth knowing' })]) : null,
-    ...r.caveats.map((t) => el('div.small', { style: { marginBottom: '7px', color: 'var(--warn)' }, text: `!  ${t}` })),
+    r.caveats.length ? el('div.section-head', {}, [el('h2', { text: t('rating.worthKnowing') })]) : null,
+    ...r.caveats.map((line) => el('div.small', { style: { marginBottom: '7px', color: 'var(--warn)' }, text: `!  ${line}` })),
 
-    el('div.section-head', {}, [el('h2', { text: 'What this is not' })]),
-    el('div.small.muted', {
-      text: 'Not a ranking anyone has measured. No study compares 900 exercises head to head, and the EMG numbers usually quoted for this predict growth badly. Every point above comes from a property of the movement, not from a trial of it. A four-star exercise you enjoy beats a five-star one you skip.',
-    }),
+    el('div.section-head', {}, [el('h2', { text: t('rating.whatThisIsNot') })]),
+    el('div.small.muted', { text: t('rating.whatThisIsNotBody') }),
 
     evidenceList(),
   ]));
 }
 
 /** The full source list, used by the rating sheets and by Settings. */
-export function evidenceList(title = 'Evidence') {
+export function evidenceList(title = null) {
   return el('div', {}, [
-    el('div.section-head', {}, [el('h2', { text: title })]),
+    el('div.section-head', {}, [el('h2', { text: title || t('rating.evidence') })]),
     ...SOURCE_LIST.map((s) => el('div', { style: { marginBottom: '14px' } }, [
       el('a', {
         href: s.url, target: '_blank', rel: 'noopener',
         style: { color: 'var(--accent-hi)', fontWeight: '620', fontSize: '14px' },
-        text: `${s.short} ↗`,
+        text: `${t(s.short)} ↗`,
       }),
-      el('div.small.faint', { style: { marginTop: '2px' }, text: s.note }),
-      el('div.small.muted', { style: { marginTop: '4px' }, text: s.says }),
+      el('div.small.faint', { style: { marginTop: '2px' }, text: t(s.note) }),
+      el('div.small.muted', { style: { marginTop: '4px' }, text: t(s.says) }),
     ])),
-    el('div.small.faint', { style: { marginTop: '4px' }, text: 'Evidence last reviewed July 2026.' }),
+    el('div.small.faint', { style: { marginTop: '4px' }, text: t('rating.lastReviewed') }),
   ]);
 }
 

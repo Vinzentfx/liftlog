@@ -3,7 +3,7 @@
 import {
   el, $, toast, haptic, fmtWeight, fmtDuration, fmtNum, setsSummary,
   openSheet, closeSheet, confirmSheet, emptyState, debounce, listItem,
-  numberInput, parseNumber, normaliseOnBlur, plural,
+  numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
 import * as rest from '../rest.js';
@@ -14,11 +14,12 @@ import { exerciseArt } from '../exercise-art.js';
 import { platePlan, describePlates, PLATES } from '../plates.js';
 import { warmupSets } from '../warmup.js';
 import { navigate, render } from '../app.js';
+import { t, tn, tMuscle, tEquipment, locale } from '../i18n.js';
 
 const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
 
 export default function renderTrain({ actions }) {
-  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': 'Settings', title: 'Settings' }, ['⚙']));
+  actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings'), title: t('common.settings') }, ['⚙']));
   const session = store.activeSession();
   return session ? activeView(session) : launcherView();
 }
@@ -33,24 +34,22 @@ function launcherView() {
   root.append(
     el('button.btn.primary.full', {
       style: { minHeight: '56px', fontSize: '16px', marginBottom: '18px' },
-      onclick: async () => { await store.startSession({}); toast('Workout started'); },
-    }, ['Start empty workout'])
+      onclick: async () => { await store.startSession({}); toast(t('train.started')); },
+    }, [t('train.startEmpty')])
   );
 
   root.append(el('div.section-head', {}, [
-    el('h2', { text: plan ? plan.name : 'Plan' }),
-    el('button.btn.quiet.sm', { onclick: () => navigate('plans') }, ['Manage']),
+    el('h2', { text: plan ? plan.name : t('home.vsPlan.plan') }),
+    el('button.btn.quiet.sm', { onclick: () => navigate('plans') }, [t('train.manage')]),
   ]));
 
   if (!plan || !plan.days.length) {
     root.append(el('div.card', {}, [
-      el('div.muted.small', {
-        text: 'Set up a plan — pick a preset like Push/Pull/Legs and its days show up here ready to start.',
-      }),
+      el('div.muted.small', { text: t('train.noPlan') }),
       el('button.btn.ghost.full.sm', {
         style: { marginTop: '10px' },
         onclick: () => navigate('plans'),
-      }, ['Choose a plan']),
+      }, [t('train.choosePlan')]),
     ]));
   } else {
     const lastByDay = new Map();
@@ -67,10 +66,10 @@ function launcherView() {
       root.append(el('div.card', {}, [
         el('div.small.muted', {
           text: today.next
-            ? `Rest day. Next up is ${today.next.day.name} on ${weekdayName(today.next.weekday)}.`
-            : 'Rest day — nothing scheduled.',
+            ? t('train.restNext', { day: today.next.day.name, weekday: weekdayName(today.next.weekday) })
+            : t('train.restNothing'),
         }),
-        el('div.small.faint', { style: { marginTop: '6px' }, text: 'Starting any day below still works.' }),
+        el('div.small.faint', { style: { marginTop: '6px' }, text: t('train.restAnyway') }),
       ]));
     }
 
@@ -83,16 +82,16 @@ function launcherView() {
       const dayLabel = Number.isInteger(day.weekday) ? weekdayShort(day.weekday) : null;
 
       root.append(listItem({
-        title: day.name + (isNext ? (today.scheduled ? '  ·  today' : '  ·  up next') : ''),
+        title: day.name + (isNext ? `  ·  ${t(today.scheduled ? 'train.today' : 'train.upNext')}` : ''),
         sub: [
-          `${names.length} exercises`,
+          tn(names.length, 'unit.exercise'),
           dayLabel,
-          last ? `last ${relLabel(last)}` : 'never trained',
+          last ? t('train.lastTrained', { when: relLabel(last) }) : t('train.neverTrained'),
         ].filter(Boolean).join(' · '),
-        ariaLabel: `Start ${day.name}`,
+        ariaLabel: t('train.startDay', { day: day.name }),
         onclick: async () => {
           await store.startSession({ planId: plan.id, dayId: day.id });
-          toast(`Started ${day.name}`);
+          toast(t('train.startedDay', { day: day.name }));
         },
       }));
     }
@@ -101,10 +100,10 @@ function launcherView() {
   if (done.length) {
     const last = done[0];
     const st = sessionStats(last);
-    root.append(el('div.section-head', {}, [el('h2', { text: 'Last session' })]));
+    root.append(el('div.section-head', {}, [el('h2', { text: t('train.lastSession') })]));
     root.append(listItem({
       title: last.name,
-      sub: `${new Date(last.startedAt).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} · ${st.sets} sets · ${fmtNum(st.volume)}${store.units()}`,
+      sub: `${new Date(last.startedAt).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' })} · ${tn(st.sets, 'unit.set')} · ${fmtNum(st.volume)}${store.units()}`,
       onclick: () => navigate('calendar', last.id),
     }));
   }
@@ -125,14 +124,14 @@ function activeView(session) {
     el('div.row.between', { style: { marginBottom: '12px' } }, [
       el('div.grow', {}, [
         el('div', { style: { fontWeight: '680', fontSize: '17px' }, text: session.name }),
-        el('div.small.faint', { text: `Started ${new Date(session.startedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}` }),
+        el('div.small.faint', { text: t('train.startedAt', { time: new Date(session.startedAt).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit' }) }) }),
       ]),
-      el('button.btn.sm.ghost', { onclick: () => renameSession(session) }, ['Rename']),
+      el('button.btn.sm.ghost', { onclick: () => renameSession(session) }, [t('train.rename')]),
     ]),
     el('div.stat-grid', {}, [
-      el('div.stat', {}, [elapsed, el('span.stat-key', { text: 'Elapsed' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: String(st.sets) }), el('span.stat-key', { text: 'Sets' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: fmtNum(st.volume) }), el('span.stat-key', { text: `Volume ${units}` })]),
+      el('div.stat', {}, [elapsed, el('span.stat-key', { text: t('train.elapsed') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(st.sets) }), el('span.stat-key', { text: t('train.sets') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: fmtNum(st.volume) }), el('span.stat-key', { text: t('train.volume', { units }) })]),
     ]),
   ]);
   root.append(header);
@@ -145,7 +144,7 @@ function activeView(session) {
 
   // --- exercises ---
   if (!session.entries.length) {
-    root.append(emptyState('No exercises yet', 'Add your first one to start logging.'));
+    root.append(emptyState(t('train.noExercises'), t('train.noExercisesHint')));
   }
   session.entries.forEach((entry, index) => {
     root.append(exerciseBlock(session, entry, index));
@@ -159,9 +158,9 @@ function activeView(session) {
         await store.updateSession(session.id, (s) => {
           s.entries.push(newEntry(ex.id, [newSet()]));
         });
-        toast(`Added ${ex.name}`);
+        toast(t('picker.added', { name: ex.name }));
       }, session.entries.map((e) => e.exerciseId)),
-    }, ['+ Add exercise'])
+    }, [t('train.addExercise')])
   );
 
   root.append(
@@ -169,8 +168,8 @@ function activeView(session) {
       el('button.btn.primary.full', {
         style: { minHeight: '54px' },
         onclick: () => finishFlow(session),
-      }, ['Finish workout']),
-      el('button.btn.full.danger', { onclick: () => discardFlow(session) }, ['Discard workout']),
+      }, [t('train.finish')]),
+      el('button.btn.full.danger', { onclick: () => discardFlow(session) }, [t('train.discard')]),
     ])
   );
 
@@ -180,14 +179,14 @@ function activeView(session) {
 function exerciseBlock(session, entry, entryIndex) {
   const units = store.units();
   const ex = store.state.exerciseById.get(entry.exerciseId);
-  const name = ex ? ex.name : 'Unknown exercise';
+  const name = ex ? ex.name : t('train.unknownExercise');
   const block = el('div.card.exercise-block');
 
   block.append(
     el('div.exercise-head', {}, [
       el('h3', { text: name }),
       el('button.btn.quiet.sm', {
-        'aria-label': `Options for ${name}`,
+        'aria-label': t('train.optionsFor', { name }),
         onclick: () => exerciseMenu(session, entry, entryIndex, name),
       }, ['···']),
     ])
@@ -208,12 +207,12 @@ function exerciseBlock(session, entry, entryIndex) {
       block.append(
         el('div.suggest', {}, [
           el('b', { text: tip.headline }),
-          el('span', { text: ` — ${tip.why}` }),
+          el('span', { text: `: ${tip.why}` }),
         ])
       );
     }
   } else {
-    block.append(el('div.small.faint', { style: { marginBottom: '10px' }, text: 'First time logging this one.' }));
+    block.append(el('div.small.faint', { style: { marginBottom: '10px' }, text: t('train.firstTime') }));
   }
 
   block.append(warmupOffer(session, entry, ex, units));
@@ -224,9 +223,9 @@ function exerciseBlock(session, entry, entryIndex) {
 
   const rirOn = store.state.settings.logRir !== false;
   block.append(el('div.set-labels' + (rirOn ? '.with-rir' : ''), {}, [
-    el('span', { text: 'Set' }), el('span', { text: units }),
-    el('span', { text: 'Reps' }),
-    rirOn ? el('span', { text: 'RIR', title: 'Reps in reserve' }) : null,
+    el('span', { text: t('train.col.set') }), el('span', { text: units }),
+    el('span', { text: t('train.col.reps') }),
+    rirOn ? el('span', { text: 'RIR', title: t('train.rirTitle') }) : null,
     el('span', { text: '✓' }),
   ]));
 
@@ -241,7 +240,7 @@ function exerciseBlock(session, entry, entryIndex) {
         const prev = entry.sets.filter((s) => s.type === 'working').slice(-1)[0] || null;
         await store.updateSession(session.id, () => { entry.sets.push(newSet(prev)); });
       },
-    }, ['+ Add set'])
+    }, [t('train.addSet')])
   );
 
   return block;
@@ -259,13 +258,13 @@ function setRow(session, entry, set, index, last) {
   row.append(
     el('button.set-no', {
       style: { background: 'none', border: 0 },
-      title: 'Tap to toggle warmup',
+      title: t('train.toggleWarmup'),
       onclick: async () => {
         await store.updateSession(session.id, () => {
           set.type = set.type === 'warmup' ? 'working' : 'warmup';
         });
       },
-    }, [set.type === 'warmup' ? 'W' : String(workingNo)])
+    }, [set.type === 'warmup' ? t('train.warmupLetter') : String(workingNo)])
   );
 
   // `last.sets` holds only the working sets from last time, so it has to be
@@ -279,13 +278,13 @@ function setRow(session, entry, set, index, last) {
   const weight = normaliseOnBlur(numberInput({
     decimal: true,
     value: set.weight ?? '',
-    placeholder: hint ? String(hint.weight) : '—',
-    'aria-label': 'Weight',
+    placeholder: hint ? String(hint.weight) : '–',
+    'aria-label': t('train.weight'),
   }));
   const reps = normaliseOnBlur(numberInput({
     value: set.reps ?? '',
-    placeholder: hint ? String(hint.reps) : '—',
-    'aria-label': 'Reps',
+    placeholder: hint ? String(hint.reps) : '–',
+    'aria-label': t('train.col.reps'),
   }), { integer: true });
 
   // Keystrokes persist quietly — a re-render here would kill the caret.
@@ -309,8 +308,8 @@ function setRow(session, entry, set, index, last) {
     class: 'rir',
     value: set.rir ?? '',
     placeholder: '–',
-    'aria-label': `Reps in reserve for set ${workingNo}`,
-    title: 'Reps in reserve — how many more you could have done',
+    'aria-label': t('train.rirFor', { n: workingNo }),
+    title: t('train.rirTitleLong'),
   }), { integer: true });
   rir.addEventListener('input', () => {
     const n = parseNumber(rir.value);
@@ -320,7 +319,7 @@ function setRow(session, entry, set, index, last) {
   rir.addEventListener('focus', () => rir.select());
 
   const doneBtn = el('button.done-btn', {
-    'aria-label': set.done ? 'Mark set not done' : 'Mark set done',
+    'aria-label': t(set.done ? 'train.untick' : 'train.tick'),
     'aria-pressed': String(!!set.done),
     onclick: () => toggleDone(session, entry, set, weight, reps, hint),
   }, ['✓']);
@@ -368,12 +367,12 @@ function warmupOffer(session, entry, ex, units) {
             ...newSet(), weight: s.weight, reps: s.reps, type: 'warmup',
           })));
         });
-        toast(`${plural(sets.length, 'warm-up set')} added`);
+        toast(t('train.warmupAdded', { sets: tn(sets.length, 'unit.warmupSet') }));
       },
-    }, [`+ Warm-up: ${sets.map((s) => `${fmtWeight(s.weight, units)} × ${s.reps}`).join(', ')}`])
+    }, [t('train.warmupOffer', { sets: sets.map((w) => `${fmtWeight(w.weight, units)} × ${w.reps}`).join(', ') })])
   );
   wrap.append(el('div.small.faint', { style: { marginTop: '-6px', marginBottom: '8px', fontSize: '11px' },
-    text: 'Gym practice, not a finding — no trial says what a warm-up should be.' }));
+    text: t('train.warmupCaveat') }));
   return wrap;
 }
 
@@ -410,32 +409,33 @@ function suggestNext(last, targetReps, ex, units) {
   // Effort first: it overrides the rep count in both directions.
   if (rirs.length && Math.min(...rirs) >= 3) {
     return {
-      headline: `Try ${next}`,
-      why: `you finished with ${Math.min(...rirs)}+ reps in reserve — that set was too easy to grow much`,
+      headline: t('train.tip.try', { weight: next }),
+      why: t('train.tip.easy', { rir: Math.min(...rirs) }),
     };
   }
   if (rirs.length && Math.max(...rirs) === 0 && reps.some((r) => r < range.low)) {
     return {
-      headline: `Stay at ${fmtWeight(topWeight, units)}`,
-      why: 'you hit failure below the rep range — the weight is ahead of you',
+      headline: t('train.tip.stay', { weight: fmtWeight(topWeight, units) }),
+      why: t('train.tip.failedLow'),
     };
   }
 
   if (reps.every((r) => r >= range.high)) {
     return {
-      headline: `Try ${next}`,
-      why: `every set cleared ${range.high} reps${rirs.length ? '' : ' — log RIR and this gets sharper'}`,
+      headline: t('train.tip.try', { weight: next }),
+      why: t('train.tip.cleared', { high: range.high })
+        + (rirs.length ? '' : ` ${t('train.tip.logRir')}`),
     };
   }
   if (reps.some((r) => r < range.low)) {
     return {
-      headline: `Stay at ${fmtWeight(topWeight, units)}`,
-      why: `build back to ${range.low}+ reps on every set first`,
+      headline: t('train.tip.stay', { weight: fmtWeight(topWeight, units) }),
+      why: t('train.tip.buildBack', { low: range.low }),
     };
   }
   return {
-    headline: `Stay at ${fmtWeight(topWeight, units)}`,
-    why: `add reps until all sets reach ${range.high}`,
+    headline: t('train.tip.stay', { weight: fmtWeight(topWeight, units) }),
+    why: t('train.tip.addReps', { high: range.high }),
   };
 }
 
@@ -472,8 +472,8 @@ async function toggleDone(session, entry, set, weightInput, repsInput, hint) {
       ? (hint ? hint.reps : null)
       : set.reps;
 
-    if (weight === null || weight === undefined) { toast('Enter a weight first'); weightInput.focus(); return; }
-    if (!reps) { toast('Enter reps first'); repsInput.focus(); return; }
+    if (weight === null || weight === undefined) { toast(t('train.needWeight')); weightInput.focus(); return; }
+    if (!reps) { toast(t('train.needReps')); repsInput.focus(); return; }
     fill = { weight, reps };
   }
 
@@ -513,8 +513,8 @@ function checkPR(session, entry, set) {
   if (!bestE1rm) return null;   // nothing to beat yet
 
   const w = Number(set.weight) || 0;
-  if (w > bestWeight) return `🏆 Weight PR — ${fmtWeight(w, units)}`;
-  if (e1rm(set.weight, set.reps) > bestE1rm) return `🏆 Estimated 1RM PR`;
+  if (w > bestWeight) return t('train.pr.weight', { weight: fmtWeight(w, units) });
+  if (e1rm(set.weight, set.reps) > bestE1rm) return t('train.pr.e1rm');
   return null;
 }
 
@@ -534,8 +534,8 @@ function plateSheet(entry, ex) {
   const input = normaliseOnBlur(numberInput({
     decimal: true,
     value: start || '',
-    placeholder: `Total in ${units}`,
-    'aria-label': 'Target weight',
+    placeholder: t('train.plates.total', { units }),
+    'aria-label': t('train.plates.target'),
   }));
   const out = el('div', { style: { marginTop: '4px' } });
 
@@ -543,29 +543,29 @@ function plateSheet(entry, ex) {
     const plan = platePlan(parseNumber(input.value), bar, units);
     if (!plan) {
       out.replaceChildren(el('div.small.faint', {
-        text: `Enter a total of at least the bar (${fmtWeight(bar, units)}).`,
+        text: t('train.plates.atLeastBar', { bar: fmtWeight(bar, units) }),
       }));
       return;
     }
     out.replaceChildren(
       el('div.card.tight', {}, [
         el('div', { style: { fontSize: '19px', fontWeight: '720' },
-          text: plan.barOnly ? 'Just the bar' : `${describePlates(plan.perSide)} per side` }),
+          text: plan.barOnly ? t('train.plates.barOnly') : t('train.plates.perSide', { plates: describePlates(plan.perSide) }) }),
         el('div.small.faint', { style: { marginTop: '4px' },
-          text: `${fmtWeight(plan.loaded, units)} on the bar · ${fmtWeight(bar, units)} bar` }),
+          text: t('train.plates.onBar', { loaded: fmtWeight(plan.loaded, units), bar: fmtWeight(bar, units) }) }),
         plan.exact ? null : el('div.small', { style: { marginTop: '6px', color: 'var(--warn)' },
-          text: `Closest loadable weight — ${fmtWeight(Math.abs(plan.off), units)} ${plan.off < 0 ? 'under' : 'over'} what you asked for.` }),
+          text: t(plan.off < 0 ? 'train.plates.under' : 'train.plates.over', { off: fmtWeight(Math.abs(plan.off), units) }) }),
       ])
     );
   }
   input.addEventListener('input', paint);
   paint();
 
-  openSheet(`Load ${ex.name}`, el('div', {}, [
-    el('label.field', {}, [el('span', { text: `Target weight (${units})` }), input]),
+  openSheet(t('train.plates.title', { name: ex.name }), el('div', {}, [
+    el('label.field', {}, [el('span', { text: t('train.plates.targetField', { units }) }), input]),
     out,
     el('div.small.faint', { style: { marginTop: '14px' },
-      text: `Assumes a ${fmtWeight(bar, units)} bar and plates of ${PLATES[units].join(', ')}. Change the bar in Settings if yours is different.` }),
+      text: t('train.plates.assumes', { bar: fmtWeight(bar, units), plates: PLATES[units].join(', ') }) }),
   ]));
 }
 
@@ -587,25 +587,26 @@ function exerciseMenu(session, entry, index, name) {
   const body = el('div.stack', {}, [
     ex ? el('button.btn.ghost.full', {
       onclick: () => { closeSheet(); howToSheet(ex); },
-    }, ['How to do it']) : null,
+    }, [t('train.menu.howTo')]) : null,
     // Only for a loaded bar. On a machine "per side" means nothing, and on a
     // dumbbell there is nothing to work out.
     ex && ex.equipment === 'Barbell'
       ? el('button.btn.ghost.full', {
           onclick: () => { closeSheet(); plateSheet(entry, ex); },
-        }, ['What to load'])
+        }, [t('train.menu.whatToLoad')])
       : null,
-    el('button.btn.ghost.full', { onclick: () => { closeSheet(); noteForm(session, entry); } }, ['Add a note']),
-    el('button.btn.ghost.full', { disabled: index === 0, onclick: () => move(-1) }, ['↑ Move up']),
-    el('button.btn.ghost.full', { disabled: index === session.entries.length - 1, onclick: () => move(1) }, ['↓ Move down']),
+    el('button.btn.ghost.full', { onclick: () => { closeSheet(); noteForm(session, entry); } }, [t('train.menu.note')]),
+    el('button.btn.ghost.full', { disabled: index === 0, onclick: () => move(-1) }, [`↑ ${t('train.menu.up')}`]),
+    el('button.btn.ghost.full', { disabled: index === session.entries.length - 1, onclick: () => move(1) }, [`↓ ${t('train.menu.down')}`]),
     el('button.btn.full.danger', {
       onclick: async () => {
         closeSheet();
-        const ok = await confirmSheet('Remove exercise?', `${name} and its sets will be removed from this workout.`, { confirmLabel: 'Remove' });
+        const ok = await confirmSheet(t('train.menu.removeTitle'),
+          t('train.menu.removeBody', { name }), { confirmLabel: t('common.remove') });
         if (!ok) return;
         await store.updateSession(session.id, (s) => { s.entries.splice(index, 1); });
       },
-    }, ['Remove from workout']),
+    }, [t('train.menu.removeAction')]),
   ]);
   openSheet(name, body);
 }
@@ -615,42 +616,42 @@ function howToSheet(ex) {
   const body = el('div', {}, [
     exerciseArt(ex, { eager: true }),
     el('div.small.muted', { style: { marginTop: '10px' },
-      text: `${ex.muscle} · ${ex.equipment}` }),
+      text: `${tMuscle(ex.muscle)} · ${tEquipment(ex.equipment)}` }),
     ex.instructions && ex.instructions.length
       ? el('ol', { style: { marginTop: '14px', paddingLeft: '20px', fontSize: '14px', lineHeight: '1.55' } },
           ex.instructions.map((s) => el('li', { text: s, style: { marginBottom: '8px' } })))
-      : el('div.small.faint', { style: { marginTop: '12px' }, text: 'No written steps for this one.' }),
+      : el('div.small.faint', { style: { marginTop: '12px' }, text: t('train.noSteps') }),
   ]);
   openSheet(ex.name, body);
 }
 
 function noteForm(session, entry) {
-  const input = el('textarea', { placeholder: 'e.g. felt heavy, last set to failure' });
+  const input = el('textarea', { placeholder: t('train.notePlaceholder') });
   input.value = entry.note || '';
   const body = el('div', {}, [
-    el('label.field', {}, [el('span', { text: 'Note' }), input]),
+    el('label.field', {}, [el('span', { text: t('train.noteField') }), input]),
     el('button.btn.primary.full', {
       onclick: async () => {
         await store.updateSession(session.id, () => { entry.note = input.value.trim(); });
         closeSheet();
       },
-    }, ['Save note']),
+    }, [t('train.saveNote')]),
   ]);
-  openSheet('Exercise note', body);
+  openSheet(t('train.noteTitle'), body);
 }
 
 function renameSession(session) {
   const input = el('input', { type: 'text', value: session.name });
   const body = el('div', {}, [
-    el('label.field', {}, [el('span', { text: 'Workout name' }), input]),
+    el('label.field', {}, [el('span', { text: t('train.workoutName') }), input]),
     el('button.btn.primary.full', {
       onclick: async () => {
-        await store.updateSession(session.id, (s) => { s.name = input.value.trim() || 'Workout'; });
+        await store.updateSession(session.id, (s) => { s.name = input.value.trim() || t('train.defaultName'); });
         closeSheet();
       },
-    }, ['Save']),
+    }, [t('common.save')]),
   ]);
-  openSheet('Rename workout', body);
+  openSheet(t('train.renameTitle'), body);
 }
 
 /* ============================ finish ============================ */
@@ -660,10 +661,10 @@ async function finishFlow(session) {
 
   if (!completed) {
     const ok = await confirmSheet(
-      'Nothing logged',
-      'No completed sets in this workout. Discard it instead?',
-      { confirmLabel: 'Discard' });
-    if (ok) { await store.discardSession(session.id); rest.stop(); toast('Discarded'); }
+      t('train.nothingLogged'),
+      t('train.nothingLoggedBody'),
+      { confirmLabel: t('home.stale.discard') });
+    if (ok) { await store.discardSession(session.id); rest.stop(); toast(t('home.stale.discarded')); }
     return;
   }
 
@@ -673,37 +674,37 @@ async function finishFlow(session) {
   const st = sessionStats(session);
   const body = el('div', {}, [
     el('div.stat-grid', { style: { marginBottom: '14px' } }, [
-      el('div.stat', {}, [el('span.stat-val', { text: fmtDuration(st.durationMs) }), el('span.stat-key', { text: 'Time' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: String(completed) }), el('span.stat-key', { text: 'Sets' })]),
-      el('div.stat', {}, [el('span.stat-val', { text: fmtNum(st.volume) }), el('span.stat-key', { text: `Volume ${store.units()}` })]),
+      el('div.stat', {}, [el('span.stat-val', { text: fmtDuration(st.durationMs) }), el('span.stat-key', { text: t('train.time') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(completed) }), el('span.stat-key', { text: t('train.sets') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: fmtNum(st.volume) }), el('span.stat-key', { text: t('train.volume', { units: store.units() }) })]),
     ]),
     pending
       ? el('div.small.muted', { style: { marginBottom: '12px' },
-          text: `${pending} unfinished ${pending === 1 ? 'set has' : 'sets have'} numbers but no ✓ — they won't be saved.` })
+          text: t('train.pending', { sets: tn(pending, 'unit.set') }) })
       : null,
     el('button.btn.primary.full', {
       onclick: async () => {
         closeSheet();
         await store.finishSession(session.id);
         rest.stop();
-        toast('Workout saved 💪', 2400);
+        toast(t('train.savedToast'), 2400);
         navigate('calendar', session.id);
       },
-    }, ['Save workout']),
-    el('button.btn.ghost.full', { style: { marginTop: '10px' }, onclick: closeSheet }, ['Keep going']),
+    }, [t('train.saveWorkout')]),
+    el('button.btn.ghost.full', { style: { marginTop: '10px' }, onclick: closeSheet }, [t('train.keepGoing')]),
   ]);
-  openSheet('Finish workout', body);
+  openSheet(t('train.finish'), body);
 }
 
 async function discardFlow(session) {
   const ok = await confirmSheet(
-    'Discard workout?',
-    'Everything logged in this session will be permanently deleted.',
-    { confirmLabel: 'Discard' });
+    t('train.discardTitle'),
+    t('train.discardBody'),
+    { confirmLabel: t('home.stale.discard') });
   if (!ok) return;
   await store.discardSession(session.id);
   rest.stop();
-  toast('Discarded');
+  toast(t('home.stale.discarded'));
   render();
 }
 
@@ -711,10 +712,10 @@ function relLabel(ts) {
   const d = new Date(ts); d.setHours(0, 0, 0, 0);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const days = Math.round((today - d) / 86400000);
-  if (days === 0) return 'Earlier today';
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days}d ago`;
-  return `${Math.round(days / 7)}w ago`;
+  if (days === 0) return t('train.rel.today');
+  if (days === 1) return t('common.yesterday');
+  if (days < 7) return t('train.rel.days', { n: days });
+  return t('train.rel.weeks', { n: Math.round(days / 7) });
 }
 
 export { entryStats };
