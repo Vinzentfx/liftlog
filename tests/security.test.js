@@ -71,7 +71,9 @@ test('revocation does not remove the right to delete cloud data', async () => {
 
 test('access revocation signs out before returning to the login gate', async () => {
   const gate = await read('js/screens/gate.js');
-  assert.match(gate, /hasActiveAccess\(\)[\s\S]*lock\(\)[\s\S]*cloud\.signOut\(\)[\s\S]*location\.reload\(\)/);
+  assert.match(gate, /revokeLocalAccess[\s\S]*lock\(\)[\s\S]*cloud\.signOut\(\)[\s\S]*location\.reload\(\)/);
+  assert.match(gate, /hasActiveAccess\(\)[\s\S]*revokeLocalAccess\(\)/);
+  assert.match(gate, /getProfile\(\)[\s\S]*revokeLocalAccess\(\)/);
 });
 
 test('cloud maintenance retries when connectivity returns and at intervals', async () => {

@@ -51,15 +51,28 @@ export async function lock() {
  */
 export async function recheck() {
   if (!cloud.isSignedIn()) return true;
+
+  const revokeLocalAccess = async () => {
+    await lock();
+    await cloud.signOut();
+    location.reload();
+    return false;
+  };
+
   try {
     if (!(await cloud.hasActiveAccess())) {
-      await lock();
-      await cloud.signOut();
-      location.reload();
-      return false;
+      return revokeLocalAccess();
     }
     return true;
-  } catch { /* offline, or a server hiccup. Never a reason to lock. */
+  } catch (err) {
+    // Some Supabase installations need a short schema-cache refresh before a
+    // newly deployed RPC is reachable. RLS still hides a revoked profile, so a
+    // successful fallback read gives us a second authoritative signal. A real
+    // network failure still never locks an offline training log.
+    if (err?.code === 'OFFLINE') return null;
+    try {
+      if ((await cloud.getProfile()) === null) return revokeLocalAccess();
+    } catch { /* server unavailable: keep offline access */ }
     return null;
   }
 }
