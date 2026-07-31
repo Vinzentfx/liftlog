@@ -184,12 +184,6 @@ const problem = (status, err) => {
   status.textContent = t(`cloud.err.${err.code}`, { code: err.code || 'SERVER' });
 };
 
-async function offerCloudSetup(profile) {
-  if (profile?.recovery_wrap) return;
-  const account = await import('./account.js');
-  account.promptCloudSetup();
-}
-
 function paintSignUp(pane, done) {
   const { email, password, status } = fields();
   password.autocomplete = 'new-password';
@@ -221,7 +215,6 @@ function paintSignUp(pane, done) {
       }
       await done();
       toast(t('gate.welcome'), 3000);
-      await offerCloudSetup(profile);
     } catch (err) {
       problem(status, err);
     }
@@ -268,7 +261,6 @@ function paintSignIn(pane, done) {
       await sync.load();
       await done();
       toast(t('gate.welcomeBack'), 2600);
-      await offerCloudSetup(profile);
     } catch (err) {
       problem(status, err);
     }

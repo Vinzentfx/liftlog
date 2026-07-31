@@ -110,9 +110,9 @@ test('unexpected automatic backup failures become visible', async () => {
   assert.match(app, /sync\.onAppOpen\(\)[\s\S]*cloud\.autoBackupFailed/);
 });
 
-test('the invite gate verifies access before opening and offers cloud consent immediately', async () => {
+test('the invite gate verifies access before opening', async () => {
   const gate = await read('js/screens/gate.js');
-  assert.match(gate, /claimInvite\([^;]+[\s\S]*hasActiveAccess\(\)[\s\S]*done\(\)[\s\S]*offerCloudSetup/);
+  assert.match(gate, /claimInvite\([^;]+[\s\S]*hasActiveAccess\(\)[\s\S]*done\(\)/);
 });
 
 test('the account invite repair path asks for consent before cloud setup', async () => {
@@ -141,4 +141,10 @@ test('authenticated RLS policies may execute their access helper', async () => {
     const sql = await read(file);
     assert.match(sql, /grant execute on function public\.has_active_access\(\) to authenticated/i);
   }
+});
+
+test('an activated account without cloud consent is prompted on app load', async () => {
+  const app = await read('js/app.js');
+  assert.match(app, /sync\.state\.signedIn[\s\S]*sync\.state\.profile[\s\S]*!sync\.state\.profile\.recovery_wrap/);
+  assert.match(app, /account\.promptCloudSetup\(\)/);
 });

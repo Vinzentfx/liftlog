@@ -59,6 +59,7 @@ let locked = true;
 let cloudMaintenanceStarted = false;
 let cloudMaintenanceRunning = false;
 let lastBackupWarningAt = 0;
+let cloudSetupPrompted = false;
 
 export function render() {
   if (locked || !store.state.ready || rendering) return;
@@ -203,6 +204,12 @@ async function runCloudMaintenance() {
   try {
     if (await gate.recheck() === false) return;
     const result = await sync.onAppOpen();
+    if (!cloudSetupPrompted && sync.state.signedIn && sync.state.profile
+        && !sync.state.profile.recovery_wrap) {
+      cloudSetupPrompted = true;
+      const account = await import('./screens/account.js');
+      account.promptCloudSetup();
+    }
     const quiet = ['AUTH', 'DISABLED', 'READ_ONLY', 'BUSY', 'OFFLINE'];
     if (result && !result.ok && !quiet.includes(result.code)
         && Date.now() - lastBackupWarningAt > 6 * 60 * 60 * 1000) {
