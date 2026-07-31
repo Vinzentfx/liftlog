@@ -158,6 +158,63 @@ which is also how you'd move to a new phone. Home nags after 10 workouts or four
 weeks without one, because the export was never the missing part — remembering
 was.
 
+### Cloud backup, and what it deliberately cannot do
+
+**Status: the crypto layer and the schema are in, the app is not wired up yet.**
+`js/crypto.js` and `server/schema.sql` are complete and tested; the account
+screens and the network layer are the next piece of work.
+
+The shape, decided with the person who has to live with it:
+
+- **One account per person, on their own phone.** Not profiles on a shared device.
+- **One writer, many readers.** A second device can look at the data; only the
+  main device uploads. That removes conflict resolution entirely, which is the
+  part of sync that takes a project rather than a feature. The `(user_id,
+  version)` primary key enforces it: a device that has been offline uploads a
+  version the server already has, gets a duplicate-key error, and has to pull
+  before it can push.
+- **End to end encrypted.** The server holds ciphertext, public keys, sizes and
+  timestamps. It never sees a key. If the whole database leaked, the honest
+  damage is a list of email addresses and the knowledge that those people back
+  up a fitness app.
+- **The login password is not the encryption key.** It authenticates to the
+  server and nothing else, so someone who learns it can fetch the ciphertext and
+  get nowhere. That is what makes the device-approval step meaningful rather
+  than decorative: the password gets you the box, an approved device or the
+  recovery key gets you the lid.
+- **Approving a device needs no push.** A new phone leaves a request with its
+  public key; the main device sees it the next time it is opened, and approving
+  wraps the data key against the newcomer's key over ECDH. No background
+  anything, which suits an iOS home-screen app that has none.
+- **Off until explicitly turned on**, with the consent and its wording version
+  recorded on the profile row rather than assumed.
+
+**The recovery key is not optional.** Without it the design has a hole exactly
+where the point is: if only the main device holds the key and the main device is
+gone, the backup on the server can never be opened, and there is nobody left to
+approve a replacement. The server cannot help, because it knows nothing. So the
+app generates 128 random bits at signup, shows them once, and they can both
+decrypt the backup and install a new main device. Hex, so no character can be
+misread off a piece of paper months later.
+
+Making a new device the main one is a change to a row, so the server has to be
+convinced of something it cannot check. It stores a hash of the recovery key
+against a separate salt and compares that. A verifier is not a key: it decrypts
+nothing, and reversing it means guessing the 128 bits.
+
+Compress, then encrypt, always. Ciphertext does not compress, so the other order
+uploads the full size for nothing. On a real backup that is 1,237 KB down to
+164 KB, 30 ms to seal.
+
+**What none of this changes: he is the controller.** Holding other people's
+training, bodyweight and food data makes that true whatever the encryption does,
+and bodyweight and intake are plausibly health data under Art. 9. Encryption
+shrinks the consequences of a breach to almost nothing and satisfies data
+minimisation; it does not remove the duty to obtain consent, to delete on
+request, or to answer for the thing. Invite codes keep the group to people he
+actually knows, which is what makes those duties practical rather than
+theoretical.
+
 ### The showcase backup
 
 `showcase-backup.json` in the repo root is half a year of plausible training and
@@ -224,6 +281,7 @@ warnings that do matter.
 | `tools/build_showcase.mjs` | Generates `showcase-backup.json`, the demo dataset |
 | `tests/maths.test.js` | `node --test` over the DOM-free maths — dev only, never served |
 | `tests/i18n.test.js` | Key parity, placeholder parity, dead keys, house style |
+| `tests/crypto.test.js` | Sealing, the recovery key, device linking |
 | `tools/build_library.py` | Regenerates `js/exercise-library.js` from free-exercise-db |
 | `js/exercise-library.js` | GENERATED catalogue — don't hand-edit |
 | `js/evidence.js` | The papers and thresholds both star ratings are built on |
@@ -236,6 +294,8 @@ warnings that do matter.
 | `js/swaps.js` | "Same muscle, better position" alternatives |
 | `js/history.js` | Strength, tonnage and per-lift trends over time |
 | `js/timeline.js` | Eating and training on one set of week buckets |
+| `js/crypto.js` | End-to-end encryption for the cloud backup |
+| `server/schema.sql` | The entire server side: tables, access rules, two functions |
 | `js/nutrition.js` | Targets, daily totals, energy split, maintenance calories |
 | `js/foodlookup.js` | Open Food Facts barcode lookup — the only networked module |
 | `js/foodsearch.js` | Searching the bundled library and scaling an entry to a portion |
