@@ -18,6 +18,7 @@ const ok = (cond, msg) => console.log(`    ${cond ? 'ok  ' : 'FAIL'} ${msg}`);
 const code = process.argv[2] || 'TEST-B';
 const mail = `dev-${Date.now().toString(36)}@liftlog.test`;
 const pass = 'Pruefung-2026-xyz';
+const ownerToken = crypto.randomUUID() + crypto.randomUUID();
 
 const PAYLOAD = {
   format: 'liftlog-backup',
@@ -41,7 +42,9 @@ ok((await cloud.getProfile()) === null, 'noch keins, richtig');
 step(3, 'hochladen ohne Einladung');
 const dataKey = await crypto2.generateDataKey();
 const blob = await crypto2.seal(dataKey, PAYLOAD);
-await expectCode('DENIED', () => cloud.upload(blob, { version: 1 }), 'abgewiesen');
+await expectCode('OWNER_TOKEN_WRONG', () => cloud.upload(blob, {
+  version: 1, deviceId: crypto.randomUUID(), ownerToken,
+}), 'abgewiesen');
 
 step(4, `Einladungscode ${code} einloesen`);
 await cloud.claimInvite(code);
@@ -58,23 +61,28 @@ const recovery = crypto2.generateRecoveryKey();
 const salt = crypto2.randomBytes(16);
 const vsalt = crypto2.randomBytes(16);
 const wrap = await crypto2.wrapDataKey(await crypto2.keyFromRecovery(recovery, salt), dataKey);
-await cloud.saveProfile({
+const selfShared = await crypto2.sharedKey(keys.privateKey, await crypto2.exportPublicKey(keys));
+const selfWrap = await crypto2.wrapDataKey(selfShared, dataKey);
+await cloud.configureBackup(device.id, {
   recovery_wrap: wrap.wrapped, recovery_iv: wrap.iv,
   recovery_salt: crypto2.toBase64(salt),
   recovery_verifier: await crypto2.recoveryVerifier(recovery, vsalt),
   recovery_verifier_salt: crypto2.toBase64(vsalt),
-  owner_device: device.id,
   consent_at: new Date().toISOString(), consent_version: '2026-07-31',
-});
+  wrapped_key: selfWrap.wrapped, wrap_iv: selfWrap.iv,
+  wrapped_by: await crypto2.exportPublicKey(keys),
+}, ownerToken);
 ok(true, 'gespeichert');
 
 step(7, 'Sicherung hochladen');
-await cloud.upload(blob, { version: 1, deviceId: device.id });
+await cloud.upload(blob, { version: 1, deviceId: device.id, ownerToken });
 const meta = await cloud.latestMeta();
 ok(meta?.version === 1, `Version ${meta?.version}, ${Math.round(meta?.bytes / 1024)} KB verschluesselt`);
 
 step(8, 'dieselbe Version noch einmal');
-await expectCode('STALE', () => cloud.upload(blob, { version: 1 }), 'abgeprallt');
+await expectCode('STALE', () => cloud.upload(blob, {
+  version: 1, deviceId: device.id, ownerToken,
+}), 'abgeprallt');
 
 step(9, 'herunterladen und entschluesseln');
 const got = await cloud.download();
@@ -93,7 +101,8 @@ step(11, 'Verifier prueft die Uebernahme');
 await expectCode('RECOVERY_WRONG',
   () => cloud.claimOwnership('falsch', device.id), 'falscher Verifier');
 await cloud.claimOwnership(
-  await crypto2.recoveryVerifier(recovery, crypto2.fromBase64(p2.recovery_verifier_salt)), device.id);
+  await crypto2.recoveryVerifier(recovery, crypto2.fromBase64(p2.recovery_verifier_salt)),
+  device.id, ownerToken);
 ok((await cloud.listDevices())[0].status === 'approved', 'richtiger Verifier uebernimmt');
 
 step(12, 'abmelden und wieder anmelden');
@@ -104,7 +113,7 @@ await cloud.signIn(mail, pass);
 ok((await cloud.download()).version === 1, 'Sicherung nach erneuter Anmeldung erreichbar');
 
 step(13, 'alles loeschen, wie bei einer Loeschanfrage');
-await cloud.deleteEverything();
+await cloud.deleteEverything(ownerToken);
 ok((await cloud.latestMeta()) === null, 'keine Sicherungen mehr');
 ok((await cloud.listDevices()).length === 0, 'keine Geraete mehr');
 ok((await cloud.getProfile()) === null, 'kein Profil mehr');

@@ -12,7 +12,7 @@
 // what it was for on the day their phone goes in a river.
 
 import {
-  el, openSheet, closeSheet, confirmSheet, toast, fmtDate, listItem,
+  el, openSheet, closeSheet, confirmSheet, toast, fmtDate, listItem, authField,
 } from '../ui.js';
 import * as store from '../store.js';
 import * as cloud from '../cloud.js';
@@ -49,7 +49,7 @@ export function cloudSection() {
         el('div.small.faint', { style: { marginTop: '2px' }, text: cloud.currentUser()?.email || '' }),
       ]),
       el('button.btn.sm.ghost', {
-        disabled: s.busy,
+        disabled: s.busy || !s.profile?.recovery_wrap || !s.isOwner || !s.ownerAuthorized,
         onclick: async () => {
           const res = await sync.backupNow({ force: true });
           toast(res.ok ? t('cloud.savedNow') : t(`cloud.err.${res.code}`, { code: res.code }));
@@ -66,6 +66,30 @@ export function cloudSection() {
       onclick: () => inviteSheet() }, [t('cloud.enterInvite')]));
     wrap.append(card);
     return wrap;
+  }
+
+  // The invite gate creates the account/profile without silently consenting to
+  // cloud storage. That is a valid halfway state, not a secondary device. Offer
+  // the separate consent/setup here before any backup action is possible.
+  if (!s.profile.recovery_wrap) {
+    card.append(
+      el('div.small.muted', { style: { marginTop: '10px' }, text: t('cloud.finishSetupIntro') }),
+      el('button.btn.primary.full.sm', {
+        style: { marginTop: '10px' }, onclick: () => finishSetupSheet(),
+      }, [t('cloud.finishSetup')]),
+    );
+    wrap.append(card);
+    return wrap;
+  }
+
+  if (s.isOwner && !s.ownerAuthorized) {
+    card.append(
+      el('div.small', { style: { marginTop: '10px', color: 'var(--warn)' },
+        text: t('cloud.capabilityUpgrade') }),
+      el('button.btn.primary.full.sm', {
+        style: { marginTop: '10px' }, onclick: () => recoverSheet(),
+      }, [t('cloud.useRecovery')]),
+    );
   }
 
   if (!s.isOwner) {
@@ -174,10 +198,10 @@ function signUpSheet() {
   }
 
   openSheet(t('cloud.newAccount'), el('div', {}, [
-    el('label.field', {}, [el('span', { text: t('cloud.email') }), email]),
-    el('label.field', {}, [el('span', { text: t('cloud.password') }), password]),
+    authField(t('cloud.email'), email, { icon: 'email' }),
+    authField(t('cloud.password'), password, { icon: 'lock' }),
     el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '12px' }, text: t('cloud.passwordNote') }),
-    el('label.field', {}, [el('span', { text: t('cloud.inviteCode') }), invite]),
+    authField(t('cloud.inviteCode'), invite, { icon: 'key' }),
 
     el('div.section-head', {}, [el('h2', { text: t('cloud.consentTitle') })]),
     el('div.small.muted', { text: t('cloud.consentBody') }),
@@ -218,11 +242,46 @@ function signInSheet() {
   }
 
   openSheet(t('cloud.haveAccount'), el('div', {}, [
-    el('label.field', {}, [el('span', { text: t('cloud.email') }), email]),
-    el('label.field', {}, [el('span', { text: t('cloud.password') }), password]),
+    authField(t('cloud.email'), email, { icon: 'email' }),
+    authField(t('cloud.password'), password, { icon: 'lock' }),
     el('button.btn.primary.full', { onclick: go }, [t('cloud.signIn')]),
     status,
     el('div.small.faint', { style: { marginTop: '14px' }, text: t('cloud.signInNote') }),
+  ]));
+}
+
+/** Add encrypted cloud backup to an account created by the invite gate. */
+function finishSetupSheet() {
+  const agreed = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
+  const status = el('div.small', { style: { marginTop: '10px' } });
+
+  openSheet(t('cloud.finishSetup'), el('div', {}, [
+    el('div.small.muted', { text: t('cloud.consentBody') }),
+    el('div.small.faint', { style: { marginTop: '8px' }, text: t('cloud.consentNotStored') }),
+    el('label.field', { style: { marginTop: '12px' } }, [
+      el('div.row', { style: { gap: '10px' } }, [
+        agreed,
+        el('span.grow', {
+          text: t('cloud.consentCheck'),
+          style: { textTransform: 'none', letterSpacing: '0', fontSize: '14px', fontWeight: '500', color: 'var(--text)', marginBottom: '0' },
+        }),
+      ]),
+    ]),
+    el('button.btn.primary.full', {
+      onclick: async () => {
+        if (!agreed.checked) { toast(t('cloud.needConsent')); return; }
+        status.style.color = 'var(--text-faint)';
+        status.textContent = t('cloud.working');
+        try {
+          const recovery = await sync.createAccount({ consent: true });
+          recoveryKeySheet(recovery);
+        } catch (err) {
+          status.style.color = 'var(--warn)';
+          status.textContent = t(`cloud.err.${err.code}`, { code: err.code || 'SERVER' });
+        }
+      },
+    }, [t('cloud.finishSetup')]),
+    status,
   ]));
 }
 
@@ -255,7 +314,7 @@ function inviteSheet() {
 
   openSheet(t('cloud.enterInvite'), el('div', {}, [
     el('div.small.muted', { text: t('cloud.inviteIntro') }),
-    el('label.field', { style: { marginTop: '12px' } }, [el('span', { text: t('cloud.inviteCode') }), code]),
+    el('div', { style: { marginTop: '14px' } }, [authField(t('cloud.inviteCode'), code, { icon: 'key' })]),
     el('button.btn.primary.full', {
       onclick: async () => {
         status.style.color = 'var(--text-faint)';
@@ -338,7 +397,7 @@ function recoverSheet() {
 
   openSheet(t('cloud.recoverTitle'), el('div', {}, [
     el('div.small.muted', { text: t('cloud.recoverIntro') }),
-    el('label.field', { style: { marginTop: '12px' } }, [el('span', { text: t('cloud.recoveryKey') }), key]),
+    el('div', { style: { marginTop: '14px' } }, [authField(t('cloud.recoveryKey'), key, { icon: 'key' })]),
     el('button.btn.primary.full', {
       onclick: async () => {
         status.style.color = 'var(--text-faint)';

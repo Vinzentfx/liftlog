@@ -395,6 +395,7 @@ function doImport() {
     input.remove();
     if (!file) return;
     try {
+      if (file.size > 20 * 1024 * 1024) throw new Error(t('settings.backupTooLarge'));
       const payload = JSON.parse(await file.text());
       closeSheet();
       const ok = await confirmSheet(

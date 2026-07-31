@@ -79,6 +79,16 @@ async function saveMeta(patch) {
   return next;
 }
 
+function newOwnerToken() {
+  return crypto.toBase64(crypto.randomBytes(32));
+}
+
+async function requireOwnerToken() {
+  const token = (await localMeta()).ownerToken;
+  if (!token) throw Object.assign(new Error('RECOVERY_REQUIRED'), { code: 'RECOVERY_REQUIRED' });
+  return token;
+}
+
 /* ================================= state ================================= */
 
 /**
@@ -91,6 +101,7 @@ export const state = {
   profile: null,
   deviceId: null,
   isOwner: false,        // may this device upload
+  ownerAuthorized: false,// this install holds the server-side write capability
   lastSyncAt: null,
   lastError: null,       // an error code, never a raw message
   serverVersion: null,
@@ -153,7 +164,8 @@ export async function createAccount({ consent }) {
   try {
     const keys = await deviceKeys();
     const device = await cloud.registerDevice({ name: keys.name, publicKey: keys.jwk });
-    await saveMeta({ deviceId: device.id });
+    const ownerToken = newOwnerToken();
+    await saveMeta({ deviceId: device.id, ownerToken });
 
     dataKey = await crypto.generateDataKey();
 
@@ -168,20 +180,18 @@ export async function createAccount({ consent }) {
     const selfShared = await crypto.sharedKey(keys.privateKey, keys.jwk);
     const forSelf = await crypto.wrapDataKey(selfShared, dataKey);
 
-    await cloud.approveDevice(device.id, {
-      wrappedKey: forSelf.wrapped, wrapIv: forSelf.iv, wrappedBy: keys.jwk,
-    });
-
-    await cloud.saveProfile({
+    await cloud.configureBackup(device.id, {
       recovery_wrap: wrapped.wrapped,
       recovery_iv: wrapped.iv,
       recovery_salt: crypto.toBase64(salt),
       recovery_verifier: await crypto.recoveryVerifier(recovery, verifierSalt),
       recovery_verifier_salt: crypto.toBase64(verifierSalt),
-      owner_device: device.id,
       consent_at: new Date().toISOString(),
       consent_version: CONSENT_VERSION,
-    });
+      wrapped_key: forSelf.wrapped,
+      wrap_iv: forSelf.iv,
+      wrapped_by: keys.jwk,
+    }, ownerToken);
 
     await store.setSetting('cloudEnabled', true);
     await load();
@@ -215,12 +225,12 @@ export async function approve(deviceId) {
 
   await cloud.approveDevice(deviceId, {
     wrappedKey: wrapped.wrapped, wrapIv: wrapped.iv, wrappedBy: keys.jwk,
-  });
+  }, await requireOwnerToken());
   await load();
 }
 
 export async function revoke(deviceId) {
-  await cloud.revokeDevice(deviceId);
+  await cloud.revokeDevice(deviceId, await requireOwnerToken());
   await load();
 }
 
@@ -251,9 +261,10 @@ export async function recoverWith(recoveryKey) {
     });
 
     const deviceId = await requestAccess();
+    const ownerToken = newOwnerToken();
     await cloud.claimOwnership(
       await crypto.recoveryVerifier(recoveryKey, crypto.fromBase64(profile.recovery_verifier_salt)),
-      deviceId,
+      deviceId, ownerToken,
     );
 
     // Re-wrap for this device so the next launch needs no recovery key.
@@ -261,9 +272,10 @@ export async function recoverWith(recoveryKey) {
     const wrapped = await crypto.wrapDataKey(await crypto.sharedKey(keys.privateKey, keys.jwk), key);
     await cloud.approveDevice(deviceId, {
       wrappedKey: wrapped.wrapped, wrapIv: wrapped.iv, wrappedBy: keys.jwk,
-    });
+    }, ownerToken);
 
     dataKey = key;
+    await saveMeta({ deviceId, ownerToken });
     await store.setSetting('cloudEnabled', true);
     await load();
   } finally {
@@ -288,6 +300,7 @@ export async function load() {
       profile,
       deviceId: local.deviceId ?? null,
       isOwner: !!profile && profile.owner_device === local.deviceId,
+      ownerAuthorized: !!local.ownerToken,
       serverVersion: meta?.version ?? 0,
       enabled: !!profile?.consent_at && store.state.settings.cloudEnabled !== false,
       pendingDevices: devices.filter((d) => d.status === 'pending' && d.id !== local.deviceId),
@@ -330,9 +343,11 @@ export async function backupNow({ force = false } = {}) {
     const version = (latest?.version ?? 0) + 1;
 
     const blob = await crypto.seal(key, store.exportData());
-    await cloud.upload(blob, { version, deviceId: meta.deviceId });
+    await cloud.upload(blob, {
+      version, deviceId: meta.deviceId, ownerToken: await requireOwnerToken(),
+    });
 
-    if (meta.deviceId) await cloud.touchDevice(meta.deviceId).catch(() => {});
+    if (meta.deviceId) await cloud.touchDevice(meta.deviceId, meta.ownerToken).catch(() => {});
     await store.setSetting('cloudLastSyncAt', Date.now());
     set({ lastSyncAt: Date.now(), serverVersion: version });
     return { ok: true, version, bytes: blob.bytes };
@@ -404,7 +419,7 @@ export async function signOutEverywhere() {
 
 /** For a deletion request. Wipes the cloud copy, leaves this device untouched. */
 export async function deleteCloudData() {
-  await cloud.deleteEverything();
+  await cloud.deleteEverything(await requireOwnerToken());
   dataKey = null;
   await db.remove(db.STORES.keys, 'meta');
   await store.setSetting('cloudEnabled', false);

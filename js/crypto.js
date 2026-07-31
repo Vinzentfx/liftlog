@@ -255,10 +255,25 @@ export async function open(dataKey, blob) {
 
 /* ============================ compression ============================ */
 
-async function through(bytes, stream) {
-  const out = new Response(new Blob([bytes]).stream().pipeThrough(stream));
-  return new Uint8Array(await out.arrayBuffer());
+async function through(bytes, stream, maxBytes = Infinity) {
+  const reader = new Blob([bytes]).stream().pipeThrough(stream).getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new Error('BACKUP_TOO_LARGE');
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) { out.set(chunk, offset); offset += chunk.byteLength; }
+  return out;
 }
 
 const deflate = (bytes) => through(bytes, new CompressionStream('deflate-raw'));
-const inflate = (bytes) => through(bytes, new DecompressionStream('deflate-raw'));
+const inflate = (bytes) => through(bytes, new DecompressionStream('deflate-raw'), 50 * 1024 * 1024);

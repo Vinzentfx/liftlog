@@ -193,6 +193,12 @@ leaves the phone.
 
 ### Cloud backup, and what it deliberately cannot do
 
+**Backend deployment order.** For a new Supabase project, apply `server/schema.sql`
+and then `server/patch-002-device-capabilities.sql` in the SQL editor. For an
+existing project, apply only Patch 002 before deploying the matching JavaScript.
+The patch preserves encrypted backups; existing cloud users enter their recovery
+key once so the main device receives its new write capability.
+
 **Status: working end to end.** Sign up, redeem an invite, see the recovery key
 once, and the app saves an encrypted copy when it opens. Device approval, the
 device list, restoring an older version and deleting everything are all in.
@@ -357,6 +363,7 @@ warnings that do matter.
 | `js/screens/account.js` | Sign-up, consent, recovery key, devices, restore |
 | `js/screens/gate.js` | The invite gate, asked once per device |
 | `server/schema.sql` | The entire server side: tables, access rules, two functions |
+| `server/patch-002-device-capabilities.sql` | Required cloud hardening migration; apply before the matching client is deployed |
 | `js/nutrition.js` | Targets, daily totals, energy split, maintenance calories |
 | `js/foodlookup.js` | Open Food Facts barcode lookup — the only networked module |
 | `js/foodsearch.js` | Searching the bundled library and scaling an entry to a portion |

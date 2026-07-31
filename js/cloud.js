@@ -198,11 +198,11 @@ export async function claimInvite(code) {
   });
 }
 
-export function saveProfile(fields) {
-  const id = session?.user?.id;
-  if (!id) throw fail('AUTH', 'not signed in');
-  return authed(`${REST}/profiles?id=eq.${id}`, {
-    method: 'PATCH', headers: { Prefer: 'return=representation' }, body: fields,
+/** Atomically establishes the first owner device and recovery material. */
+export function configureBackup(deviceId, fields, ownerToken) {
+  return authed(`${REST}/rpc/configure_backup`, {
+    method: 'POST',
+    body: { device: deviceId, owner_token: ownerToken, ...fields },
   });
 }
 
@@ -224,35 +224,31 @@ export async function registerDevice({ name, publicKey }) {
   return rows?.[0] ?? null;
 }
 
-export function approveDevice(deviceId, { wrappedKey, wrapIv, wrappedBy }) {
-  return authed(`${REST}/devices?id=eq.${deviceId}`, {
-    method: 'PATCH',
-    body: {
-      status: 'approved',
-      approved_at: new Date().toISOString(),
-      wrapped_key: wrappedKey,
-      wrap_iv: wrapIv,
-      wrapped_by: wrappedBy,
+export function approveDevice(deviceId, { wrappedKey, wrapIv, wrappedBy }, ownerToken) {
+  return authed(`${REST}/rpc/approve_device`, {
+    method: 'POST', body: {
+      device: deviceId, wrapped_key: wrappedKey, wrap_iv: wrapIv,
+      wrapped_by: wrappedBy, owner_token: ownerToken,
     },
   });
 }
 
-export function revokeDevice(deviceId) {
-  return authed(`${REST}/devices?id=eq.${deviceId}`, {
-    method: 'PATCH', body: { status: 'revoked', wrapped_key: null, wrap_iv: null },
+export function revokeDevice(deviceId, ownerToken) {
+  return authed(`${REST}/rpc/revoke_device`, {
+    method: 'POST', body: { device: deviceId, owner_token: ownerToken },
   });
 }
 
-export function touchDevice(deviceId) {
-  return authed(`${REST}/devices?id=eq.${deviceId}`, {
-    method: 'PATCH', body: { last_seen_at: new Date().toISOString() },
+export function touchDevice(deviceId, ownerToken) {
+  return authed(`${REST}/rpc/touch_device`, {
+    method: 'POST', body: { device: deviceId, owner_token: ownerToken },
   });
 }
 
 /** The recovery route: prove the key, take the account over, revoke the rest. */
-export function claimOwnership(verifier, deviceId) {
+export function claimOwnership(verifier, deviceId, ownerToken) {
   return authed(`${REST}/rpc/claim_ownership`, {
-    method: 'POST', body: { verifier, device: deviceId },
+    method: 'POST', body: { verifier, device: deviceId, owner_token: ownerToken },
   });
 }
 
@@ -281,26 +277,20 @@ export async function download(version = null) {
  * key on (user_id, version) turns a stale push into STALE rather than letting
  * it overwrite whatever a second device wrote in the meantime.
  */
-export async function upload(blob, { version, deviceId = null }) {
-  const id = session?.user?.id;
-  if (!id) throw fail('AUTH', 'not signed in');
-  await authed(`${REST}/backups`, {
+export async function upload(blob, { version, deviceId, ownerToken }) {
+  if (!session?.user?.id) throw fail('AUTH', 'not signed in');
+  await authed(`${REST}/rpc/upload_backup`, {
     method: 'POST',
     body: {
-      user_id: id,
-      version,
-      iv: blob.iv,
-      ct: blob.ct,
-      bytes: blob.bytes,
-      device_id: deviceId,
+      backup_version: version, backup_iv: blob.iv, backup_ct: blob.ct,
+      backup_bytes: blob.bytes, device: deviceId, owner_token: ownerToken,
     },
   });
   return version;
 }
 
 /**
- * Erase everything this account has stored, in the order that leaves nothing
- * stranded: backups, then devices, then the profile.
+ * Erase everything this account has stored through the owner-protected RPC.
  *
  * The app needs this for a deletion request, and it is the honest answer to
  * one: after this the server holds nothing but a login. Removing the login
@@ -308,12 +298,11 @@ export async function upload(blob, { version, deviceId = null }) {
  * that last step happens in the Supabase dashboard. Worth saying out loud
  * rather than implying the button does more than it does.
  */
-export async function deleteEverything() {
-  const id = session?.user?.id;
-  if (!id) throw fail('AUTH', 'not signed in');
-  await authed(`${REST}/backups?user_id=eq.${id}`, { method: 'DELETE' });
-  await authed(`${REST}/devices?user_id=eq.${id}`, { method: 'DELETE' });
-  await authed(`${REST}/profiles?id=eq.${id}`, { method: 'DELETE' });
+export async function deleteEverything(ownerToken) {
+  if (!session?.user?.id) throw fail('AUTH', 'not signed in');
+  await authed(`${REST}/rpc/delete_cloud_data`, {
+    method: 'POST', body: { owner_token: ownerToken },
+  });
 }
 
 export function listVersions() {

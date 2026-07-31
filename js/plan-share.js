@@ -73,6 +73,9 @@ function defaultBase() {
  * Never throws — a mangled link is a message, not a crash.
  */
 export async function decodeLink(code) {
+  if (typeof code !== 'string' || code.length > 100000) {
+    return { ok: false, detail: t('shareLink.damaged', { why: ' (too large)' }) };
+  }
   let json;
   try {
     json = await unpack(code);
@@ -164,8 +167,24 @@ async function unpack(code) {
   if (mode === 'u') return new TextDecoder().decode(bytes);
   if (mode !== 'z') throw new Error('unknown format');
   if (typeof DecompressionStream === 'undefined') throw new Error('this browser cannot read compressed links');
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-  return new Response(stream).text();
+  const reader = new Blob([bytes]).stream()
+    .pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > 2 * 1024 * 1024) {
+      await reader.cancel();
+      throw new Error('too large');
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) { out.set(chunk, offset); offset += chunk.byteLength; }
+  return new TextDecoder().decode(out);
 }
 
 // base64url: no +, / or = so the string survives a URL hash untouched.

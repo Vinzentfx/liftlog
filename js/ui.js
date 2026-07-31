@@ -12,7 +12,6 @@ export function el(spec, props = {}, children = []) {
   for (const [k, v] of Object.entries(props)) {
     if (v === null || v === undefined || v === false) continue;
     if (k === 'class') node.className = [node.className, v].filter(Boolean).join(' ');
-    else if (k === 'html') node.innerHTML = v;
     else if (k === 'text') node.textContent = v;
     else if (k === 'style' && typeof v === 'object') Object.assign(node.style, v);
     else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
@@ -26,6 +25,29 @@ export function el(spec, props = {}, children = []) {
     node.append(c instanceof Node ? c : document.createTextNode(String(c)));
   }
   return node;
+}
+
+const AUTH_ICONS = {
+  email: ['M4 6h16v12H4z', 'm4 7 8 6 8-6'],
+  lock: ['M6 10h12v10H6z', 'M8 10V7a4 4 0 0 1 8 0v3', 'M12 14v2'],
+  key: ['M14 7a4 4 0 1 1-3.8 5.2L4 18.4V21h2.6l1-1H10l1-1v-2.4l1.8-1.8A4 4 0 0 1 14 7z'],
+};
+
+/** Consistent, touch-friendly field used by sign-in, sign-up and recovery. */
+export function authField(label, input, { icon = 'email', note = null } = {}) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  for (const d of AUTH_ICONS[icon] || AUTH_ICONS.email) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    svg.append(path);
+  }
+  return el('label.auth-field', {}, [
+    el('span.auth-label', { text: label }),
+    el('span.auth-control', {}, [svg, input]),
+    note ? el('span.auth-note', { text: note }) : null,
+  ]);
 }
 
 export const $ = (sel, root = document) => root.querySelector(sel);

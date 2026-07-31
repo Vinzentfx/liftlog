@@ -18,7 +18,7 @@
 // alone and which never appears in an exported backup. So it survives restoring
 // a backup, and it does not travel to someone else's phone inside one.
 
-import { el, clear, $, toast } from '../ui.js';
+import { el, clear, $, toast, authField } from '../ui.js';
 import * as db from '../db.js';
 import * as cloud from '../cloud.js';
 import * as sync from '../sync.js';
@@ -81,8 +81,20 @@ export function show(onOpen) {
   paintChoice(pane, done);
 }
 
+/**
+ * `el()` drops a null child; `replaceChildren()` turns it into the text "null".
+ *
+ * Which is exactly what the gate showed under its buttons on a device with no
+ * training on it, because the export offer below returns null in that case.
+ * Everything the gate paints goes through here so the trap has one place to be
+ * avoided rather than four.
+ */
+function paint(pane, ...children) {
+  pane.replaceChildren(...children.filter(Boolean));
+}
+
 function paintChoice(pane, done) {
-  pane.replaceChildren(
+  paint(pane,
     el('div.card.glow', { style: { marginTop: '18px' } }, [
       el('div', { style: { fontSize: '19px', fontWeight: '720', letterSpacing: '-0.02em' },
         text: t('gate.title') }),
@@ -169,12 +181,14 @@ function paintSignUp(pane, done) {
     }
   }
 
-  pane.replaceChildren(
+  paint(pane,
     backLink(pane, done),
     el('div.small.muted', { text: t('gate.signUpIntro') }),
-    el('label.field', { style: { marginTop: '14px' } }, [el('span', { text: t('cloud.email') }), email]),
-    el('label.field', {}, [el('span', { text: t('cloud.password') }), password]),
-    el('label.field', {}, [el('span', { text: t('cloud.inviteCode') }), code]),
+    el('div', { style: { marginTop: '16px' } }, [
+      authField(t('cloud.email'), email, { icon: 'email' }),
+      authField(t('cloud.password'), password, { icon: 'lock' }),
+      authField(t('cloud.inviteCode'), code, { icon: 'key' }),
+    ]),
     el('button.btn.primary.full', { onclick: go }, [t('gate.start')]),
     status,
     el('div.small.faint', { style: { marginTop: '16px' }, text: t('gate.backupSeparate') }),
@@ -204,11 +218,13 @@ function paintSignIn(pane, done) {
     }
   }
 
-  pane.replaceChildren(
+  paint(pane,
     backLink(pane, done),
     el('div.small.muted', { text: t('gate.signInIntro') }),
-    el('label.field', { style: { marginTop: '14px' } }, [el('span', { text: t('cloud.email') }), email]),
-    el('label.field', {}, [el('span', { text: t('cloud.password') }), password]),
+    el('div', { style: { marginTop: '16px' } }, [
+      authField(t('cloud.email'), email, { icon: 'email' }),
+      authField(t('cloud.password'), password, { icon: 'lock' }),
+    ]),
     el('button.btn.primary.full', { onclick: go }, [t('cloud.signIn')]),
     status,
     el('div.small.faint', { style: { marginTop: '16px' }, text: t('gate.signInNote') }),
