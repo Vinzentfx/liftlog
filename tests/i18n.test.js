@@ -105,7 +105,14 @@ test('every literal t() key exists in the tables', () => {
  * through tRegion / tTier / tn and friends, never as a literal.
  */
 test('no unused keys', () => {
-  const COMPUTED = ['weekday.', 'region.', 'muscle.', 'equipment.', 'tier.', 'route.'];
+  const COMPUTED = [
+    'weekday.', 'region.', 'muscle.', 'equipment.', 'tier.', 'route.',
+    // Error and status keys are looked up from a code the server or the sync
+    // layer produced: `t('cloud.err.' + err.code)`. Listing the prefixes is the
+    // price of that, and the parity test above still guarantees both languages
+    // define the same set of them.
+    'cloud.err.', 'cloud.status.',
+  ];
   const used = new Set();
 
   for (const file of sourceFiles()) {

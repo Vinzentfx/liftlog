@@ -5,6 +5,7 @@ import { t, setLanguage } from './i18n.js';
 import * as store from './store.js';
 import * as db from './db.js';
 import * as rest from './rest.js';
+import * as sync from './sync.js';
 
 import renderHome from './screens/home.js';
 import renderTrain from './screens/train.js';
@@ -162,6 +163,12 @@ async function boot() {
   setLanguage(store.state.settings.language);
   if (!location.hash) location.replace('#/home');
   render();
+
+  // The cloud copy is a copy. It must never delay the app opening, never block
+  // on a phone with no signal, and never be the reason a screen does not draw,
+  // so it runs after the first render and nothing waits on it.
+  sync.subscribe(render);
+  sync.onAppOpen().catch((err) => console.warn('[liftlog] sync', err));
 
   if ('serviceWorker' in navigator) {
     // Only meaningful over https/localhost; silently skipped elsewhere.

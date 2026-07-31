@@ -1,7 +1,7 @@
 // Minimal promise wrapper over IndexedDB. No dependencies so the app works offline.
 
 const DB_NAME = 'liftlog';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 export const STORES = {
   exercises: 'exercises',
@@ -13,6 +13,7 @@ export const STORES = {
   meals: 'meals',
   water: 'water',
   templates: 'templates',
+  keys: 'keys',
 };
 
 let _db = null;
@@ -73,6 +74,16 @@ export function open() {
       if (!db.objectStoreNames.contains(STORES.meals)) {
         const s = db.createObjectStore(STORES.meals, { keyPath: 'id' });
         s.createIndex('day', 'day', { unique: false });
+      }
+      // v7: this device's own crypto keys for the cloud backup.
+      //
+      // A store of its own rather than a corner of `settings`, for one reason
+      // that matters: `exportData()` copies every setting into the backup file.
+      // A device's private key has no business travelling in a backup, least of
+      // all one that then gets restored onto a second phone. Nothing in this
+      // store is ever exported, uploaded or restored.
+      if (!db.objectStoreNames.contains(STORES.keys)) {
+        db.createObjectStore(STORES.keys, { keyPath: 'id' });
       }
       void ev;
     };

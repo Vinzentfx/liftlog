@@ -10,6 +10,8 @@ import { hasProfile } from '../standards.js';
 import { DEFAULT_BAR } from '../plates.js';
 import { evidenceList } from '../rating-ui.js';
 import { t, tn, LANGUAGES, language } from '../i18n.js';
+import { cloudSection } from './account.js';
+import * as sync from '../sync.js';
 
 /**
  * Profile — the inputs the strength standards actually need.
@@ -259,6 +261,8 @@ export function renderSettings() {
     el('div.section-head', {}, [el('h2', { text: t('settings.whatToShow') })]),
     checkRow(starToggle, t('settings.stars'), t('settings.starsNote')),
 
+    cloudSection(),
+
     el('div.section-head', {}, [el('h2', { text: t('settings.backup') })]),
     el('div.small.muted', { style: { marginBottom: '10px' }, text: t('settings.backupNote') }),
     storageLine(),
@@ -276,7 +280,12 @@ export function renderSettings() {
         const ok = await confirmSheet(t('settings.eraseTitle'), t('settings.eraseBody'),
           { confirmLabel: t('settings.erase') });
         if (!ok) return;
+        // Here the device keys go too: "erase everything" means everything,
+        // including the cloud identity. Signing out with them keeps the two
+        // sides in step, rather than leaving a session pointing at an account
+        // this device can no longer decrypt.
         await Promise.all(Object.values(db.STORES).map((st) => db.clear(st)));
+        await sync.signOutEverywhere().catch(() => {});
         await store.load();
         toast(t('settings.erased'));
       },

@@ -160,8 +160,10 @@ was.
 
 ### Cloud backup, and what it deliberately cannot do
 
-**Status: crypto, schema and network layer are in and verified against the live
-project. No screens yet, so nothing in the app calls any of it.**
+**Status: working end to end.** Sign up, redeem an invite, see the recovery key
+once, and the app saves an encrypted copy when it opens. Device approval, the
+device list, restoring an older version and deleting everything are all in.
+Read-only on secondary devices is enforced by `owner_device`.
 
 `tools/live-check.mjs` walks the whole chain against the real server and cleans
 up after itself. It is not part of `node --test`, because it needs the network
@@ -200,6 +202,14 @@ The shape, decided with the person who has to live with it:
   anything, which suits an iOS home-screen app that has none.
 - **Off until explicitly turned on**, with the consent and its wording version
   recorded on the profile row rather than assumed.
+
+**A restore must not wipe the device keys.** `keys` is the one object store a
+restore leaves alone, and there is a test pinning that. It holds this device's
+keypair and the id the server knows it by, which are properties of the phone and
+appear in no backup. Clearing it turned "restore from the cloud" into "lock this
+device out of the cloud": the device came back a stranger and could no longer
+unwrap the data key it had just used to read the download. Found by looking at
+the screen after a restore and noticing it claimed to be read-only.
 
 **The recovery key is not optional.** Without it the design has a hole exactly
 where the point is: if only the main device holds the key and the main device is
@@ -310,6 +320,8 @@ warnings that do matter.
 | `js/crypto.js` | End-to-end encryption for the cloud backup |
 | `js/cloud.js` | Talking to Supabase over plain fetch, errors normalised |
 | `js/cloud-config.js` | Project URL and anon key, both public on purpose |
+| `js/sync.js` | Store plus crypto plus cloud: the only place the three meet |
+| `js/screens/account.js` | Sign-up, consent, recovery key, devices, restore |
 | `server/schema.sql` | The entire server side: tables, access rules, two functions |
 | `js/nutrition.js` | Targets, daily totals, energy split, maintenance calories |
 | `js/foodlookup.js` | Open Food Facts barcode lookup — the only networked module |

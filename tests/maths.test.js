@@ -35,6 +35,7 @@ const { weekSummary } = await import('../js/week-card.js');
 const { THRESHOLDS } = await import('../js/evidence.js');
 const { dayTotals, energySplit, maintenanceEstimate, NUTRIENTS, macroTargets } = await import('../js/nutrition.js');
 const { latestWeight } = await import('../js/models.js');
+const { STORES } = await import('../js/db.js');
 const { searchLibrary, searchFoods, toFoodFields } = await import('../js/foodsearch.js');
 const { parseNumber, plural } = await import('../js/ui.js');
 const { platePlan, describePlates } = await import('../js/plates.js');
@@ -588,6 +589,22 @@ test('a week boundary is a calendar week, not seven times 86400000', () => {
   const ownWeek = weeks.find((w) => new Date(w.week).getDate() === 30
     && new Date(w.week).getMonth() === 2);
   assert.equal(ownWeek.bodyweight, 80, 'and it does land in its own week');
+});
+
+/* ============ what a restore must not destroy ============ */
+
+test('the device key store is not in the list a restore wipes', () => {
+  // A restore clears every store and writes the backup in. `keys` holds this
+  // device's identity for the cloud backup, which no backup contains, so
+  // clearing it turned "restore from the cloud" into "lock this device out of
+  // the cloud": it came back a stranger and could no longer unwrap the data key
+  // it had just used to read the download.
+  const wiped = Object.values(STORES).filter((store) => store !== STORES.keys);
+
+  assert.ok(STORES.keys, 'the store exists');
+  assert.ok(!wiped.includes(STORES.keys), 'and a restore leaves it alone');
+  assert.ok(wiped.includes(STORES.sessions), 'while still clearing the log itself');
+  assert.equal(wiped.length, Object.values(STORES).length - 1, 'exactly one exception');
 });
 
 /* ============ the app's two bodyweights ============ */

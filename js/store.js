@@ -870,7 +870,16 @@ export async function importData(payload, { replace = true } = {}) {
   }
 
   if (replace) {
-    await Promise.all(Object.values(db.STORES).map((s) => db.clear(s)));
+    // Everything except this device's own crypto keys.
+    //
+    // `keys` holds the device identity for the cloud backup: its keypair, and
+    // the id the server knows it by. Those are properties of the phone, not of
+    // the log, and a backup never contains them. Wiping them here meant that
+    // restoring from the cloud destroyed the very thing that had just decrypted
+    // the download: the device came back as a stranger, could no longer unwrap
+    // its own data key, and had to be approved again or recovered.
+    const wipe = Object.values(db.STORES).filter((store) => store !== db.STORES.keys);
+    await Promise.all(wipe.map((s) => db.clear(s)));
   }
   const settingRows = Object.entries(payload.settings || {}).map(([key, value]) => ({ key, value }));
   // `plans` was missing from both sides of this until now: exportData never
