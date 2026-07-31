@@ -40,6 +40,7 @@ const { platePlan, describePlates } = await import('../js/plates.js');
 const { warmupSets, warmupCount } = await import('../js/warmup.js');
 const { stallReport, describeStall } = await import('../js/fatigue.js');
 const { setLanguage } = await import('../js/i18n.js');
+const { timeline, timelineReady, MIN_LOGGED_DAYS } = await import('../js/timeline.js');
 
 const INDIRECT = THRESHOLDS.indirectSetWeight.value;
 
@@ -559,6 +560,93 @@ test('describeStall reports and never prescribes', () => {
     }
   }
   setLanguage('en');
+});
+
+/* ================= eating next to training ================= */
+
+/** `n` days back from `at`, as the day key meals are stored under. */
+function dayBack(n, at = Date.now()) {
+  const d = new Date(at);
+  d.setDate(d.getDate() - n);
+  const pad = (v) => String(v).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+const dayMeal = (day, kcal, protein) => ({
+  day, kcal, protein, carbs: 40, fat: 10, fibre: 3, amount: 1, micros: {},
+});
+
+test('a week without enough logged days reports no intake, not a zero', () => {
+  // Three days in the most recent week, which is one short of the convention.
+  const meals = [0, 1, 2].map((i) => dayMeal(dayBack(i), 2000, 150));
+  const { weeks } = timeline({ meals }, { weeks: 2 });
+  const last = weeks[weeks.length - 1];
+
+  assert.equal(last.loggedDays, 3, 'the days themselves are still counted');
+  assert.equal(last.intake, null, 'three days is below the floor, so there is no average');
+  assert.ok(MIN_LOGGED_DAYS > 3, 'this test only means anything while the floor is above three');
+});
+
+test('an intake average counts only the days that carry the value', () => {
+  // Five logged days, two of them with no calorie figure at all. Averaging
+  // those in as zero would report 1200 kcal for a 2000 kcal week.
+  const meals = [
+    dayMeal(dayBack(0), 2000, 150),
+    dayMeal(dayBack(1), 2000, 150),
+    dayMeal(dayBack(2), 2000, 150),
+    dayMeal(dayBack(3), 0, 150),
+    dayMeal(dayBack(4), 0, 150),
+  ];
+  const { weeks } = timeline({ meals }, { weeks: 3 });
+  const withIntake = weeks.filter((w) => w.intake);
+  const total = withIntake.reduce((n, w) => n + w.intake.kcal, 0) / withIntake.length;
+
+  assert.ok(withIntake.length >= 1, 'five days clears the floor');
+  assert.equal(Math.round(total), 2000, 'the days without calories are unknown, not zero');
+});
+
+test('bodyweight is only reported for weeks you actually weighed', () => {
+  const now = Date.now();
+  const meals = [0, 1, 2, 3, 4].map((i) => dayMeal(dayBack(i), 2200, 160));
+  // Deliberately in an older week: a weigh-in in the newest week cannot be
+  // carried forward into anything, so a fixture built that way would pass
+  // against the very bug this test exists to catch.
+  const bodyweight = [{ id: 'b1', date: now - 16 * 86400000, weight: 82 }];
+
+  const { weeks } = timeline({ meals, bodyweight }, { weeks: 4 });
+  const weighed = weeks.filter((w) => w.bodyweight !== null);
+
+  assert.equal(weighed.length, 1, 'one weigh-in shows up in exactly one week, not in every week after it');
+  assert.equal(weighed[0].bodyweight, 82);
+  assert.equal(weighed[0].weighIns, 1);
+  assert.equal(weeks[weeks.length - 1].bodyweight, null,
+    'the newest week did not weigh, so it stays empty rather than repeating 82');
+});
+
+test('training and eating land in the same week buckets', () => {
+  const now = Date.now();
+  const meals = [0, 1, 2, 3, 4].map((i) => dayMeal(dayBack(i), 2200, 160));
+  const sessions = [{
+    id: 's1', startedAt: now - 86400000, finishedAt: now - 86400000 + 3600000,
+    entries: [{ exerciseId: 'ex', sets: [{ weight: 100, reps: 5, done: true, type: 'working' }] }],
+  }];
+
+  const { weeks } = timeline({ sessions, meals }, { weeks: 4 });
+  const trained = weeks.filter((w) => w.sets > 0);
+  const ate = weeks.filter((w) => w.intake);
+
+  assert.equal(trained.length, 1);
+  assert.ok(ate.length >= 1);
+  assert.equal(trained[0].week, ate[ate.length - 1].week,
+    'a session and the meals from the same days share one bucket');
+});
+
+test('the timeline waits for a second week rather than drawing one point', () => {
+  const oneWeek = [0, 1, 2, 3, 4].map((i) => dayMeal(dayBack(i), 2200, 160));
+  assert.equal(timelineReady(timeline({ meals: oneWeek }, { weeks: 4 })), false);
+
+  const twoWeeks = [...oneWeek, ...[7, 8, 9, 10, 11].map((i) => dayMeal(dayBack(i), 2200, 160))];
+  assert.equal(timelineReady(timeline({ meals: twoWeeks }, { weeks: 4 })), true);
 });
 
 /* ======================= sharing a plan ======================= */

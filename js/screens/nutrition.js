@@ -1249,6 +1249,16 @@ function trendSection() {
   );
 
   wrap.append(maintenanceSection());
+
+  // The way in to the shared timeline. It lives on Progress because that is
+  // where the training half already is, and a second copy of the same three
+  // charts here would be two screens to keep in step.
+  wrap.append(
+    el('button.btn.ghost.full.sm', {
+      style: { marginTop: '14px' },
+      onclick: () => navigate('progress'),
+    }, [`${t('timeline.wayIn')} ›`])
+  );
   return wrap;
 }
 

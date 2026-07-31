@@ -70,12 +70,17 @@ export function lineChart(points, opts = {}) {
     height = 190, format = (v) => String(Math.round(v)),
     xFormat = (ts) => new Date(ts).toLocaleDateString(locale(), { day: 'numeric', month: 'short' }),
     showTrend = false, showArea = true, caption = null,
+    // Only a stack of charts that claims to share one timeline needs these: it
+    // has to pass the same gutters to every chart in the stack, or the x-axes
+    // are off by the few pixels the two components happen to differ by, and the
+    // claim is false. Everything else takes the defaults.
+    padL = 34, padR = 10, xLabels = true,
   } = opts;
 
   const data = [...points].filter((p) => Number.isFinite(p.y)).sort((a, b) => a.x - b.x);
 
   const wrap = responsive((W, H) => {
-    const padL = 34, padR = 10, padT = 12, padB = 22;
+    const padT = 12, padB = xLabels ? 22 : 8;
     const plotW = W - padL - padR;
     const plotH = H - padT - padB;
 
@@ -119,7 +124,7 @@ export function lineChart(points, opts = {}) {
     }
 
     // --- x labels: first and last only, so they can't collide ---
-    [[data[0], 'start'], [data[data.length - 1], 'end']].forEach(([p, anchor]) => {
+    if (xLabels) [[data[0], 'start'], [data[data.length - 1], 'end']].forEach(([p, anchor]) => {
       const label = svgEl('text', {
         class: 'axis', x: anchor === 'start' ? padL : W - padR,
         y: H - 6, 'text-anchor': anchor,
@@ -216,10 +221,13 @@ export function lineChart(points, opts = {}) {
  * @param {{label:string,value:number,dim?:boolean}[]} bars
  */
 export function barChart(bars, opts = {}) {
-  const { height = 170, format = (v) => String(Math.round(v)), caption = null, everyNthLabel = 1 } = opts;
+  const {
+    height = 170, format = (v) => String(Math.round(v)), caption = null, everyNthLabel = 1,
+    padL = 30, padR = 8, xLabels = true,
+  } = opts;
 
   const wrap = responsive((W, H) => {
-    const padL = 30, padR = 8, padT = 12, padB = 22;
+    const padT = 12, padB = xLabels ? 22 : 8;
     const plotW = W - padL - padR;
     const plotH = H - padT - padB;
 
@@ -283,7 +291,7 @@ export function barChart(bars, opts = {}) {
       hit.addEventListener('pointerdown', show);
       svg.append(hit);
 
-      if (i % everyNthLabel === 0 || i === bars.length - 1) {
+      if (xLabels && (i % everyNthLabel === 0 || i === bars.length - 1)) {
         const label = svgEl('text', {
           class: 'axis', x: x + bw / 2, y: H - 6, 'text-anchor': 'middle',
         });

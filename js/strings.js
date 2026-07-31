@@ -1219,6 +1219,22 @@ export const STRINGS = {
 
     'weekCard.workoutOne': 'workout',
     'weekCard.workoutOther': 'workouts',
+
+
+    // ---------- eating next to training ----------
+    'timeline.title': 'Eating and training',
+    'timeline.notYet': 'Only {weeks} so far carry enough food logging to line up against your training. A week counts once it has {min} logged days, which is a convention rather than a finding: below that the average says more about which days you remembered than about what you ate.',
+    'timeline.rowKcal': 'Calories a day, averaged over the week',
+    'timeline.rowWeight': 'Bodyweight',
+    'timeline.rowSets': 'Working sets a week',
+    'timeline.kcalTip': '{kcal} kcal · {days} days logged',
+    'timeline.thinWeek': '{days} days logged, too few to average',
+    'timeline.weightTip': '{weight} · {n} weighed',
+    'timeline.noWeighIns': 'Two weeks with a weigh-in and this line appears. Weeks you did not weigh stay empty rather than repeating the last figure.',
+    'timeline.coverage': '{weeks} of {total} carry an intake average, which needs {min} logged days in the week.',
+    'timeline.noCausation': 'Three things over the same weeks, nothing more. A block of training, a holiday, an illness or a change of job all move several of these at once, and one person with no control group cannot tell you which way the arrow points. The reading is yours.',
+
+    'timeline.wayIn': 'See this next to your training',
   },
 
   de: {
@@ -2433,5 +2449,21 @@ export const STRINGS = {
 
     'weekCard.workoutOne': 'Training',
     'weekCard.workoutOther': 'Trainings',
+
+
+    // ---------- eating next to training ----------
+    'timeline.title': 'Essen und Training',
+    'timeline.notYet': 'Bisher tragen nur {weeks} genug Ernährungs-Einträge, um sie neben dein Training zu legen. Eine Woche zählt ab {min} geloggten Tagen, und das ist eine Konvention, kein Studienergebnis: darunter sagt der Schnitt mehr darüber, an welche Tage du gedacht hast, als darüber, was du gegessen hast.',
+    'timeline.rowKcal': 'Kalorien am Tag, über die Woche gemittelt',
+    'timeline.rowWeight': 'Körpergewicht',
+    'timeline.rowSets': 'Arbeitssätze pro Woche',
+    'timeline.kcalTip': '{kcal} kcal · {days} Tage geloggt',
+    'timeline.thinWeek': '{days} Tage geloggt, zu wenige für einen Schnitt',
+    'timeline.weightTip': '{weight} · {n}× gewogen',
+    'timeline.noWeighIns': 'Zwei Wochen mit einer Wiegung, dann erscheint diese Linie. Wochen ohne Wiegung bleiben leer, statt den letzten Wert zu wiederholen.',
+    'timeline.coverage': '{weeks} von {total} tragen einen Zufuhr-Schnitt, dafür braucht es {min} geloggte Tage in der Woche.',
+    'timeline.noCausation': 'Drei Dinge über dieselben Wochen, mehr nicht. Ein Trainingsblock, ein Urlaub, eine Erkältung oder ein Jobwechsel verschieben mehrere davon gleichzeitig, und eine einzelne Person ohne Kontrollgruppe kann nicht sagen, in welche Richtung der Pfeil zeigt. Die Deutung liegt bei dir.',
+
+    'timeline.wayIn': 'Neben dein Training legen',
   },
 };

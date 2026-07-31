@@ -205,6 +205,7 @@ warnings that do matter.
 | `js/plan-doctor.js` | Turns rating complaints into one-tap plan edits |
 | `js/swaps.js` | "Same muscle, better position" alternatives |
 | `js/history.js` | Strength, tonnage and per-lift trends over time |
+| `js/timeline.js` | Eating and training on one set of week buckets |
 | `js/nutrition.js` | Targets, daily totals, energy split, maintenance calories |
 | `js/foodlookup.js` | Open Food Facts barcode lookup — the only networked module |
 | `js/foodsearch.js` | Searching the bundled library and scaling an entry to a portion |
@@ -721,6 +722,37 @@ Cards can also be made for **last week**, which is when you actually want to sen
 one. Anything with a time window respects that: `regionProgress` takes a `now`,
 so a card about last week cannot see sessions logged since and quietly change
 what it said.
+
+### Eating next to training
+
+Three charts on Progress, sharing one x-axis: average calories a day over the
+week, bodyweight, and working sets. They are three charts rather than one with
+three series because the units have nothing in common — a shared y-axis either
+flattens the bodyweight line into a straight edge or blows the calorie bars off
+the top. What makes it one timeline is that all three are handed the same
+gutters (`padL`/`padR` in `js/charts.js`, added for exactly this) and only the
+bottom one draws the dates. If those gutters ever drift apart, the screen is
+claiming an alignment it does not have.
+
+Intake is bars and bodyweight is a line, deliberately. A week nobody logged has
+to look empty, which bars do and a line does not — a line would join the weeks
+either side and draw straight through the gap. Bodyweight is the opposite case:
+weigh-ins are points in time and the app already reads them that way everywhere
+else.
+
+A week reports an intake average only once it has **4 logged days**
+(`MIN_LOGGED_DAYS`), which is a convention and is named as one on screen: below
+that the mean says more about which days you remembered than about what you ate.
+Within a reported week, only the days that actually carry a value count towards
+it — a day logged without calories is a logged day, not a zero-calorie one.
+Bodyweight is reported only for weeks with a weigh-in *in* them; carrying the
+last figure forward would draw a scale reading for a day nobody stood on it.
+
+**What it will not do is say why.** Three series moving together is not evidence
+that one moved another, and with one person and no control group there is no
+version of this screen that could be. There is no correlation coefficient here
+either — a number would read as a finding. The card describes, and says plainly
+that the reading is yours.
 
 ### The muscle map has two modes
 

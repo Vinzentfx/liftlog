@@ -19,6 +19,7 @@ import { TIERS, tierIndex, hasProfile } from '../standards.js';
 import { pickExercise } from '../pickers.js';
 import { profileForm } from './settings.js';
 import { navigate } from '../app.js';
+import { timeline, timelineReady, MIN_LOGGED_DAYS } from '../timeline.js';
 import { t, tn, tMuscle, tEquipment, tTier } from '../i18n.js';
 
 let metric = 'e1rm';      // per-exercise chart, remembered across renders
@@ -99,6 +100,9 @@ function overview() {
 
   // --- is it still moving at all ---
   root.append(stallSection(done));
+
+  // --- eating and training on one axis ---
+  root.append(timelineSection(units));
 
   // --- weekly volume of work ---
   const buckets = weeklyMuscleSets(done, store.state.exerciseById, 10);
@@ -442,6 +446,117 @@ function moversSection(done, units) {
   card.append(el('div.small.faint', { style: { marginTop: '12px' }, text: t('progress.moversNote') }));
 
   wrap.append(card);
+  return wrap;
+}
+
+/* ===================== eating next to training ===================== */
+
+/**
+ * The two halves of the app on one set of week buckets.
+ *
+ * Three charts rather than one with three series: they measure different things
+ * in different units, and a shared y-axis would either flatten the bodyweight
+ * line into a straight edge or blow the calorie bars off the top. What makes it
+ * one timeline is the x-axis, which is why all three are handed the same
+ * gutters and only the bottom one carries the dates.
+ *
+ * Intake is bars, because a week nobody logged has to look empty. Bodyweight is
+ * a line, because weigh-ins are points in time and the app already reads them
+ * that way everywhere else.
+ *
+ * What the card refuses to do is say why. Three lines moving together is not
+ * evidence that one moved another, and with one person and no control there is
+ * no version of this screen that could be. So it describes, and the note at the
+ * bottom says plainly that the reading is yours to make.
+ */
+function timelineSection(units) {
+  const wrap = el('div');
+  const data = timeline({
+    sessions: store.state.sessions,
+    meals: store.state.meals,
+    bodyweight: store.state.bodyweight,
+  }, { weeks: 12 });
+
+  if (!timelineReady(data)) {
+    // Nothing to show is worth saying once, quietly, with what is missing.
+    if (!store.state.meals.length) return wrap;
+    wrap.append(el('div.section-head', {}, [el('h2', { text: t('timeline.title') })]));
+    wrap.append(el('div.card', {}, [
+      el('div.small.muted', {
+        text: t('timeline.notYet', {
+          weeks: tn(data.coverage.withIntake, 'unit.week'), min: MIN_LOGGED_DAYS,
+        }),
+      }),
+    ]));
+    return wrap;
+  }
+
+  const rows = data.weeks;
+  const label = (w) => t('home.workload.weekOf', { date: fmtDate(w.week) });
+  const shortLabel = (w, i) => (i === rows.length - 1 ? t('home.workload.now') : fmtDate(w.week));
+
+  // The same gutters for every chart in the stack; see charts.js.
+  const AXIS = { padL: 34, padR: 10 };
+
+  const kcalBars = rows.map((w, i) => ({
+    label: label(w),
+    short: shortLabel(w, i),
+    value: w.intake && w.intake.kcal ? w.intake.kcal : 0,
+    tip: w.intake && w.intake.kcal
+      ? t('timeline.kcalTip', { kcal: fmtNum(w.intake.kcal), days: w.intake.days })
+      : t('timeline.thinWeek', { days: w.loggedDays }),
+    dim: !w.intake,
+  }));
+
+  const weightPoints = rows
+    .filter((w) => w.bodyweight !== null)
+    .map((w) => ({
+      x: w.week, y: w.bodyweight,
+      tip: t('timeline.weightTip', {
+        weight: fmtWeight(w.bodyweight, units), n: w.weighIns,
+      }),
+    }));
+
+  const setBars = rows.map((w, i) => ({
+    label: label(w),
+    short: shortLabel(w, i),
+    value: w.sets,
+    tip: tn(w.sets, 'unit.set'),
+    dim: i === rows.length - 1,
+  }));
+
+  wrap.append(el('div.section-head', {}, [el('h2', { text: t('timeline.title') })]));
+  wrap.append(
+    el('div.card', {}, [
+      // The caption is the chart's own label and its accessible name, so there
+      // is no second heading above it. Writing one anyway printed every row
+      // title twice.
+      barChart(kcalBars, {
+        ...AXIS, xLabels: false, height: 120, everyNthLabel: 3,
+        format: (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))),
+        caption: t('timeline.rowKcal'),
+      }),
+
+      weightPoints.length >= 2
+        ? lineChart(weightPoints, {
+            ...AXIS, xLabels: false, height: 120, showArea: false,
+            format: (v) => fmtNum(v, 0), caption: t('timeline.rowWeight'),
+          })
+        : el('div.small.faint', { style: { padding: '14px 0' }, text: t('timeline.noWeighIns') }),
+
+      barChart(setBars, {
+        ...AXIS, height: 120, everyNthLabel: 3, caption: t('timeline.rowSets'),
+      }),
+
+      el('div.small.muted', { style: { marginTop: '12px' },
+        text: t('timeline.coverage', {
+          weeks: tn(data.coverage.withIntake, 'unit.week'),
+          total: data.coverage.total,
+          min: MIN_LOGGED_DAYS,
+        }) }),
+      el('div.small.faint', { style: { marginTop: '8px' }, text: t('timeline.noCausation') }),
+    ])
+  );
   return wrap;
 }
 
