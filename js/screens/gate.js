@@ -184,6 +184,12 @@ const problem = (status, err) => {
   status.textContent = t(`cloud.err.${err.code}`, { code: err.code || 'SERVER' });
 };
 
+async function offerCloudSetup(profile) {
+  if (profile?.recovery_wrap) return;
+  const account = await import('./account.js');
+  account.promptCloudSetup();
+}
+
 function paintSignUp(pane, done) {
   const { email, password, status } = fields();
   password.autocomplete = 'new-password';
@@ -204,10 +210,18 @@ function paintSignUp(pane, done) {
       // The invite is what actually opens the door. An account without one can
       // sign in and do nothing, here or on the server.
       await cloud.claimInvite(code.value);
+      if (!(await cloud.hasActiveAccess())) {
+        throw Object.assign(new Error('ACCESS_SETUP_FAILED'), { code: 'ACCESS_SETUP_FAILED' });
+      }
       cloud.persistSession();
       await sync.load();
+      const profile = await cloud.getProfile();
+      if (!profile) {
+        throw Object.assign(new Error('ACCESS_SETUP_FAILED'), { code: 'ACCESS_SETUP_FAILED' });
+      }
       await done();
       toast(t('gate.welcome'), 3000);
+      await offerCloudSetup(profile);
     } catch (err) {
       problem(status, err);
     }
@@ -254,6 +268,7 @@ function paintSignIn(pane, done) {
       await sync.load();
       await done();
       toast(t('gate.welcomeBack'), 2600);
+      await offerCloudSetup(profile);
     } catch (err) {
       problem(status, err);
     }

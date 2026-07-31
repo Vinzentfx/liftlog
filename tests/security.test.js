@@ -109,3 +109,17 @@ test('unexpected automatic backup failures become visible', async () => {
   const app = await read('js/app.js');
   assert.match(app, /sync\.onAppOpen\(\)[\s\S]*cloud\.autoBackupFailed/);
 });
+
+test('the invite gate verifies access before opening and offers cloud consent immediately', async () => {
+  const gate = await read('js/screens/gate.js');
+  assert.match(gate, /claimInvite\([^;]+[\s\S]*hasActiveAccess\(\)[\s\S]*done\(\)[\s\S]*offerCloudSetup/);
+});
+
+test('the account invite repair path asks for consent before cloud setup', async () => {
+  const account = await read('js/screens/account.js');
+  const start = account.indexOf('function inviteSheet()');
+  const end = account.indexOf('/* ============================ the recovery key', start);
+  const inviteFlow = account.slice(start, end);
+  assert.match(inviteFlow, /claimInvite[\s\S]*hasActiveAccess[\s\S]*finishSetupSheet/);
+  assert.doesNotMatch(inviteFlow, /createAccount/);
+});

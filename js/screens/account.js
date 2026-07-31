@@ -189,6 +189,9 @@ function signUpSheet() {
     try {
       await cloud.signUp(mail, password.value, { persist: false });
       await cloud.claimInvite(invite.value);
+      if (!(await cloud.hasActiveAccess())) {
+        throw Object.assign(new Error('ACCESS_SETUP_FAILED'), { code: 'ACCESS_SETUP_FAILED' });
+      }
       cloud.persistSession();
       const recovery = await sync.createAccount({ consent: true });
       recoveryKeySheet(recovery);
@@ -257,6 +260,10 @@ function signInSheet() {
 }
 
 /** Add encrypted cloud backup to an account created by the invite gate. */
+export function promptCloudSetup() {
+  finishSetupSheet();
+}
+
 function finishSetupSheet() {
   const agreed = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
   const status = el('div.small', { style: { marginTop: '10px' } });
@@ -327,8 +334,11 @@ function inviteSheet() {
         status.textContent = t('cloud.working');
         try {
           await cloud.claimInvite(code.value);
-          const recovery = await sync.createAccount({ consent: true });
-          recoveryKeySheet(recovery);
+          if (!(await cloud.hasActiveAccess())) {
+            throw Object.assign(new Error('ACCESS_SETUP_FAILED'), { code: 'ACCESS_SETUP_FAILED' });
+          }
+          await sync.load();
+          finishSetupSheet();
         } catch (err) {
           status.style.color = 'var(--warn)';
           status.textContent = t(`cloud.err.${err.code}`, { code: err.code || 'SERVER' });
