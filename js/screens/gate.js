@@ -95,17 +95,32 @@ function paint(pane, ...children) {
 
 function paintChoice(pane, done) {
   paint(pane,
-    el('div.card.glow', { style: { marginTop: '18px' } }, [
-      el('div', { style: { fontSize: '19px', fontWeight: '720', letterSpacing: '-0.02em' },
-        text: t('gate.title') }),
-      el('div.small.muted', { style: { marginTop: '8px' }, text: t('gate.intro') }),
+    el('div.gate-hero', {}, [
+      el('div.gate-mark', { 'aria-hidden': 'true' }, ['L']),
+      el('div.gate-eyebrow', { text: t('gate.access') }),
+      el('h2', { text: t('gate.title') }),
+      el('div.gate-lead', { text: t('gate.intro') }),
     ]),
-    el('div.stack', { style: { marginTop: '16px' } }, [
-      el('button.btn.primary.full', { style: { minHeight: '52px' },
-        onclick: () => paintSignUp(pane, done) }, [t('gate.newAccount')]),
-      el('button.btn.ghost.full', { onclick: () => paintSignIn(pane, done) }, [t('gate.haveAccount')]),
+    el('div.gate-choices', {}, [
+      el('button.gate-choice.primary', { onclick: () => paintSignUp(pane, done) }, [
+        el('span.gate-choice-copy', {}, [
+          el('strong', { text: t('gate.newAccount') }),
+          el('small', { text: t('gate.newAccountSub') }),
+        ]),
+        el('span.gate-arrow', { text: '›', 'aria-hidden': 'true' }),
+      ]),
+      el('button.gate-choice', { onclick: () => paintSignIn(pane, done) }, [
+        el('span.gate-choice-copy', {}, [
+          el('strong', { text: t('gate.haveAccount') }),
+          el('small', { text: t('gate.haveAccountSub') }),
+        ]),
+        el('span.gate-arrow', { text: '›', 'aria-hidden': 'true' }),
+      ]),
     ]),
-    el('div.small.faint', { style: { marginTop: '18px' }, text: t('gate.whyNote') }),
+    el('div.gate-trust', {}, [
+      el('span', { text: '✓', 'aria-hidden': 'true' }),
+      el('div', { text: t('gate.whyNote') }),
+    ]),
     lockedOutExport(),
   );
 }
@@ -131,8 +146,7 @@ function lockedOutExport() {
 }
 
 function backLink(pane, done) {
-  return el('button.btn.quiet.sm', {
-    style: { paddingLeft: '0', marginBottom: '6px' },
+  return el('button.gate-back', {
     onclick: () => paintChoice(pane, done),
   }, [`‹ ${t('common.back')}`]);
 }
@@ -183,7 +197,7 @@ function paintSignUp(pane, done) {
 
   paint(pane,
     backLink(pane, done),
-    el('div.small.muted', { text: t('gate.signUpIntro') }),
+    el('div.gate-form-intro', { text: t('gate.signUpIntro') }),
     el('div', { style: { marginTop: '16px' } }, [
       authField(t('cloud.email'), email, { icon: 'email' }),
       authField(t('cloud.password'), password, { icon: 'lock' }),
@@ -220,7 +234,7 @@ function paintSignIn(pane, done) {
 
   paint(pane,
     backLink(pane, done),
-    el('div.small.muted', { text: t('gate.signInIntro') }),
+    el('div.gate-form-intro', { text: t('gate.signInIntro') }),
     el('div', { style: { marginTop: '16px' } }, [
       authField(t('cloud.email'), email, { icon: 'email' }),
       authField(t('cloud.password'), password, { icon: 'lock' }),

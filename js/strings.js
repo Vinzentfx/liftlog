@@ -1373,9 +1373,12 @@ export const STRINGS = {
 
     // ---------- the invite gate ----------
     'gate.title': 'LiftLog is invite-only',
+    'gate.access': 'Private access',
     'gate.intro': 'You need a code from whoever runs this. It is asked for once on this device; after that the app works offline, with or without reception.',
     'gate.newAccount': 'I have a code',
+    'gate.newAccountSub': 'Create your personal account',
     'gate.haveAccount': 'I already have an account',
+    'gate.haveAccountSub': 'Continue on this device',
     'gate.whyNote': 'The code keeps this to people who were meant to have it, and makes sure nothing reaches the server without one.',
     'gate.signUpIntro': 'Your email and password are only for signing in. Neither of them can open your training data.',
     'gate.start': 'Open LiftLog',
@@ -2754,9 +2757,12 @@ export const STRINGS = {
 
     // ---------- the invite gate ----------
     'gate.title': 'LiftLog gibt es nur auf Einladung',
+    'gate.access': 'Privater Zugang',
     'gate.intro': 'Du brauchst einen Code von demjenigen, der das betreibt. Danach wird auf diesem Gerät nie wieder gefragt: die App läuft offline weiter, mit oder ohne Empfang.',
     'gate.newAccount': 'Ich habe einen Code',
+    'gate.newAccountSub': 'Persönliches Konto erstellen',
     'gate.haveAccount': 'Ich habe schon ein Konto',
+    'gate.haveAccountSub': 'Auf diesem Gerät fortfahren',
     'gate.whyNote': 'Der Code hält das bei den Leuten, für die es gedacht ist, und sorgt dafür, dass ohne ihn nichts auf dem Server landet.',
     'gate.signUpIntro': 'E-Mail und Passwort sind nur zum Anmelden da. Keins von beidem kann deine Trainingsdaten öffnen.',
     'gate.start': 'LiftLog öffnen',
