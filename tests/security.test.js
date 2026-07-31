@@ -47,3 +47,37 @@ test('the invite gate never renders null optional children as text', async () =>
   assert.equal((gate.match(/pane\.replaceChildren\(/g) || []).length, 1,
     'all gate screens go through the null-filtering paint helper');
 });
+
+test('revocable access is checked independently of the one-time invite', async () => {
+  const sql = await read('server/patch-003-revocable-access.sql');
+  assert.match(sql, /create table if not exists public\.access_grants/i);
+  assert.match(sql, /create or replace function public\.has_active_access\(\)/i);
+  assert.match(sql, /read active own profile[\s\S]*has_active_access/i);
+  assert.match(sql, /read active own devices[\s\S]*has_active_access/i);
+  assert.match(sql, /read active own backups[\s\S]*has_active_access/i);
+  assert.match(sql, /owner_capability_ok[\s\S]*has_active_access/i);
+});
+
+test('revocation does not remove the right to delete cloud data', async () => {
+  const sql = await read('server/patch-003-revocable-access.sql');
+  const start = sql.indexOf('function public.delete_cloud_data');
+  assert.notEqual(start, -1, 'delete_cloud_data exists');
+  const functionSql = sql.slice(start);
+  const body = functionSql.slice(0, functionSql.indexOf('$$;', functionSql.indexOf('as $$')) + 3);
+  assert.match(body, /owner_token_hash = digest/);
+  assert.doesNotMatch(body, /has_active_access/);
+  assert.match(body, /delete from public\.access_grants/);
+});
+
+test('access revocation signs out before returning to the login gate', async () => {
+  const gate = await read('js/screens/gate.js');
+  assert.match(gate, /hasActiveAccess\(\)[\s\S]*lock\(\)[\s\S]*cloud\.signOut\(\)[\s\S]*location\.reload\(\)/);
+});
+
+test('cloud maintenance retries when connectivity returns and at intervals', async () => {
+  const app = await read('js/app.js');
+  assert.match(app, /addEventListener\('online', runCloudMaintenance\)/);
+  assert.match(app, /visibilitychange[\s\S]*runCloudMaintenance/);
+  assert.match(app, /setInterval\(runCloudMaintenance, 15 \* 60 \* 1000\)/);
+  assert.match(app, /gate\.recheck\(\)[\s\S]*sync\.onAppOpen\(\)/);
+});

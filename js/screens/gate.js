@@ -50,14 +50,18 @@ export async function lock() {
  * connection rather than as grounds for locking someone out of their own log.
  */
 export async function recheck() {
-  if (!cloud.isSignedIn()) return;
+  if (!cloud.isSignedIn()) return true;
   try {
-    const profile = await cloud.getProfile();
-    if (profile === null) {
+    if (!(await cloud.hasActiveAccess())) {
       await lock();
+      await cloud.signOut();
       location.reload();
+      return false;
     }
-  } catch { /* offline, or a server hiccup. Never a reason to lock. */ }
+    return true;
+  } catch { /* offline, or a server hiccup. Never a reason to lock. */
+    return null;
+  }
 }
 
 /* ================================ the screen ================================ */
@@ -217,6 +221,10 @@ function paintSignIn(pane, done) {
     status.textContent = t('cloud.working');
     try {
       await cloud.signIn(email.value.trim(), password.value);
+      if (!(await cloud.hasActiveAccess())) {
+        problem(status, { code: 'ACCESS_REVOKED' });
+        return;
+      }
       const profile = await cloud.getProfile();
       if (!profile) {
         // Signed in, but this account never redeemed a code. Say which of the

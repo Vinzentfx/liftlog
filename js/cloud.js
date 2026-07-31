@@ -192,6 +192,11 @@ export async function getProfile() {
   return rows?.[0] ?? null;
 }
 
+/** Server-authoritative entitlement; unlike the local gate this cannot be bypassed. */
+export async function hasActiveAccess() {
+  return await authed(`${REST}/rpc/access_status`, { method: 'POST', body: {} }) === true;
+}
+
 export async function claimInvite(code) {
   await authed(`${REST}/rpc/claim_invite`, {
     method: 'POST', body: { invite_code: String(code || '').trim() },

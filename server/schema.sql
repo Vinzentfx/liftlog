@@ -3,6 +3,8 @@
 -- server/patch-002-device-capabilities.sql. It replaces the permissive bootstrap
 -- policies below with device-capability protected write RPCs. The two files are
 -- kept separate so existing Supabase projects can migrate without data loss.
+-- Then apply server/patch-003-revocable-access.sql for independently revocable
+-- access grants checked by every cloud read and write.
 --
 -- Paste this into the Supabase SQL editor once. There is no other server code:
 -- the app talks to PostgREST over plain fetch, and what it is allowed to do is

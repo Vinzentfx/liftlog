@@ -230,6 +230,9 @@ function signInSheet() {
     status.textContent = t('cloud.working');
     try {
       await cloud.signIn(email.value.trim(), password.value);
+      if (!(await cloud.hasActiveAccess())) {
+        throw Object.assign(new Error('ACCESS_REVOKED'), { code: 'ACCESS_REVOKED' });
+      }
       await sync.load();
       closeSheet();
       // A phone signing in to an existing account is a second device until the

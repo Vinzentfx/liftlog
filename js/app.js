@@ -56,6 +56,8 @@ let rendering = false;
 let lastRouteKey = null;
 
 let locked = true;
+let cloudMaintenanceStarted = false;
+let cloudMaintenanceRunning = false;
 
 export function render() {
   if (locked || !store.state.ready || rendering) return;
@@ -185,12 +187,43 @@ function openApp() {
   // on a phone with no signal, and never be the reason a screen does not draw,
   // so it runs after the first render and nothing waits on it.
   sync.subscribe(render);
-  sync.onAppOpen().catch((err) => console.warn('[liftlog] sync', err));
+  runCloudMaintenance();
+  startCloudMaintenance();
+}
 
-  // Revocation, and the only reason the gate is ever consulted twice: if the
-  // account has been removed, the next launch with reception locks the app.
-  // Offline this does nothing, which is the point.
-  gate.recheck().catch(() => {});
+/**
+ * When connectivity is available, verify access first and then consider an
+ * encrypted backup. `onAppOpen` enforces the one-hour upload interval, while
+ * this coordinator prevents overlapping checks after several browser events.
+ */
+async function runCloudMaintenance() {
+  if (cloudMaintenanceRunning || !navigator.onLine) return;
+  cloudMaintenanceRunning = true;
+  try {
+    if (await gate.recheck() === false) return;
+    await sync.onAppOpen();
+  } catch (err) {
+    console.warn('[liftlog] cloud maintenance', err);
+  } finally {
+    cloudMaintenanceRunning = false;
+  }
+}
+
+function startCloudMaintenance() {
+  if (cloudMaintenanceStarted) return;
+  cloudMaintenanceStarted = true;
+
+  // `online` is the portable signal browsers expose when Wi-Fi or another
+  // connection returns. Mobile browsers do not reliably reveal whether that
+  // connection is specifically Wi-Fi.
+  window.addEventListener('online', runCloudMaintenance);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') runCloudMaintenance();
+  });
+
+  // Timers may be paused while a PWA is in the background; the online and
+  // visibility handlers above catch up when it becomes active again.
+  setInterval(runCloudMaintenance, 15 * 60 * 1000);
 }
 
 window.addEventListener('error', (e) => {
