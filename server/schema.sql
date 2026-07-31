@@ -5,6 +5,8 @@
 -- kept separate so existing Supabase projects can migrate without data loss.
 -- Then apply server/patch-003-revocable-access.sql for independently revocable
 -- access grants checked by every cloud read and write.
+-- Finally apply server/patch-004-repair-invite-claims.sql, which repairs legacy
+-- partial activations and installs the self-contained invite claim RPC.
 --
 -- Paste this into the Supabase SQL editor once. There is no other server code:
 -- the app talks to PostgREST over plain fetch, and what it is allowed to do is

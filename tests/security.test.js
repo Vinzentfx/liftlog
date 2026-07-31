@@ -123,3 +123,12 @@ test('the account invite repair path asks for consent before cloud setup', async
   assert.match(inviteFlow, /claimInvite[\s\S]*hasActiveAccess[\s\S]*finishSetupSheet/);
   assert.doesNotMatch(inviteFlow, /createAccount/);
 });
+
+test('the invite repair migration backfills missing grants and reloads PostgREST', async () => {
+  const sql = await read('server/patch-004-repair-invite-claims.sql');
+  assert.match(sql, /left join public\.access_grants[\s\S]*where ag\.user_id is null/);
+  assert.match(sql, /create or replace function public\.claim_invite\(invite_code text\)/);
+  assert.match(sql, /from public\.access_grants ag[\s\S]*ag\.active = true/);
+  assert.match(sql, /grant execute on function public\.claim_invite\(text\) to authenticated/);
+  assert.match(sql, /notify pgrst, 'reload schema'/);
+});
