@@ -160,9 +160,21 @@ was.
 
 ### Cloud backup, and what it deliberately cannot do
 
-**Status: the crypto layer and the schema are in, the app is not wired up yet.**
-`js/crypto.js` and `server/schema.sql` are complete and tested; the account
-screens and the network layer are the next piece of work.
+**Status: crypto, schema and network layer are in and verified against the live
+project. No screens yet, so nothing in the app calls any of it.**
+
+`tools/live-check.mjs` walks the whole chain against the real server and cleans
+up after itself. It is not part of `node --test`, because it needs the network
+and consumes an invite code. What it proves, that no offline test can:
+
+    signed in without an invite, upload         DENIED
+    invite redeemed, profile appears            ok
+    upload, then the same version again         STALE
+    download and decrypt                        byte-identical
+    open with the recovery key alone            ok
+    wrong verifier / right verifier             RECOVERY_WRONG / takes over
+    sign out, sign in, download again           ok
+    delete everything                           nothing left
 
 The shape, decided with the person who has to live with it:
 
@@ -279,6 +291,7 @@ warnings that do matter.
 | `tools/make_icons.py` | Regenerates the app icons |
 | `tools/devserver.py` | No-cache dev server |
 | `tools/build_showcase.mjs` | Generates `showcase-backup.json`, the demo dataset |
+| `tools/live-check.mjs` | Runs the whole cloud chain against the real project |
 | `tests/maths.test.js` | `node --test` over the DOM-free maths — dev only, never served |
 | `tests/i18n.test.js` | Key parity, placeholder parity, dead keys, house style |
 | `tests/crypto.test.js` | Sealing, the recovery key, device linking |
@@ -295,6 +308,8 @@ warnings that do matter.
 | `js/history.js` | Strength, tonnage and per-lift trends over time |
 | `js/timeline.js` | Eating and training on one set of week buckets |
 | `js/crypto.js` | End-to-end encryption for the cloud backup |
+| `js/cloud.js` | Talking to Supabase over plain fetch, errors normalised |
+| `js/cloud-config.js` | Project URL and anon key, both public on purpose |
 | `server/schema.sql` | The entire server side: tables, access rules, two functions |
 | `js/nutrition.js` | Targets, daily totals, energy split, maintenance calories |
 | `js/foodlookup.js` | Open Food Facts barcode lookup — the only networked module |

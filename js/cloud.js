@@ -1,0 +1,321 @@
+// Talking to the cloud backup. Plain fetch against PostgREST and GoTrue, the
+// same mechanism js/foodlookup.js already uses for barcodes, so no SDK and no
+// build step.
+//
+// Nothing in this file understands training data. It moves a sealed blob and
+// some public keys, and it never sees a key that opens anything: encryption
+// happens in js/crypto.js before anything is handed over. That separation is
+// the point, so keep it. The day this module starts taking a session object
+// instead of a ciphertext is the day the promise stops being true.
+//
+// Every failure comes back as an Error with a `code` the screens can branch on,
+// because "it did not work" is not something a backup feature is allowed to
+// say. The distinction that matters most:
+//
+//   OFFLINE  the phone could not reach the server. Nothing is wrong, try later.
+//   STALE    the server already has a newer version than this device based its
+//            upload on. Pull before pushing. This is the one-writer rule doing
+//            its job, not an error in the usual sense.
+//   DENIED   row-level security refused. In practice: signed in, but no invite.
+//   AUTH     no session, or the refresh token is spent. Ask for the password.
+
+import { SUPABASE_URL, SUPABASE_ANON } from './cloud-config.js';
+
+const AUTH = `${SUPABASE_URL}/auth/v1`;
+const REST = `${SUPABASE_URL}/rest/v1`;
+
+/* ============================== the session ============================== */
+
+// localStorage rather than IndexedDB, deliberately: this is not app data. It is
+// a credential that has to be readable synchronously at boot, before the store
+// has opened, and that should disappear with the site data when someone signs
+// out or clears the browser. Falls back to memory so the module can be tested.
+const memory = new Map();
+const store = {
+  get(key) {
+    try { return globalThis.localStorage?.getItem(key) ?? memory.get(key) ?? null; }
+    catch { return memory.get(key) ?? null; }
+  },
+  set(key, value) {
+    memory.set(key, value);
+    try { globalThis.localStorage?.setItem(key, value); } catch { /* private mode */ }
+  },
+  remove(key) {
+    memory.delete(key);
+    try { globalThis.localStorage?.removeItem(key); } catch { /* private mode */ }
+  },
+};
+
+const KEY = 'liftlog.session';
+
+let session = null;
+try { session = JSON.parse(store.get(KEY) || 'null'); } catch { session = null; }
+
+function keepSession(next) {
+  session = next && next.access_token ? {
+    access_token: next.access_token,
+    refresh_token: next.refresh_token,
+    // Recorded as an absolute moment, because `expires_in` is only meaningful
+    // at the instant it arrives and this survives a phone being asleep.
+    expires_at: Date.now() + (Number(next.expires_in) || 3600) * 1000,
+    user: next.user ? { id: next.user.id, email: next.user.email } : session?.user,
+  } : null;
+
+  if (session) store.set(KEY, JSON.stringify(session));
+  else store.remove(KEY);
+  return session;
+}
+
+export const currentUser = () => session?.user ?? null;
+export const isSignedIn = () => !!session?.access_token;
+
+/* ================================ plumbing ================================ */
+
+function fail(code, message, extra = {}) {
+  const err = new Error(message || code);
+  err.code = code;
+  Object.assign(err, extra);
+  return err;
+}
+
+/**
+ * PostgREST reports failures as SQL state codes. Translating them here means a
+ * screen never has to know what 23505 is, and more importantly means the two
+ * that need different words get them.
+ */
+function fromPostgrest(status, body) {
+  const code = body?.code;
+  if (code === '23505') return fail('STALE', 'the server already has a newer version');
+  if (code === '42501') return fail('DENIED', body?.message || 'not allowed');
+  if (code === 'P0001') return fail(body.message, body.message);   // our own raise
+  if (status === 401 || status === 403) return fail('AUTH', 'not signed in');
+  return fail('SERVER', body?.message || `server said ${status}`, { status });
+}
+
+async function raw(url, { method = 'GET', headers = {}, body, token } = {}) {
+  let res;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        apikey: SUPABASE_ANON,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...headers,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (err) {
+    // No response at all: aeroplane mode, no signal, the project asleep. Never
+    // the user's fault and never worth an alarming message.
+    throw fail('OFFLINE', err?.message || 'no connection');
+  }
+
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    if (!res.ok) throw fromPostgrest(res.status, null);
+    return null;
+  }
+
+  let parsed = null;
+  const text = await res.text();
+  if (text) {
+    try { parsed = JSON.parse(text); } catch { parsed = { message: text }; }
+  }
+  if (!res.ok) throw fromPostgrest(res.status, parsed);
+  return parsed;
+}
+
+/** A call that carries the signed-in user, refreshing the token if it is due. */
+async function authed(url, options = {}) {
+  if (!session?.access_token) throw fail('AUTH', 'not signed in');
+
+  // A minute of slack, so a request started just before expiry does not race it.
+  if (session.expires_at && session.expires_at - Date.now() < 60000) await refresh();
+
+  try {
+    return await raw(url, { ...options, token: session.access_token });
+  } catch (err) {
+    // A token can be rejected before it looks expired here, for instance after
+    // the account was deleted on another device. One retry, then give up.
+    if (err.code !== 'AUTH') throw err;
+    await refresh();
+    return raw(url, { ...options, token: session.access_token });
+  }
+}
+
+async function refresh() {
+  if (!session?.refresh_token) throw fail('AUTH', 'no refresh token');
+  let next;
+  try {
+    next = await raw(`${AUTH}/token?grant_type=refresh_token`, {
+      method: 'POST', body: { refresh_token: session.refresh_token },
+    });
+  } catch (err) {
+    if (err.code === 'OFFLINE') throw err;      // keep the session, just no signal
+    keepSession(null);                          // spent or revoked: really signed out
+    throw fail('AUTH', 'session expired');
+  }
+  keepSession(next);
+}
+
+/* ================================= account ================================= */
+
+export async function signUp(email, password) {
+  const out = await raw(`${AUTH}/signup`, { method: 'POST', body: { email, password } });
+  // With email confirmation switched off this carries a session straight away.
+  // If it is ever switched on, there is no token here and the caller has to say
+  // so rather than pretending the account is ready.
+  if (!out?.access_token) throw fail('CONFIRM_EMAIL', 'this account needs email confirmation first');
+  return keepSession(out);
+}
+
+export async function signIn(email, password) {
+  const out = await raw(`${AUTH}/token?grant_type=password`, {
+    method: 'POST', body: { email, password },
+  });
+  if (!out?.access_token) throw fail('AUTH', 'wrong email or password');
+  return keepSession(out);
+}
+
+export async function signOut() {
+  // Best effort: the local session is what actually matters, and a phone with
+  // no signal must still be able to sign out.
+  try { await authed(`${AUTH}/logout`, { method: 'POST' }); } catch { /* ignore */ }
+  keepSession(null);
+}
+
+/* ================================= profile ================================= */
+
+/** The row that only exists once an invite has been redeemed. Null before that. */
+export async function getProfile() {
+  const rows = await authed(`${REST}/profiles?select=*`);
+  return rows?.[0] ?? null;
+}
+
+export async function claimInvite(code) {
+  await authed(`${REST}/rpc/claim_invite`, {
+    method: 'POST', body: { invite_code: String(code || '').trim() },
+  });
+}
+
+export function saveProfile(fields) {
+  const id = session?.user?.id;
+  if (!id) throw fail('AUTH', 'not signed in');
+  return authed(`${REST}/profiles?id=eq.${id}`, {
+    method: 'PATCH', headers: { Prefer: 'return=representation' }, body: fields,
+  });
+}
+
+/* ================================= devices ================================= */
+
+export function listDevices() {
+  return authed(`${REST}/devices?select=*&order=created_at`);
+}
+
+/** Announces this device and asks to be let in. Approval happens elsewhere. */
+export async function registerDevice({ name, publicKey }) {
+  const id = session?.user?.id;
+  if (!id) throw fail('AUTH', 'not signed in');
+  const rows = await authed(`${REST}/devices`, {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: { user_id: id, name, public_key: publicKey },
+  });
+  return rows?.[0] ?? null;
+}
+
+export function approveDevice(deviceId, { wrappedKey, wrapIv, wrappedBy }) {
+  return authed(`${REST}/devices?id=eq.${deviceId}`, {
+    method: 'PATCH',
+    body: {
+      status: 'approved',
+      approved_at: new Date().toISOString(),
+      wrapped_key: wrappedKey,
+      wrap_iv: wrapIv,
+      wrapped_by: wrappedBy,
+    },
+  });
+}
+
+export function revokeDevice(deviceId) {
+  return authed(`${REST}/devices?id=eq.${deviceId}`, {
+    method: 'PATCH', body: { status: 'revoked', wrapped_key: null, wrap_iv: null },
+  });
+}
+
+export function touchDevice(deviceId) {
+  return authed(`${REST}/devices?id=eq.${deviceId}`, {
+    method: 'PATCH', body: { last_seen_at: new Date().toISOString() },
+  });
+}
+
+/** The recovery route: prove the key, take the account over, revoke the rest. */
+export function claimOwnership(verifier, deviceId) {
+  return authed(`${REST}/rpc/claim_ownership`, {
+    method: 'POST', body: { verifier, device: deviceId },
+  });
+}
+
+/* ================================= backups ================================= */
+
+/** Version and size only. Enough to decide whether to upload, without the download. */
+export async function latestMeta() {
+  const rows = await authed(
+    `${REST}/backups?select=version,bytes,created_at,device_id&order=version.desc&limit=1`);
+  return rows?.[0] ?? null;
+}
+
+export async function download(version = null) {
+  const where = version === null ? 'order=version.desc&limit=1' : `version=eq.${version}`;
+  const rows = await authed(`${REST}/backups?select=*&${where}`);
+  const row = rows?.[0];
+  if (!row) throw fail('NO_BACKUP', 'nothing stored yet');
+  return { version: row.version, blob: { v: 1, iv: row.iv, ct: row.ct, bytes: row.bytes } };
+}
+
+/**
+ * Push a sealed snapshot as the next version.
+ *
+ * The version is passed in rather than read here, so the caller has to have
+ * looked at what the server holds. Getting it wrong is not silent: the primary
+ * key on (user_id, version) turns a stale push into STALE rather than letting
+ * it overwrite whatever a second device wrote in the meantime.
+ */
+export async function upload(blob, { version, deviceId = null }) {
+  const id = session?.user?.id;
+  if (!id) throw fail('AUTH', 'not signed in');
+  await authed(`${REST}/backups`, {
+    method: 'POST',
+    body: {
+      user_id: id,
+      version,
+      iv: blob.iv,
+      ct: blob.ct,
+      bytes: blob.bytes,
+      device_id: deviceId,
+    },
+  });
+  return version;
+}
+
+/**
+ * Erase everything this account has stored, in the order that leaves nothing
+ * stranded: backups, then devices, then the profile.
+ *
+ * The app needs this for a deletion request, and it is the honest answer to
+ * one: after this the server holds nothing but a login. Removing the login
+ * itself needs the `service_role` key, which by design nothing here has, so
+ * that last step happens in the Supabase dashboard. Worth saying out loud
+ * rather than implying the button does more than it does.
+ */
+export async function deleteEverything() {
+  const id = session?.user?.id;
+  if (!id) throw fail('AUTH', 'not signed in');
+  await authed(`${REST}/backups?user_id=eq.${id}`, { method: 'DELETE' });
+  await authed(`${REST}/devices?user_id=eq.${id}`, { method: 'DELETE' });
+  await authed(`${REST}/profiles?id=eq.${id}`, { method: 'DELETE' });
+}
+
+export function listVersions() {
+  return authed(`${REST}/backups?select=version,bytes,created_at,device_id&order=version.desc`);
+}
