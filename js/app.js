@@ -1,6 +1,6 @@
 // Bootstrap + hash router.
 
-import { $, clear, el, initSheet, closeSheet, toast } from './ui.js';
+import { $, clear, el, initSheet, openSheet, closeSheet, toast } from './ui.js';
 import { t, setLanguage } from './i18n.js';
 import * as store from './store.js';
 import * as db from './db.js';
@@ -17,6 +17,66 @@ import renderNutrition from './screens/nutrition.js';
 import renderShare from './screens/share.js';
 import { renderSettings } from './screens/settings.js';
 import * as gate from './screens/gate.js';
+
+const INSTALL_HINT_KEY = 'liftlog.installHint.dismissed.v1';
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+});
+
+function isInstalledApp() {
+  return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+
+function isMobileDevice() {
+  const uaMobile = navigator.userAgentData?.mobile;
+  if (typeof uaMobile === 'boolean') return uaMobile;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+    || (navigator.maxTouchPoints > 1 && matchMedia('(max-width: 820px)').matches);
+}
+
+function installHintDismissed() {
+  try { return localStorage.getItem(INSTALL_HINT_KEY) === '1'; } catch { return false; }
+}
+
+function dismissInstallHint() {
+  try { localStorage.setItem(INSTALL_HINT_KEY, '1'); } catch { /* private mode */ }
+}
+
+function showInstallHint() {
+  if (!isMobileDevice() || isInstalledApp() || installHintDismissed()) return;
+  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const canInstall = Boolean(deferredInstallPrompt);
+  const instruction = ios ? t('install.ios')
+    : canInstall ? t('install.androidReady') : t('install.androidMenu');
+  const body = el('div.install-hint', {}, [
+    el('div.install-hint-icon', { 'aria-hidden': 'true', text: ios ? '↥' : '+' }),
+    el('p', { text: t('install.intro') }),
+    el('div.install-steps', { text: instruction }),
+    canInstall ? el('button.btn.primary.full', { onclick: async () => {
+      const prompt = deferredInstallPrompt;
+      deferredInstallPrompt = null;
+      closeSheet();
+      dismissInstallHint();
+      await prompt.prompt();
+    } }, [t('install.button')]) : null,
+    el('button.btn.quiet.full', { onclick: () => {
+      dismissInstallHint();
+      closeSheet();
+    } }, [t('install.later')]),
+  ]);
+  openSheet(t('install.title'), body, { onClose: dismissInstallHint });
+}
+
+function scheduleInstallHint(attempt = 0) {
+  setTimeout(() => {
+    if (!$('#sheet-host').hidden && attempt < 6) scheduleInstallHint(attempt + 1);
+    else if ($('#sheet-host').hidden) showInstallHint();
+  }, attempt ? 1500 : 900);
+}
 
 /**
  * Five tabs, plus `calendar` and `progress`, which are reached from Home.
@@ -192,6 +252,7 @@ function openApp() {
   locked = false;
   if (!location.hash) location.replace('#/home');
   render();
+  scheduleInstallHint();
 
   // The cloud copy is a copy. It must never delay the app opening, never block
   // on a phone with no signal, and never be the reason a screen does not draw,

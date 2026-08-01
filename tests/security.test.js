@@ -192,3 +192,12 @@ test('PWA launch normalizes the initial iOS scroll offset', async () => {
   assert.match(css, /#screen[\s\S]*overflow-y: auto/);
   assert.match(css, /#tabbar[\s\S]*position: relative/);
 });
+
+test('mobile browsers get a one-time home-screen installation hint', async () => {
+  const app = await read('js/app.js');
+  assert.match(app, /beforeinstallprompt[\s\S]*event\.preventDefault\(\)/);
+  assert.match(app, /isMobileDevice\(\)[\s\S]*isInstalledApp\(\)[\s\S]*installHintDismissed\(\)/);
+  assert.match(app, /display-mode: standalone/);
+  assert.match(app, /install\.ios[\s\S]*install\.androidReady[\s\S]*install\.androidMenu/);
+  assert.match(app, /localStorage\.setItem\(INSTALL_HINT_KEY, '1'\)/);
+});
