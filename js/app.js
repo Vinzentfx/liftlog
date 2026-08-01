@@ -72,7 +72,8 @@ export function render() {
     // Re-rendering in place (a logged set, a saved edit) must not yank the user
     // back to the top of a long workout.
     const samePlace = routeKey === lastRouteKey;
-    const keepScroll = samePlace ? window.scrollY : 0;
+    const screen = $('#screen');
+    const keepScroll = samePlace ? screen.scrollTop : 0;
 
     document.querySelectorAll('.tab').forEach((tab) => {
       tab.setAttribute('aria-selected', String(tab.dataset.route === name));
@@ -81,7 +82,7 @@ export function render() {
     $('#screen-title').textContent = t(route.title);
     clear($('#topbar-actions'));
 
-    const host = clear($('#screen'));
+    const host = clear(screen);
     // `fresh` separates arriving at a screen from re-rendering the one you are
     // already on. A screen that remembers something across renders (which day
     // the food log is showing) needs to know the difference: keeping it while
@@ -91,7 +92,7 @@ export function render() {
     if (node) host.append(node);
 
     lastRouteKey = routeKey;
-    window.scrollTo(0, keepScroll);
+    screen.scrollTop = keepScroll;
   } catch (err) {
     console.error('[liftlog] render failed', err);
     clear($('#screen')).append(
@@ -155,8 +156,8 @@ async function boot() {
   // Installed iOS PWAs sometimes restore a small stale document offset before
   // the dynamic viewport and safe areas have settled. Normalize it once during
   // a real launch; route renders still preserve intentional in-app scrolling.
-  window.scrollTo(0, 0);
-  requestAnimationFrame(() => window.scrollTo(0, 0));
+  $('#screen').scrollTop = 0;
+  requestAnimationFrame(() => { $('#screen').scrollTop = 0; });
 
   // A failed write has to be said out loud where it happens, which is usually
   // the Train screen mid-set, not Home. The store cannot raise UI itself
