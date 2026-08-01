@@ -493,11 +493,15 @@ export async function restoreBackupSession(version, sessionId) {
   const session = (payload.sessions || []).find((row) => row.id === sessionId);
   if (!session) throw Object.assign(new Error('SESSION_NOT_FOUND'), { code: 'SESSION_NOT_FOUND' });
   const ids = new Set((session.entries || []).map((entry) => entry.exerciseId));
+  const alreadyExists = store.state.sessions.some((row) => row.id === session.id);
+  const restored = alreadyExists ? { ...session, id: db.uid('s_'), name: `${session.name} (restored)`,
+    updatedAt: Date.now() } : session;
   await store.importData({ format: 'liftlog-backup', version: 1,
-    exercises: (payload.exercises || []).filter((exercise) => ids.has(exercise.id)), sessions: [session],
+    exercises: (payload.exercises || []).filter((exercise) => ids.has(exercise.id))
+      .filter((exercise) => !store.state.exerciseById.has(exercise.id)), sessions: [restored],
     plans: [], bodyweight: [], foods: [], meals: [], water: [], templates: [],
   }, { replace: false });
-  return session;
+  return restored;
 }
 
 /**

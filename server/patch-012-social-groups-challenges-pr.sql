@@ -6,7 +6,8 @@ alter table public.social_profiles add column if not exists show_sets boolean no
 alter table public.social_profiles add column if not exists show_strength boolean not null default true;
 alter table public.social_profiles add column if not exists show_presence boolean not null default true;
 alter table public.social_profiles add column if not exists show_plan boolean not null default true;
-alter table public.social_profiles add column if not exists show_prs boolean not null default true;
+alter table public.social_profiles add column if not exists show_prs boolean not null default false;
+alter table public.social_profiles alter column show_prs set default false;
 
 create table if not exists public.social_groups (
   id uuid primary key default gen_random_uuid(), owner_id uuid not null references auth.users on delete cascade,
@@ -142,8 +143,11 @@ with my_groups as (
   from public.social_groups g join public.social_group_members mine on mine.group_id=g.id and mine.user_id=auth.uid()
   where public.has_active_access()
 ), challenges as (
-  select c.*,coalesce((select jsonb_agg(jsonb_build_object('user_id',p.user_id,'display_name',p.display_name,'value',cp.value) order by cp.value desc)
-    from public.social_challenge_progress cp join public.social_profiles p on p.user_id=cp.user_id where cp.challenge_id=c.id),'[]'::jsonb) progress
+  select c.*,coalesce((select jsonb_agg(jsonb_build_object('user_id',p.user_id,'display_name',p.display_name,'value',coalesce(cp.value,0))
+    order by coalesce(cp.value,0) desc,p.display_name)
+    from public.social_group_members gm join public.social_profiles p on p.user_id=gm.user_id
+    left join public.social_challenge_progress cp on cp.challenge_id=c.id and cp.user_id=gm.user_id
+    where gm.group_id=c.group_id),'[]'::jsonb) progress
   from public.social_challenges c join public.social_group_members m on m.group_id=c.group_id and m.user_id=auth.uid()
   where c.ends_on>=current_date-7
 ), visible_users as (

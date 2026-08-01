@@ -28,7 +28,7 @@ export default function renderUsers({ actions, fresh }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
   const root = el('div');
   if (!cloud.isSignedIn()) return emptyState(t('users.signInTitle'), t('users.signInBody'));
-  if (fresh) { hub = null; problem = null; }
+  if (fresh) { hub = null; extras = { groups: [], challenges: [], prs: [], visibility: {} }; problem = null; }
   if (!hub && !loading) loadHub();
   if (loading && !hub) return el('div.card', {}, [el('div.muted', { text: t('users.loading') })]);
   if (problem && !hub) return unavailable(problem);
@@ -52,7 +52,7 @@ async function loadHub() {
         hub = await cloud.socialHub();
       }
       for (const challenge of extras.challenges || []) {
-        const value = challenge.metric === 'sets' ? stats.sets : stats.workouts;
+        const value = challengeValue(challenge);
         await cloud.updateChallengeProgress(challenge.id, value).catch(() => {});
       }
       if (extras.challenges?.length) extras = await cloud.socialExtras();
@@ -60,6 +60,15 @@ async function loadHub() {
   }
   catch (err) { problem = err; }
   finally { loading = false; import('../app.js').then(({ render }) => render()); }
+}
+
+function challengeValue(challenge) {
+  const since = new Date(`${challenge.starts_on}T00:00:00`).getTime();
+  const until = new Date(`${challenge.ends_on}T23:59:59`).getTime();
+  const sessions = store.state.sessions.filter((s) => s.finishedAt && s.startedAt >= since && s.startedAt <= until);
+  if (challenge.metric === 'workouts') return sessions.length;
+  return sessions.reduce((total, session) => total + (session.entries || []).reduce((sum, entry) =>
+    sum + (entry.sets || []).filter(isCounted).length, 0), 0);
 }
 
 // Called by the normal online maintenance as well as this screen. That makes a
@@ -77,6 +86,11 @@ export async function syncPresence() {
     current = await cloud.socialHub();
   }
   hub = current;
+  extras = await cloud.socialExtras().catch(() => extras);
+  for (const challenge of extras.challenges || []) {
+    await cloud.updateChallengeProgress(challenge.id, challengeValue(challenge)).catch(() => {});
+  }
+  if (extras.challenges?.length) extras = await cloud.socialExtras().catch(() => extras);
   if (location.hash.replace(/^#\/?/, '').split('/')[0] === 'users') {
     const { render } = await import('../app.js');
     render();
@@ -188,10 +202,14 @@ function groupSheet(group) {
   const choices = (hub.friends || []).filter((f) => !memberIds.has(f.user_id));
   openSheet(group.name, el('div.stack', {}, [
     ...choices.map((friend) => el('button.btn.ghost.full', { onclick: async () => {
-      await cloud.addSocialGroupMember(group.id, friend.user_id); extras = await cloud.socialExtras(); closeSheet(); (await import('../app.js')).render();
+      try {
+        await cloud.addSocialGroupMember(group.id, friend.user_id); extras = await cloud.socialExtras(); closeSheet(); (await import('../app.js')).render();
+      } catch (err) { toast(socialError(err, 'users.saveFailed')); }
     } }, [t('users.groupAdd', { name: friend.display_name })])),
     el('button.btn.danger.full', { onclick: async () => {
-      await cloud.leaveSocialGroup(group.id); extras = await cloud.socialExtras(); closeSheet(); (await import('../app.js')).render();
+      try {
+        await cloud.leaveSocialGroup(group.id); extras = await cloud.socialExtras(); closeSheet(); (await import('../app.js')).render();
+      } catch (err) { toast(socialError(err, 'users.saveFailed')); }
     } }, [group.owner_id === hub.me.user_id ? t('users.groupDelete') : t('users.groupLeave')]),
   ]));
 }
@@ -202,33 +220,76 @@ function challengesSection() {
     extras.groups?.length ? el('button.btn.quiet.sm', { onclick: challengeSheet }, [`+ ${t('users.challengeCreate')}`]) : null]));
   for (const challenge of extras.challenges || []) {
     const mine = (challenge.progress || []).find((p) => p.user_id === hub.me.user_id)?.value || 0;
+    const pct = Math.min(100, Math.round((mine / challenge.target) * 100));
     wrap.append(el('div.card.tight', {}, [
       el('div.row.between', {}, [el('strong', { text: challenge.title }), el('span.pill', { text: `${mine}/${challenge.target}` })]),
-      el('div.small.faint', { text: challengeMetricLabel(challenge.metric) }),
-      el('button.btn.ghost.full.sm', { style: { marginTop: '8px' }, onclick: () => challengeProgressSheet(challenge, mine) }, [t('users.challengeUpdate')]),
+      el('div.small.faint', { text: t('users.challengePeriod', {
+        metric: challengeMetricLabel(challenge.metric), end: new Date(`${challenge.ends_on}T12:00:00`).toLocaleDateString(locale()),
+      }) }),
+      el('div.track', { style: { marginTop: '10px' } }, [el('div.fill', { style: { width: `${pct}%` } })]),
+      el('div.small.muted', { style: { marginTop: '8px' }, text: t('users.challengeAutomatic') }),
+      ...(challenge.progress || []).slice(0, 5).map((person, index) => el('div.row.between', {
+        style: { marginTop: '7px', paddingTop: '7px', borderTop: '1px solid var(--line-soft)' },
+      }, [el('span.small', { text: `${index + 1}. ${person.display_name}` }),
+        el('strong.num', { text: `${person.value}/${challenge.target}` })])),
     ]));
   }
   return wrap;
 }
 
 function challengeSheet() {
-  const title = el('input', { maxlength: 60 });
+  const title = el('input', { maxlength: 60, placeholder: t('users.challengeTitlePlaceholder') });
   const group = el('select', {}, extras.groups.map((g) => el('option', { value: g.id }, [g.name])));
-  const metric = el('select', {}, ['workouts','sets'].map((x) => el('option', { value: x }, [challengeMetricLabel(x)])));
-  const target = el('input', { type: 'number', min: 1, max: 10000, value: 10 });
-  const end = el('input', { type: 'date', value: new Date(Date.now()+14*86400000).toISOString().slice(0,10) });
-  openSheet(t('users.challengeCreate'), el('div.stack', {}, [title,group,metric,target,end,
-    el('button.btn.primary.full', { onclick: async () => {
-      await cloud.createSocialChallenge(group.value,title.value,metric.value,Number(target.value),end.value);
-      extras=await cloud.socialExtras(); closeSheet(); (await import('../app.js')).render();
-    } }, [t('common.save')]) ]));
-}
-
-function challengeProgressSheet(challenge, current) {
-  const value = el('input', { type: 'number', min: 0, max: 10000, value: current });
-  openSheet(challenge.title, el('div.stack', {}, [value,el('button.btn.primary.full',{onclick:async()=>{
-    await cloud.updateChallengeProgress(challenge.id,Number(value.value));extras=await cloud.socialExtras();closeSheet();(await import('../app.js')).render();
-  }},[t('common.save')])]));
+  const metric = el('div.seg', {}, [['workouts','users.challengeMetric.workouts'],['sets','users.challengeMetric.sets']]
+    .map(([value,key],index)=>el('button',{type:'button','aria-pressed':String(index===0),dataset:{value},onclick:(event)=>{
+      [...event.currentTarget.parentElement.children].forEach((button)=>button.setAttribute('aria-pressed',String(button===event.currentTarget))); paintPreview();
+    }},[t(key)])));
+  const target = el('input', { type: 'number', inputmode: 'numeric', min: 1, max: 10000, value: 8 });
+  let duration = 14;
+  const durationControl = el('div.seg', {}, [7,14,30].map((days)=>el('button',{type:'button','aria-pressed':String(days===duration),onclick:(event)=>{
+    duration=days;[...event.currentTarget.parentElement.children].forEach((button)=>button.setAttribute('aria-pressed',String(button===event.currentTarget)));paintPreview();
+  }},[t('users.challengeDays',{n:days})])));
+  const preview = el('div.card.tight.glow');
+  const selectedMetric = () => [...metric.children].find((button)=>button.getAttribute('aria-pressed')==='true')?.dataset.value || 'workouts';
+  const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  const endDate = () => { const date=new Date(); date.setDate(date.getDate()+duration-1); return localDate(date); };
+  function paintPreview(){
+    preview.replaceChildren(el('div.small.faint',{text:t('users.challengePreview')}),
+      el('div',{style:{fontWeight:'700',marginTop:'4px'},text:title.value.trim()||t('users.challengeUntitled')}),
+      el('div.small.muted',{style:{marginTop:'4px'},text:t('users.challengePreviewBody',{target:Number(target.value)||0,
+        metric:challengeMetricLabel(selectedMetric()).toLowerCase(),days:duration})}));
+  }
+  title.addEventListener('input',paintPreview); target.addEventListener('input',paintPreview); paintPreview();
+  const templates = el('div.challenge-templates',{},[
+    [t('users.challengeTemplate.consistency'), 'workouts', 3, 7],
+    [t('users.challengeTemplate.month'), 'workouts', 12, 30],
+    [t('users.challengeTemplate.volume'), 'sets', 50, 7],
+  ].map(([label,m,targetValue,days])=>el('button.btn.ghost.sm',{onclick:()=>{
+    title.value=label;target.value=String(targetValue);duration=days;
+    [...metric.children].forEach((button)=>button.setAttribute('aria-pressed',String(button.dataset.value===m)));
+    [...durationControl.children].forEach((button,index)=>button.setAttribute('aria-pressed',String([7,14,30][index]===days)));paintPreview();
+  }},[label])));
+  const body=el('div',{},[
+    el('div.card.tight',{style:{marginBottom:'14px'}},[el('strong',{text:t('users.challengeWhyTitle')}),
+      el('div.small.muted',{style:{marginTop:'4px'},text:t('users.challengeWhyBody')})]),
+    el('div.field-caption',{text:t('users.challengeTemplates')}),templates,
+    el('label.field',{style:{marginTop:'14px'}},[el('span',{text:t('users.challengeTitle')}),title]),
+    el('label.field',{},[el('span',{text:t('users.challengeGroup')}),group]),
+    el('div.field-caption',{text:t('users.challengeWhatCounts')}),metric,
+    el('label.field',{style:{marginTop:'14px'}},[el('span',{text:t('users.challengeTargetPerPerson')}),target,
+      el('div.small.faint',{text:t('users.challengeTargetNote')})]),
+    el('div.field-caption',{text:t('users.challengeDuration')}),durationControl,
+    el('div',{style:{marginTop:'14px'}},[preview]),
+    el('button.btn.primary.full',{style:{marginTop:'14px'},onclick:async()=>{
+      const clean=title.value.trim();const amount=Number(target.value);
+      if(!clean){toast(t('users.challengeNeedTitle'));title.focus();return;}
+      if(!Number.isInteger(amount)||amount<1||amount>10000){toast(t('users.challengeNeedTarget'));target.focus();return;}
+      try{await cloud.createSocialChallenge(group.value,clean,selectedMetric(),amount,endDate());
+        extras=await cloud.socialExtras();closeSheet();toast(t('users.challengeCreated'));(await import('../app.js')).render();
+      }catch(err){toast(socialError(err,'users.saveFailed'));}
+    }},[t('users.challengeCreate')]),
+  ]);
+  openSheet(t('users.challengeCreate'),body);
 }
 
 function prFeedSection() {

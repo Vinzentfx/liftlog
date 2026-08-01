@@ -5,7 +5,7 @@ import {
   starString, starBadge,
 } from '../ui.js';
 import * as store from '../store.js';
-import { bestOneRepMaxByName } from '../models.js';
+import { bestOneRepMaxByName, estimatePlanDuration } from '../models.js';
 import { PLAN_BLUEPRINTS, buildPlanDays } from '../plan-builder.js';
 import { analysePlan, WEIGHTS, WEIGHT_WHY } from '../plan-rating.js';
 import { THRESHOLDS, RATING_DISCLAIMER } from '../evidence.js';
@@ -523,8 +523,8 @@ function breakdownSheet(title, a) {
 
 function dayCard(plan, day, index) {
   const card = el('div.card');
-  const plannedMinutes = Math.max(1, Math.round(day.items.reduce((n, item) =>
-    n + (Number(item.targetSets) || 0) * (45 + Number(store.state.settings.restSeconds || 180)), 0) / 60));
+  const plannedMinutes = Math.max(1, Math.round(estimatePlanDuration(day.items,
+    store.state.settings.restSeconds) / 60000));
 
   card.append(
     el('div.row.between', { style: { marginBottom: '10px' } }, [

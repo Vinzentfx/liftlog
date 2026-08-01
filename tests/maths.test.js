@@ -25,7 +25,7 @@ import assert from 'node:assert/strict';
 // Set before any Date is constructed; imports above only define functions.
 process.env.TZ = 'Europe/Berlin';
 
-const { e1rm, isCounted, startOfWeek, entryStats, newMeal, dayKey, slotFor, seedExercises, bestOneRepMaxByName } = await import('../js/models.js');
+const { e1rm, isCounted, startOfWeek, entryStats, newMeal, dayKey, slotFor, seedExercises, bestOneRepMaxByName, estimatePlanDuration } = await import('../js/models.js');
 const { scoreFor, ANATOMY } = await import('../js/standards.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
@@ -80,6 +80,11 @@ test('common machines contribute to the muscle map without fake strength tiers',
     'Triceps Pushdown', 'Rope Hammer Curl', 'Close-Grip Seated Row']) {
     assert.ok(ANATOMY[name], `${name} should have anatomy`);
   }
+});
+
+test('planned duration excludes a pointless rest after every exercise', () => {
+  const items = [{ targetSets: 3 }, { targetSets: 3 }];
+  assert.equal(estimatePlanDuration(items, 180), (6 * 45 + 4 * 180 + 90) * 1000);
 });
 
 test('a stable machine fly outranks the rolling bodyweight fly', () => {

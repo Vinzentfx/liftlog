@@ -601,6 +601,16 @@ export function sessionStats(session) {
   return { volume, sets, reps, durationMs, exercises: session.entries.length };
 }
 
+/** Estimated plan duration: work, rests between sets, and exercise changes. */
+export function estimatePlanDuration(items, restSeconds = 180) {
+  const rows = (items || []).filter(Boolean);
+  const sets = rows.reduce((sum, item) => sum + Math.max(1, Number(item.targetSets) || 3), 0);
+  if (!sets) return 0;
+  const betweenSets = Math.max(0, sets - rows.length);
+  const changes = Math.max(0, rows.length - 1);
+  return (sets * 45 + betweenSets * Number(restSeconds || 180) + changes * 90) * 1000;
+}
+
 /**
  * The most recent *completed* session that contains real work for this exercise.
  * This is what powers the "last time" line — the single most important number on

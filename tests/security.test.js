@@ -383,6 +383,7 @@ test('private social groups and PR reactions stay behind narrow RPCs', async () 
 test('one-workout restore decrypts the backup but imports only the selected session', async () => {
   const sync = await readFile(new URL('../js/sync.js', import.meta.url), 'utf8');
   assert.match(sync, /restoreBackupSession\(version, sessionId\)[\s\S]*find\(\(row\) => row\.id === sessionId\)/);
-  assert.match(sync, /sessions: \[session\][\s\S]*replace: false/);
+  assert.match(sync, /sessions: \[restored\][\s\S]*replace: false/);
+  assert.match(sync, /alreadyExists[\s\S]*db\.uid\('s_'\)/);
   assert.doesNotMatch(sync.match(/export async function restoreBackupSession[\s\S]*?\n\}/)?.[0] || '', /replace: true/);
 });

@@ -529,7 +529,12 @@ async function toggleDone(session, entry, set, weightInput, repsInput, hint) {
     if (pr) {
       toast(pr, 2600);
       const ex = store.state.exerciseById.get(entry.exerciseId);
-      if (ex && cloud.isSignedIn()) cloud.publishSocialPr(ex.name, e1rm(set.weight,set.reps), pr).catch(() => {});
+      if (ex && cloud.isSignedIn() && !set.prSharedAt) {
+        cloud.publishSocialPr(ex.name, e1rm(set.weight,set.reps), pr).then(() => {
+          set.prSharedAt = Date.now();
+          store.saveSessionQuiet(session);
+        }).catch(() => {});
+      }
     }
     if (set.type === 'working' && store.state.settings.autoStartRest) {
       rest.start(store.state.settings.restSeconds, {
