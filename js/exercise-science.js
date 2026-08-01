@@ -28,6 +28,8 @@ const LONG = 'long', MIXED = 'mixed', SHORT = 'short';
  * data fills in too loosely to trust.
  */
 const LENGTH_RULES = [
+  { re: /decline.{0,32}press|press.{0,32}decline/i,
+    bias: SHORT, why: 'science.declinePress' },
   // --- exceptions that have to beat the generic rules further down ---
   // "Reverse Machine Flyes" has to lose to this rule and not to the chest-fly
   // one below, hence the gap allowance rather than a straight "reverse fly".
@@ -127,6 +129,8 @@ const LIMITER_RULES = [
     level: 'target', why: 'science.gluteBiasedBackExtension' },
   { re: /deadlift|rack pull|snatch[- ]?grip|farmer|shrug/i,
     level: 'other', why: 'science.deadliftRackPull' },
+  { re: /chest[- ]?supported.{0,24}(row|t[- ]?bar)|(row|t[- ]?bar).{0,24}chest[- ]?supported/i,
+    level: 'target', why: 'science.chestSupportedRow' },
   { re: /(bent[- ]?over|pendlay|barbell) row|t[- ]?bar/i,
     level: 'other', why: 'science.bentOverPendlay' },
   { re: /good morning|back extension|hyper[- ]?extension/i,

@@ -63,6 +63,26 @@ test('stabilizer tags do not turn an isolation movement into a compound bonus', 
   assert.equal(rating.criteria.find((c) => c.label === 'exRating.breadth').points, 0.5);
 });
 
+test('chest support keeps a T-bar row from inheriting the bent-over torso limiter', () => {
+  const supported = rateExercise({ name: 'Chest-Supported T-Bar Row', muscle: 'Back', equipment: 'Machine',
+    primary: ['lats'], secondary: ['biceps', 'delts-rear'], mech: 'compound', instructions: ['x'] });
+  const unsupported = rateExercise({ name: 'T-Bar Row', muscle: 'Back', equipment: 'Barbell',
+    primary: ['lats'], secondary: ['biceps', 'delts-rear', 'lower-back'], mech: 'compound', instructions: ['x'] });
+  assert.equal(supported.limit.level, 'target');
+  assert.equal(supported.limit.why, 'science.chestSupportedRow');
+  assert.equal(unsupported.limit.level, 'other');
+});
+
+test('a Smith incline press outranks the redundant shorter-ROM decline press', () => {
+  const common = { muscle: 'Chest', equipment: 'Machine', primary: ['chest'],
+    secondary: ['delts-front', 'triceps'], mech: 'compound', instructions: ['x'] };
+  const incline = rateExercise({ ...common, name: 'Smith Machine Incline Bench Press' });
+  const decline = rateExercise({ ...common, name: 'Smith Machine Decline Press' });
+  assert.ok(incline.stars > decline.stars);
+  assert.equal(decline.length.bias, 'short');
+  assert.equal(decline.length.why, 'science.declinePress');
+});
+
 test('the curated catalogue keeps corrected anatomy, equipment and plain instructions', () => {
   let id = 0;
   const catalogue = seedExercises(() => `exercise_${++id}`);
