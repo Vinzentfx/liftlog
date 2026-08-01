@@ -49,7 +49,7 @@ export function cloudSection() {
         el('div.small.faint', { style: { marginTop: '2px' }, text: cloud.currentUser()?.email || '' }),
       ]),
       el('button.btn.sm.ghost', {
-        disabled: s.busy || !s.profile?.recovery_wrap || !s.isOwner || !s.ownerAuthorized,
+        disabled: s.busy || !s.profile?.recovery_wrap || !s.canBackup,
         onclick: async () => {
           const res = await sync.backupNow({ force: true });
           toast(res.ok ? t('cloud.savedNow') : t(`cloud.err.${res.code}`, { code: res.code }));
@@ -94,7 +94,7 @@ export function cloudSection() {
 
   if (!s.isOwner) {
     card.append(el('div.small', { style: { marginTop: '10px', color: 'var(--text-dim)' },
-      text: t('cloud.readOnly') }));
+      text: t('cloud.secondaryWrites') }));
   }
 
   if (s.lastError) {

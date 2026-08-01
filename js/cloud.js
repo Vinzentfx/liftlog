@@ -292,13 +292,13 @@ export async function download(version = null) {
  * key on (user_id, version) turns a stale push into STALE rather than letting
  * it overwrite whatever a second device wrote in the meantime.
  */
-export async function upload(blob, { version, deviceId, ownerToken }) {
+export async function upload(blob, { version, deviceId }) {
   if (!session?.user?.id) throw fail('AUTH', 'not signed in');
-  await authed(`${REST}/rpc/upload_backup`, {
+  await authed(`${REST}/rpc/upload_backup_from_device`, {
     method: 'POST',
     body: {
       backup_version: version, backup_iv: blob.iv, backup_ct: blob.ct,
-      backup_bytes: blob.bytes, device: deviceId, owner_token: ownerToken,
+      backup_bytes: blob.bytes, device: deviceId,
     },
   });
   return version;

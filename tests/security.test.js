@@ -287,3 +287,17 @@ test('machine-only training still reaches the personal progress map', async () =
   assert.match(home, /rating\.overall === null[\s\S]*mapMode = 'progress'[\s\S]*mapSection\(rating\)/);
   assert.match(home, /equipment === 'Machine'[\s\S]*home\.rating\.machinePersonal/);
 });
+
+test('approved secondary devices get a narrow conflict-checked backup RPC', async () => {
+  const sql = await read('server/patch-009-multi-device-backups.sql');
+  const sync = await read('js/sync.js');
+  const cloud = await read('js/cloud.js');
+  assert.match(sql, /status='approved' and d\.wrapped_key is not null/i);
+  assert.match(sql, /has_active_access\(\)/i);
+  assert.match(sql, /for update/i);
+  assert.match(sql, /backup_version<>expected[\s\S]*raise exception 'STALE'/i);
+  assert.doesNotMatch(sql, /owner_token|owner_capability_ok/i);
+  assert.match(sync, /latestVersion > baseVersion[\s\S]*mergeSnapshots[\s\S]*importData/);
+  assert.match(sync, /err\.code !== 'STALE'[\s\S]*attempt === 1/);
+  assert.match(cloud, /rpc\/upload_backup_from_device/);
+});

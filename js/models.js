@@ -391,12 +391,14 @@ export function refineRegions(name, primary = [], secondary = []) {
 // ---------- factories ----------
 
 export function newSession(uid, { name = 'Workout', planId = null, dayId = null, entries = [] } = {}) {
+  const now = Date.now();
   return {
     id: uid('s_'),
     planId,
     dayId,
     name,
-    startedAt: Date.now(),
+    startedAt: now,
+    updatedAt: now,
     finishedAt: null,
     notes: '',
     entries,

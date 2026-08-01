@@ -492,6 +492,7 @@ export async function deletePlan(id) {
 // ---------- sessions ----------
 
 async function persistSession(session) {
+  session.updatedAt = Date.now();
   await db.put(db.STORES.sessions, session);
   emit();
 }
@@ -578,6 +579,7 @@ export async function updateSession(id, mutate) {
  * re-render mid-typing would blow away the focused input and the caret.
  */
 export async function saveSessionQuiet(session) {
+  session.updatedAt = Date.now();
   await db.put(db.STORES.sessions, session);
 }
 

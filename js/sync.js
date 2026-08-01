@@ -9,9 +9,10 @@
 //
 // The rules it enforces, all of them consequences of decisions made earlier:
 //
-//   One writer.      Only the device recorded as `owner_device` uploads. Others
-//                    read. That is what makes conflict resolution unnecessary
-//                    rather than merely postponed.
+//   Approved writers. Every approved device may upload. Before it does, it
+//                     folds newer cloud records into its local snapshot. The
+//                     server version is still an atomic compare-and-swap, so a
+//                     race becomes STALE and is retried rather than overwriting.
 //   Never silent.    Every outcome lands in `state` and gets shown. A backup
 //                    feature that fails quietly is worse than none, because it
 //                    replaces a habit with a false sense of safety.
@@ -106,7 +107,8 @@ export const state = {
   signedIn: false,
   profile: null,
   deviceId: null,
-  isOwner: false,        // may this device upload
+  isOwner: false,        // main device: may approve, block and delete
+  canBackup: false,      // approved devices may write backups; owner is admin
   ownerAuthorized: false,// this install holds the server-side write capability
   lastSyncAt: null,
   lastError: null,       // an error code, never a raw message
@@ -149,7 +151,7 @@ export async function deleteAccount() {
     store.setSetting('cloudEnabled', false),
   ]);
   set({ enabled: false, signedIn: false, profile: null, deviceId: null,
-    isOwner: false, ownerAuthorized: false, pendingDevices: [] });
+    isOwner: false, canBackup: false, ownerAuthorized: false, pendingDevices: [] });
 }
 
 /**
@@ -347,7 +349,7 @@ export async function recoverWith(recoveryKey) {
 /** Read where things stand, without changing anything. */
 export async function load() {
   if (!cloud.isSignedIn()) {
-    set({ signedIn: false, enabled: false, profile: null, isOwner: false, pendingDevices: [] });
+    set({ signedIn: false, enabled: false, profile: null, isOwner: false, canBackup: false, pendingDevices: [] });
     return state;
   }
   try {
@@ -366,6 +368,7 @@ export async function load() {
       profile,
       deviceId: localDevice?.status === 'revoked' ? null : (local.deviceId ?? null),
       isOwner: !!profile && localDevice?.status !== 'revoked' && profile.owner_device === local.deviceId,
+      canBackup: !!profile && localDevice?.status === 'approved' && !!localDevice.wrapped_key,
       ownerAuthorized: !!local.ownerToken,
       serverVersion: meta?.version ?? 0,
       enabled: !!profile?.consent_at && store.state.settings.cloudEnabled !== false,
@@ -396,24 +399,42 @@ export async function backupNow({ force = false } = {}) {
   try {
     const devices = await cloud.listDevices();
     const meta = await localMeta();
-    const profile = await cloud.getProfile();
-
-    if (profile?.owner_device && profile.owner_device !== meta.deviceId) {
-      // Read-only device. Not an error and not something to retry.
-      set({ isOwner: false });
+    const mine = devices.find((device) => device.id === meta.deviceId);
+    if (!mine || mine.status !== 'approved' || !mine.wrapped_key) {
+      set({ canBackup: false });
       return { ok: false, code: 'READ_ONLY' };
     }
 
     const key = await loadDataKey(devices);
-    const latest = await cloud.latestMeta();
-    const version = (latest?.version ?? 0) + 1;
+    let version;
+    let blob;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const latest = await cloud.latestMeta();
+      const latestVersion = latest?.version ?? 0;
+      const baseVersion = Number(store.state.settings.cloudBaseVersion) || 0;
+      let payload = store.exportData();
 
-    const blob = await crypto.seal(key, store.exportData());
-    await cloud.upload(blob, {
-      version, deviceId: meta.deviceId, ownerToken: await requireOwnerToken(),
-    });
+      if (latestVersion > baseVersion) {
+        const remote = await cloud.download(latestVersion);
+        const remotePayload = await crypto.open(key, remote.blob);
+        payload = hasUserData(payload) ? mergeSnapshots(payload, remotePayload) : remotePayload;
+        await store.importData(payload, { replace: true });
+        await store.setSetting('cloudBaseVersion', latestVersion);
+        payload = store.exportData();
+      }
 
-    if (meta.deviceId) await cloud.touchDevice(meta.deviceId, meta.ownerToken).catch(() => {});
+      version = latestVersion + 1;
+      blob = await crypto.seal(key, payload);
+      try {
+        await cloud.upload(blob, { version, deviceId: meta.deviceId });
+        break;
+      } catch (err) {
+        if (err.code !== 'STALE' || attempt === 1) throw err;
+      }
+    }
+
+    if (meta.deviceId) await cloud.touchDevice(meta.deviceId).catch(() => {});
+    await store.setSetting('cloudBaseVersion', version);
     await store.setSetting('cloudLastSyncAt', Date.now());
     set({ lastSyncAt: Date.now(), serverVersion: version });
     return { ok: true, version, bytes: blob.bytes };
@@ -440,6 +461,7 @@ export async function restore(version = null) {
     const { blob, version: got } = await cloud.download(version);
     const payload = await crypto.open(key, blob);
     await store.importData(payload, { replace: true });
+    await store.setSetting('cloudBaseVersion', got);
     set({ serverVersion: got });
     return { ok: true, version: got };
   } catch (err) {
@@ -464,17 +486,50 @@ export async function onAppOpen() {
   await load();
   if (state.lastError) return { ok: false, code: state.lastError };
   if (!state.enabled) return { ok: false, code: 'DISABLED' };
-  if (!state.isOwner) return { ok: false, code: 'READ_ONLY' };
+  if (!state.canBackup) return { ok: false, code: 'READ_ONLY' };
 
   // Do not re-upload an identical snapshot on every launch. An hour is short
   // enough that a lost phone costs at most one session, and long enough that
   // opening the app four times to check something does not upload four times.
   const last = Number(store.state.settings.cloudLastSyncAt) || 0;
-  if (Date.now() - last < 3600000) {
+  const base = Number(store.state.settings.cloudBaseVersion) || 0;
+  if ((state.serverVersion || 0) <= base && Date.now() - last < 3600000) {
     set({ lastSyncAt: last });
     return { ok: true, skipped: true };
   }
   return backupNow();
+}
+
+const MERGE_KEYS = {
+  exercises: 'id', plans: 'id', sessions: 'id', bodyweight: 'id',
+  foods: 'id', meals: 'id', water: 'day', templates: 'id',
+};
+
+const changedAt = (row) => Number(row?.updatedAt || row?.finishedAt || row?.at
+  || row?.date || row?.createdAt || row?.startedAt || 0);
+
+/** Remote is authoritative for equal records; genuinely newer local edits win. */
+export function mergeSnapshots(local, remote) {
+  const merged = {
+    format: 'liftlog-backup', version: 1, exportedAt: new Date().toISOString(),
+    settings: { ...(local.settings || {}), ...(remote.settings || {}) },
+  };
+  for (const [list, key] of Object.entries(MERGE_KEYS)) {
+    const rows = new Map((remote[list] || []).map((row) => [row[key], row]));
+    for (const row of local[list] || []) {
+      const existing = rows.get(row[key]);
+      if (!existing || changedAt(row) > changedAt(existing)) rows.set(row[key], row);
+    }
+    merged[list] = [...rows.values()];
+  }
+  return merged;
+}
+
+function hasUserData(payload) {
+  return !!((payload.sessions || []).length || (payload.plans || []).length
+    || (payload.bodyweight || []).length || (payload.meals || []).length
+    || (payload.water || []).length || (payload.templates || []).length
+    || (payload.exercises || []).some((exercise) => exercise.isCustom));
 }
 
 export async function signOutEverywhere({ forgetDevice = false } = {}) {

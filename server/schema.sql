@@ -13,6 +13,8 @@
 -- patch-007-account-deletion.sql for complete self-service account deletion.
 -- Apply patch-008-social-hub.sql afterwards if the optional Users area should
 -- be enabled; it never changes or decrypts backup data.
+-- Apply patch-009-multi-device-backups.sql last to let every approved device
+-- contribute conflict-checked backups without gaining owner privileges.
 --
 -- Paste this into the Supabase SQL editor once. There is no other server code:
 -- the app talks to PostgREST over plain fetch, and what it is allowed to do is

@@ -44,6 +44,7 @@ const { warmupSets, warmupCount } = await import('../js/warmup.js');
 const { stallReport, describeStall } = await import('../js/fatigue.js');
 const { setLanguage } = await import('../js/i18n.js');
 const { timeline, timelineReady, MIN_LOGGED_DAYS } = await import('../js/timeline.js');
+const { mergeSnapshots } = await import('../js/sync.js');
 
 test('a stable machine fly outranks the rolling bodyweight fly', () => {
   const common = { muscle: 'Chest', primary: ['chest'], instructions: ['Controlled reps'] };
@@ -102,6 +103,22 @@ test('the curated catalogue keeps corrected anatomy, equipment and plain instruc
   assert.deepEqual(byName.get('Machine Hip Adduction').primary, ['adductors']);
   assert.equal(catalogue.some((exercise) => !exercise.primary?.length), false);
   assert.equal(catalogue.some((exercise) => exercise.instructions?.some((step) => /<\/?(?:h\d|p|li|div|br)\b/i.test(step))), false);
+});
+
+test('multi-device backup merge keeps new workouts from both devices', () => {
+  const base = { format: 'liftlog-backup', version: 1, settings: {}, exercises: [], plans: [],
+    bodyweight: [], foods: [], meals: [], water: [], templates: [] };
+  const local = { ...base, sessions: [
+    { id: 'shared', startedAt: 1, updatedAt: 30, notes: 'new local edit' },
+    { id: 'phone', startedAt: 40, updatedAt: 40 },
+  ] };
+  const remote = { ...base, sessions: [
+    { id: 'shared', startedAt: 1, updatedAt: 20, notes: 'old remote edit' },
+    { id: 'tablet', startedAt: 50, updatedAt: 50 },
+  ] };
+  const merged = mergeSnapshots(local, remote);
+  assert.deepEqual(new Set(merged.sessions.map((s) => s.id)), new Set(['shared', 'phone', 'tablet']));
+  assert.equal(merged.sessions.find((s) => s.id === 'shared').notes, 'new local edit');
 });
 
 const INDIRECT = THRESHOLDS.indirectSetWeight.value;
