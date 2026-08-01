@@ -177,8 +177,8 @@ function activeView(session) {
 }
 
 function exerciseBlock(session, entry, entryIndex) {
-  const units = store.units();
   const ex = store.state.exerciseById.get(entry.exerciseId);
+  const units = ex?.units || store.units();
   const name = ex ? ex.name : t('train.unknownExercise');
   const block = el('div.card.exercise-block');
 
@@ -202,7 +202,9 @@ function exerciseBlock(session, entry, entryIndex) {
         lastRirLabel(last.sets),
       ])
     );
-    const tip = suggestNext(last, entry.targetReps, ex, units);
+    const tip = store.state.settings.progressionSuggestions !== false
+      ? suggestNext(last, entry.targetReps, ex, units, entry.progressionRule)
+      : null;
     if (tip) {
       block.append(
         el('div.suggest', {}, [
@@ -215,7 +217,7 @@ function exerciseBlock(session, entry, entryIndex) {
     block.append(el('div.small.faint', { style: { marginBottom: '10px' }, text: t('train.firstTime') }));
   }
 
-  block.append(warmupOffer(session, entry, ex, units));
+  if (store.state.settings.warmupSuggestions !== false) block.append(warmupOffer(session, entry, ex, units));
 
   if (entry.note) {
     block.append(el('div.small.muted', { style: { marginBottom: '8px' }, text: entry.note }));
@@ -343,7 +345,13 @@ function setRow(session, entry, set, index, last, ex) {
     onclick: () => toggleDone(session, entry, set, weight, reps, hint),
   }, ['✓']);
 
-  row.append(weight, reps, rirOn ? rir : null, doneBtn);
+  const weightCell = ex?.equipment === 'Barbell'
+    ? el('div.set-weight-cell', {}, [weight, el('button.set-plates', {
+        'aria-label': t('train.menu.whatToLoad'),
+        onclick: () => plateSheet(entry, ex, Number(weight.value) || Number(set.weight) || 0),
+      }, ['◉'])])
+    : weight;
+  row.append(weightCell, reps, rirOn ? rir : null, doneBtn);
   return row;
 }
 
@@ -412,7 +420,7 @@ function lastRirLabel(sets) {
  * logged it is used, because a set finished with 4 in reserve did not earn a
  * weight jump no matter how many reps it was.
  */
-function suggestNext(last, targetReps, ex, units) {
+function suggestNext(last, targetReps, ex, units, rule = 'double') {
   const sets = last.sets;
   if (!sets.length) return null;
 
@@ -424,6 +432,16 @@ function suggestNext(last, targetReps, ex, units) {
 
   const step = ex && ex.equipment === 'Dumbbell' ? (units === 'lb' ? 5 : 2) : (units === 'lb' ? 5 : 2.5);
   const next = `${fmtWeight(topWeight + step, units)}`;
+
+  if (rule === 'manual') return null;
+  if (rule === 'reps') return {
+    headline: t('train.tip.stay', { weight: fmtWeight(topWeight, units) }),
+    why: t('train.tip.addReps', { high: range.high }),
+  };
+  if (rule === 'weight') return {
+    headline: t('train.tip.try', { weight: next }),
+    why: t('train.tip.weightRule'),
+  };
 
   // Effort first: it overrides the rep count in both directions.
   if (rirs.length && Math.min(...rirs) >= 3) {
@@ -545,10 +563,10 @@ function checkPR(session, entry, set) {
  * actually reach: the gym has no 0.5 kg discs, so a target it cannot hit says
  * so instead of printing a plate list that adds up to something else.
  */
-function plateSheet(entry, ex) {
+function plateSheet(entry, ex, initialWeight = null) {
   const units = store.units();
   const bar = store.barWeight();
-  const start = Math.max(0, ...entry.sets.map((s) => Number(s.weight) || 0));
+  const start = initialWeight || Math.max(0, ...entry.sets.map((s) => Number(s.weight) || 0));
 
   const input = normaliseOnBlur(numberInput({
     decimal: true,
@@ -602,6 +620,12 @@ function exerciseMenu(session, entry, index, name) {
   };
 
   const ex = store.state.exerciseById.get(entry.exerciseId);
+  const applyTemporarySwap = async (pick) => {
+    await store.updateSession(session.id, () => { entry.exerciseId = pick.id; });
+    closeSheet();
+    toast(t('train.temporarySwap', { name: pick.name }));
+  };
+  const temporarySwap = () => pickExercise(applyTemporarySwap, session.entries.map((e) => e.exerciseId));
 
   const body = el('div.stack', {}, [
     ex ? el('button.btn.ghost.full', {
@@ -610,6 +634,13 @@ function exerciseMenu(session, entry, index, name) {
     ex && ['Machine', 'Cable'].includes(ex.equipment) ? el('button.btn.ghost.full', {
       onclick: () => machineSetupSheet(ex),
     }, [t('train.machine.editSetup')]) : null,
+    entry.alternativeExerciseId && store.state.exerciseById.has(entry.alternativeExerciseId)
+      ? el('button.btn.primary.full', { onclick: () => {
+          const alternative = store.state.exerciseById.get(entry.alternativeExerciseId);
+          applyTemporarySwap(alternative);
+        } }, [t('train.useAlternative', { name: store.state.exerciseById.get(entry.alternativeExerciseId).name })])
+      : null,
+    el('button.btn.ghost.full', { onclick: () => temporarySwap() }, [t('train.replaceOnce')]),
     // Only for a loaded bar. On a machine "per side" means nothing, and on a
     // dumbbell there is nothing to work out.
     ex && ex.equipment === 'Barbell'

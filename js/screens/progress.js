@@ -374,6 +374,7 @@ function nextTierNote(score) {
  */
 function stallSection(done) {
   const wrap = el('div');
+  if (store.state.settings.plateauHints === false) return wrap;
   const report = stallReport(done, store.state.exerciseById);
   if (!report) return wrap;
 

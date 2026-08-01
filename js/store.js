@@ -401,6 +401,7 @@ export async function createPlanFromBlueprint(blueprint, { empty = false } = {})
 
 export async function savePlan(plan) {
   const existing = state.plans.find((p) => p.id === plan.id);
+  const persisted = plan.id ? await db.get(db.STORES.plans, plan.id) : null;
   const rec = {
     id: plan.id || db.uid('p_'),
     name: (plan.name || 'Plan').trim(),
@@ -414,6 +415,16 @@ export async function savePlan(plan) {
   if (existing) Object.assign(existing, rec);
   else state.plans.push(rec);
   await db.put(db.STORES.plans, rec);
+  if (persisted && JSON.stringify(persisted.days) !== JSON.stringify(rec.days)) {
+    const versions = { ...(state.settings.planVersions || {}) };
+    const rows = [...(versions[rec.id] || []), {
+      savedAt: Date.now(), name: persisted.name, days: persisted.days,
+      repTarget: persisted.repTarget, perWeek: persisted.perWeek,
+    }].slice(-10);
+    versions[rec.id] = rows;
+    state.settings.planVersions = versions;
+    await db.put(db.STORES.settings, { key: 'planVersions', value: versions });
+  }
   if (!state.settings.activePlanId) await setSetting('activePlanId', rec.id);
   else emit();
   return rec;
@@ -522,6 +533,8 @@ export async function startSession({ planId = null, dayId = null, name } = {}) {
       ...newEntry(item.exerciseId, sets),
       note: item.note || '',
       targetReps: item.targetReps || null,
+      progressionRule: item.progressionRule || 'double',
+      alternativeExerciseId: item.alternativeExerciseId || null,
     };
   });
 

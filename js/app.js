@@ -159,6 +159,12 @@ export function render() {
     clear($('#topbar-actions'));
 
     const host = clear(screen);
+    if (!navigator.onLine) host.append(el('div.card.tight', {
+      style: { borderColor: 'var(--warn)', marginBottom: '12px' },
+    }, [
+      el('div', { style: { fontWeight: '680' }, text: t('offline.title') }),
+      el('div.small.muted', { text: t('offline.body') }),
+    ]));
     // `fresh` separates arriving at a screen from re-rendering the one you are
     // already on. A screen that remembers something across renders (which day
     // the food log is showing) needs to know the difference: keeping it while
@@ -181,6 +187,9 @@ export function render() {
     rendering = false;
   }
 }
+
+window.addEventListener('online', () => render());
+window.addEventListener('offline', () => render());
 
 function wireChrome() {
   document.querySelectorAll('.tab').forEach((tab) => {

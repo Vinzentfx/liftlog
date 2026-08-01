@@ -40,6 +40,13 @@ export const DEFAULT_SETTINGS = {
   restSeconds: 180,
   autoStartRest: true,
   soundOnRestEnd: true,
+  progressionSuggestions: true,
+  warmupSuggestions: true,
+  plateauHints: true,
+  deloadHints: true,
+  techniqueHints: true,
+  plannedDuration: true,
+  regenerationEnabled: false,
   showRatings: true,      // strength tiers can be demotivating — let them be hidden
   showStars: true,        // exercise/plan quality stars, separate from the tiers
   logRir: true,           // reps-in-reserve column on the set row

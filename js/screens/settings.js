@@ -205,6 +205,22 @@ export function renderSettings() {
   starToggle.checked = s.showStars !== false;
   starToggle.addEventListener('change', () => store.setSetting('showStars', starToggle.checked));
 
+  const preferenceToggle = (key) => {
+    const input = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
+    input.checked = s[key] !== false;
+    input.addEventListener('change', () => store.setSetting(key, input.checked));
+    return input;
+  };
+  const progressionToggle = preferenceToggle('progressionSuggestions');
+  const warmupToggle = preferenceToggle('warmupSuggestions');
+  const plateauToggle = preferenceToggle('plateauHints');
+  const deloadToggle = preferenceToggle('deloadHints');
+  const techniqueToggle = preferenceToggle('techniqueHints');
+  const durationToggle = preferenceToggle('plannedDuration');
+  const regenerationToggle = el('input', { type: 'checkbox', checked: !!s.regenerationEnabled,
+    style: { width: 'auto', minHeight: 'auto' } });
+  regenerationToggle.addEventListener('change', () => store.setSetting('regenerationEnabled', regenerationToggle.checked));
+
   const defSets = el('input', {
     type: 'number', inputmode: 'numeric', min: '1', max: '20', step: '1',
     value: String(store.defaultSets()),
@@ -309,6 +325,13 @@ export function renderSettings() {
     checkRow(autoRest, t('settings.autoRest')),
     checkRow(soundToggle, t('settings.chime')),
     checkRow(rirToggle, t('settings.logRir'), t('settings.logRirNote')),
+    checkRow(progressionToggle, t('settings.progressionSuggestions'), t('settings.progressionSuggestionsNote')),
+    checkRow(warmupToggle, t('settings.warmupSuggestions')),
+    checkRow(plateauToggle, t('settings.plateauHints')),
+    checkRow(deloadToggle, t('settings.deloadHints'), t('settings.deloadHintsNote')),
+    checkRow(techniqueToggle, t('settings.techniqueHints'), t('settings.techniqueHintsNote')),
+    checkRow(durationToggle, t('settings.plannedDuration')),
+    checkRow(regenerationToggle, t('settings.regeneration'), t('settings.regenerationNote')),
 
     el('div.section-head', {}, [el('h2', { text: t('settings.newPlanExercises') })]),
     el('div.small.muted', { style: { marginBottom: '10px' }, text: t('settings.newPlanExercisesNote') }),

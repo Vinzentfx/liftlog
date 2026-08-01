@@ -105,6 +105,9 @@ export function newExerciseForm(prefillName = '', onCreated = null, existing = n
     el('option', { value: m, selected: existing ? existing.muscle === m : m === 'Chest' }, [tMuscle(m)])));
   const equipment = el('select', {}, EQUIPMENT.map((eq) =>
     el('option', { value: eq, selected: existing ? existing.equipment === eq : eq === 'Barbell' }, [tEquipment(eq)])));
+  const units = el('select', {}, [
+    ['', t('picker.unitsDefault')], ['kg', 'kg'], ['lb', 'lb'],
+  ].map(([value, label]) => el('option', { value, selected: (existing?.units || '') === value }, [label])));
 
   async function submit() {
     const value = name.value.trim();
@@ -114,8 +117,8 @@ export function newExerciseForm(prefillName = '', onCreated = null, existing = n
     if (dupe) { toast(t('picker.duplicate', { name: dupe.name })); return; }
 
     const ex = existing
-      ? await store.updateExercise(existing.id, { name: value, muscle: muscle.value, equipment: equipment.value })
-      : await store.addExercise({ name: value, muscle: muscle.value, equipment: equipment.value });
+      ? await store.updateExercise(existing.id, { name: value, muscle: muscle.value, equipment: equipment.value, units: units.value || null })
+      : await store.addExercise({ name: value, muscle: muscle.value, equipment: equipment.value, units: units.value || null });
 
     closeSheet();
     toast(existing ? t('common.saved') : t('picker.added', { name: ex.name }));
@@ -126,6 +129,7 @@ export function newExerciseForm(prefillName = '', onCreated = null, existing = n
     el('label.field', {}, [el('span', { text: t('picker.field.name') }), name]),
     el('label.field', {}, [el('span', { text: t('picker.field.muscle') }), muscle]),
     el('label.field', {}, [el('span', { text: t('picker.field.equipment') }), equipment]),
+    el('label.field', {}, [el('span', { text: t('picker.field.units') }), units]),
     existing && !existing.isCustom
       ? el('div.small.faint', { style: { marginBottom: '12px' }, text: t('picker.regionsWarning') })
       : null,

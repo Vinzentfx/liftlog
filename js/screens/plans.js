@@ -30,6 +30,8 @@ const clonePlanItem = (item) => ({
   targetSets: item.targetSets,
   targetReps: item.targetReps,
   note: item.note || '',
+  progressionRule: item.progressionRule || 'double',
+  alternativeExerciseId: item.alternativeExerciseId || null,
 });
 
 export default function renderPlans({ param, actions }) {
@@ -212,6 +214,9 @@ function planView(planId) {
         el('div.small.faint', { text: t('plans.trainingDays', { n: plan.days.length }) }),
       ]),
       el('div.row', { style: { gap: '6px' } }, [
+        store.state.settings.planVersions?.[plan.id]?.length
+          ? el('button.btn.sm.ghost', { onclick: () => planVersionsSheet(plan) }, [t('plans.versions')])
+          : null,
         plan.days.some((d) => d.items.length)
           ? el('button.btn.sm.ghost', { onclick: () => shareSheet(plan) }, [t('common.share')])
           : null,
@@ -262,6 +267,32 @@ function planView(planId) {
   );
 
   return root;
+}
+
+function planVersionsSheet(plan) {
+  const versions = [...(store.state.settings.planVersions?.[plan.id] || [])].reverse();
+  const body = el('div', {}, [
+    el('div.small.muted', { style: { marginBottom: '12px' }, text: t('plans.versionsNote') }),
+    ...versions.map((version) => el('div.card.tight', {}, [
+      el('div.row.between', {}, [
+        el('div', {}, [
+          el('div', { style: { fontWeight: '650' }, text: new Date(version.savedAt).toLocaleString() }),
+          el('div.small.faint', { text: t('plans.versionDays', { n: version.days.length }) }),
+        ]),
+        el('button.btn.sm.ghost', { onclick: async () => {
+          const ok = await confirmSheet(t('plans.restoreVersion'), t('plans.restoreVersionBody'));
+          if (!ok) return;
+          plan.days = structuredClone(version.days);
+          plan.repTarget = version.repTarget;
+          plan.perWeek = version.perWeek;
+          await store.savePlan(plan);
+          closeSheet();
+          toast(t('plans.versionRestored'));
+        } }, [t('settings.restore')]),
+      ]),
+    ])),
+  ]);
+  openSheet(t('plans.versions'), body);
 }
 
 /** Star rating plus a plain-language breakdown of what works and what doesn't. */
@@ -492,12 +523,16 @@ function breakdownSheet(title, a) {
 
 function dayCard(plan, day, index) {
   const card = el('div.card');
+  const plannedMinutes = Math.max(1, Math.round(day.items.reduce((n, item) =>
+    n + (Number(item.targetSets) || 0) * (45 + Number(store.state.settings.restSeconds || 180)), 0) / 60));
 
   card.append(
     el('div.row.between', { style: { marginBottom: '10px' } }, [
       el('div.grow', {}, [
         el('div', { style: { fontWeight: '680', fontSize: '16px' }, text: day.name }),
-        el('div.small.faint', { text: tn(day.items.length, 'unit.exercise') }),
+        el('div.small.faint', { text: tn(day.items.length, 'unit.exercise')
+          + (store.state.settings.plannedDuration !== false && day.items.length
+            ? ` · ${t('plans.plannedMinutes', { n: plannedMinutes })}` : '') }),
       ]),
       el('button.btn.sm.primary', {
         onclick: async () => {
@@ -629,16 +664,22 @@ function itemMenu(plan, day, item, ex) {
     type: 'number', inputmode: 'numeric', min: '1', max: '20', value: item.targetSets,
   });
   const reps = el('input', { type: 'text', value: item.targetReps || '8-12', placeholder: t('plans.repsPlaceholder') });
+  const progression = el('select', {}, [
+    ['double', 'plans.progression.double'], ['reps', 'plans.progression.reps'],
+    ['weight', 'plans.progression.weight'], ['manual', 'plans.progression.manual'],
+  ].map(([value, key]) => el('option', { value, selected: (item.progressionRule || 'double') === value }, [t(key)])));
 
   const swaps = suggestSwaps(ex, store.state.exercises);
 
   const body = el('div', {}, [
     el('label.field', {}, [el('span', { text: t('plans.targetSets') }), sets]),
     el('label.field', {}, [el('span', { text: t('plans.targetReps') }), reps]),
+    el('label.field', {}, [el('span', { text: t('plans.progression') }), progression]),
     el('button.btn.primary.full', {
       onclick: async () => {
         item.targetSets = Math.max(1, Math.min(20, Number(sets.value) || 3));
         item.targetReps = reps.value.trim() || '8-12';
+        item.progressionRule = progression.value;
         await store.savePlan(plan);
         closeSheet();
       },
@@ -653,6 +694,14 @@ function itemMenu(plan, day, item, ex) {
           }),
         }, [t('plans.swapFor', { n: swaps.length })])
       : null,
+    el('button.btn.ghost.full', { style: { marginTop: '10px' }, onclick: () => pickExercise(async (pick) => {
+      item.alternativeExerciseId = pick.id;
+      await store.savePlan(plan);
+      closeSheet();
+      toast(t('plans.alternativeSaved', { name: pick.name }));
+    }, [item.exerciseId], item.alternativeExerciseId) }, [item.alternativeExerciseId
+      ? t('plans.changeAlternative', { name: store.state.exerciseById.get(item.alternativeExerciseId)?.name || '' })
+      : t('plans.setAlternative')]),
     el('div.stack', { style: { marginTop: '10px' } }, [
       el('button.btn.ghost.full', { disabled: itemIndex === 0, onclick: () => move(-1) }, [`↑ ${t('train.menu.up')}`]),
       el('button.btn.ghost.full', { disabled: itemIndex === day.items.length - 1, onclick: () => move(1) }, [`↓ ${t('train.menu.down')}`]),

@@ -71,6 +71,8 @@ export default function renderHome({ actions }) {
   // starting a new one silently reopens this one instead.
   if (stale) root.append(staleCard(stale));
 
+  if (s.regenerationEnabled) root.append(regenerationCard());
+
   // ---------- backup nudge ----------
   const backup = store.backupStatus();
   if (backup.due) {
@@ -209,6 +211,54 @@ export default function renderHome({ actions }) {
   );
 
   return root;
+}
+
+function regenerationCard() {
+  const today = new Date().toISOString().slice(0, 10);
+  const log = store.state.settings.regenerationLog || [];
+  const saved = log.find((x) => x.date === today);
+  return el('div.card', {}, [
+    el('div.row.between', {}, [
+      el('div', {}, [
+        el('div', { style: { fontWeight: '680' }, text: t('home.regeneration.title') }),
+        el('div.small.muted', { text: saved ? t('home.regeneration.done') : t('home.regeneration.body') }),
+      ]),
+      el('button.btn.sm.ghost', { onclick: () => regenerationSheet(saved) }, [saved ? t('common.edit') : t('home.regeneration.check')]),
+    ]),
+  ]);
+}
+
+function regenerationSheet(saved = {}) {
+  const number = (value, min, max, step = 1) => el('input', {
+    type: 'number', inputmode: 'decimal', min: String(min), max: String(max), step: String(step), value: value ?? '',
+  });
+  const sleep = number(saved.sleep, 0, 16, 0.5);
+  const quality = number(saved.quality, 1, 5);
+  const soreness = number(saved.soreness, 1, 5);
+  const motivation = number(saved.motivation, 1, 5);
+  const stress = number(saved.stress, 1, 5);
+  const fatigue = number(saved.fatigue, 1, 5);
+  const row = (label, input, hint) => el('label.field', {}, [el('span', { text: label }), input,
+    hint ? el('div.small.faint', { text: hint }) : null]);
+  openSheet(t('home.regeneration.title'), el('div', {}, [
+    el('div.small.muted', { style: { marginBottom: '12px' }, text: t('home.regeneration.disclaimer') }),
+    row(t('home.regeneration.sleep'), sleep),
+    row(t('home.regeneration.quality'), quality, t('home.regeneration.scale')),
+    row(t('home.regeneration.soreness'), soreness, t('home.regeneration.scale')),
+    row(t('home.regeneration.motivation'), motivation, t('home.regeneration.scale')),
+    row(t('home.regeneration.stress'), stress, t('home.regeneration.scale')),
+    row(t('home.regeneration.fatigue'), fatigue, t('home.regeneration.scale')),
+    el('button.btn.primary.full', { onclick: async () => {
+      const date = new Date().toISOString().slice(0, 10);
+      const next = (store.state.settings.regenerationLog || []).filter((x) => x.date !== date);
+      next.push({ date, sleep: Number(sleep.value) || null, quality: Number(quality.value) || null,
+        soreness: Number(soreness.value) || null, motivation: Number(motivation.value) || null,
+        stress: Number(stress.value) || null, fatigue: Number(fatigue.value) || null });
+      await store.setSetting('regenerationLog', next.slice(-120));
+      closeSheet();
+      toast(t('home.regeneration.saved'));
+    } }, [t('common.save')]),
+  ]));
 }
 
 function wayIn(title, sub, onclick) {
