@@ -158,6 +158,11 @@ export async function load() {
  * silent and total: no colour on the muscle map, no volume in a plan's rating,
  * and a zero-muscle score in the exercise rating. Fixed at creation time now;
  * this repairs what is already stored.
+ *
+ * v3 — repair catalogue metadata: Bodyweight Flyes used rolling EZ-bars as
+ * handles and was incorrectly filtered/scored as a barbell exercise; imported
+ * instruction headings also appeared as literal HTML text. Hip adduction gets
+ * its real target region instead of an empty muscle map.
  */
 async function migrate() {
   const from = Number(state.settings.dataVersion) || 1;
@@ -185,6 +190,31 @@ async function migrate() {
       await db.putMany(db.STORES.exercises, repaired);
       console.info(`[liftlog] migration v2: regions restored on ${repaired.length} exercises`);
     }
+  }
+
+  if (from < 3) {
+    const seedByName = new Map(seedExercises(db.uid).map((e) => [normName(e.name), e]));
+    const repaired = [];
+    for (const ex of state.exercises) {
+      const match = seedByName.get(normName(ex.name));
+      if (!match || ex.isCustom) continue;
+      let changed = false;
+      if (/bodyweight (fly|flye)/i.test(ex.name) && ex.equipment !== 'Bodyweight') {
+        ex.equipment = 'Bodyweight';
+        changed = true;
+      }
+      if (ex.name === 'Machine Hip Adduction' && !(ex.primary || []).includes('adductors')) {
+        ex.primary = match.primary;
+        ex.secondary = match.secondary;
+        changed = true;
+      }
+      if ((ex.instructions || []).some((step) => /<[^>]+>/.test(step))) {
+        ex.instructions = match.instructions;
+        changed = true;
+      }
+      if (changed) repaired.push(ex);
+    }
+    if (repaired.length) await db.putMany(db.STORES.exercises, repaired);
   }
 
   state.settings.dataVersion = DATA_VERSION;

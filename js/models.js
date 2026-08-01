@@ -174,6 +174,18 @@ const SEED = [
   ['Machine Hip Adduction', 'Quads', 'Machine'],
   ['Machine Back Extension', 'Hamstrings', 'Machine'],
   ['Machine Crunch', 'Core', 'Machine'],
+
+  // Modern gym staples missing from both imported catalogues. These fill real
+  // programming gaps rather than adding near-duplicate grip variants.
+  ['Pendulum Squat', 'Quads', 'Machine'],
+  ['Belt Squat', 'Quads', 'Machine'],
+  ['Smith Machine Romanian Deadlift', 'Hamstrings', 'Machine'],
+  ['Bayesian Cable Curl', 'Biceps', 'Cable'],
+  ['Cross-Body Cable Lateral Raise', 'Shoulders', 'Cable'],
+  ['Single-Arm Lat Pulldown', 'Back', 'Cable'],
+  ['Reverse Nordic Curl', 'Quads', 'Bodyweight'],
+  ['Glute-Biased 45-Degree Back Extension', 'Glutes', 'Other'],
+  ['Cable Y-Raise', 'Shoulders', 'Cable'],
 ];
 
 /** Coarse muscle -> body-map regions, for the curated seed entries. */
@@ -195,7 +207,7 @@ export function regionsForMuscle(muscle) {
 }
 
 /** Bumped whenever the bundled catalogue changes, to top up existing installs. */
-export const LIBRARY_VERSION = 8;
+export const LIBRARY_VERSION = 9;
 
 /**
  * Bumped for one-off repairs to *stored* records, independently of the
@@ -203,7 +215,7 @@ export const LIBRARY_VERSION = 8;
  * when the exercise list itself has not changed, and bumping the catalogue
  * version to trigger a migration would re-run the top-up for no reason.
  */
-export const DATA_VERSION = 2;
+export const DATA_VERSION = 3;
 
 /**
  * The curated list first — the strength standards are keyed by those exact
@@ -233,6 +245,7 @@ function tokenSet(name) {
  * or the coarse fallback, never from a guess.
  */
 function borrowInstructions(name) {
+  if (MANUAL_INSTRUCTIONS[name]) return MANUAL_INSTRUCTIONS[name];
   const want = tokenSet(name);
   if (!want.size) return [];
   let best = null, score = 0;
@@ -247,6 +260,18 @@ function borrowInstructions(name) {
   }
   return score >= 0.7 && best ? best.i : [];
 }
+
+const MANUAL_INSTRUCTIONS = {
+  'Pendulum Squat': ['Set the shoulder pads so you can reach a deep knee bend without your heels lifting.', 'Keep your back against the pad and lower under control until your knees are deeply flexed.', 'Drive through the platform and stop just short of relaxing at lockout.'],
+  'Belt Squat': ['Fasten the belt securely and stand centred on the platform.', 'Sit down between your hips while keeping your whole foot planted.', 'Stand by extending knees and hips without using the handles to pull yourself up.'],
+  'Smith Machine Romanian Deadlift': ['Set the bar around mid-thigh and stand close enough that it tracks over your mid-foot.', 'Push your hips back with soft knees while keeping the bar close to your legs.', 'Stop when the hamstrings are fully stretched without rounding, then extend the hips to stand.'],
+  'Bayesian Cable Curl': ['Set a cable near the floor and stand one step in front of it with the working arm behind your torso.', 'Keep the upper arm behind you and curl without letting the shoulder move forward.', 'Lower fully under control until the biceps is lengthened.'],
+  'Cross-Body Cable Lateral Raise': ['Take the cable in the hand furthest from the low pulley so it crosses in front of your body.', 'Lead with the elbow and raise the arm out to the side without shrugging.', 'Lower across the body under control to keep tension in the lengthened position.'],
+  'Single-Arm Lat Pulldown': ['Kneel or sit beside a high pulley and brace your torso.', 'Start with the shoulder blade elevated and the arm reaching overhead.', 'Drive the elbow toward your hip, pause, then allow a full controlled reach at the top.'],
+  'Reverse Nordic Curl': ['Kneel on padding with hips fully extended and the torso in line with the thighs.', 'Lean the whole body backward from the knees without bending at the hips.', 'Use the quadriceps to reverse the movement before losing control.'],
+  'Glute-Biased 45-Degree Back Extension': ['Set the pad below the hip crease and anchor your feet.', 'Round slightly through the upper back and lower by flexing at the hips.', 'Drive the hips into the pad and stop when the glutes are contracted, without hyperextending the lower back.'],
+  'Cable Y-Raise': ['Set two low cables and take the opposite handle in each hand.', 'With soft elbows, raise the arms up and out into a Y without shrugging.', 'Lower slowly until the arms cross lightly in front of the body.'],
+};
 
 /**
  * Regions for a curated lift: the hand-written anatomy table first, coarse
@@ -301,10 +326,10 @@ export function seedExercises(uid) {
       id: uid('ex_'),
       name: item.n,
       muscle: item.m,
-      equipment: item.e,
+      equipment: /bodyweight (fly|flye)/i.test(item.n) ? 'Bodyweight' : item.e,
       primary: refined.primary,
       secondary: refined.secondary,
-      instructions: item.i || [],
+      instructions: cleanInstructions(item.i || []),
       mech: item.mech || null,
       level: item.lvl || null,
       isCustom: false,
@@ -312,6 +337,13 @@ export function seedExercises(uid) {
     });
   }
   return out;
+}
+
+function cleanInstructions(steps) {
+  return steps
+    .map((step) => String(step).replace(/<[^>]*>/g, '').replace(/\u00a0/g, ' ').trim())
+    .filter(Boolean)
+    .filter((step) => !/^(steps?|tip)$/i.test(step));
 }
 
 export function normName(name) {

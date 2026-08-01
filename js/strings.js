@@ -130,6 +130,7 @@ export const STRINGS = {
     'region.quads': 'Quads',
     'region.hamstrings': 'Hamstrings',
     'region.calves': 'Calves',
+    'region.adductors': 'Adductors',
 
     // ---------- strength tiers ----------
     'tier.beginner': 'Beginner',
@@ -948,6 +949,9 @@ export const STRINGS = {
     'evidence.haugen2023.short': 'Haugen et al. 2023, machines vs free weights',
     'evidence.haugen2023.note': '13 studies; hypertrophy outcomes from 5 of them.',
     'evidence.haugen2023.says': 'At equal volume and effort, machines and free weights build the same amount of muscle. Equipment is a question of loading convenience and comfort, not of growth.',
+    'evidence.anderson2004.short': 'Anderson & Behm 2004, resistance under instability',
+    'evidence.anderson2004.note': 'Acute chest-press experiment with 10 men; force and EMG, not long-term muscle growth.',
+    'evidence.anderson2004.says': 'An unstable setup reduced maximum force output by 59.6% without increasing overall prime-mover EMG. This does not prove less hypertrophy, but it supports treating excessive instability as a practical limit on target-muscle loading rather than a bonus.',
     'evidence.robinson2024.short': 'Robinson et al. 2024, proximity to failure',
     'evidence.robinson2024.note': '55 hypertrophy and 67 strength studies.',
     'evidence.robinson2024.says': 'The closer a set is taken to failure, the more it grows the muscle: a gradient, not a switch. Strength barely cares. So how hard the set is matters more than which rep range it lands in.',
@@ -1027,6 +1031,14 @@ export const STRINGS = {
     'science.singleJoint': 'Single joint, so the muscle you are training is what fails',
     'science.supported': 'Supported, so the target muscle is what runs out',
     'science.multiJoint': 'Multi-joint, but nothing obvious gives out before the target',
+    'science.unstableLimiter': 'Balance and implement control can end the set before the target muscle does',
+    'science.gluteBiasedBackExtension': 'With the hip-driven setup, the glutes are intended to reach the limit before the lower back',
+    'science.gluteBiasedBackExtensionLength': 'Deep hip flexion loads the glutes in a lengthened position',
+    'science.stabilityUnstable': 'The setup can roll or swing, so control may end the set before the target muscle reaches a productive limit',
+    'science.stabilityDemanding': 'Balance and torso control take a meaningful share of the effort',
+    'science.stabilitySupported': 'Externally supported, so balance is unlikely to hide the target muscle’s effort',
+    'science.stabilityStable': 'A stable bench or cable path keeps the movement repeatable while the target still controls the load',
+    'science.stabilityNormal': 'No unusual stability advantage or limitation is known, so this is scored neutrally',
 
 
     // ---------- exercise rating ----------
@@ -1039,6 +1051,7 @@ export const STRINGS = {
     'exRating.lengthUnclassified': 'Not classified, so scored neutrally rather than guessed at',
     'exRating.pairStretched': '{why}. Pair it with something that loads the same muscle stretched.',
     'exRating.limiter': 'Target muscle is the limit',
+    'exRating.stability': 'Stability for target-muscle effort',
     'exRating.progression': 'Progression you can track',
     'exRating.fineSteps': 'Loads in small steps, so week-to-week progress is a number',
     'exRating.bodyweightProgress': 'Bodyweight, so you progress in reps until you can hang plates on it',
@@ -1100,6 +1113,8 @@ export const STRINGS = {
     'planRating.longShareLow': 'Only {pct}% of sets load a muscle stretched. Swapping a few short-position movements (pushdowns, hip thrusts, lateral raises) for stretched ones (overhead extensions, deep split squats, incline curls) is free growth at the same volume.',
     'planRating.starsGood': 'Exercise selection averages {stars} stars',
     'planRating.starsLow': 'Exercise selection averages only {stars} stars. Open a few in the Library to see what is dragging them down.',
+    'planRating.stabilityGood': '{pct}% of the plan’s sets use a stable or externally supported setup',
+    'planRating.stabilityLow': 'Only {pct}% of the plan’s sets use a stable setup. Replace the most balance-limited isolation movements before adding more volume.',
     'planRating.oneMovement': 'All {muscles} volume comes from one movement. Muscles grow unevenly, so a second angle covers more of it.',
     'planRating.repFlags': 'Rep targets outside {low}–{high} on {exercises}. Anything inside that window grows muscle if the set is taken close to failure; outside it you are training something else.',
     'planRating.pushHeavy': 'More pushing than pulling volume, and the reverse is kinder to your shoulders',
@@ -1549,6 +1564,7 @@ export const STRINGS = {
     'region.quads': 'Quadrizeps',
     'region.hamstrings': 'Beinbeuger',
     'region.calves': 'Waden',
+    'region.adductors': 'Adduktoren',
 
     // ---------- strength tiers ----------
     // The ladder has to read as monotonically rising in German too, which rules
@@ -2370,6 +2386,9 @@ export const STRINGS = {
     'evidence.haugen2023.short': 'Haugen et al. 2023, Maschinen gegen freie Gewichte',
     'evidence.haugen2023.note': '13 Studien; Hypertrophie-Ergebnisse aus fünf davon.',
     'evidence.haugen2023.says': 'Bei gleichem Volumen und gleicher Anstrengung bauen Maschinen und freie Gewichte gleich viel Muskel auf. Das Gerät ist eine Frage der Handhabung und Bequemlichkeit, nicht des Wachstums.',
+    'evidence.anderson2004.short': 'Anderson & Behm 2004, Widerstand unter Instabilität',
+    'evidence.anderson2004.note': 'Akuter Brustdrück-Versuch mit zehn Männern; Kraft und EMG, kein langfristiges Muskelwachstum.',
+    'evidence.anderson2004.says': 'Ein instabiler Aufbau senkte die Maximalkraft um 59,6 %, ohne die gesamte EMG-Aktivität der Hauptmuskeln zu erhöhen. Das beweist nicht weniger Hypertrophie, spricht aber dafür, übermäßige Instabilität als praktische Grenze der Zielmuskelbelastung und nicht als Bonus zu behandeln.',
     'evidence.robinson2024.short': 'Robinson et al. 2024, Nähe zum Muskelversagen',
     'evidence.robinson2024.note': '55 Hypertrophie- und 67 Kraftstudien.',
     'evidence.robinson2024.says': 'Je näher ein Satz ans Limit geht, desto mehr wächst der Muskel: ein Verlauf, kein Schalter. Der Kraft ist das fast egal. Wie hart der Satz ist zählt also mehr als der Wiederholungsbereich, in dem er landet.',
@@ -2449,6 +2468,14 @@ export const STRINGS = {
     'science.singleJoint': 'Eingelenkig, es versagt also der Muskel, den du trainierst',
     'science.supported': 'Abgestützt, es geht also dem Zielmuskel aus',
     'science.multiJoint': 'Mehrgelenkig, aber nichts Offensichtliches gibt vor dem Zielmuskel auf',
+    'science.unstableLimiter': 'Gleichgewicht und Gerätekontrolle können den Satz vor dem Zielmuskel beenden',
+    'science.gluteBiasedBackExtension': 'Bei hüftbetonter Ausführung sollen die Gesäßmuskeln vor dem unteren Rücken das Limit erreichen',
+    'science.gluteBiasedBackExtensionLength': 'Tiefe Hüftbeugung belastet die Gesäßmuskeln in einer verlängerten Position',
+    'science.stabilityUnstable': 'Der Aufbau kann rollen oder schwingen, dadurch kann die Kontrolle den Satz beenden, bevor der Zielmuskel ein produktives Limit erreicht',
+    'science.stabilityDemanding': 'Gleichgewicht und Rumpfkontrolle nehmen einen merklichen Teil der Anstrengung ein',
+    'science.stabilitySupported': 'Von außen stabilisiert, Gleichgewicht verdeckt die Anstrengung des Zielmuskels daher kaum',
+    'science.stabilityStable': 'Eine stabile Bank oder Kabelführung hält die Bewegung wiederholbar, während der Zielmuskel die Last kontrolliert',
+    'science.stabilityNormal': 'Kein ungewöhnlicher Stabilitätsvorteil oder Nachteil bekannt, deshalb neutral bewertet',
 
 
     // ---------- exercise rating ----------
@@ -2461,6 +2488,7 @@ export const STRINGS = {
     'exRating.lengthUnclassified': 'Nicht eingeordnet, also neutral bewertet statt geraten',
     'exRating.pairStretched': '{why}. Kombinier sie mit etwas, das denselben Muskel gedehnt belastet.',
     'exRating.limiter': 'Der Zielmuskel ist die Grenze',
+    'exRating.stability': 'Stabilität für die Zielmuskelbelastung',
     'exRating.progression': 'Fortschritt, den du messen kannst',
     'exRating.fineSteps': 'Lässt sich in kleinen Schritten laden, der Fortschritt von Woche zu Woche ist also eine Zahl',
     'exRating.bodyweightProgress': 'Körpergewicht, du steigerst also über Wiederholungen, bis du Scheiben dranhängen kannst',
@@ -2522,6 +2550,8 @@ export const STRINGS = {
     'planRating.longShareLow': 'Nur {pct}% der Sätze belasten einen Muskel gedehnt. Ein paar Bewegungen aus der kurzen Position (Pushdowns, Hip Thrusts, Seitheben) gegen gedehnte zu tauschen (Überkopfstrecken, tiefe Split Squats, Incline Curls) ist Wachstum umsonst, bei gleichem Volumen.',
     'planRating.starsGood': 'Die Übungsauswahl liegt im Schnitt bei {stars} Sternen',
     'planRating.starsLow': 'Die Übungsauswahl liegt im Schnitt bei nur {stars} Sternen. Öffne ein paar in der Bibliothek, dann siehst du, was sie herunterzieht.',
+    'planRating.stabilityGood': '{pct} % der Sätze nutzen einen stabilen oder von außen gestützten Aufbau',
+    'planRating.stabilityLow': 'Nur {pct} % der Sätze nutzen einen stabilen Aufbau. Tausch zuerst die am stärksten vom Gleichgewicht begrenzten Isolationsübungen, bevor du mehr Volumen ergänzt.',
     'planRating.oneMovement': 'Das gesamte Volumen für {muscles} kommt aus einer einzigen Bewegung. Muskeln wachsen ungleichmäßig, ein zweiter Winkel deckt also mehr davon ab.',
     'planRating.repFlags': 'Wiederholungsziele außerhalb von {low}–{high} bei {exercises}. Alles innerhalb dieses Fensters baut Muskeln auf, wenn der Satz nahe ans Limit geht; außerhalb trainierst du etwas anderes.',
     'planRating.pushHeavy': 'Mehr Druck- als Zugvolumen, und andersherum ist es freundlicher zu deinen Schultern',

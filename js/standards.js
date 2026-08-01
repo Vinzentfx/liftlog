@@ -39,6 +39,7 @@ export const REGIONS = {
   quads:       'Quads',
   hamstrings:  'Hamstrings',
   calves:      'Calves',
+  adductors:   'Adductors',
 };
 
 /**
@@ -153,9 +154,18 @@ export const CONTRIB_EXTRA = {
 
   // --- lower body and core ---
   'Machine Hip Abduction':     { glutes: 1 },
-  'Machine Hip Adduction':     { quads: 0.6, glutes: 0.4 },
+  'Machine Hip Adduction':     { adductors: 1 },
   'Machine Crunch':            { abs: 1, obliques: 0.35 },
   'Machine Back Extension':    { 'lower-back': 1, glutes: 0.6, hamstrings: 0.5 },
+  'Pendulum Squat':            { quads: 1, glutes: 0.65 },
+  'Belt Squat':                { quads: 1, glutes: 0.65 },
+  'Smith Machine Romanian Deadlift': { hamstrings: 1, glutes: 0.8, 'lower-back': 0.35 },
+  'Bayesian Cable Curl':       { biceps: 1, forearms: 0.2 },
+  'Cross-Body Cable Lateral Raise': { 'delts-front': 1, traps: 0.25 },
+  'Single-Arm Lat Pulldown':   { lats: 1, biceps: 0.5, 'delts-rear': 0.25 },
+  'Reverse Nordic Curl':       { quads: 1, abs: 0.25 },
+  'Glute-Biased 45-Degree Back Extension': { glutes: 1, hamstrings: 0.7, 'lower-back': 0.3 },
+  'Cable Y-Raise':             { 'delts-front': 1, traps: 0.45 },
 };
 
 /** Anatomy for any curated movement, benchmark or not. */

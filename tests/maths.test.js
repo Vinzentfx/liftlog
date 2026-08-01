@@ -25,9 +25,10 @@ import assert from 'node:assert/strict';
 // Set before any Date is constructed; imports above only define functions.
 process.env.TZ = 'Europe/Berlin';
 
-const { e1rm, isCounted, startOfWeek, entryStats, newMeal, dayKey, slotFor } = await import('../js/models.js');
+const { e1rm, isCounted, startOfWeek, entryStats, newMeal, dayKey, slotFor, seedExercises } = await import('../js/models.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
+const { rateExercise } = await import('../js/exercise-rating.js');
 const { regionProgress } = await import('../js/region-progress.js');
 const { bodyweightAt, strengthAt, strengthHistory } = await import('../js/history.js');
 const { decodeLink, planLink, resolveAgainstLibrary } = await import('../js/plan-share.js');
@@ -43,6 +44,41 @@ const { warmupSets, warmupCount } = await import('../js/warmup.js');
 const { stallReport, describeStall } = await import('../js/fatigue.js');
 const { setLanguage } = await import('../js/i18n.js');
 const { timeline, timelineReady, MIN_LOGGED_DAYS } = await import('../js/timeline.js');
+
+test('a stable machine fly outranks the rolling bodyweight fly', () => {
+  const common = { muscle: 'Chest', primary: ['chest'], instructions: ['Controlled reps'] };
+  const unstable = rateExercise({ ...common, name: 'Bodyweight Flyes', equipment: 'Barbell',
+    secondary: ['abs', 'delts-front', 'triceps'], mech: 'isolation' });
+  const machine = rateExercise({ ...common, name: 'Butterfly', equipment: 'Machine',
+    secondary: [], mech: 'isolation' });
+  assert.ok(machine.stars >= unstable.stars + 1.5);
+  assert.equal(unstable.stability.level, 'unstable');
+  assert.equal(machine.stability.level, 'supported');
+  assert.equal(unstable.criteria.find((c) => c.label === 'exRating.progression').points, 0.5);
+});
+
+test('stabilizer tags do not turn an isolation movement into a compound bonus', () => {
+  const rating = rateExercise({ name: 'Bodyweight Flyes', muscle: 'Chest', equipment: 'Barbell',
+    primary: ['chest'], secondary: ['abs', 'delts-front', 'triceps'], mech: 'isolation', instructions: ['x'] });
+  assert.equal(rating.criteria.find((c) => c.label === 'exRating.breadth').points, 0.5);
+});
+
+test('the curated catalogue keeps corrected anatomy, equipment and plain instructions', () => {
+  let id = 0;
+  const catalogue = seedExercises(() => `exercise_${++id}`);
+  const byName = new Map(catalogue.map((exercise) => [exercise.name, exercise]));
+  const additions = [
+    'Pendulum Squat', 'Belt Squat', 'Smith Machine Romanian Deadlift',
+    'Bayesian Cable Curl', 'Cross-Body Cable Lateral Raise', 'Single-Arm Lat Pulldown',
+    'Reverse Nordic Curl', 'Glute-Biased 45-Degree Back Extension', 'Cable Y-Raise',
+  ];
+
+  additions.forEach((name) => assert.ok(byName.has(name), `${name} is missing`));
+  assert.equal(byName.get('Bodyweight Flyes').equipment, 'Bodyweight');
+  assert.deepEqual(byName.get('Machine Hip Adduction').primary, ['adductors']);
+  assert.equal(catalogue.some((exercise) => !exercise.primary?.length), false);
+  assert.equal(catalogue.some((exercise) => exercise.instructions?.some((step) => /<\/?(?:h\d|p|li|div|br)\b/i.test(step))), false);
+});
 
 const INDIRECT = THRESHOLDS.indirectSetWeight.value;
 

@@ -48,6 +48,14 @@ export const SOURCES = {
     url: 'https://link.springer.com/article/10.1186/s13102-023-00713-4',
     says: 'evidence.haugen2023.says',
   },
+  anderson2004: {
+    key: 'anderson2004',
+    short: 'evidence.anderson2004.short',
+    cite: 'Anderson KG, Behm DG. Maintenance of EMG activity and loss of force output with instability. Journal of Strength and Conditioning Research, 2004.',
+    note: 'evidence.anderson2004.note',
+    url: 'https://pubmed.ncbi.nlm.nih.gov/15320684/',
+    says: 'evidence.anderson2004.says',
+  },
   robinson2024: {
     key: 'robinson2024',
     short: 'evidence.robinson2024.short',

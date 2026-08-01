@@ -23,7 +23,7 @@
 //     any single muscle harder.
 
 import { isBenchmark } from './standards.js';
-import { lengthBias, limiter, LENGTH_LABEL } from './exercise-science.js';
+import { lengthBias, limiter, stability, LENGTH_LABEL } from './exercise-science.js';
 import { t, tn } from './i18n.js';
 import { SOURCES } from './evidence.js';
 import { starString } from './ui.js';
@@ -39,15 +39,24 @@ const LOADABILITY = {
   Bodyweight: 1, Bands: 0.5, Other: 1,
 };
 
+function loadability(ex) {
+  // Imported Bodyweight Flyes use rolling EZ-bars as handles. The bars do not
+  // make the movement externally loadable; leverage and reps are the only
+  // practical progression, and instability changes between repetitions.
+  if (/bodyweight (fly|flye)/i.test(ex.name || '')) return 0.5;
+  if (/suspension|trx|ring (fly|push)/i.test(ex.name || '')) return 0.5;
+  return LOADABILITY[ex.equipment] ?? 1;
+}
+
 // Points available on paper. Nothing real scores at either end of that range —
 // the criteria pull against each other, so a movement that is target-limited is
 // usually not the one covering five muscle regions. Stars are therefore mapped
 // from the window real exercises actually occupy; anchoring them to 0 and 9.5
 // would squash every movement in the catalogue between three and four stars,
 // which is a scale that tells you nothing.
-const MAX_SCORE = 9.5;
+const MAX_SCORE = 10.5;
 const STAR_FLOOR = 2.5;
-const STAR_CEIL = 8.5;
+const STAR_CEIL = 9;
 
 /**
  * @returns {{stars:number, score:number, max:number, criteria:object[],
@@ -97,8 +106,19 @@ export function rateExercise(ex) {
   if (limit.level === 'target') reasons.push(t(limit.why));
   if (limit.level === 'other') caveats.push(t(limit.why));
 
-  // ---- 3. progression you can measure (0–2) ----
-  const loadPoints = LOADABILITY[ex.equipment] ?? 1;
+  // ---- 3. stability for target-muscle effort (0–1.5) ----
+  const stable = stability(ex);
+  criteria.push({
+    label: 'exRating.stability',
+    points: stable.points, max: 1.5,
+    detail: stable.why,
+    source: SOURCES.anderson2004,
+  });
+  if (stable.level === 'supported') reasons.push(t(stable.why));
+  if (stable.level === 'unstable' || stable.level === 'demanding') caveats.push(t(stable.why));
+
+  // ---- 4. progression you can measure (0–2) ----
+  const loadPoints = loadability(ex);
   criteria.push({
     label: 'exRating.progression',
     points: loadPoints, max: 2,
@@ -113,20 +133,23 @@ export function rateExercise(ex) {
   });
   if (ex.equipment === 'Bands') caveats.push(t('exRating.bandCaveat'));
 
-  // ---- 4. muscle covered per set (0–1.5) ----
+  // ---- 5. productive muscle coverage per set (0–1) ----
   const regions = (ex.primary || []).length + (ex.secondary || []).length;
-  const compound = ex.mech === 'compound' || regions >= 4;
-  const breadthPoints = compound ? 1.5 : regions >= 2 ? 1 : 0.5;
+  // Stabilizers listed as secondary regions must not turn an isolation exercise
+  // into a high-efficiency compound. That was the second reason Bodyweight
+  // Flyes outranked the pec deck.
+  const compound = ex.mech === 'compound';
+  const breadthPoints = compound ? 1 : (ex.primary || []).length >= 2 ? 0.75 : 0.5;
   criteria.push({
     label: 'exRating.breadth',
-    points: breadthPoints, max: 1.5,
-    detail: compound ? 'exRating.compound' : regions >= 2 ? 'exRating.twoGroups' : 'exRating.isolation',
+    points: breadthPoints, max: 1,
+    detail: compound ? 'exRating.compound' : (ex.primary || []).length >= 2 ? 'exRating.twoGroups' : 'exRating.isolation',
     detailParams: compound ? { regions: tn(regions, 'unit.region') } : null,
     source: SOURCES.pelland2026,
   });
   if (compound) reasons.push(t('exRating.compoundReason'));
 
-  // ---- 5. published strength standards (0–0.5) ----
+  // ---- 6. published strength standards (0–0.5) ----
   const benchmark = isBenchmark(ex.name);
   criteria.push({
     label: 'exRating.standards',
@@ -143,7 +166,7 @@ export function rateExercise(ex) {
 
   const rating = {
     stars, score, max: MAX_SCORE, band: [STAR_FLOOR, STAR_CEIL],
-    criteria, reasons, caveats, length, limit,
+    criteria, reasons, caveats, length, limit, stability: stable,
   };
   CACHE.set(ex, { sig, rating });
   return rating;

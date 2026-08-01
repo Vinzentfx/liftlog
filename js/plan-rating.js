@@ -109,6 +109,7 @@ export function analysePlan(plan, byId, perWeek = plan.perWeek || 1) {
   let starSum = 0;          // sets-weighted
   let longSets = 0;
   let shortSets = 0;
+  let stableSets = 0;
   let ratedSets = 0;
 
   for (const day of plan.days || []) {
@@ -132,6 +133,7 @@ export function analysePlan(plan, byId, perWeek = plan.perWeek || 1) {
         ratedSets += sets;
         if (rating.length.bias === 'long') longSets += sets;
         if (rating.length.bias === 'short') shortSets += sets;
+        if (rating.stability?.level !== 'unstable' && rating.stability?.level !== 'demanding') stableSets += sets;
       }
 
       const reps = repRange(item.targetReps);
@@ -176,7 +178,10 @@ export function analysePlan(plan, byId, perWeek = plan.perWeek || 1) {
   // ---- exercise selection (15%) ----
   const meanStars = ratedSets ? starSum / ratedSets : 0;
   const longShare = totalSets ? longSets / totalSets : 0;
-  const selScore = ratedSets ? 0.7 * ((meanStars - 1) / 4) + 0.3 * longShare : 0;
+  const stableShare = totalSets ? stableSets / totalSets : 0;
+  const selScore = ratedSets
+    ? 0.7 * ((meanStars - 1) / 4) + 0.2 * longShare + 0.1 * stableShare
+    : 0;
 
   // ---- variety (10%) ----
   const varScore = trained.length ? avg(trained.map((r) => {
@@ -208,7 +213,7 @@ export function analysePlan(plan, byId, perWeek = plan.perWeek || 1) {
     volume, frequency, peakSession,
     exercisesPer: Object.fromEntries(Object.entries(exercisesPer).map(([k, v]) => [k, v.size])),
     sessions, totalSets: totalSets * perWeek, exerciseCount,
-    trained, untrained, meanStars, longShare, shortSets, repFlags, perWeek,
+    trained, untrained, meanStars, longShare, stableShare, shortSets, repFlags, perWeek,
   };
   return { ...a, ...verdict(a) };
 }
@@ -275,6 +280,10 @@ function verdict(a) {
   if (a.meanStars >= 3.75) good.push(t('planRating.starsGood', { stars: a.meanStars.toFixed(1) }));
   else if (a.exerciseCount && a.meanStars < 2.75) {
     missing.push(t('planRating.starsLow', { stars: a.meanStars.toFixed(1) }));
+  }
+  if (a.stableShare >= 0.6) good.push(t('planRating.stabilityGood', { pct: Math.round(a.stableShare * 100) }));
+  else if (a.exerciseCount && a.stableShare < 0.25) {
+    missing.push(t('planRating.stabilityLow', { pct: Math.round(a.stableShare * 100) }));
   }
 
   // --- variety ---

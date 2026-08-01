@@ -51,6 +51,8 @@ const LENGTH_RULES = [
     bias: LONG, why: 'science.skullCrusherNose' },
   { re: /romanian deadlift|\brdl\b|stiff[- ]?leg|straight[- ]?leg deadlift|good morning|nordic|glute[- ]?ham|pull[- ]?through/i,
     bias: LONG, why: 'science.romanianDeadliftBrdl' },
+  { re: /glute[- ]?biased.{0,20}back extension/i,
+    bias: LONG, why: 'science.gluteBiasedBackExtensionLength' },
   { re: /seated leg curl/i,
     bias: LONG, why: 'science.seatedLegCurl' },
   { re: /pec deck|chest fly|cable (cross|fly|flye)|dumbbell (fly|flye)|\bflyes?\b|butterfly|iron cross|cross[- ]?over/i,
@@ -119,6 +121,10 @@ const LENGTH_RULES = [
  * and the UI labels it as one.
  */
 const LIMITER_RULES = [
+  { re: /bodyweight (fly|flye)|stability ball|swiss ball|bosu|suspension|trx|ring (fly|push)/i,
+    level: 'other', why: 'science.unstableLimiter' },
+  { re: /glute[- ]?biased.{0,20}back extension/i,
+    level: 'target', why: 'science.gluteBiasedBackExtension' },
   { re: /deadlift|rack pull|snatch[- ]?grip|farmer|shrug/i,
     level: 'other', why: 'science.deadliftRackPull' },
   { re: /(bent[- ]?over|pendlay|barbell) row|t[- ]?bar/i,
@@ -169,6 +175,40 @@ export function limiter(ex) {
     return { level: 'target', why: 'science.supported', classified: true };
   }
   return { level: 'mixed', why: 'science.multiJoint', classified: false };
+}
+
+/**
+ * How much the setup lets the target muscle express effort without balance or
+ * implement control ending the set. This is a practical quality, not proof
+ * that machines grow more than free weights at matched effort.
+ */
+const STABILITY_RULES = [
+  { re: /bodyweight (fly|flye)|ring (fly|push)|suspension|trx|swiss ball|bosu|stability ball|exercise ball/i,
+    level: 'unstable', points: 0, why: 'science.stabilityUnstable' },
+  { re: /one[- ]?arm.{0,24}(fly|flye)|renegade row|overhead squat|single[- ]?leg.{0,18}(deadlift|rdl)/i,
+    level: 'demanding', points: 0.5, why: 'science.stabilityDemanding' },
+  { re: /chest[- ]?supported|machine|pec deck|butterfly|smith|seated leg|lying leg|leg (press|extension|curl)/i,
+    level: 'supported', points: 1.5, why: 'science.stabilitySupported' },
+  { re: /(lying|seated|incline|decline|bench).{0,24}(fly|flye|curl|extension|press)|cable (fly|flye|cross)/i,
+    level: 'stable', points: 1.25, why: 'science.stabilityStable' },
+  { re: /glute[- ]?biased.{0,20}back extension/i,
+    level: 'stable', points: 1.25, why: 'science.stabilityStable' },
+  { re: /(bent[- ]?over|pendlay|barbell) row|good morning|standing.{0,18}(press|raise)|walking lunge/i,
+    level: 'demanding', points: 0.75, why: 'science.stabilityDemanding' },
+];
+
+export function stability(ex) {
+  const name = ex?.name || '';
+  for (const rule of STABILITY_RULES) {
+    if (rule.re.test(name)) return { level: rule.level, points: rule.points, why: rule.why, classified: true };
+  }
+  if (ex?.equipment === 'Machine') {
+    return { level: 'supported', points: 1.5, why: 'science.stabilitySupported', classified: true };
+  }
+  if (ex?.equipment === 'Cable') {
+    return { level: 'stable', points: 1.25, why: 'science.stabilityStable', classified: true };
+  }
+  return { level: 'normal', points: 1, why: 'science.stabilityNormal', classified: false };
 }
 
 // Keys, resolved by the caller. See js/strings.js.
