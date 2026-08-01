@@ -276,6 +276,7 @@ export function renderSettings() {
 
     el('div.section-head', {}, [el('h2', { text: t('settings.backup') })]),
     el('div.small.muted', { style: { marginBottom: '10px' }, text: t('settings.backupNote') }),
+    viewportLine(),
     storageLine(),
     counts,
     lastExportLine(),
@@ -355,6 +356,36 @@ export function renderSettings() {
  * seven-day eviction and gets a browser-sized quota. Saying "Safari will wipe
  * this" when it will not just teaches you to ignore the warnings that matter.
  */
+/**
+ * Temporary instrument, not a feature. Remove once the iOS tab-bar gap is
+ * settled.
+ *
+ * It draws nothing at all unless the app viewport actually disagrees with the
+ * screen, which is the one thing that cannot be measured from a laptop and the
+ * difference between "the bar reserves too much space" and "the layout is
+ * shorter than the phone". A diagnostic that is invisible when everything is
+ * fine is worth having; one that is always visible is clutter.
+ */
+function viewportLine() {
+  const inner = Math.round(window.innerHeight);
+  const client = Math.round(document.documentElement.clientHeight);
+  const app = Math.round(document.getElementById('app')?.getBoundingClientRect().height || 0);
+  const probe = el('div', { style: { position: 'fixed', top: '-9999px', height: '100dvh' } });
+  document.body.append(probe);
+  const dvh = Math.round(probe.getBoundingClientRect().height);
+  probe.remove();
+  const inset = getComputedStyle(document.documentElement)
+    .getPropertyValue('--safe-b').trim();
+
+  // Everything agreeing means there is no gap to explain, so say nothing.
+  if (Math.abs(app - inner) <= 1 && Math.abs(dvh - inner) <= 1) return null;
+
+  return el('div.small', {
+    style: { marginBottom: '8px', color: 'var(--warn)' },
+    text: `Diagnose: Bildschirm ${inner}, dvh ${dvh}, App ${app}, Rand unten ${inset || '0px'}`,
+  });
+}
+
 function storageLine() {
   const node = el('div.small.faint', { style: { marginBottom: '8px' }, text: t('settings.checkingStorage') });
   db.storageStatus().then(({ persisted, usage }) => {

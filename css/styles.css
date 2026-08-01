@@ -47,15 +47,17 @@
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --tabbar-h: 58px;
-  /* Breathing room under the tab bar so it does not sit welded to the bottom
-     edge. Stacks on top of the home-indicator inset rather than replacing it,
-     so it also lifts the bar on a phone that has no inset at all. Turn this one
-     number up or down to taste. */
-  --tabbar-lift: 14px;
+  /* How much of the home-indicator inset the tab bar actually reserves.
+     iOS hands out 34pt, but the indicator itself only occupies the bottom ~21,
+     so reserving all of it leaves a band of empty bar under the labels that
+     reads as a gap. Capped rather than dropped: at 0 the labels would sit under
+     the indicator on a phone that has one. */
+  --tabbar-lift: 0px;
+  --tabbar-pad: min(var(--safe-b), 20px);
   /* Everything that has to sit clear of the tab bar measures from here. Three
      places used to add the same two terms by hand, which is the arrangement
      where one of them quietly stops matching the others. */
-  --above-tabbar: calc(var(--tabbar-h) + var(--safe-b) + var(--tabbar-lift));
+  --above-tabbar: calc(var(--tabbar-h) + var(--tabbar-pad) + var(--tabbar-lift));
 
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
 }
@@ -137,7 +139,7 @@ input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
   position: relative; flex: none; z-index: 40;
   width: 100%;
   height: var(--above-tabbar);
-  padding-bottom: calc(var(--safe-b) + var(--tabbar-lift));
+  padding-bottom: calc(var(--tabbar-pad) + var(--tabbar-lift));
   display: grid; grid-template-columns: repeat(5, 1fr);
   background: linear-gradient(to top, rgba(7, 10, 18, .97), rgba(10, 14, 26, .86));
   backdrop-filter: saturate(170%) blur(18px);
