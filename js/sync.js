@@ -139,6 +139,15 @@ export async function deleteAccount() {
   const ownerToken = await requireOwnerToken();
   await cloud.deleteAccount(ownerToken);
   dataKey = null;
+  // The Auth identity is gone, so this installation must not keep the local
+  // invite gate or a device id that can never exist on the server again.
+  // Training data stays untouched and can still be exported after signing in
+  // with another authorised account.
+  await Promise.all([
+    db.remove(db.STORES.keys, 'gate'),
+    db.remove(db.STORES.keys, 'meta'),
+    store.setSetting('cloudEnabled', false),
+  ]);
   set({ enabled: false, signedIn: false, profile: null, deviceId: null,
     isOwner: false, ownerAuthorized: false, pendingDevices: [] });
 }

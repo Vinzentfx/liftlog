@@ -183,6 +183,14 @@ test('signing out removes the local gate and reloads into the login screen', asy
   assert.match(account, /signOutEverywhere\(\)[\s\S]*location\.reload\(\)/);
 });
 
+test('deleting the cloud account also returns this installation to the login gate', async () => {
+  const sync = await read('js/sync.js');
+  const account = await read('js/screens/account.js');
+  assert.match(sync, /deleteAccount\(\)[\s\S]*cloud\.deleteAccount\(ownerToken\)[\s\S]*db\.remove\(db\.STORES\.keys, 'gate'\)/);
+  assert.match(sync, /deleteAccount\(\)[\s\S]*db\.remove\(db\.STORES\.keys, 'meta'\)[\s\S]*cloudEnabled/);
+  assert.match(account, /sync\.deleteAccount\(\)[\s\S]*location\.reload\(\)/);
+});
+
 test('normal sign-out preserves device identity and full erasure forgets it', async () => {
   const sync = await read('js/sync.js');
   const settings = await read('js/screens/settings.js');
