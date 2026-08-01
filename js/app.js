@@ -298,8 +298,8 @@ function openApp() {
 
 /**
  * When connectivity is available, verify access first and then consider an
- * encrypted backup. `onAppOpen` enforces the one-hour upload interval, while
- * this coordinator prevents overlapping checks after several browser events.
+ * encrypted backup. `onAppOpen` skips byte-identical snapshots, while this
+ * coordinator prevents overlapping checks after several browser events.
  */
 async function runCloudMaintenance() {
   if (cloudMaintenanceRunning || !navigator.onLine) return;

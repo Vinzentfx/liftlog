@@ -61,6 +61,7 @@ export const DEFAULT_SETTINGS = {
   // only the local switch. `state.enabled` in sync.js requires both.
   cloudEnabled: false,
   cloudLastSyncAt: null,
+  cloudLastFingerprint: null,
   notificationsEnabled: false,
   creatineReminderEnabled: false,
   creatineReminderTime: '19:00',

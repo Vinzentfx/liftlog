@@ -53,13 +53,19 @@ async function loadHub() {
 // social tab first.
 export async function syncPresence() {
   if (!cloud.isSignedIn()) return;
-  const current = await cloud.socialHub();
+  let current = await cloud.socialHub();
   if (!current?.me) return;
   const stats = weeklyStats(current.me.training_today, current.me.status_text);
   const signature = JSON.stringify(stats);
   if (signature !== publishedSignature) {
     await cloud.publishSocialPresence(stats);
     publishedSignature = signature;
+    current = await cloud.socialHub();
+  }
+  hub = current;
+  if (location.hash.replace(/^#\/?/, '').split('/')[0] === 'users') {
+    const { render } = await import('../app.js');
+    render();
   }
 }
 

@@ -356,3 +356,16 @@ test('creatine reminder dispatcher requires its cron secret', async () => {
   assert.match(edge, /request\.headers\.get\("x-cron-secret"\) !== cronSecret/);
   assert.match(edge, /\.eq\("all_enabled", true\)\.eq\("creatine_enabled", true\)/);
 });
+
+test('automatic backups react to data changes without uploading identical snapshots', async () => {
+  const sync = await read('js/sync.js');
+  assert.match(sync, /cloudLastFingerprint === fingerprint[\s\S]*skipped: true/);
+  assert.match(sync, /filter\(\(\[key\]\) => !key\.startsWith\('cloud'\)\)/);
+  assert.match(sync, /setSetting\('cloudLastFingerprint', backupFingerprint\(\)\)/);
+  assert.doesNotMatch(sync, /Date\.now\(\) - last < 3600000/);
+});
+
+test('visible social hub adopts freshly fetched server state', async () => {
+  const users = await read('js/screens/users.js');
+  assert.match(users, /syncPresence\(\)[\s\S]*hub = current[\s\S]*location\.hash[\s\S]*render\(\)/);
+});

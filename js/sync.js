@@ -436,6 +436,7 @@ export async function backupNow({ force = false } = {}) {
     if (meta.deviceId) await cloud.touchDevice(meta.deviceId).catch(() => {});
     await store.setSetting('cloudBaseVersion', version);
     await store.setSetting('cloudLastSyncAt', Date.now());
+    await store.setSetting('cloudLastFingerprint', backupFingerprint());
     set({ lastSyncAt: Date.now(), serverVersion: version });
     return { ok: true, version, bytes: blob.bytes };
   } catch (err) {
@@ -488,16 +489,27 @@ export async function onAppOpen() {
   if (!state.enabled) return { ok: false, code: 'DISABLED' };
   if (!state.canBackup) return { ok: false, code: 'READ_ONLY' };
 
-  // Do not re-upload an identical snapshot on every launch. An hour is short
-  // enough that a lost phone costs at most one session, and long enough that
-  // opening the app four times to check something does not upload four times.
+  // Upload as soon as the app's next online maintenance sees a real change,
+  // while never creating a new server version for an identical snapshot.
+  // Cloud bookkeeping itself is excluded from the fingerprint so completing a
+  // backup cannot immediately make the next check look dirty again.
   const last = Number(store.state.settings.cloudLastSyncAt) || 0;
-  const base = Number(store.state.settings.cloudBaseVersion) || 0;
-  if ((state.serverVersion || 0) <= base && Date.now() - last < 3600000) {
+  const fingerprint = backupFingerprint();
+  if (store.state.settings.cloudLastFingerprint === fingerprint) {
     set({ lastSyncAt: last });
     return { ok: true, skipped: true };
   }
   return backupNow();
+}
+
+function backupFingerprint() {
+  const payload = store.exportData();
+  const settings = Object.fromEntries(Object.entries(payload.settings || {})
+    .filter(([key]) => !key.startsWith('cloud')));
+  // exportedAt necessarily changes on every call; everything else is real app
+  // state, including edits to today's water or a set that retained the same id.
+  const { exportedAt: _volatile, settings: _settings, ...data } = payload;
+  return JSON.stringify({ ...data, settings });
 }
 
 const MERGE_KEYS = {
