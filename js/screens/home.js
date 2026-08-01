@@ -616,22 +616,27 @@ function strengthDetailSheet(lift, profile) {
 
 function machineProfileSheet(ex) {
   const current = store.state.settings.machineProfiles?.[ex.id] || {};
-  const input = el('input', { type: 'text', value: current.label || '', placeholder: t('home.rating.machinePlaceholder') });
-  const model = el('input', { type: 'text', value: current.model || '', placeholder: t('home.rating.machineModelPlaceholder') });
+  const oldModel = `${current.model || ''} ${current.label || ''}`.toLowerCase();
+  const selectedBrand = oldModel.includes('hammer') ? 'hammer-strength' : 'gym80';
+  const model = el('select', {}, [
+    el('option', { value: 'gym80', selected: selectedBrand === 'gym80' }, ['Gym80']),
+    el('option', { value: 'hammer-strength', selected: selectedBrand === 'hammer-strength' }, ['Hammer Strength']),
+  ]);
   const share = el('input', { type: 'checkbox', checked: !!current.shareComparison });
   openSheet(ex.name, el('div', {}, [
     el('div.small.muted', { style: { marginBottom: '12px' }, text: t('home.rating.machineProfileNote') }),
-    el('label.field', {}, [el('span', { text: t('home.rating.machineLabel') }), input]),
+    el('div.card.tight', { style: { marginBottom: '12px' } }, [
+      el('div.small.faint', { text: t('home.rating.machineGym') }),
+      el('strong', { text: 'Ai Fitness' }),
+    ]),
     el('label.field', {}, [el('span', { text: t('home.rating.machineModel') }), model]),
     el('label.check', {}, [share, el('span', {}, [el('strong', { text: t('home.rating.machineShare') }),
       el('small', { text: t('home.rating.machineShareNote') })])]),
     el('button.btn.primary.full', { onclick: async () => {
       const profiles = { ...(store.state.settings.machineProfiles || {}) };
-      const label = input.value.trim();
-      const modelName = model.value.trim();
-      const willShare = share.checked && !!modelName;
-      if (label || modelName) profiles[ex.id] = { label, model: modelName, shareComparison: willShare };
-      else delete profiles[ex.id];
+      const modelName = model.value;
+      const willShare = share.checked;
+      profiles[ex.id] = { model: modelName, shareComparison: willShare };
       await store.setSetting('machineProfiles', profiles);
       machineSyncSignature = null;
       if (!willShare && cloud.isSignedIn()) await cloud.removeMachineRecord(ex.name).catch(() => {});
