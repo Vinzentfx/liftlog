@@ -332,7 +332,7 @@ function leaderboardSection() {
           : leaderboardMode === 'sets' ? tn(person.working_sets, 'unit.set') : tn(person.workouts, 'unit.session') }),
       ]),
     ]),
-    ]))));
+    ])));
   }
   wrap.append(controls, host); paint();
   return wrap;

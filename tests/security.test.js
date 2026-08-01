@@ -334,3 +334,9 @@ test('offline updates cannot activate a partial JavaScript deployment', async ()
   assert.match(html, /js\/bootstrap\.js[\s\S]*js\/app\.js/);
   assert.match(bootstrap, /controllerchange[\s\S]*location\.reload/);
 });
+
+test('social leaderboard module has a browser-parseable closing sequence', async () => {
+  const users = await read('js/screens/users.js');
+  assert.doesNotMatch(users, /host\.replaceChildren\([\s\S]{0,1200}\]\)\)\)\);/);
+  assert.match(users, /host\.replaceChildren\([\s\S]{0,1200}\]\)\)\);/);
+});
