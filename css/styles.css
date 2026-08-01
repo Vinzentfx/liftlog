@@ -47,6 +47,15 @@
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --tabbar-h: 58px;
+  /* Breathing room under the tab bar so it does not sit welded to the bottom
+     edge. Stacks on top of the home-indicator inset rather than replacing it,
+     so it also lifts the bar on a phone that has no inset at all. Turn this one
+     number up or down to taste. */
+  --tabbar-lift: 14px;
+  /* Everything that has to sit clear of the tab bar measures from here. Three
+     places used to add the same two terms by hand, which is the arrangement
+     where one of them quietly stops matching the others. */
+  --above-tabbar: calc(var(--tabbar-h) + var(--safe-b) + var(--tabbar-lift));
 
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
 }
@@ -127,8 +136,8 @@ input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
 #tabbar {
   position: relative; flex: none; z-index: 40;
   width: 100%;
-  height: calc(var(--tabbar-h) + var(--safe-b));
-  padding-bottom: var(--safe-b);
+  height: var(--above-tabbar);
+  padding-bottom: calc(var(--safe-b) + var(--tabbar-lift));
   display: grid; grid-template-columns: repeat(5, 1fr);
   background: linear-gradient(to top, rgba(7, 10, 18, .97), rgba(10, 14, 26, .86));
   backdrop-filter: saturate(170%) blur(18px);
@@ -676,7 +685,7 @@ label.field > span {
 /* ============ rest timer ============ */
 #rest-bar {
   position: absolute; left: 10px; right: 10px;
-  bottom: calc(var(--tabbar-h) + var(--safe-b) + 10px);
+  bottom: calc(var(--above-tabbar) + 10px);
   z-index: 45; background: linear-gradient(168deg, var(--bg-float), var(--bg-raised));
   border: 1px solid rgba(59, 130, 246, .3); border-radius: var(--r-md);
   box-shadow: 0 12px 34px rgba(0, 0, 0, .6), var(--glow-soft);
@@ -737,7 +746,7 @@ label.field > span {
 /* ============ toast ============ */
 #toast {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(var(--tabbar-h) + var(--safe-b) + 20px); z-index: 70;
+  bottom: calc(var(--above-tabbar) + 20px); z-index: 70;
   background: linear-gradient(180deg, #EDF3FF, #D9E6FF); color: #06122A;
   padding: 12px 17px; border-radius: 14px; font-size: 14px; font-weight: 680;
   border: 1px solid rgba(255, 255, 255, .7);
