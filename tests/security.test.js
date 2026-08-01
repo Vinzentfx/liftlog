@@ -216,4 +216,5 @@ test('the selected colour theme is saved and applied to the whole app', async ()
   assert.match(css, /data-theme="violet"/);
   assert.match(css, /data-theme="emerald"/);
   assert.match(css, /data-theme="sunset"/);
+  assert.match(settings, /const clicked = event\.currentTarget;[\s\S]*await store\.setSetting\('theme'[\s\S]*clicked\.parentElement/);
 });

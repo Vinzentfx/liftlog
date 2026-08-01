@@ -163,9 +163,12 @@ export function renderSettings() {
     return el('button.theme-choice', {
       type: 'button', 'aria-pressed': String(selected),
       onclick: async (event) => {
+        // currentTarget is cleared when dispatch finishes, which can happen
+        // while the IndexedDB write below is awaiting. Keep the element itself.
+        const clicked = event.currentTarget;
         await store.setSetting('theme', theme.key);
-        for (const choice of event.currentTarget.parentElement.children) {
-          const active = choice === event.currentTarget;
+        for (const choice of clicked.parentElement.children) {
+          const active = choice === clicked;
           choice.setAttribute('aria-pressed', String(active));
           choice.querySelector('.theme-check').textContent = active ? '✓' : '';
         }
