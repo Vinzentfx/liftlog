@@ -539,7 +539,7 @@ function exerciseRow(plan, day, item) {
   let chip = null;
 
   if (settings.showRatings !== false && hasProfile(settings) && isBenchmark(ex.name)) {
-    const best = bestOneRepMaxByName(store.state.sessions, store.state.exerciseById);
+    const best = bestOneRepMaxByName(store.state.sessions, store.state.exerciseById, settings);
     const orm = best.get(ex.name);
     if (orm) {
       const score = scoreFor(ex.name, orm, settings);

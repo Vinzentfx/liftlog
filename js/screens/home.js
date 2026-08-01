@@ -439,7 +439,7 @@ function ratingSection(done, settings) {
     return wrap;
   }
 
-  const best = bestOneRepMaxByName(store.state.sessions, store.state.exerciseById);
+  const best = bestOneRepMaxByName(store.state.sessions, store.state.exerciseById, store.state.settings);
   const rating = buildRating(best, settings);
 
   if (rating.overall === null) {

@@ -132,6 +132,8 @@ export const CONTRIB_EXTRA = {
   'Chest-Supported Row':       { lats: 1, traps: 0.65, 'delts-rear': 0.6, biceps: 0.5 },
   'Close-Grip Seated Row':     { lats: 1, biceps: 0.6, traps: 0.5, 'delts-rear': 0.35 },
   'Machine Row':               { lats: 1, traps: 0.6, biceps: 0.5, 'delts-rear': 0.5 },
+  'Seated Cable Row':          { lats: 1, traps: 0.55, biceps: 0.55, 'delts-rear': 0.4 },
+  'T-Bar Row':                 { lats: 1, traps: 0.65, biceps: 0.5, 'delts-rear': 0.45, 'lower-back': 0.3 },
   'Machine High Row':          { lats: 1, traps: 0.6, 'delts-rear': 0.5, biceps: 0.45 },
   'Machine Pullover':          { lats: 1, chest: 0.4, triceps: 0.3 },
   'Assisted Pull-Up Machine':  { lats: 1, biceps: 0.6, 'delts-rear': 0.3 },
@@ -140,6 +142,7 @@ export const CONTRIB_EXTRA = {
   'Machine Chest Press':       { chest: 1, 'delts-front': 0.55, triceps: 0.55 },
   'Incline Machine Press':     { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
   'Machine Chest Fly':         { chest: 1, 'delts-front': 0.3 },
+  'Pec Deck':                  { chest: 1, 'delts-front': 0.25 },
   'Machine Shoulder Press':    { 'delts-front': 1, triceps: 0.6, traps: 0.35 },
   'Smith Machine Bench Press': { chest: 1, 'delts-front': 0.5, triceps: 0.5 },
   'Smith Machine Squat':       { quads: 1, glutes: 0.7, 'lower-back': 0.3 },
@@ -158,6 +161,12 @@ export const CONTRIB_EXTRA = {
   'Machine Crunch':            { abs: 1, obliques: 0.35 },
   'Machine Back Extension':    { 'lower-back': 1, glutes: 0.6, hamstrings: 0.5 },
   'Pendulum Squat':            { quads: 1, glutes: 0.65 },
+  'Hack Squat':                { quads: 1, glutes: 0.65 },
+  'Leg Extension':             { quads: 1 },
+  'Lying Leg Curl':            { hamstrings: 1, calves: 0.2 },
+  'Seated Leg Curl':           { hamstrings: 1, calves: 0.15 },
+  'Standing Calf Raise':       { calves: 1 },
+  'Seated Calf Raise':         { calves: 1 },
   'Belt Squat':                { quads: 1, glutes: 0.65 },
   'Smith Machine Romanian Deadlift': { hamstrings: 1, glutes: 0.8, 'lower-back': 0.35 },
   'Bayesian Cable Curl':       { biceps: 1, forearms: 0.2 },
@@ -222,8 +231,11 @@ export function scoreFor(liftName, oneRepMax, profile) {
   const table = BOUNDS[sex][liftName];
   if (!table) return null;
 
-  const load = BODYWEIGHT_INCLUSIVE.has(liftName) ? oneRepMax + bw : oneRepMax;
-  const ratio = load / bw;
+  // 1RM for bodyweight movements is already the estimated total system load.
+  // Allometric scaling avoids the strong bias of dividing linearly by BW.
+  const referenceBw = sex === 'female' ? 60 : 80;
+  const massScale = Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33);
+  const ratio = oneRepMax / massScale;
 
   // Easier standard for masters / juniors => divide the bar, not the lifter.
   const f = ageFactor(profile.age);
@@ -257,7 +269,8 @@ export function toNextTier(liftName, score, profile) {
   const bw = Number(profile.bodyweight);
   const f = ageFactor(profile.age);
   const needRatio = table[i] * f;
-  let need = needRatio * bw;
+  const referenceBw = sex === 'female' ? 60 : 80;
+  let need = needRatio * Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33);
   if (BODYWEIGHT_INCLUSIVE.has(liftName)) need -= bw;
   return { tier: TIERS[i + 1], weight: need };
 }

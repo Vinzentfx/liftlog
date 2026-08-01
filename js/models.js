@@ -688,15 +688,28 @@ export function personalRecords(sessions, exerciseId) {
  * (the strength-standard tables are keyed by name, not id).
  * @returns {Map<string, number>}
  */
-export function bestOneRepMaxByName(sessions, exerciseById) {
+const BODYWEIGHT_STRENGTH_LIFTS = new Set(['Pull-Up', 'Chin-Up', 'Dip']);
+
+export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
   const best = new Map();
+  const bodyweight = Number(profile?.bodyweight);
   for (const s of sessions) {
     if (!s.finishedAt) continue;
     for (const entry of s.entries) {
       const ex = exerciseById.get(entry.exerciseId);
       if (!ex) continue;
       for (const set of entry.sets.filter(isCounted)) {
-        const est = e1rm(set.weight, set.reps);
+        let est;
+        if (BODYWEIGHT_STRENGTH_LIFTS.has(ex.name) && bodyweight > 0) {
+          const added = Number(set.weight) || 0;
+          // Before loadMode existed the field was ambiguous: some people logged
+          // total bodyweight, others additional weight. A positive legacy value
+          // must not silently be counted twice and produce a false Elite score.
+          if (added > 0 && set.loadMode !== 'added') continue;
+          est = e1rm(bodyweight + added, set.reps);
+        } else {
+          est = e1rm(set.weight, set.reps);
+        }
         if (est > (best.get(ex.name) || 0)) best.set(ex.name, est);
       }
     }

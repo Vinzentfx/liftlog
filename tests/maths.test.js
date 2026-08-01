@@ -25,7 +25,8 @@ import assert from 'node:assert/strict';
 // Set before any Date is constructed; imports above only define functions.
 process.env.TZ = 'Europe/Berlin';
 
-const { e1rm, isCounted, startOfWeek, entryStats, newMeal, dayKey, slotFor, seedExercises } = await import('../js/models.js');
+const { e1rm, isCounted, startOfWeek, entryStats, newMeal, dayKey, slotFor, seedExercises, bestOneRepMaxByName } = await import('../js/models.js');
+const { scoreFor, ANATOMY } = await import('../js/standards.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
 const { rateExercise } = await import('../js/exercise-rating.js');
@@ -45,6 +46,38 @@ const { stallReport, describeStall } = await import('../js/fatigue.js');
 const { setLanguage } = await import('../js/i18n.js');
 const { timeline, timelineReady, MIN_LOGGED_DAYS } = await import('../js/timeline.js');
 const { mergeSnapshots } = await import('../js/sync.js');
+
+test('pull-ups estimate total system load before applying the repetition formula', () => {
+  const exercises = new Map([['pull', { id: 'pull', name: 'Pull-Up' }]]);
+  const sessions = [{ finishedAt: '2026-01-01', entries: [{ exerciseId: 'pull', sets: [
+    { type: 'working', done: true, weight: 0, reps: 10 },
+  ] }] }];
+  const best = bestOneRepMaxByName(sessions, exercises, { bodyweight: 80 });
+  assert.ok(Math.abs(best.get('Pull-Up') - e1rm(80, 10)) < 0.001);
+  assert.ok(scoreFor('Pull-Up', best.get('Pull-Up'), { sex: 'male', bodyweight: 80, age: 25 }) < 80);
+});
+
+test('ambiguous old weighted pull-up entries cannot create a false Elite score', () => {
+  const exercises = new Map([['pull', { id: 'pull', name: 'Pull-Up' }]]);
+  const make = (set) => [{ finishedAt: '2026-01-01', entries: [{ exerciseId: 'pull', sets: [set] }] }];
+  const old = { type: 'working', done: true, weight: 80, reps: 10 };
+  assert.equal(bestOneRepMaxByName(make(old), exercises, { bodyweight: 80 }).has('Pull-Up'), false);
+  const confirmed = { ...old, weight: 20, loadMode: 'added' };
+  assert.ok(bestOneRepMaxByName(make(confirmed), exercises, { bodyweight: 80 }).get('Pull-Up') > 100);
+});
+
+test('allometric bodyweight scaling reduces the former light-lifter bias', () => {
+  const light = scoreFor('Barbell Bench Press', 100, { sex: 'male', bodyweight: 70, age: 25 });
+  const heavy = scoreFor('Barbell Bench Press', 100, { sex: 'male', bodyweight: 100, age: 25 });
+  assert.ok(light > heavy);
+  assert.ok(light - heavy < 20);
+});
+
+test('common machines contribute to the muscle map without fake strength tiers', () => {
+  for (const name of ['Hack Squat', 'Leg Extension', 'Seated Leg Curl', 'Pec Deck', 'Seated Cable Row']) {
+    assert.ok(ANATOMY[name], `${name} should have anatomy`);
+  }
+});
 
 test('a stable machine fly outranks the rolling bodyweight fly', () => {
   const common = { muscle: 'Chest', primary: ['chest'], instructions: ['Controlled reps'] };

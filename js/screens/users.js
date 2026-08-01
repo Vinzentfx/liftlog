@@ -144,7 +144,7 @@ function weeklyStats(trainingToday, message) {
   const sessions = store.state.sessions.filter((s) => s.finishedAt && s.startedAt >= since);
   const sets = sessions.reduce((n, s) => n + (s.entries || []).reduce(
     (sum, entry) => sum + (entry.sets || []).filter(isCounted).length, 0), 0);
-  const best = bestOneRepMaxByName(store.state.sessions, store.state.exerciseById);
+  const best = bestOneRepMaxByName(store.state.sessions, store.state.exerciseById, store.state.settings);
   const rating = hasProfile(store.state.settings) ? buildRating(best, store.state.settings) : null;
   const planned = plannedToday();
   return { workouts: sessions.length, sets, strengthScore: rating?.overall ?? null,

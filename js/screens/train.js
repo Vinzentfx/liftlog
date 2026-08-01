@@ -222,15 +222,16 @@ function exerciseBlock(session, entry, entryIndex) {
   }
 
   const rirOn = store.state.settings.logRir !== false;
+  const bodyweightLoad = ['Pull-Up', 'Chin-Up', 'Dip'].includes(ex.name);
   block.append(el('div.set-labels' + (rirOn ? '.with-rir' : ''), {}, [
-    el('span', { text: t('train.col.set') }), el('span', { text: units }),
+    el('span', { text: t('train.col.set') }), el('span', { text: bodyweightLoad ? `+${units}` : units }),
     el('span', { text: t('train.col.reps') }),
     rirOn ? el('span', { text: 'RIR', title: t('train.rirTitle') }) : null,
     el('span', { text: '✓' }),
   ]));
 
   entry.sets.forEach((set, i) => {
-    block.append(setRow(session, entry, set, i, last));
+    block.append(setRow(session, entry, set, i, last, ex));
   });
 
   block.append(
@@ -246,7 +247,7 @@ function exerciseBlock(session, entry, entryIndex) {
   return block;
 }
 
-function setRow(session, entry, set, index, last) {
+function setRow(session, entry, set, index, last, ex) {
   const workingNo = entry.sets.slice(0, index + 1).filter((s) => s.type === 'working').length;
   const rirOn = store.state.settings.logRir !== false;
   const row = el('div.set-row'
@@ -279,7 +280,7 @@ function setRow(session, entry, set, index, last) {
     decimal: true,
     value: set.weight ?? '',
     placeholder: hint ? String(hint.weight) : '–',
-    'aria-label': t('train.weight'),
+    'aria-label': ['Pull-Up', 'Chin-Up', 'Dip'].includes(ex.name) ? t('train.addedWeight') : t('train.weight'),
   }));
   const reps = normaliseOnBlur(numberInput({
     value: set.reps ?? '',
@@ -290,6 +291,7 @@ function setRow(session, entry, set, index, last) {
   // Keystrokes persist quietly — a re-render here would kill the caret.
   weight.addEventListener('input', () => {
     set.weight = parseNumber(weight.value);
+    if (['Pull-Up', 'Chin-Up', 'Dip'].includes(ex.name)) set.loadMode = 'added';
     saveSoon(session);
   });
   reps.addEventListener('input', () => {
