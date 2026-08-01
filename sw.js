@@ -1,5 +1,5 @@
 // Offline shell. Bump CACHE when shipping changes so clients pick them up.
-const CACHE = 'liftlog-v83';
+const CACHE = 'liftlog-v84';
 
 // assets/exercises/*.webp are deliberately NOT precached — ~270 exercises x2
 // frames would bloat the install and most are never opened. The runtime
@@ -11,6 +11,7 @@ const SHELL = [
   './privacy.html',
   './legal.html',
   './css/styles.css',
+  './js/bootstrap.js',
   './js/app.js',
   './js/i18n.js',
   './js/crypto.js',
@@ -99,15 +100,10 @@ self.addEventListener('notificationclick', (event) => {
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE)
-      // addAll is all-or-nothing; add individually so one 404 can't break install,
-      // but log misses — a silently unprecached module breaks the app offline.
-      //
-      // `cache: 'reload'` is load-bearing: a plain cache.add() may satisfy itself
-      // from the browser's HTTP cache, which happily pins a stale build into the
-      // precache and serves it long after a deploy.
-      .then((cache) => Promise.all(SHELL.map((url) =>
-        cache.add(new Request(url, { cache: 'reload' }))
-          .catch((err) => console.warn('[sw] precache miss', url, err)))))
+      // Never activate a cache containing only half a deployment. Cloudflare
+      // and GitHub may expose files seconds apart; a failed install is retried,
+      // while an incomplete cache would leave the whole PWA unable to boot.
+      .then((cache) => cache.addAll(SHELL.map((url) => new Request(url, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
 });

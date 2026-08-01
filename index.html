@@ -74,6 +74,10 @@
 
   <div id="toast" role="status" aria-live="polite" hidden></div>
 
+  <!-- Registers repairs before the module graph loads. If an older offline
+       cache contains a mixed deployment, this can still install the complete
+       replacement even when app.js itself cannot start. -->
+  <script src="js/bootstrap.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

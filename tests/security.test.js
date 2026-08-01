@@ -324,3 +324,13 @@ test('rest timer unlocks and reuses audio after a user gesture', async () => {
   assert.match(rest, /const ctx = audio \|\| new Ctx\(\)/);
   assert.doesNotMatch(rest, /ctx\.close\(/);
 });
+
+test('offline updates cannot activate a partial JavaScript deployment', async () => {
+  const worker = await read('sw.js');
+  const html = await read('index.html');
+  const bootstrap = await read('js/bootstrap.js');
+  assert.match(worker, /cache\.addAll\(SHELL/);
+  assert.doesNotMatch(worker, /precache miss/);
+  assert.match(html, /js\/bootstrap\.js[\s\S]*js\/app\.js/);
+  assert.match(bootstrap, /controllerchange[\s\S]*location\.reload/);
+});
