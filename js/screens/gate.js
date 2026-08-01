@@ -259,8 +259,14 @@ function paintSignIn(pane, done) {
         return;
       }
       await sync.load();
+      let requestedDevice = false;
+      if (profile.recovery_wrap && !sync.state.deviceId) {
+        await sync.requestAccess();
+        requestedDevice = true;
+      }
       await done();
       toast(t('gate.welcomeBack'), 2600);
+      if (requestedDevice) toast(t('cloud.requestSent'), 3200);
     } catch (err) {
       problem(status, err);
     }

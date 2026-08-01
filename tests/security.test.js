@@ -172,3 +172,13 @@ test('an existing device row is reused by matching its public key', async () => 
   assert.match(sync, /requestAccess[\s\S]*listDevices\(\)[\s\S]*samePublicKey/);
   assert.match(sync, /owner[\s\S]*samePublicKey\(owner\.public_key, keys\.jwk\)[\s\S]*saveMeta/);
 });
+
+test('gate sign-in registers an unknown device as pending', async () => {
+  const gate = await read('js/screens/gate.js');
+  assert.match(gate, /profile\.recovery_wrap && !sync\.state\.deviceId[\s\S]*sync\.requestAccess\(\)/);
+});
+
+test('the owner is notified about newly pending devices', async () => {
+  const app = await read('js/app.js');
+  assert.match(app, /sync\.state\.isOwner[\s\S]*pendingDevices\.filter[\s\S]*cloud\.pendingAlert/);
+});

@@ -60,6 +60,7 @@ let cloudMaintenanceStarted = false;
 let cloudMaintenanceRunning = false;
 let lastBackupWarningAt = 0;
 let cloudSetupPrompted = false;
+const announcedPendingDevices = new Set();
 
 export function render() {
   if (locked || !store.state.ready || rendering) return;
@@ -204,6 +205,12 @@ async function runCloudMaintenance() {
   try {
     if (await gate.recheck() === false) return;
     const result = await sync.onAppOpen();
+    if (sync.state.isOwner) {
+      const freshRequests = sync.state.pendingDevices.filter(
+        (device) => !announcedPendingDevices.has(device.id));
+      sync.state.pendingDevices.forEach((device) => announcedPendingDevices.add(device.id));
+      if (freshRequests.length) toast(t('cloud.pendingAlert'), 5000);
+    }
     if (!cloudSetupPrompted && sync.state.signedIn && sync.state.profile
         && !sync.state.profile.recovery_wrap) {
       cloudSetupPrompted = true;
