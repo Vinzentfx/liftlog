@@ -20,6 +20,11 @@ import * as gate from './screens/gate.js';
 
 const INSTALL_HINT_KEY = 'liftlog.installHint.dismissed.v1';
 let deferredInstallPrompt = null;
+const THEMES = new Set(['ocean', 'violet', 'emerald', 'sunset']);
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = THEMES.has(theme) ? theme : 'ocean';
+}
 
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
@@ -213,6 +218,8 @@ async function boot() {
     return;
   }
 
+  applyTheme(store.state.settings.theme);
+
   // Installed iOS PWAs sometimes restore a small stale document offset before
   // the dynamic viewport and safe areas have settled. Normalize it once during
   // a real launch; route renders still preserve intentional in-app scrolling.
@@ -228,6 +235,7 @@ async function boot() {
     // One place syncs the language, so a switch in Settings reaches the tab bar
     // and the rest bar as well as whatever screen is currently mounted.
     setLanguage(store.state.settings.language);
+    applyTheme(store.state.settings.theme);
     const problem = store.state.storageError;
     if (problem && problem.at !== announced) {
       announced = problem.at;

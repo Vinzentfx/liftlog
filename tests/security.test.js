@@ -201,3 +201,19 @@ test('mobile browsers get a one-time home-screen installation hint', async () =>
   assert.match(app, /install\.ios[\s\S]*install\.androidReady[\s\S]*install\.androidMenu/);
   assert.match(app, /localStorage\.setItem\(INSTALL_HINT_KEY, '1'\)/);
 });
+
+test('the selected colour theme is saved and applied to the whole app', async () => {
+  const app = await read('js/app.js');
+  const models = await read('js/models.js');
+  const settings = await read('js/screens/settings.js');
+  const css = await read('css/styles.css');
+  assert.match(models, /theme: 'ocean'/);
+  assert.match(app, /document\.documentElement\.dataset\.theme/);
+  assert.match(app, /applyTheme\(store\.state\.settings\.theme\)/);
+  for (const theme of ['ocean', 'violet', 'emerald', 'sunset']) {
+    assert.match(settings, new RegExp(`key: '${theme}'`));
+  }
+  assert.match(css, /data-theme="violet"/);
+  assert.match(css, /data-theme="emerald"/);
+  assert.match(css, /data-theme="sunset"/);
+});

@@ -35,6 +35,7 @@ export const DEFAULT_SETTINGS = {
   // Interface language. null follows the device, which is what a fresh install
   // on a German phone should do without being asked.
   language: null,         // 'de' | 'en' | null
+  theme: 'ocean',         // 'ocean' | 'violet' | 'emerald' | 'sunset'
   units: 'kg',            // 'kg' | 'lb'
   restSeconds: 180,
   autoStartRest: true,

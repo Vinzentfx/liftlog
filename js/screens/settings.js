@@ -13,6 +13,13 @@ import { t, tn, LANGUAGES } from '../i18n.js';
 import { cloudSection } from './account.js';
 import * as sync from '../sync.js';
 
+const THEMES = [
+  { key: 'ocean', label: 'settings.themeOcean', colours: ['#60A5FA', '#0A0E1A'] },
+  { key: 'violet', label: 'settings.themeViolet', colours: ['#A78BFA', '#100D1D'] },
+  { key: 'emerald', label: 'settings.themeEmerald', colours: ['#34D399', '#071713'] },
+  { key: 'sunset', label: 'settings.themeSunset', colours: ['#FB7185', '#1B0D16'] },
+];
+
 /**
  * Profile — the inputs the strength standards actually need.
  * Height is captured for reference only; no published standard normalises by it,
@@ -149,6 +156,30 @@ export function renderSettings() {
     ]);
   }));
 
+  const themeChoices = el('div.theme-grid', {
+    role: 'group', 'aria-label': t('settings.colourStyle'),
+  }, THEMES.map((theme) => {
+    const selected = (s.theme || 'ocean') === theme.key;
+    return el('button.theme-choice', {
+      type: 'button', 'aria-pressed': String(selected),
+      onclick: async (event) => {
+        await store.setSetting('theme', theme.key);
+        for (const choice of event.currentTarget.parentElement.children) {
+          const active = choice === event.currentTarget;
+          choice.setAttribute('aria-pressed', String(active));
+          choice.querySelector('.theme-check').textContent = active ? '✓' : '';
+        }
+      },
+    }, [
+      el('span.theme-preview', {
+        'aria-hidden': 'true',
+        style: { '--preview-accent': theme.colours[0], '--preview-bg': theme.colours[1] },
+      }),
+      el('span', { text: t(theme.label) }),
+      el('span.theme-check', { 'aria-hidden': 'true', text: selected ? '✓' : '' }),
+    ]);
+  }));
+
   const ratingToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
   ratingToggle.checked = s.showRatings !== false;
   ratingToggle.addEventListener('change', () => store.setSetting('showRatings', ratingToggle.checked));
@@ -235,6 +266,10 @@ export function renderSettings() {
     ]),
 
     el('div.section-head', {}, [el('h2', { text: t('settings.appearance') })]),
+    el('div', {}, [
+      el('div.field-caption', { text: t('settings.colourStyle') }),
+      themeChoices,
+    ]),
     el('div', {}, [
       el('div.field-caption', { text: t('settings.language') }),
       languageChoices,
