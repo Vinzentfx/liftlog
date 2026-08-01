@@ -152,6 +152,12 @@ async function boot() {
     return;
   }
 
+  // Installed iOS PWAs sometimes restore a small stale document offset before
+  // the dynamic viewport and safe areas have settled. Normalize it once during
+  // a real launch; route renders still preserve intentional in-app scrolling.
+  window.scrollTo(0, 0);
+  requestAnimationFrame(() => window.scrollTo(0, 0));
+
   // A failed write has to be said out loud where it happens, which is usually
   // the Train screen mid-set, not Home. The store cannot raise UI itself
   // without the data layer importing the view layer, so the notification is

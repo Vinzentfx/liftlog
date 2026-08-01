@@ -182,3 +182,11 @@ test('the owner is notified about newly pending devices', async () => {
   const app = await read('js/app.js');
   assert.match(app, /sync\.state\.isOwner[\s\S]*pendingDevices\.filter[\s\S]*cloud\.pendingAlert/);
 });
+
+test('PWA launch normalizes the initial iOS scroll offset', async () => {
+  const app = await read('js/app.js');
+  const css = await read('css/styles.css');
+  assert.match(app, /store\.load\(\)[\s\S]*window\.scrollTo\(0, 0\)[\s\S]*requestAnimationFrame/);
+  assert.match(css, /@supports \(-webkit-touch-callout: none\)[\s\S]*background-attachment: scroll/);
+  assert.match(css, /#app[\s\S]*min-height: 100dvh/);
+});
