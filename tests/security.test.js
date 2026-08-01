@@ -187,7 +187,7 @@ test('PWA launch normalizes the initial iOS scroll offset', async () => {
   const app = await read('js/app.js');
   const css = await read('css/styles.css');
   assert.match(app, /store\.load\(\)[\s\S]*scrollTop = 0[\s\S]*requestAnimationFrame/);
-  assert.match(css, /@supports \(-webkit-touch-callout: none\)[\s\S]*background-attachment: scroll/);
+  assert.match(css, /@supports \(-webkit-touch-callout: none\)[\s\S]*html, body \{ height: 100lvh; \}[\s\S]*#app \{ height: 100lvh; \}/);
   assert.match(css, /#app[\s\S]*height: 100dvh[\s\S]*overflow: hidden/);
   assert.match(css, /#screen[\s\S]*overflow-y: auto/);
   assert.match(css, /#tabbar[\s\S]*position: relative/);

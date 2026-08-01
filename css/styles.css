@@ -102,11 +102,14 @@ input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
   display: flex; flex-direction: column;
 }
 
-/* iOS home-screen apps can initially lay out a fixed background against the
-   pre-settled browser viewport. A tiny manual scroll then makes it snap into
-   place. Keeping the same artwork but scrolling its canvas avoids that jump. */
+/* In an installed iOS PWA, 100dvh can start at the smaller, pre-settled
+   viewport height and stay there when the shell itself cannot scroll. Use the
+   large viewport for the app shell so the tab bar reaches the screen edge
+   immediately; safe-area padding still keeps its controls above the home bar. */
 @supports (-webkit-touch-callout: none) {
+  html, body { height: 100lvh; }
   body { background-attachment: scroll; }
+  #app { height: 100lvh; }
 }
 
 #topbar {
