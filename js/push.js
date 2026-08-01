@@ -24,6 +24,13 @@ export async function enable() {
   return true;
 }
 
+export async function disable() {
+  if (!('serviceWorker' in navigator)) return;
+  const registration = await navigator.serviceWorker.getRegistration();
+  const subscription = await registration?.pushManager?.getSubscription();
+  await subscription?.unsubscribe();
+}
+
 function decodeKey(value) {
   const padded = `${value}${'='.repeat((4 - value.length % 4) % 4)}`.replace(/-/g, '+').replace(/_/g, '/');
   return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));

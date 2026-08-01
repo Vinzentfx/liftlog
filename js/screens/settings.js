@@ -12,6 +12,8 @@ import { evidenceList } from '../rating-ui.js';
 import { t, tn, LANGUAGES } from '../i18n.js';
 import { cloudSection } from './account.js';
 import * as sync from '../sync.js';
+import * as cloud from '../cloud.js';
+import * as push from '../push.js';
 
 const THEMES = [
   { key: 'ocean', label: 'settings.themeOcean', colours: ['#60A5FA', '#0A0E1A', '#17243A'] },
@@ -314,6 +316,8 @@ export function renderSettings() {
     el('div.section-head', {}, [el('h2', { text: t('settings.whatToShow') })]),
     checkRow(starToggle, t('settings.stars'), t('settings.starsNote')),
 
+    notificationSection(s),
+
     cloudSection(),
 
     el('div.section-head', {}, [el('h2', { text: t('settings.backup') })]),
@@ -393,6 +397,71 @@ export function renderSettings() {
   ]);
 
   openSheet(t('common.settings'), body);
+}
+
+function notificationSection(settings) {
+  const enabled = !!settings.notificationsEnabled;
+  const creatineEnabled = enabled && !!settings.creatineReminderEnabled;
+  const time = el('input', { type: 'time', value: settings.creatineReminderTime || '19:00' });
+  const creatine = el('input', { type: 'checkbox', checked: creatineEnabled,
+    style: { width: 'auto', minHeight: 'auto' } });
+
+  const save = async (nextCreatine = creatine.checked) => {
+    if (!cloud.isSignedIn()) { toast(t('settings.notificationsNeedAccount')); return false; }
+    try {
+      if (!enabled || push.permission() !== 'granted') await push.enable();
+      await cloud.saveNotificationPreferences({ allEnabled: true, creatineEnabled: nextCreatine,
+        creatineTime: time.value, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Berlin' });
+      await store.setSetting('notificationsEnabled', true);
+      await store.setSetting('creatineReminderEnabled', nextCreatine);
+      await store.setSetting('creatineReminderTime', time.value);
+      toast(t('settings.notificationsSaved'));
+      return true;
+    } catch (err) {
+      toast(t(err?.code === 'PUSH_DENIED' ? 'users.notificationsDenied' : 'settings.notificationsFailed'));
+      return false;
+    }
+  };
+
+  creatine.addEventListener('change', async () => {
+    if (!await save(creatine.checked)) creatine.checked = !creatine.checked;
+    else { closeSheet(); renderSettings(); }
+  });
+  time.addEventListener('change', () => save(creatine.checked));
+
+  return el('div', {}, [
+    el('div.section-head', {}, [el('h2', { text: t('settings.notifications') })]),
+    el('div.card', {}, [
+      el('div.row.between', {}, [
+        el('div.grow', {}, [el('strong', { text: t('settings.creatineTitle') }),
+          el('div.small.muted', { style: { marginTop: '4px' }, text: t('settings.creatineBody') })]),
+        creatine,
+      ]),
+      el('label.field', { style: { marginTop: '12px' } }, [
+        el('span', { text: t('settings.creatineTime') }), time,
+      ]),
+      creatineEnabled ? el('div.row', {}, [
+        el('button.btn.primary.grow', { onclick: async () => {
+          try { await cloud.answerCreatineReminder('taken'); await store.setSetting('creatineLastTakenDay', new Date().toISOString().slice(0, 10)); toast(t('settings.creatineTaken')); }
+          catch { toast(t('settings.notificationsFailed')); }
+        } }, [t('settings.alreadyTaken')]),
+        el('button.btn.ghost.grow', { onclick: async () => {
+          try { await cloud.answerCreatineReminder('snooze'); toast(t('settings.creatineSnoozed')); }
+          catch { toast(t('settings.notificationsFailed')); }
+        } }, [t('settings.notTaken')]),
+      ]) : null,
+    ]),
+    enabled ? el('button.btn.full.danger', { style: { marginTop: '10px' }, onclick: async () => {
+      try {
+        await cloud.saveNotificationPreferences({ allEnabled: false, creatineEnabled: false,
+          creatineTime: time.value, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Berlin' });
+        await push.disable();
+        await store.setSetting('notificationsEnabled', false);
+        await store.setSetting('creatineReminderEnabled', false);
+        toast(t('settings.allNotificationsOff')); closeSheet(); renderSettings();
+      } catch { toast(t('settings.notificationsFailed')); }
+    } }, [t('settings.disableAllNotifications')]) : null,
+  ]);
 }
 
 /**

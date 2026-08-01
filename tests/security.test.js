@@ -340,3 +340,19 @@ test('social leaderboard module has a browser-parseable closing sequence', async
   assert.doesNotMatch(users, /host\.replaceChildren\([\s\S]{0,1200}\]\)\)\)\);/);
   assert.match(users, /host\.replaceChildren\([\s\S]{0,1200}\]\)\)\);/);
 });
+
+test('notification preferences are private and creatine actions are account scoped', async () => {
+  const sql = await read('server/patch-011-notification-preferences.sql');
+  assert.match(sql, /notification_preferences enable row level security/i);
+  assert.match(sql, /revoke all on table public\.notification_preferences from anon,authenticated/i);
+  assert.match(sql, /not public\.has_active_access\(\)/i);
+  assert.match(sql, /where user_id=auth\.uid\(\)/i);
+  assert.match(sql, /pg_timezone_names/i);
+});
+
+test('creatine reminder dispatcher requires its cron secret', async () => {
+  const edge = await read('supabase/functions/send-creatine-reminders/index.ts');
+  assert.match(edge, /CREATINE_CRON_SECRET/);
+  assert.match(edge, /request\.headers\.get\("x-cron-secret"\) !== cronSecret/);
+  assert.match(edge, /\.eq\("all_enabled", true\)\.eq\("creatine_enabled", true\)/);
+});

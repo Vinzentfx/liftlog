@@ -385,6 +385,16 @@ export const savePushSubscription = (subscription) => socialRpc('save_push_subsc
   push_p256dh: subscription.keys.p256dh,
   push_auth: subscription.keys.auth,
 });
+export const saveNotificationPreferences = ({ allEnabled, creatineEnabled, creatineTime, timezone }) =>
+  socialRpc('save_notification_preferences', {
+    p_notifications_enabled: allEnabled,
+    p_creatine_enabled: creatineEnabled,
+    p_reminder_time: creatineTime,
+    p_timezone_name: timezone,
+  });
+export const answerCreatineReminder = (action) => socialRpc('answer_creatine_reminder', {
+  reminder_action: action,
+});
 export const sendInvitePush = (inviteId) => authed(`${SUPABASE_URL}/functions/v1/send-training-invite`, {
   method: 'POST', body: { inviteId },
 });

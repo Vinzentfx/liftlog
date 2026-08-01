@@ -29,6 +29,9 @@ const handler = withSupabase({ auth: "user" }, async (request, ctx) => {
 
     const { data: subscriptions } = await ctx.supabaseAdmin.from("push_subscriptions")
       .select("endpoint,p256dh,auth").eq("user_id", invite.recipient);
+    const { data: notificationPreference } = await ctx.supabaseAdmin.from("notification_preferences")
+      .select("all_enabled").eq("user_id", invite.recipient).maybeSingle();
+    if (notificationPreference?.all_enabled === false) return reply(200, { ok: true, delivered: 0 });
     const { data: profile } = await ctx.supabaseAdmin.from("social_profiles")
       .select("display_name").eq("user_id", invite.sender).single();
     const name = profile?.display_name || "Ein Freund";

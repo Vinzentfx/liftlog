@@ -306,6 +306,7 @@ async function runCloudMaintenance() {
   cloudMaintenanceRunning = true;
   try {
     if (await gate.recheck() === false) return;
+    await handleNotificationAction();
     const result = await sync.onAppOpen();
     // Social presence is deliberately best-effort. A missing community patch
     // must never interfere with backups or opening the local training log.
@@ -333,6 +334,19 @@ async function runCloudMaintenance() {
   } finally {
     cloudMaintenanceRunning = false;
   }
+}
+
+async function handleNotificationAction() {
+  const url = new URL(location.href);
+  const action = url.searchParams.get('creatine');
+  if (action !== 'taken' && action !== 'snooze') return;
+  url.searchParams.delete('creatine');
+  history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  try {
+    await cloud.answerCreatineReminder(action);
+    if (action === 'taken') await store.setSetting('creatineLastTakenDay', new Date().toISOString().slice(0, 10));
+    toast(t(action === 'taken' ? 'settings.creatineTaken' : 'settings.creatineSnoozed'));
+  } catch { toast(t('settings.notificationsFailed')); }
 }
 
 function startCloudMaintenance() {

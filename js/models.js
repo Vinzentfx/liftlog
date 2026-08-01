@@ -61,6 +61,10 @@ export const DEFAULT_SETTINGS = {
   // only the local switch. `state.enabled` in sync.js requires both.
   cloudEnabled: false,
   cloudLastSyncAt: null,
+  notificationsEnabled: false,
+  creatineReminderEnabled: false,
+  creatineReminderTime: '19:00',
+  creatineLastTakenDay: null,
   // Profile. sex and bodyweight drive the strength standards; height is
   // recorded for reference only and is deliberately not used in any rating
   // (no published standard normalises by height).

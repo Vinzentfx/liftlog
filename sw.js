@@ -1,5 +1,5 @@
 // Offline shell. Bump CACHE when shipping changes so clients pick them up.
-const CACHE = 'liftlog-v85';
+const CACHE = 'liftlog-v86';
 
 // assets/exercises/*.webp are deliberately NOT precached — ~270 exercises x2
 // frames would bloat the install and most are never opened. The runtime
@@ -84,12 +84,16 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(data.title || 'LiftLog', {
     body: data.body || '', icon: './icons/icon-192.png', badge: './icons/icon-192.png',
     tag: data.tag || 'liftlog-training-invite', data: { url: data.url || './#/users' },
+    actions: data.actions || [],
   }));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || './#/users', self.location.href).href;
+  let url = event.notification.data?.url || './#/users';
+  if (event.action === 'taken') url = './?creatine=taken#/home';
+  if (event.action === 'snooze') url = './?creatine=snooze#/home';
+  const target = new URL(url, self.location.href).href;
   event.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
     const open = windows[0];
     if (open) return open.focus().then(() => open.navigate(target));

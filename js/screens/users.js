@@ -340,7 +340,7 @@ function leaderboardSection() {
 
 function notificationCard() {
   if (!push.supported()) return el('div');
-  const enabled = push.permission() === 'granted';
+  const enabled = push.permission() === 'granted' && !!store.state.settings.notificationsEnabled;
   return el('div.card', {}, [
     el('div.row.between', {}, [
       el('div.grow', {}, [el('strong', { text: t('users.notifications') }),
@@ -348,7 +348,15 @@ function notificationCard() {
       el('span.pill', { text: t(enabled ? 'users.notificationsOn' : 'users.notificationsOff') }),
     ]),
     enabled ? null : el('button.btn.primary.full', { style: { marginTop: '12px' }, onclick: async () => {
-      try { await push.enable(); toast(t('users.notificationsEnabled')); (await import('../app.js')).render(); }
+      try {
+        await push.enable();
+        await cloud.saveNotificationPreferences({ allEnabled: true,
+          creatineEnabled: !!store.state.settings.creatineReminderEnabled,
+          creatineTime: store.state.settings.creatineReminderTime || '19:00',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Berlin' });
+        await store.setSetting('notificationsEnabled', true);
+        toast(t('users.notificationsEnabled')); (await import('../app.js')).render();
+      }
       catch (err) { toast(t(err?.code === 'PUSH_DENIED' ? 'users.notificationsDenied' : 'users.notificationsFailed')); }
     } }, [t('users.enableNotifications')]),
   ]);
