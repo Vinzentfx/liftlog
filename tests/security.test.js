@@ -191,6 +191,11 @@ test('deleting the cloud account also returns this installation to the login gat
   assert.match(account, /sync\.deleteAccount\(\)[\s\S]*location\.reload\(\)/);
 });
 
+test('a legacy deleted account repairs its stale local gate on the next launch', async () => {
+  const app = await read('js/app.js');
+  assert.match(app, /deviceUnlocked = await gate\.isUnlocked\(\)[\s\S]*deviceUnlocked && !cloud\.isSignedIn\(\)[\s\S]*await gate\.lock\(\)[\s\S]*deviceUnlocked = false/);
+});
+
 test('normal sign-out preserves device identity and full erasure forgets it', async () => {
   const sync = await read('js/sync.js');
   const settings = await read('js/screens/settings.js');

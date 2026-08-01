@@ -6,6 +6,7 @@ import * as store from './store.js';
 import * as db from './db.js';
 import * as rest from './rest.js';
 import * as sync from './sync.js';
+import * as cloud from './cloud.js';
 
 import renderHome from './screens/home.js';
 import renderTrain from './screens/train.js';
@@ -255,7 +256,16 @@ async function boot() {
 
   // The gate asks once per device. After that it never runs again, so a phone
   // with no reception behaves exactly as it did before any of this existed.
-  if (await gate.isUnlocked()) openApp();
+  let deviceUnlocked = await gate.isUnlocked();
+  // Repair the state left by older builds after a successful Auth-account
+  // deletion: the session was gone but the IndexedDB gate survived, making the
+  // deleted account appear to remain inside the app forever. A real offline
+  // launch still has its persisted session, so it is unaffected.
+  if (deviceUnlocked && !cloud.isSignedIn()) {
+    await gate.lock();
+    deviceUnlocked = false;
+  }
+  if (deviceUnlocked) openApp();
   else {
     // A browser tab must explain installation before it can become the main
     // device. Otherwise the first login silently binds ownership to Safari or
