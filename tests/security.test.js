@@ -301,3 +301,26 @@ test('approved secondary devices get a narrow conflict-checked backup RPC', asyn
   assert.match(sync, /err\.code !== 'STALE'[\s\S]*attempt === 1/);
   assert.match(cloud, /rpc\/upload_backup_from_device/);
 });
+
+test('social invitations are private, friend-only and rate limited', async () => {
+  const sql = await read('server/patch-010-social-plans-invites.sql');
+  assert.match(sql, /training_invites enable row level security/i);
+  assert.match(sql, /revoke all on table public\.training_invites,public\.push_subscriptions from anon,authenticated/i);
+  assert.match(sql, /status='accepted'[\s\S]*NOT_FRIENDS/i);
+  assert.match(sql, /created_at>now\(\)-interval '1 hour'[\s\S]*RATE_LIMITED/i);
+  assert.match(sql, /recipient=auth\.uid\(\) and status='pending'/i);
+});
+
+test('push sender is authenticated and cannot choose an arbitrary recipient', async () => {
+  const edge = await read('supabase/functions/send-training-invite/index.ts');
+  assert.match(edge, /withSupabase\(\{ auth: "user" \}/);
+  assert.match(edge, /\.eq\("sender", userData\.user\.id\)\.eq\("status", "pending"\)/);
+  assert.match(edge, /\.eq\("user_id", invite\.recipient\)/);
+});
+
+test('rest timer unlocks and reuses audio after a user gesture', async () => {
+  const rest = await read('js/rest.js');
+  assert.match(rest, /document\.addEventListener\('pointerdown', unlockAudio/);
+  assert.match(rest, /const ctx = audio \|\| new Ctx\(\)/);
+  assert.doesNotMatch(rest, /ctx\.close\(/);
+});

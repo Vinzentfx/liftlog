@@ -307,6 +307,9 @@ async function runCloudMaintenance() {
   try {
     if (await gate.recheck() === false) return;
     const result = await sync.onAppOpen();
+    // Social presence is deliberately best-effort. A missing community patch
+    // must never interfere with backups or opening the local training log.
+    import('./screens/users.js').then(({ syncPresence }) => syncPresence()).catch(() => {});
     if (sync.state.isOwner) {
       const freshRequests = sync.state.pendingDevices.filter(
         (device) => !announcedPendingDevices.has(device.id));

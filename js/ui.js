@@ -31,6 +31,10 @@ const AUTH_ICONS = {
   email: ['M4 6h16v12H4z', 'm4 7 8 6 8-6'],
   lock: ['M6 10h12v10H6z', 'M8 10V7a4 4 0 0 1 8 0v3', 'M12 14v2'],
   key: ['M14 7a4 4 0 1 1-3.8 5.2L4 18.4V21h2.6l1-1H10l1-1v-2.4l1.8-1.8A4 4 0 0 1 14 7z'],
+  user: ['M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M4 21a8 8 0 0 1 16 0'],
+  search: ['M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14z', 'm16 16 5 5'],
+  clock: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 7v5l3 2'],
+  note: ['M5 3h14v18H5z', 'M8 8h8', 'M8 12h8', 'M8 16h5'],
 };
 
 /** Consistent, touch-friendly field used by sign-in, sign-up and recovery. */

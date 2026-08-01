@@ -24,3 +24,7 @@ export const SUPABASE_ANON =
  * would be impossible to say later what anyone actually agreed to.
  */
 export const CONSENT_VERSION = '2026-08-01';
+
+// Public half of the Web Push key. The matching private half lives only in
+// Supabase Edge Function secrets (server/.vapid-secrets is gitignored).
+export const VAPID_PUBLIC_KEY = 'BKPwWaQtwir-hMT7mYY5bOEaZ6c7JBl0aPZgupGm4QknzHmNO8aLDTLmKP5AkbvPpSILwEeHGZgNbaB-o_miDc0';

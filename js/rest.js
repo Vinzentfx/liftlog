@@ -9,6 +9,7 @@ let total = 0;
 let raf = null;
 let onDone = null;
 let chimed = false;
+let audio = null;
 
 const bar = () => $('#rest-bar');
 
@@ -71,7 +72,9 @@ function chime() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
-    const ctx = new Ctx();
+    const ctx = audio || new Ctx();
+    audio = ctx;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     [0, 0.18].forEach((offset, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -84,11 +87,23 @@ function chime() {
       osc.start(ctx.currentTime + offset);
       osc.stop(ctx.currentTime + offset + 0.2);
     });
-    setTimeout(() => ctx.close().catch(() => {}), 900);
   } catch { /* audio unavailable — the haptic already fired */ }
 }
 
+// iOS and other mobile browsers only allow audio after a user gesture. Creating
+// and resuming the context when the user first touches the app keeps it usable
+// minutes later when the timer itself finishes without a gesture.
+function unlockAudio() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    audio ||= new Ctx();
+    if (audio.state === 'suspended') audio.resume().catch(() => {});
+  } catch { /* sound remains optional */ }
+}
+
 export function init() {
+  document.addEventListener('pointerdown', unlockAudio, { once: true, passive: true });
   $('#rest-dismiss').addEventListener('click', stop);
   $('#rest-add').addEventListener('click', () => extend(30));
   // Recompute immediately on wake — a throttled tick may be seconds stale.

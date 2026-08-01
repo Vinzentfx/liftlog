@@ -15,6 +15,8 @@
 -- be enabled; it never changes or decrypts backup data.
 -- Apply patch-009-multi-device-backups.sql last to let every approved device
 -- contribute conflict-checked backups without gaining owner privileges.
+-- Apply patch-010-social-plans-invites.sql afterwards for scheduled presence,
+-- strength leaderboards, private training invites and push subscriptions.
 --
 -- Paste this into the Supabase SQL editor once. There is no other server code:
 -- the app talks to PostgREST over plain fetch, and what it is allowed to do is

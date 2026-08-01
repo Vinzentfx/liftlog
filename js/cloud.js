@@ -190,6 +190,16 @@ export function persistSession() {
 export async function signOut() {
   // Best effort: the local session is what actually matters, and a phone with
   // no signal must still be able to sign out.
+  try {
+    const registration = await globalThis.navigator?.serviceWorker?.getRegistration?.();
+    const subscription = await registration?.pushManager?.getSubscription?.();
+    if (subscription?.endpoint) {
+      await authed(`${REST}/rpc/remove_push_subscription`, {
+        method: 'POST', body: { push_endpoint: subscription.endpoint },
+      });
+      await subscription.unsubscribe();
+    }
+  } catch { /* an offline sign-out still wins; stale endpoints expire on push */ }
   try { await authed(`${AUTH}/logout`, { method: 'POST' }); } catch { /* ignore */ }
   keepSession(null);
 }
@@ -351,8 +361,30 @@ export const publishSocialWeek = (stats) => socialRpc('publish_social_week', {
   trains_today: stats.trainingToday,
   status_text: stats.message || null,
 });
+export const publishSocialPresence = (stats) => socialRpc('publish_social_presence', {
+  workout_count: stats.workouts,
+  working_set_count: stats.sets,
+  strength_value: stats.strengthScore,
+  trains_today: stats.trainingToday,
+  status_text: stats.message || null,
+  planned_workout: stats.planToday || null,
+});
 export const requestFriend = (handle) => socialRpc('request_friend', { friend_handle: handle });
 export const answerFriend = (requestId, accept) => socialRpc('answer_friend_request', {
   request_id: requestId, accept_request: accept,
 });
 export const blockSocialUser = (userId) => socialRpc('block_social_user', { blocked_user: userId });
+export const sendTrainingInvite = (friendId, at, note) => socialRpc('send_training_invite', {
+  friend_id: friendId, training_at: at, invite_note: note || null,
+});
+export const answerTrainingInvite = (inviteId, accept) => socialRpc('answer_training_invite', {
+  invite_id: inviteId, accept_invite: accept,
+});
+export const savePushSubscription = (subscription) => socialRpc('save_push_subscription', {
+  push_endpoint: subscription.endpoint,
+  push_p256dh: subscription.keys.p256dh,
+  push_auth: subscription.keys.auth,
+});
+export const sendInvitePush = (inviteId) => authed(`${SUPABASE_URL}/functions/v1/send-training-invite`, {
+  method: 'POST', body: { inviteId },
+});
