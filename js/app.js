@@ -320,7 +320,11 @@ function startCloudMaintenance() {
 
   // Timers may be paused while a PWA is in the background; the online and
   // visibility handlers above catch up when it becomes active again.
-  setInterval(runCloudMaintenance, 15 * 60 * 1000);
+  // Device removal is an access decision, so a visible online app checks it
+  // promptly instead of waiting for the next backup interval.
+  setInterval(() => {
+    if (document.visibilityState === 'visible') runCloudMaintenance();
+  }, 60 * 1000);
 }
 
 window.addEventListener('error', (e) => {

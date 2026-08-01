@@ -63,6 +63,8 @@ export async function recheck() {
     if (!(await cloud.hasActiveAccess())) {
       return revokeLocalAccess();
     }
+    const deviceStatus = await sync.currentDeviceStatus();
+    if (deviceStatus === 'revoked') return revokeLocalAccess();
     return true;
   } catch (err) {
     // Some Supabase installations need a short schema-cache refresh before a

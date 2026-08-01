@@ -80,8 +80,17 @@ test('cloud maintenance retries when connectivity returns and at intervals', asy
   const app = await read('js/app.js');
   assert.match(app, /addEventListener\('online', runCloudMaintenance\)/);
   assert.match(app, /visibilitychange[\s\S]*runCloudMaintenance/);
-  assert.match(app, /setInterval\(runCloudMaintenance, 15 \* 60 \* 1000\)/);
+  assert.match(app, /visibilityState === 'visible'[\s\S]*runCloudMaintenance\(\)[\s\S]*60 \* 1000/);
   assert.match(app, /gate\.recheck\(\)[\s\S]*sync\.onAppOpen\(\)/);
+});
+
+test('a removed device is kicked and cannot reuse its cached cloud key', async () => {
+  const gate = await read('js/screens/gate.js');
+  const sync = await read('js/sync.js');
+  assert.match(gate, /currentDeviceStatus\(\)[\s\S]*deviceStatus === 'revoked'[\s\S]*revokeLocalAccess\(\)/);
+  assert.match(sync, /async function loadDataKey\(devices\)[\s\S]*mine\.status !== 'approved'[\s\S]*dataKey = null[\s\S]*if \(dataKey\) return dataKey/);
+  assert.match(sync, /requestAccess\(\)[\s\S]*current\.status !== 'revoked'[\s\S]*d\.status !== 'revoked'/);
+  assert.match(sync, /localDevice\?\.status === 'revoked' \? null/);
 });
 
 test('sign-in is only persisted after active access is confirmed', async () => {

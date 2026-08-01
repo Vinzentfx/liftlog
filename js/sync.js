@@ -144,15 +144,17 @@ export async function canDeleteCloudData() {
  * one.
  */
 async function loadDataKey(devices) {
-  if (dataKey) return dataKey;
-
-  const keys = await deviceKeys();
   const meta = await localMeta();
   const mine = devices.find((d) => d.id === meta.deviceId);
 
   if (!mine || mine.status !== 'approved' || !mine.wrapped_key) {
+    dataKey = null;
     throw Object.assign(new Error('NOT_APPROVED'), { code: 'NOT_APPROVED' });
   }
+
+  if (dataKey) return dataKey;
+
+  const keys = await deviceKeys();
 
   const shared = await crypto.sharedKey(keys.privateKey, mine.wrapped_by);
   dataKey = await crypto.unwrapDataKey(shared, { wrapped: mine.wrapped_key, iv: mine.wrap_iv });
@@ -216,12 +218,14 @@ export async function createAccount({ consent }) {
 export async function requestAccess() {
   const keys = await deviceKeys();
   const meta = await localMeta();
-  if (meta.deviceId) return meta.deviceId;
+  const devices = await cloud.listDevices();
+  const current = devices.find((d) => d.id === meta.deviceId);
+  if (current && current.status !== 'revoked') return current.id;
 
   // A previous version forgot the device id on sign-out but kept the private
   // key. Reuse the server row belonging to that key instead of registering the
   // same physical device a second time.
-  const existing = (await cloud.listDevices()).find((d) => samePublicKey(d.public_key, keys.jwk));
+  const existing = devices.find((d) => d.status !== 'revoked' && samePublicKey(d.public_key, keys.jwk));
   if (existing) {
     await saveMeta({ deviceId: existing.id });
     await load();
@@ -232,6 +236,15 @@ export async function requestAccess() {
   await saveMeta({ deviceId: device.id });
   await load();
   return device.id;
+}
+
+/** Server-authoritative status of this installation's registered device. */
+export async function currentDeviceStatus() {
+  if (!cloud.isSignedIn()) return 'signed-out';
+  const meta = await localMeta();
+  if (!meta.deviceId) return 'unregistered';
+  const mine = (await cloud.listDevices()).find((device) => device.id === meta.deviceId);
+  return mine?.status || 'missing';
 }
 
 /** From the main device: let a waiting one in, and hand it the key. */
@@ -323,11 +336,12 @@ export async function load() {
     const local = owner && samePublicKey(owner.public_key, keys.jwk)
       ? await saveMeta({ deviceId: owner.id })
       : savedLocal;
+    const localDevice = devices.find((d) => d.id === local.deviceId);
     set({
       signedIn: true,
       profile,
-      deviceId: local.deviceId ?? null,
-      isOwner: !!profile && profile.owner_device === local.deviceId,
+      deviceId: localDevice?.status === 'revoked' ? null : (local.deviceId ?? null),
+      isOwner: !!profile && localDevice?.status !== 'revoked' && profile.owner_device === local.deviceId,
       ownerAuthorized: !!local.ownerToken,
       serverVersion: meta?.version ?? 0,
       enabled: !!profile?.consent_at && store.state.settings.cloudEnabled !== false,
