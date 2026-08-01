@@ -221,8 +221,25 @@ function exerciseBlock(session, entry, entryIndex) {
     block.append(el('div.small.muted', { style: { marginBottom: '8px' }, text: entry.note }));
   }
 
+  if (ex && ['Machine', 'Cable'].includes(ex.equipment)) {
+    const setup = store.state.settings.machineSetups?.[ex.id];
+    const summary = setup && [
+      setup.seat && `${t('train.machine.seat')}: ${setup.seat}`,
+      setup.backrest && `${t('train.machine.backrest')}: ${setup.backrest}`,
+      setup.pad && `${t('train.machine.pad')}: ${setup.pad}`,
+      setup.note,
+    ].filter(Boolean).join(' · ');
+    block.append(el('button.btn.ghost.full.sm', {
+      style: {
+        marginBottom: '10px', textAlign: 'left', justifyContent: 'flex-start',
+        whiteSpace: 'normal', lineHeight: '1.35', paddingTop: '8px', paddingBottom: '8px',
+      },
+      onclick: () => machineSetupSheet(ex),
+    }, [summary ? `⚙ ${summary}` : `⚙ ${t('train.machine.saveSetup')}`]));
+  }
+
   const rirOn = store.state.settings.logRir !== false;
-  const bodyweightLoad = ['Pull-Up', 'Chin-Up', 'Dip'].includes(ex.name);
+  const bodyweightLoad = ['Pull-Up', 'Chin-Up', 'Dip'].includes(ex?.name);
   block.append(el('div.set-labels' + (rirOn ? '.with-rir' : ''), {}, [
     el('span', { text: t('train.col.set') }), el('span', { text: bodyweightLoad ? `+${units}` : units }),
     el('span', { text: t('train.col.reps') }),
@@ -280,7 +297,7 @@ function setRow(session, entry, set, index, last, ex) {
     decimal: true,
     value: set.weight ?? '',
     placeholder: hint ? String(hint.weight) : '–',
-    'aria-label': ['Pull-Up', 'Chin-Up', 'Dip'].includes(ex.name) ? t('train.addedWeight') : t('train.weight'),
+    'aria-label': ['Pull-Up', 'Chin-Up', 'Dip'].includes(ex?.name) ? t('train.addedWeight') : t('train.weight'),
   }));
   const reps = normaliseOnBlur(numberInput({
     value: set.reps ?? '',
@@ -291,7 +308,7 @@ function setRow(session, entry, set, index, last, ex) {
   // Keystrokes persist quietly — a re-render here would kill the caret.
   weight.addEventListener('input', () => {
     set.weight = parseNumber(weight.value);
-    if (['Pull-Up', 'Chin-Up', 'Dip'].includes(ex.name)) set.loadMode = 'added';
+    if (['Pull-Up', 'Chin-Up', 'Dip'].includes(ex?.name)) set.loadMode = 'added';
     saveSoon(session);
   });
   reps.addEventListener('input', () => {
@@ -590,6 +607,9 @@ function exerciseMenu(session, entry, index, name) {
     ex ? el('button.btn.ghost.full', {
       onclick: () => { closeSheet(); howToSheet(ex); },
     }, [t('train.menu.howTo')]) : null,
+    ex && ['Machine', 'Cable'].includes(ex.equipment) ? el('button.btn.ghost.full', {
+      onclick: () => machineSetupSheet(ex),
+    }, [t('train.machine.editSetup')]) : null,
     // Only for a loaded bar. On a machine "per side" means nothing, and on a
     // dumbbell there is nothing to work out.
     ex && ex.equipment === 'Barbell'
@@ -611,6 +631,38 @@ function exerciseMenu(session, entry, index, name) {
     }, [t('train.menu.removeAction')]),
   ]);
   openSheet(name, body);
+}
+
+function machineSetupSheet(ex) {
+  const saved = store.state.settings.machineSetups?.[ex.id] || {};
+  const field = (key, placeholder) => el('input', { type: 'text', value: saved[key] || '', placeholder });
+  const seat = field('seat', t('train.machine.seatPlaceholder'));
+  const backrest = field('backrest', t('train.machine.backrestPlaceholder'));
+  const pad = field('pad', t('train.machine.padPlaceholder'));
+  const note = field('note', t('train.machine.notePlaceholder'));
+  openSheet(t('train.machine.title', { name: ex.name }), el('div', {}, [
+    el('div.small.muted', { style: { marginBottom: '12px' }, text: t('train.machine.intro') }),
+    el('label.field', {}, [el('span', { text: t('train.machine.seat') }), seat]),
+    el('label.field', {}, [el('span', { text: t('train.machine.backrest') }), backrest]),
+    el('label.field', {}, [el('span', { text: t('train.machine.pad') }), pad]),
+    el('label.field', {}, [el('span', { text: t('train.machine.note') }), note]),
+    el('button.btn.primary.full', { onclick: async () => {
+      const setups = { ...(store.state.settings.machineSetups || {}) };
+      const next = { seat: seat.value.trim(), backrest: backrest.value.trim(), pad: pad.value.trim(), note: note.value.trim() };
+      if (Object.values(next).some(Boolean)) setups[ex.id] = next;
+      else delete setups[ex.id];
+      await store.setSetting('machineSetups', setups);
+      closeSheet();
+      toast(t('train.machine.saved'));
+    } }, [t('common.save')]),
+    Object.keys(saved).length ? el('button.btn.quiet.full', { onclick: async () => {
+      const setups = { ...(store.state.settings.machineSetups || {}) };
+      delete setups[ex.id];
+      await store.setSetting('machineSetups', setups);
+      closeSheet();
+      toast(t('train.machine.cleared'));
+    } }, [t('train.machine.clear')]) : null,
+  ]));
 }
 
 /** Demo frames + steps, one tap from the workout rather than cluttering it. */

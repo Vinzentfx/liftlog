@@ -286,6 +286,16 @@ export function renderSettings() {
     el('div.small.faint', { style: { marginTop: '-4px', marginBottom: '14px' }, text: t('settings.languageNote') }),
 
     el('div.section-head', {}, [el('h2', { text: t('route.train') })]),
+    el('button.list-item', {
+      onclick: () => { closeSheet(); location.hash = '#/library'; },
+      'aria-label': t('settings.openLibrary'),
+    }, [
+      el('div.grow', {}, [
+        el('div.li-title', { text: t('route.library') }),
+        el('div.li-sub', { text: t('settings.libraryHint', { n: store.state.exercises.length }) }),
+      ]),
+      el('span.chev', { text: '›', 'aria-hidden': 'true' }),
+    ]),
     el('label.field', {}, [el('span', { text: t('settings.units') }), units]),
 
     el('label.field', {}, [
