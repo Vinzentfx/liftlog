@@ -248,7 +248,7 @@ async function boot() {
   // The gate asks once per device. After that it never runs again, so a phone
   // with no reception behaves exactly as it did before any of this existed.
   if (await gate.isUnlocked()) openApp();
-  else gate.show(openApp);
+  else await gate.show(openApp);
 
   if ('serviceWorker' in navigator) {
     // Only meaningful over https/localhost; silently skipped elsewhere.

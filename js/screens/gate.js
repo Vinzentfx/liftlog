@@ -27,6 +27,12 @@ import { doExport } from './settings.js';
 import { t } from '../i18n.js';
 
 const ROW = 'gate';
+let waitingTimer = null;
+
+function stopWaiting() {
+  clearTimeout(waitingTimer);
+  waitingTimer = null;
+}
 
 export async function isUnlocked() {
   const row = await db.get(db.STORES.keys, ROW);
@@ -82,7 +88,7 @@ export async function recheck() {
 /* ================================ the screen ================================ */
 
 /** Renders over everything and calls `onOpen` once the device is unlocked. */
-export function show(onOpen) {
+export async function show(onOpen) {
   document.getElementById('tabbar').hidden = true;
   $('#screen-title').textContent = 'LiftLog';
   clear($('#topbar-actions'));
@@ -92,11 +98,21 @@ export function show(onOpen) {
   host.append(pane);
 
   const done = async () => {
+    stopWaiting();
     await unlock();
     document.getElementById('tabbar').hidden = false;
     onOpen();
   };
 
+  if (cloud.isSignedIn()) {
+    try {
+      await sync.load();
+      const deviceStatus = await sync.currentDeviceStatus();
+      if (deviceStatus === 'approved') return done();
+      if (deviceStatus === 'pending') return paintWaiting(pane, done);
+      if (deviceStatus === 'revoked') await cloud.signOut();
+    } catch { /* show the normal sign-in choice if the session cannot resume */ }
+  }
   paintChoice(pane, done);
 }
 
@@ -113,6 +129,7 @@ function paint(pane, ...children) {
 }
 
 function paintChoice(pane, done) {
+  stopWaiting();
   paint(pane,
     el('div.gate-hero', {}, [
       el('div.gate-mark', { 'aria-hidden': 'true' }, ['L']),
@@ -142,6 +159,63 @@ function paintChoice(pane, done) {
     ]),
     lockedOutExport(),
   );
+}
+
+function paintWaiting(pane, done) {
+  stopWaiting();
+  let checking = false;
+  const status = el('div.small.faint', { text: t('gate.waitingAutomatic') });
+
+  const check = async () => {
+    if (checking || !navigator.onLine) return;
+    checking = true;
+    try {
+      const deviceStatus = await sync.currentDeviceStatus();
+      if (deviceStatus === 'approved') {
+        await sync.load();
+        return done();
+      }
+      if (deviceStatus === 'revoked') {
+        stopWaiting();
+        await cloud.signOut();
+        paintChoice(pane, done);
+        toast(t('cloud.err.DEVICE_REVOKED'), 4200);
+        return;
+      }
+      status.textContent = t('gate.waitingStill');
+    } catch { status.textContent = t('gate.waitingOffline'); }
+    finally { checking = false; }
+  };
+
+  paint(pane,
+    el('div.gate-hero', {}, [
+      el('div.gate-mark.waiting', { 'aria-hidden': 'true' }, ['…']),
+      el('div.gate-eyebrow', { text: t('gate.waitingEyebrow') }),
+      el('h2', { text: t('gate.waitingTitle') }),
+      el('div.gate-lead', { text: t('gate.waitingIntro') }),
+    ]),
+    el('div.gate-trust', {}, [
+      el('span', { text: '1', 'aria-hidden': 'true' }),
+      el('div', { text: t('gate.waitingStepOne') }),
+    ]),
+    el('div.gate-trust', {}, [
+      el('span', { text: '2', 'aria-hidden': 'true' }),
+      el('div', { text: t('gate.waitingStepTwo') }),
+    ]),
+    el('button.btn.primary.full', { style: { marginTop: '16px' }, onclick: check }, [t('gate.checkAgain')]),
+    status,
+    el('button.btn.quiet.full', { onclick: async () => {
+      stopWaiting();
+      await cloud.signOut();
+      paintChoice(pane, done);
+    } }, [t('cloud.signOut')]),
+  );
+
+  const poll = async () => {
+    await check();
+    if (waitingTimer !== null) waitingTimer = setTimeout(poll, 10 * 1000);
+  };
+  waitingTimer = setTimeout(poll, 10 * 1000);
 }
 
 /**
@@ -218,6 +292,7 @@ function paintSignUp(pane, done) {
       await done();
       toast(t('gate.welcome'), 3000);
     } catch (err) {
+      if (err?.code === 'DEVICE_REVOKED') await cloud.signOut();
       problem(status, err);
     }
   }
@@ -262,14 +337,25 @@ function paintSignIn(pane, done) {
       }
       await sync.load();
       let requestedDevice = false;
-      if (profile.recovery_wrap && !sync.state.deviceId) {
-        await sync.requestAccess();
-        requestedDevice = true;
+      if (profile.recovery_wrap) {
+        const deviceStatus = await sync.currentDeviceStatus();
+        if (deviceStatus === 'revoked') {
+          throw Object.assign(new Error('DEVICE_REVOKED'), { code: 'DEVICE_REVOKED' });
+        }
+        if (deviceStatus === 'unregistered' || deviceStatus === 'missing') {
+          await sync.requestAccess();
+          requestedDevice = true;
+        }
+        if (requestedDevice || deviceStatus === 'pending') {
+          paintWaiting(pane, done);
+          if (requestedDevice) toast(t('cloud.requestSent'), 3200);
+          return;
+        }
       }
       await done();
       toast(t('gate.welcomeBack'), 2600);
-      if (requestedDevice) toast(t('cloud.requestSent'), 3200);
     } catch (err) {
+      if (err?.code === 'DEVICE_REVOKED') await cloud.signOut();
       problem(status, err);
     }
   }

@@ -89,8 +89,26 @@ test('a removed device is kicked and cannot reuse its cached cloud key', async (
   const sync = await read('js/sync.js');
   assert.match(gate, /currentDeviceStatus\(\)[\s\S]*deviceStatus === 'revoked'[\s\S]*revokeLocalAccess\(\)/);
   assert.match(sync, /async function loadDataKey\(devices\)[\s\S]*mine\.status !== 'approved'[\s\S]*dataKey = null[\s\S]*if \(dataKey\) return dataKey/);
-  assert.match(sync, /requestAccess\(\)[\s\S]*current\.status !== 'revoked'[\s\S]*d\.status !== 'revoked'/);
+  assert.match(sync, /requestAccess\(\)[\s\S]*current\?\.status === 'revoked'[\s\S]*matching\?\.status === 'revoked'/);
   assert.match(sync, /localDevice\?\.status === 'revoked' \? null/);
+});
+
+test('blocked devices stay blocked and disappear from the visible device list', async () => {
+  const sync = await read('js/sync.js');
+  const account = await read('js/screens/account.js');
+  assert.match(sync, /current\?\.status === 'revoked'[\s\S]*DEVICE_REVOKED/);
+  assert.match(sync, /matching\?\.status === 'revoked'[\s\S]*DEVICE_REVOKED/);
+  assert.match(account, /devices\.filter\(\(d\) => d\.status !== 'revoked'\)\.map/);
+});
+
+test('pending devices remain at a polling approval gate', async () => {
+  const gate = await read('js/screens/gate.js');
+  const app = await read('js/app.js');
+  assert.match(gate, /function paintWaiting\(pane, done\)/);
+  assert.match(gate, /deviceStatus === 'pending'[\s\S]*paintWaiting\(pane, done\)/);
+  assert.match(gate, /setTimeout\(poll, 10 \* 1000\)/);
+  assert.match(gate, /deviceStatus === 'approved'[\s\S]*sync\.load\(\)[\s\S]*done\(\)/);
+  assert.match(app, /else await gate\.show\(openApp\)/);
 });
 
 test('sign-in is only persisted after active access is confirmed', async () => {
@@ -184,7 +202,7 @@ test('an existing device row is reused by matching its public key', async () => 
 
 test('gate sign-in registers an unknown device as pending', async () => {
   const gate = await read('js/screens/gate.js');
-  assert.match(gate, /profile\.recovery_wrap && !sync\.state\.deviceId[\s\S]*sync\.requestAccess\(\)/);
+  assert.match(gate, /profile\.recovery_wrap[\s\S]*deviceStatus === 'unregistered'[\s\S]*sync\.requestAccess\(\)[\s\S]*paintWaiting\(pane, done\)/);
 });
 
 test('the owner is notified about newly pending devices', async () => {

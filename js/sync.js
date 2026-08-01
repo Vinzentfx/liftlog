@@ -220,12 +220,19 @@ export async function requestAccess() {
   const meta = await localMeta();
   const devices = await cloud.listDevices();
   const current = devices.find((d) => d.id === meta.deviceId);
-  if (current && current.status !== 'revoked') return current.id;
+  if (current?.status === 'revoked') {
+    throw Object.assign(new Error('DEVICE_REVOKED'), { code: 'DEVICE_REVOKED' });
+  }
+  if (current) return current.id;
 
   // A previous version forgot the device id on sign-out but kept the private
   // key. Reuse the server row belonging to that key instead of registering the
   // same physical device a second time.
-  const existing = devices.find((d) => d.status !== 'revoked' && samePublicKey(d.public_key, keys.jwk));
+  const matching = devices.find((d) => samePublicKey(d.public_key, keys.jwk));
+  if (matching?.status === 'revoked') {
+    throw Object.assign(new Error('DEVICE_REVOKED'), { code: 'DEVICE_REVOKED' });
+  }
+  const existing = matching;
   if (existing) {
     await saveMeta({ deviceId: existing.id });
     await load();

@@ -479,7 +479,7 @@ async function devicesSheet() {
   const mine = sync.state.deviceId;
   body.replaceChildren(
     el('div.small.muted', { text: t('cloud.devicesIntro') }),
-    ...devices.map((d) => el('div.row.between', {
+    ...devices.filter((d) => d.status !== 'revoked').map((d) => el('div.row.between', {
       style: { padding: '10px 0', borderBottom: '1px solid var(--line-soft)', gap: '10px' },
     }, [
       el('div.grow', {}, [
