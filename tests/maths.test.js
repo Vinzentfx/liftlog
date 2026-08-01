@@ -91,6 +91,10 @@ test('the curated catalogue keeps corrected anatomy, equipment and plain instruc
     'Pendulum Squat', 'Belt Squat', 'Smith Machine Romanian Deadlift',
     'Bayesian Cable Curl', 'Cross-Body Cable Lateral Raise', 'Single-Arm Lat Pulldown',
     'Reverse Nordic Curl', 'Glute-Biased 45-Degree Back Extension', 'Cable Y-Raise',
+    'Iso-Lateral Chest Press', 'Iso-Lateral Incline Chest Press', 'Iso-Lateral Shoulder Press',
+    'Iso-Lateral High Row', 'Iso-Lateral Low Row', 'Plate-Loaded Pullover',
+    'Glute Drive Machine', 'Standing Hip Abduction Machine', 'Kneeling Leg Curl Machine',
+    'Seated Dip Machine',
   ];
 
   additions.forEach((name) => assert.ok(byName.has(name), `${name} is missing`));

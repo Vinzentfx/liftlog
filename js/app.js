@@ -16,6 +16,7 @@ import renderCalendar from './screens/calendar.js';
 import renderProgress from './screens/progress.js';
 import renderNutrition from './screens/nutrition.js';
 import renderShare from './screens/share.js';
+import renderUsers from './screens/users.js';
 import { renderSettings } from './screens/settings.js';
 import * as gate from './screens/gate.js';
 
@@ -109,6 +110,7 @@ const ROUTES = {
   calendar:  { title: 'route.calendar',  render: renderCalendar },
   progress:  { title: 'route.progress',  render: renderProgress },
   nutrition: { title: 'route.nutrition', render: renderNutrition },
+  users:     { title: 'route.users',     render: renderUsers },
   // Arrives from a link someone sent; never navigated to from inside the app.
   share:     { title: 'route.share',     render: renderShare },
 };

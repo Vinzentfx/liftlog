@@ -166,6 +166,16 @@ export const CONTRIB_EXTRA = {
   'Reverse Nordic Curl':       { quads: 1, abs: 0.25 },
   'Glute-Biased 45-Degree Back Extension': { glutes: 1, hamstrings: 0.7, 'lower-back': 0.3 },
   'Cable Y-Raise':             { 'delts-front': 1, traps: 0.45 },
+  'Iso-Lateral Chest Press':   { chest: 1, 'delts-front': 0.55, triceps: 0.55 },
+  'Iso-Lateral Incline Chest Press': { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
+  'Iso-Lateral Shoulder Press': { 'delts-front': 1, triceps: 0.6, traps: 0.35 },
+  'Iso-Lateral High Row':      { lats: 1, traps: 0.65, 'delts-rear': 0.55, biceps: 0.45 },
+  'Iso-Lateral Low Row':       { lats: 1, biceps: 0.55, traps: 0.5, 'delts-rear': 0.4 },
+  'Plate-Loaded Pullover':     { lats: 1, chest: 0.35, triceps: 0.25 },
+  'Glute Drive Machine':       { glutes: 1, hamstrings: 0.5 },
+  'Standing Hip Abduction Machine': { glutes: 1 },
+  'Kneeling Leg Curl Machine': { hamstrings: 1, calves: 0.2 },
+  'Seated Dip Machine':        { triceps: 1, chest: 0.75, 'delts-front': 0.4 },
 };
 
 /** Anatomy for any curated movement, benchmark or not. */

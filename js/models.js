@@ -186,6 +186,16 @@ const SEED = [
   ['Reverse Nordic Curl', 'Quads', 'Bodyweight'],
   ['Glute-Biased 45-Degree Back Extension', 'Glutes', 'Other'],
   ['Cable Y-Raise', 'Shoulders', 'Cable'],
+  ['Iso-Lateral Chest Press', 'Chest', 'Machine'],
+  ['Iso-Lateral Incline Chest Press', 'Chest', 'Machine'],
+  ['Iso-Lateral Shoulder Press', 'Shoulders', 'Machine'],
+  ['Iso-Lateral High Row', 'Back', 'Machine'],
+  ['Iso-Lateral Low Row', 'Back', 'Machine'],
+  ['Plate-Loaded Pullover', 'Back', 'Machine'],
+  ['Glute Drive Machine', 'Glutes', 'Machine'],
+  ['Standing Hip Abduction Machine', 'Glutes', 'Machine'],
+  ['Kneeling Leg Curl Machine', 'Hamstrings', 'Machine'],
+  ['Seated Dip Machine', 'Triceps', 'Machine'],
 ];
 
 /** Coarse muscle -> body-map regions, for the curated seed entries. */
@@ -207,7 +217,7 @@ export function regionsForMuscle(muscle) {
 }
 
 /** Bumped whenever the bundled catalogue changes, to top up existing installs. */
-export const LIBRARY_VERSION = 9;
+export const LIBRARY_VERSION = 10;
 
 /**
  * Bumped for one-off repairs to *stored* records, independently of the
@@ -271,6 +281,16 @@ const MANUAL_INSTRUCTIONS = {
   'Reverse Nordic Curl': ['Kneel on padding with hips fully extended and the torso in line with the thighs.', 'Lean the whole body backward from the knees without bending at the hips.', 'Use the quadriceps to reverse the movement before losing control.'],
   'Glute-Biased 45-Degree Back Extension': ['Set the pad below the hip crease and anchor your feet.', 'Round slightly through the upper back and lower by flexing at the hips.', 'Drive the hips into the pad and stop when the glutes are contracted, without hyperextending the lower back.'],
   'Cable Y-Raise': ['Set two low cables and take the opposite handle in each hand.', 'With soft elbows, raise the arms up and out into a Y without shrugging.', 'Lower slowly until the arms cross lightly in front of the body.'],
+  'Iso-Lateral Chest Press': ['Adjust the seat so the handles start around mid-chest.', 'Keep your shoulder blades against the pad and press both arms without shrugging.', 'Lower under control to the deepest comfortable stretch.'],
+  'Iso-Lateral Incline Chest Press': ['Adjust the seat so the handles begin below the collarbone.', 'Keep your upper back against the pad and press up and inward.', 'Lower slowly without letting the shoulders roll forward.'],
+  'Iso-Lateral Shoulder Press': ['Set the seat so the handles begin around shoulder height.', 'Brace against the back pad and press overhead without shrugging early.', 'Lower until the shoulders reach a comfortable deep position.'],
+  'Iso-Lateral High Row': ['Set the chest pad so your arms can reach fully forward.', 'Drive the elbows down and back while keeping the chest supported.', 'Return under control until the shoulder blades can move forward.'],
+  'Iso-Lateral Low Row': ['Set the chest support and take the handles with fully reached arms.', 'Pull the elbows toward the hips without lifting the chest from the pad.', 'Pause briefly and return to a full controlled reach.'],
+  'Plate-Loaded Pullover': ['Adjust the seat so the upper arms contact the pads securely.', 'Begin overhead with a controlled lat stretch.', 'Drive the elbows down in an arc and return slowly without lifting the hips.'],
+  'Glute Drive Machine': ['Place the belt or pad securely across the hips and plant the whole foot.', 'Lower the hips under control while keeping the ribs down.', 'Drive through the feet and finish with the glutes without overextending the back.'],
+  'Standing Hip Abduction Machine': ['Set the pad against the outside of the working thigh and hold the frame lightly.', 'Move the leg outward without leaning or rotating the pelvis.', 'Return slowly until the glute is lengthened.'],
+  'Kneeling Leg Curl Machine': ['Align the working knee with the machine pivot and secure the ankle pad.', 'Curl the heel toward the glute without lifting the hip from the support.', 'Lower fully under control.'],
+  'Seated Dip Machine': ['Adjust the seat so the handles start beside the lower chest.', 'Keep the torso against the pad and press the handles down by extending the elbows.', 'Return under control without letting the shoulders roll forward.'],
 };
 
 /**

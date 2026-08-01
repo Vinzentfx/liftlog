@@ -268,3 +268,22 @@ test('the selected colour theme is saved and applied to the whole app', async ()
   assert.match(css, /data-theme="sunset"/);
   assert.match(settings, /const clicked = event\.currentTarget;[\s\S]*await store\.setSetting\('theme'[\s\S]*clicked\.parentElement/);
 });
+
+test('the social hub is opt-in and exposes no social tables directly', async () => {
+  const sql = await read('server/patch-008-social-hub.sql');
+  const screen = await read('js/screens/users.js');
+  assert.match(sql, /alter table public\.social_profiles enable row level security/i);
+  assert.match(sql, /revoke all on table public\.social_profiles,public\.social_friendships,public\.social_weekly_stats from anon,authenticated/i);
+  assert.match(sql, /not public\.has_active_access\(\)/i);
+  assert.match(sql, /leaderboard_opt_in=true/i);
+  assert.match(sql, /discoverable=true/i);
+  assert.match(sql, /status='blocked'/i);
+  assert.match(screen, /Individual exercises|Einzelne Übungen|users\.privacyBody/);
+  assert.doesNotMatch(screen, /store\.state\.bodyweight.*publishSocialWeek/);
+});
+
+test('machine-only training still reaches the personal progress map', async () => {
+  const home = await read('js/screens/home.js');
+  assert.match(home, /rating\.overall === null[\s\S]*mapMode = 'progress'[\s\S]*mapSection\(rating\)/);
+  assert.match(home, /equipment === 'Machine'[\s\S]*home\.rating\.machinePersonal/);
+});

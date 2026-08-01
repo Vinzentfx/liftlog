@@ -204,6 +204,7 @@ export default function renderHome({ actions }) {
     el('div.stat-grid.two', { style: { marginTop: '18px' } }, [
       wayIn(t('route.calendar'), t('home.wayIn.calendar'), () => navigate('calendar')),
       wayIn(t('route.progress'), t('home.wayIn.progress'), () => navigate('progress')),
+      wayIn(t('route.library'), t('home.wayIn.library'), () => navigate('library')),
     ])
   );
 
@@ -448,6 +449,9 @@ function ratingSection(done, settings) {
         el('div.small.muted', { text: t('home.rating.noneBody') }),
       ])
     );
+    mapMode = 'progress';
+    wrap.append(mapSection(rating));
+    wrap.append(machineRecords(best));
     return wrap;
   }
 
@@ -502,6 +506,31 @@ function ratingSection(done, settings) {
     }
   }
 
+  wrap.append(machineRecords(best));
+
+  return wrap;
+}
+
+function machineRecords(best) {
+  const records = [...best]
+    .map(([name, oneRepMax]) => ({ ex: store.state.exercises.find((e) => e.name === name), name, oneRepMax }))
+    .filter((row) => row.ex?.equipment === 'Machine')
+    .sort((a, b) => b.oneRepMax - a.oneRepMax)
+    .slice(0, 5);
+  const wrap = el('div');
+  if (!records.length) return wrap;
+  wrap.append(el('div.section-head', {}, [el('h2', { text: t('home.rating.machineRecords') })]));
+  for (const row of records) {
+    wrap.append(el('div.card.tight', {}, [
+      el('div.row.between', {}, [
+        el('div', {}, [
+          el('div', { style: { fontWeight: '640' }, text: row.name }),
+          el('div.small.faint', { text: t('home.rating.machinePersonal') }),
+        ]),
+        el('strong.num', { text: `e1RM ${fmtWeight(Math.round(row.oneRepMax), store.units())}` }),
+      ]),
+    ]));
+  }
   return wrap;
 }
 

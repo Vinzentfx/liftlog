@@ -332,3 +332,27 @@ export async function deleteAccount(ownerToken) {
 export function listVersions() {
   return authed(`${REST}/backups?select=version,bytes,created_at,device_id&order=version.desc`);
 }
+
+/* ================================ social ================================= */
+
+const socialRpc = (name, body = {}) => authed(`${REST}/rpc/${name}`, { method: 'POST', body });
+
+export const socialHub = () => socialRpc('social_hub');
+export const saveSocialProfile = (profile) => socialRpc('save_social_profile', {
+  new_handle: profile.handle,
+  new_display_name: profile.displayName,
+  is_discoverable: profile.discoverable,
+  joins_leaderboard: profile.leaderboard,
+});
+export const publishSocialWeek = (stats) => socialRpc('publish_social_week', {
+  workout_count: stats.workouts,
+  working_set_count: stats.sets,
+  strength_value: stats.strengthScore,
+  trains_today: stats.trainingToday,
+  status_text: stats.message || null,
+});
+export const requestFriend = (handle) => socialRpc('request_friend', { friend_handle: handle });
+export const answerFriend = (requestId, accept) => socialRpc('answer_friend_request', {
+  request_id: requestId, accept_request: accept,
+});
+export const blockSocialUser = (userId) => socialRpc('block_social_user', { blocked_user: userId });
