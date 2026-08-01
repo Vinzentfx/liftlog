@@ -98,7 +98,7 @@ test('blocked devices stay blocked and disappear from the visible device list', 
   const account = await read('js/screens/account.js');
   assert.match(sync, /current\?\.status === 'revoked'[\s\S]*DEVICE_REVOKED/);
   assert.match(sync, /matching\?\.status === 'revoked'[\s\S]*DEVICE_REVOKED/);
-  assert.match(account, /devices\.filter\(\(d\) => d\.status !== 'revoked'\)\.map/);
+  assert.match(account, /activeDevices = devices\.filter\(\(d\) => d\.status !== 'revoked'\)[\s\S]*activeDevices\.map/);
 });
 
 test('pending devices remain at a polling approval gate', async () => {
@@ -202,7 +202,17 @@ test('an existing device row is reused by matching its public key', async () => 
 
 test('gate sign-in registers an unknown device as pending', async () => {
   const gate = await read('js/screens/gate.js');
-  assert.match(gate, /profile\.recovery_wrap[\s\S]*deviceStatus === 'unregistered'[\s\S]*sync\.requestAccess\(\)[\s\S]*paintWaiting\(pane, done\)/);
+  assert.match(gate, /profile\.owner_device[\s\S]*deviceStatus === 'unregistered'[\s\S]*sync\.requestAccess\(\)[\s\S]*paintWaiting\(pane, done\)/);
+});
+
+test('the main device can securely restore a blocked device', async () => {
+  const account = await read('js/screens/account.js');
+  const sql = await read('server/patch-006-unblock-devices.sql');
+  assert.match(account, /status === 'revoked'[\s\S]*cloud\.blockedDevices[\s\S]*sync\.approve\(d\.id\)/);
+  assert.match(sql, /owner_capability_ok\(owner_token\)/);
+  assert.match(sql, /status in \('pending', 'approved', 'revoked'\)/);
+  assert.match(sql, /wrapped_key = approve_device\.wrapped_key/);
+  assert.match(sql, /grant execute on function public\.approve_device/);
 });
 
 test('the owner is notified about newly pending devices', async () => {

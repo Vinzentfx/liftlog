@@ -107,11 +107,21 @@ export async function show(onOpen) {
   if (cloud.isSignedIn()) {
     try {
       await sync.load();
+      const profile = sync.state.profile;
       const deviceStatus = await sync.currentDeviceStatus();
-      if (deviceStatus === 'approved') return done();
-      if (deviceStatus === 'pending') return paintWaiting(pane, done);
-      if (deviceStatus === 'revoked') await cloud.signOut();
-    } catch { /* show the normal sign-in choice if the session cannot resume */ }
+      if (profile?.owner_device) {
+        if (deviceStatus === 'approved') return done();
+        if (deviceStatus === 'pending') return paintWaiting(pane, done);
+        if (deviceStatus === 'unregistered' || deviceStatus === 'missing') {
+          await sync.requestAccess();
+          return paintWaiting(pane, done);
+        }
+        if (deviceStatus === 'revoked') await cloud.signOut();
+      }
+    } catch (err) {
+      if (err?.code === 'DEVICE_REVOKED') await cloud.signOut();
+      // Show the normal sign-in choice if the session cannot resume.
+    }
   }
   paintChoice(pane, done);
 }
@@ -337,7 +347,7 @@ function paintSignIn(pane, done) {
       }
       await sync.load();
       let requestedDevice = false;
-      if (profile.recovery_wrap) {
+      if (profile.owner_device) {
         const deviceStatus = await sync.currentDeviceStatus();
         if (deviceStatus === 'revoked') {
           throw Object.assign(new Error('DEVICE_REVOKED'), { code: 'DEVICE_REVOKED' });

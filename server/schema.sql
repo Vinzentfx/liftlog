@@ -8,7 +8,8 @@
 -- Finally apply server/patch-004-repair-invite-claims.sql, which repairs legacy
 -- partial activations and installs the self-contained invite claim RPC.
 -- Apply server/patch-005-fix-access-policy-permission.sql last so authenticated
--- RLS policies can execute their boolean access helper.
+-- policies can run the access helper, then patch-006-unblock-devices.sql so a
+-- main device can explicitly restore a blocked installation.
 --
 -- Paste this into the Supabase SQL editor once. There is no other server code:
 -- the app talks to PostgREST over plain fetch, and what it is allowed to do is

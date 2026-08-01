@@ -477,9 +477,12 @@ async function devicesSheet() {
   }
 
   const mine = sync.state.deviceId;
+  const activeDevices = devices.filter((d) => d.status !== 'revoked');
+  const blockedDevices = sync.state.isOwner
+    ? devices.filter((d) => d.status === 'revoked') : [];
   body.replaceChildren(
     el('div.small.muted', { text: t('cloud.devicesIntro') }),
-    ...devices.filter((d) => d.status !== 'revoked').map((d) => el('div.row.between', {
+    ...activeDevices.map((d) => el('div.row.between', {
       style: { padding: '10px 0', borderBottom: '1px solid var(--line-soft)', gap: '10px' },
     }, [
       el('div.grow', {}, [
@@ -505,6 +508,28 @@ async function devicesSheet() {
           devicesSheet();
         },
       }, ['×']),
+    ])),
+    blockedDevices.length ? el('div.section-head', {}, [
+      el('h2', { text: t('cloud.blockedDevices') }),
+    ]) : null,
+    ...blockedDevices.map((d) => el('div.row.between', {
+      style: { padding: '10px 0', borderBottom: '1px solid var(--line-soft)', gap: '10px' },
+    }, [
+      el('div.grow', {}, [
+        el('div', { style: { fontWeight: '620' }, text: d.name }),
+        el('div.small.faint', { text: t('cloud.status.revoked') }),
+      ]),
+      el('button.btn.ghost.sm', {
+        onclick: async () => {
+          try {
+            await sync.approve(d.id);
+            toast(t('cloud.unblocked'));
+            devicesSheet();
+          } catch (err) {
+            toast(t(`cloud.err.${err.code}`, { code: err.code || 'SERVER' }), 3200);
+          }
+        },
+      }, [t('cloud.unblock')]),
     ])),
     el('div.small.faint', { style: { marginTop: '12px' }, text: t('cloud.devicesNote') }),
   );
