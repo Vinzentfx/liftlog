@@ -14,10 +14,10 @@ import { cloudSection } from './account.js';
 import * as sync from '../sync.js';
 
 const THEMES = [
-  { key: 'ocean', label: 'settings.themeOcean', colours: ['#60A5FA', '#0A0E1A'] },
-  { key: 'violet', label: 'settings.themeViolet', colours: ['#A78BFA', '#100D1D'] },
-  { key: 'emerald', label: 'settings.themeEmerald', colours: ['#34D399', '#071713'] },
-  { key: 'sunset', label: 'settings.themeSunset', colours: ['#FB7185', '#1B0D16'] },
+  { key: 'ocean', label: 'settings.themeOcean', colours: ['#60A5FA', '#0A0E1A', '#17243A'] },
+  { key: 'violet', label: 'settings.themeViolet', colours: ['#A78BFA', '#100D1D', '#261E40'] },
+  { key: 'emerald', label: 'settings.themeEmerald', colours: ['#34D399', '#071713', '#17352C'] },
+  { key: 'sunset', label: 'settings.themeSunset', colours: ['#FB7185', '#1B0D16', '#3A1D2C'] },
 ];
 
 /**
@@ -176,7 +176,11 @@ export function renderSettings() {
     }, [
       el('span.theme-preview', {
         'aria-hidden': 'true',
-        style: { '--preview-accent': theme.colours[0], '--preview-bg': theme.colours[1] },
+        style: {
+          '--preview-accent': theme.colours[0],
+          '--preview-bg': theme.colours[1],
+          '--preview-surface': theme.colours[2],
+        },
       }),
       el('span', { text: t(theme.label) }),
       el('span.theme-check', { 'aria-hidden': 'true', text: selected ? '✓' : '' }),
