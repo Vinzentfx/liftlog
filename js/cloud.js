@@ -90,6 +90,9 @@ function fromPostgrest(status, body) {
   if (code === '23505') return fail('STALE', 'the server already has a newer version');
   if (code === '42501') return fail('DENIED', body?.message || 'not allowed');
   if (code === 'P0001') return fail(body.message, body.message);   // our own raise
+  if (typeof code === 'string' && /^[A-Z][A-Z0-9_]+$/.test(code)) {
+    return fail(code, body?.message || code);
+  }
   if (status === 401 || status === 403) return fail('AUTH', 'not signed in');
   return fail('SERVER', body?.message || `server said ${status}`, { status });
 }
@@ -315,6 +318,15 @@ export async function deleteEverything(ownerToken) {
   await authed(`${REST}/rpc/delete_cloud_data`, {
     method: 'POST', body: { owner_token: ownerToken },
   });
+}
+
+/** Delete cloud rows and the Supabase Auth identity through the protected Edge Function. */
+export async function deleteAccount(ownerToken) {
+  if (!session?.user?.id) throw fail('AUTH', 'not signed in');
+  await authed(`${SUPABASE_URL}/functions/v1/delete-account`, {
+    method: 'POST', body: { owner_token: ownerToken },
+  });
+  keepSession(null);
 }
 
 export function listVersions() {

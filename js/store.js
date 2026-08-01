@@ -869,6 +869,32 @@ export async function importData(payload, { replace = true } = {}) {
     throw new Error('This backup is empty — nothing would be restored.');
   }
 
+  // IndexedDB would reject a missing key only after the old log had already
+  // been touched. Validate every record and bound hostile/corrupt files first.
+  const keyFor = {
+    exercises: 'id', plans: 'id', sessions: 'id', bodyweight: 'id',
+    foods: 'id', meals: 'id', water: 'day', templates: 'id',
+  };
+  const totalRows = lists.reduce((sum, key) => sum + (payload[key] || []).length, 0);
+  if (totalRows > 100000) throw new Error('This backup contains too many records.');
+  for (const key of lists) {
+    for (const [index, row] of (payload[key] || []).entries()) {
+      if (!row || typeof row !== 'object' || Array.isArray(row)) {
+        throw new Error(`This backup is damaged — "${key}" item ${index + 1} is invalid.`);
+      }
+      const recordKey = row[keyFor[key]];
+      if ((typeof recordKey !== 'string' && typeof recordKey !== 'number') || String(recordKey).length > 256) {
+        throw new Error(`This backup is damaged — "${key}" item ${index + 1} has no valid key.`);
+      }
+    }
+  }
+  const settings = payload.settings || {};
+  if (Object.keys(settings).length > 500) throw new Error('This backup contains too many settings.');
+  for (const key of Object.keys(settings)) {
+    if (!key || key.length > 128) throw new Error('This backup contains an invalid setting name.');
+  }
+
+  const settingRows = Object.entries(settings).map(([key, value]) => ({ key, value }));
   if (replace) {
     // Everything except this device's own crypto keys.
     //
@@ -878,10 +904,20 @@ export async function importData(payload, { replace = true } = {}) {
     // restoring from the cloud destroyed the very thing that had just decrypted
     // the download: the device came back as a stranger, could no longer unwrap
     // its own data key, and had to be approved again or recovered.
-    const wipe = Object.values(db.STORES).filter((store) => store !== db.STORES.keys);
-    await Promise.all(wipe.map((s) => db.clear(s)));
+    await db.replaceBackupData({
+      [db.STORES.exercises]: payload.exercises || [],
+      [db.STORES.plans]: payload.plans || [],
+      [db.STORES.sessions]: payload.sessions || [],
+      [db.STORES.bodyweight]: payload.bodyweight || [],
+      [db.STORES.foods]: payload.foods || [],
+      [db.STORES.meals]: payload.meals || [],
+      [db.STORES.water]: payload.water || [],
+      [db.STORES.templates]: payload.templates || [],
+      [db.STORES.settings]: settingRows,
+    });
+    await load();
+    return;
   }
-  const settingRows = Object.entries(payload.settings || {}).map(([key, value]) => ({ key, value }));
   // `plans` was missing from both sides of this until now: exportData never
   // wrote it and importData never read it, so restoring a backup silently
   // dropped every training plan. Older backup files simply have no `plans` key

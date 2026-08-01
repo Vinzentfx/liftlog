@@ -9,7 +9,8 @@
 -- partial activations and installs the self-contained invite claim RPC.
 -- Apply server/patch-005-fix-access-policy-permission.sql last so authenticated
 -- policies can run the access helper, then patch-006-unblock-devices.sql so a
--- main device can explicitly restore a blocked installation.
+-- main device can explicitly restore a blocked installation. Apply
+-- patch-007-account-deletion.sql last for complete self-service account deletion.
 --
 -- Paste this into the Supabase SQL editor once. There is no other server code:
 -- the app talks to PostgREST over plain fetch, and what it is allowed to do is

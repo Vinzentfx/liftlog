@@ -210,6 +210,8 @@ function signUpSheet() {
     el('div.section-head', {}, [el('h2', { text: t('cloud.consentTitle') })]),
     el('div.small.muted', { text: t('cloud.consentBody') }),
     el('div.small.faint', { style: { marginTop: '8px' }, text: t('cloud.consentNotStored') }),
+    el('a.small', { href: './privacy.html', target: '_blank', rel: 'noopener',
+      style: { display: 'inline-block', marginTop: '8px' } }, [t('legal.privacy')]),
     el('label.field', { style: { marginTop: '12px' } }, [
       el('div.row', { style: { gap: '10px' } }, [
         agreed,
@@ -271,6 +273,8 @@ function finishSetupSheet() {
   openSheet(t('cloud.finishSetup'), el('div', {}, [
     el('div.small.muted', { text: t('cloud.consentBody') }),
     el('div.small.faint', { style: { marginTop: '8px' }, text: t('cloud.consentNotStored') }),
+    el('a.small', { href: './privacy.html', target: '_blank', rel: 'noopener',
+      style: { display: 'inline-block', marginTop: '8px' } }, [t('legal.privacy')]),
     el('label.field', { style: { marginTop: '12px' } }, [
       el('div.row', { style: { gap: '10px' } }, [
         agreed,
@@ -602,17 +606,18 @@ function manageSheet() {
       el('button.btn.full.danger', {
         onclick: async () => {
           const ok = await confirmSheet(t('cloud.deleteTitle'), t('cloud.deleteBody'),
-            { confirmLabel: t('cloud.deleteGo') });
+            { confirmLabel: t('cloud.deleteAccountGo') });
           if (!ok) return;
           try {
-            await sync.deleteCloudData();
+            await sync.deleteAccount();
             closeSheet();
             toast(t('cloud.deleted'), 3600);
+            location.reload();
           } catch (err) { toast(t(`cloud.err.${err.code}`, { code: err.code || 'SERVER' })); }
         },
-      }, [t('cloud.deleteGo')]),
+      }, [t('cloud.deleteAccountGo')]),
     ]),
 
-    el('div.small.faint', { style: { marginTop: '14px' }, text: t('cloud.deleteNote') }),
+    el('div.small.faint', { style: { marginTop: '14px' }, text: t('cloud.deleteAccountNote') }),
   ]));
 }

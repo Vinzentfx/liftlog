@@ -108,7 +108,7 @@ test('pending devices remain at a polling approval gate', async () => {
   assert.match(gate, /deviceStatus === 'pending'[\s\S]*paintWaiting\(pane, done\)/);
   assert.match(gate, /setTimeout\(poll, 10 \* 1000\)/);
   assert.match(gate, /deviceStatus === 'approved'[\s\S]*sync\.load\(\)[\s\S]*done\(\)/);
-  assert.match(app, /else await gate\.show\(openApp\)/);
+  assert.match(app, /else \{[\s\S]*await showInstallHint\(\{ beforeLogin: true \}\)[\s\S]*await gate\.show\(openApp\)/);
 });
 
 test('sign-in is only persisted after active access is confirmed', async () => {

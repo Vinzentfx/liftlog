@@ -1,5 +1,5 @@
 // Offline shell. Bump CACHE when shipping changes so clients pick them up.
-const CACHE = 'liftlog-v77';
+const CACHE = 'liftlog-v78';
 
 // assets/exercises/*.webp are deliberately NOT precached — ~270 exercises x2
 // frames would bloat the install and most are never opened. The runtime
@@ -8,6 +8,8 @@ const SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './privacy.html',
+  './legal.html',
   './css/styles.css',
   './js/app.js',
   './js/i18n.js',
@@ -107,8 +109,12 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('./index.html', copy));
+          const type = res.headers.get('content-type') || '';
+          const path = new URL(res.url).pathname;
+          if (res.ok && type.includes('text/html') && (path.endsWith('/') || path.endsWith('/index.html'))) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put('./index.html', copy));
+          }
           return res;
         })
         .catch(() => caches.match('./index.html').then((r) => r || Response.error()))

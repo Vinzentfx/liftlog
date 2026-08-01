@@ -277,11 +277,13 @@ function paintSignUp(pane, done) {
     type: 'text', autocapitalize: 'characters', autocorrect: 'off', spellcheck: 'false',
     placeholder: 'ABCD-2026',
   });
+  const legal = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
 
   async function go() {
     if (!email.value.trim().includes('@')) { toast(t('cloud.needEmail')); email.focus(); return; }
     if ((password.value || '').length < 8) { toast(t('cloud.needPassword')); password.focus(); return; }
     if (!code.value.trim()) { toast(t('cloud.needInviteCode')); code.focus(); return; }
+    if (!legal.checked) { toast(t('legal.mustAccept')); legal.focus(); return; }
 
     status.style.color = 'var(--text-faint)';
     status.textContent = t('cloud.working');
@@ -314,6 +316,18 @@ function paintSignUp(pane, done) {
       authField(t('cloud.email'), email, { icon: 'email' }),
       authField(t('cloud.password'), password, { icon: 'lock' }),
       authField(t('cloud.inviteCode'), code, { icon: 'key' }),
+    ]),
+    el('label.field', { style: { marginTop: '14px' } }, [
+      el('div.row', { style: { gap: '10px', alignItems: 'flex-start' } }, [
+        legal,
+        el('span.grow.small', {}, [
+          t('legal.acceptPrefix') + ' ',
+          el('a', { href: './privacy.html', target: '_blank', rel: 'noopener' }, [t('legal.privacy')]),
+          ' ' + t('legal.and') + ' ',
+          el('a', { href: './legal.html', target: '_blank', rel: 'noopener' }, [t('legal.terms')]),
+          '. ', t('legal.age'),
+        ]),
+      ]),
     ]),
     el('button.btn.primary.full', { onclick: go }, [t('gate.start')]),
     status,

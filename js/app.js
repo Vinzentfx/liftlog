@@ -18,7 +18,7 @@ import renderShare from './screens/share.js';
 import { renderSettings } from './screens/settings.js';
 import * as gate from './screens/gate.js';
 
-const INSTALL_HINT_KEY = 'liftlog.installHint.dismissed.v1';
+const INSTALL_HINT_KEY = 'liftlog.installHint.dismissed.v2';
 let deferredInstallPrompt = null;
 const THEMES = new Set(['ocean', 'violet', 'emerald', 'sunset']);
 
@@ -37,9 +37,10 @@ function isInstalledApp() {
 
 function isMobileDevice() {
   const uaMobile = navigator.userAgentData?.mobile;
-  if (typeof uaMobile === 'boolean') return uaMobile;
+  if (uaMobile === true) return true;
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
-    || (navigator.maxTouchPoints > 1 && matchMedia('(max-width: 820px)').matches);
+    || (navigator.maxTouchPoints > 1 && matchMedia('(max-width: 820px)').matches)
+    || matchMedia('(max-width: 600px)').matches;
 }
 
 function installHintDismissed() {
@@ -50,8 +51,9 @@ function dismissInstallHint() {
   try { localStorage.setItem(INSTALL_HINT_KEY, '1'); } catch { /* private mode */ }
 }
 
-function showInstallHint() {
-  if (!isMobileDevice() || isInstalledApp() || installHintDismissed()) return;
+function showInstallHint({ beforeLogin = false } = {}) {
+  if (!isMobileDevice() || isInstalledApp() || installHintDismissed()) return Promise.resolve();
+  return new Promise((resolve) => {
   const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent)
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const canInstall = Boolean(deferredInstallPrompt);
@@ -64,16 +66,22 @@ function showInstallHint() {
     canInstall ? el('button.btn.primary.full', { onclick: async () => {
       const prompt = deferredInstallPrompt;
       deferredInstallPrompt = null;
-      closeSheet();
       dismissInstallHint();
+      closeSheet();
       await prompt.prompt();
+      resolve();
     } }, [t('install.button')]) : null,
     el('button.btn.quiet.full', { onclick: () => {
       dismissInstallHint();
       closeSheet();
+      resolve();
     } }, [t('install.later')]),
   ]);
-  openSheet(t('install.title'), body, { onClose: dismissInstallHint });
+  openSheet(t('install.title'), body, {
+    onClose: () => { dismissInstallHint(); resolve(); },
+    ...(beforeLogin ? { dismissible: false } : {}),
+  });
+  });
 }
 
 function scheduleInstallHint(attempt = 0) {
@@ -248,7 +256,13 @@ async function boot() {
   // The gate asks once per device. After that it never runs again, so a phone
   // with no reception behaves exactly as it did before any of this existed.
   if (await gate.isUnlocked()) openApp();
-  else await gate.show(openApp);
+  else {
+    // A browser tab must explain installation before it can become the main
+    // device. Otherwise the first login silently binds ownership to Safari or
+    // Chrome instead of the home-screen app the person meant to use.
+    await showInstallHint({ beforeLogin: true });
+    await gate.show(openApp);
+  }
 
   if ('serviceWorker' in navigator) {
     // Only meaningful over https/localhost; silently skipped elsewhere.

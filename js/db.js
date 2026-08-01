@@ -148,6 +148,28 @@ export async function clear(store) {
   return wrap((await tx(store, 'readwrite')).clear());
 }
 
+/** Replace every backup-owned store as one transaction, preserving device keys. */
+export async function replaceBackupData(rowsByStore) {
+  const database = await open();
+  const names = Object.keys(rowsByStore);
+  const transaction = database.transaction(names, 'readwrite');
+  try {
+    for (const name of names) {
+      const objectStore = transaction.objectStore(name);
+      objectStore.clear();
+      for (const row of rowsByStore[name]) objectStore.put(row);
+    }
+  } catch (err) {
+    transaction.abort();
+    throw err;
+  }
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () => reject(transaction.error || new Error('Backup restore was cancelled.'));
+    transaction.onerror = () => reject(transaction.error || new Error('Backup restore failed.'));
+  });
+}
+
 export async function count(store) {
   return wrap((await tx(store)).count());
 }

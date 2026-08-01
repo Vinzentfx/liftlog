@@ -135,6 +135,14 @@ export async function canDeleteCloudData() {
   return !!(await localMeta()).ownerToken;
 }
 
+export async function deleteAccount() {
+  const ownerToken = await requireOwnerToken();
+  await cloud.deleteAccount(ownerToken);
+  dataKey = null;
+  set({ enabled: false, signedIn: false, profile: null, deviceId: null,
+    isOwner: false, ownerAuthorized: false, pendingDevices: [] });
+}
+
 /**
  * Get this device's copy of the data key, unwrapping it with the shared secret
  * the main device left for us.

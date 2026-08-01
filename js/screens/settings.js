@@ -384,6 +384,11 @@ export function renderSettings() {
       '. ' + t('credits.shareAlike'),
     ]),
 
+    el('div.row', { style: { justifyContent: 'center', gap: '14px', marginTop: '22px' } }, [
+      el('a.small', { href: './privacy.html', target: '_blank', rel: 'noopener' }, [t('legal.privacy')]),
+      el('a.small', { href: './legal.html', target: '_blank', rel: 'noopener' }, [t('legal.terms')]),
+    ]),
+
     el('div.small.faint', { style: { textAlign: 'center', marginTop: '22px' }, text: 'LiftLog · v2' }),
   ]);
 

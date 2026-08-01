@@ -23,4 +23,4 @@ export const SUPABASE_ANON =
  * on the profile row. Without it "they agreed" is a claim with no content: it
  * would be impossible to say later what anyone actually agreed to.
  */
-export const CONSENT_VERSION = '2026-07-31';
+export const CONSENT_VERSION = '2026-08-01';
