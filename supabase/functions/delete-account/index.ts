@@ -1,54 +1,59 @@
+// Complete account deletion. Only an authenticated user who also possesses the
+// main-device owner capability can reach the privileged Auth deletion.
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { withSupabase } from "jsr:@supabase/server@^1";
+
 const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response('ok', { headers: cors });
-  if (request.method !== 'POST') return reply(405, { code: 'METHOD_NOT_ALLOWED' });
-
-  const url = Deno.env.get('SUPABASE_URL');
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const authorization = request.headers.get('Authorization');
-  if (!url || !serviceKey) return reply(500, { code: 'SERVER' });
-  if (!authorization?.startsWith('Bearer ')) return reply(401, { code: 'AUTH' });
+const deleteAccount = withSupabase({ auth: "user" }, async (request, ctx) => {
+  if (request.method !== "POST") return reply(405, { code: "METHOD_NOT_ALLOWED" });
 
   try {
-    const userResponse = await fetch(`${url}/auth/v1/user`, {
-      headers: { Authorization: authorization, apikey: serviceKey },
-    });
-    if (!userResponse.ok) return reply(401, { code: 'AUTH' });
-    const user = await userResponse.json();
-    const { owner_token } = await request.json();
-    if (typeof owner_token !== 'string' || owner_token.length < 32) {
-      return reply(400, { code: 'OWNER_TOKEN_WRONG' });
+    const body = await request.json();
+    const ownerToken = body?.owner_token;
+    if (typeof ownerToken !== "string" || ownerToken.length < 32) {
+      return reply(400, { code: "OWNER_TOKEN_WRONG" });
     }
 
-    // A stolen login token alone is insufficient: the server verifies the
-    // main-device capability without deleting anything. Deleting the Auth user
-    // afterwards cascades to all public rows in one database transaction.
-    const dataResponse = await fetch(`${url}/rest/v1/rpc/authorize_account_deletion`, {
-      method: 'POST',
-      headers: { Authorization: authorization, apikey: serviceKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ owner_token }),
-    });
-    if (!dataResponse.ok) {
-      const problem = await dataResponse.json().catch(() => ({}));
-      return reply(dataResponse.status, { code: problem.message || 'DENIED' });
+    // RLS-scoped call: auth.uid() is the signed-in person. The SQL function
+    // compares a hash of the device-only capability and changes no data.
+    const { data: authorized, error: authorizationError } = await ctx.supabase
+      .rpc("authorize_account_deletion", { owner_token: ownerToken });
+    if (authorizationError || authorized !== true) {
+      console.warn("account deletion authorization denied", authorizationError?.code);
+      return reply(403, { code: "OWNER_TOKEN_WRONG" });
     }
 
-    const deleteResponse = await fetch(`${url}/auth/v1/admin/users/${encodeURIComponent(user.id)}`, {
-      method: 'DELETE', headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
-    });
-    if (!deleteResponse.ok) return reply(500, { code: 'SERVER' });
+    const { data: userResult, error: userError } = await ctx.supabase.auth.getUser();
+    const user = userResult?.user;
+    if (userError || !user?.id) return reply(401, { code: "AUTH" });
+
+    // supabaseAdmin is supplied by the hosted runtime and never reaches the
+    // browser. Deleting auth.users cascades to all LiftLog account rows.
+    const { error: deleteError } = await ctx.supabaseAdmin.auth.admin.deleteUser(user.id);
+    if (deleteError) {
+      console.error("Auth account deletion failed", deleteError.code, deleteError.message);
+      return reply(500, { code: "SERVER" });
+    }
+
     return reply(200, { ok: true });
-  } catch {
-    return reply(500, { code: 'SERVER' });
+  } catch (error) {
+    console.error("account deletion failed", error);
+    return reply(500, { code: "SERVER" });
   }
 });
 
+export default {
+  fetch(request: Request) {
+    if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
+    return deleteAccount(request);
+  },
+};
+
 function reply(status: number, body: unknown) {
-  return new Response(JSON.stringify(body), {
-    status, headers: { ...cors, 'Content-Type': 'application/json' },
-  });
+  return Response.json(body, { status, headers: cors });
 }

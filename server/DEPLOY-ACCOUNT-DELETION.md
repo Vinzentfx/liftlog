@@ -12,8 +12,9 @@ deletion therefore uses a Supabase Edge Function.
    supabase functions deploy delete-account
    ```
 
-Supabase provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to hosted Edge
-Functions. Never add the service-role key to this repository or Cloudflare.
+The current Supabase runtime provides the authenticated `ctx.supabase` client
+and privileged `ctx.supabaseAdmin` client to the function. Never add a secret or
+service-role key to this repository, the function source, or Cloudflare.
 
 After deployment, test with a disposable account. The function first verifies
 the device-local owner capability and then deletes the Auth identity; foreign
