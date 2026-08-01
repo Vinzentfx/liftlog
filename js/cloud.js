@@ -409,6 +409,12 @@ export const saveNotificationPreferences = ({ allEnabled, creatineEnabled, creat
 export const answerCreatineReminder = (action) => socialRpc('answer_creatine_reminder', {
   reminder_action: action,
 });
+export const shareMachineRecord = (machineHash, exercise, ratio, sex) =>
+  socialRpc('share_machine_record', {
+    p_machine_hash: machineHash, p_exercise: exercise, p_ratio: ratio, p_sex: sex,
+  });
+export const removeMachineRecord = (exercise) =>
+  socialRpc('remove_machine_record', { p_exercise: exercise });
 export const sendInvitePush = (inviteId) => authed(`${SUPABASE_URL}/functions/v1/send-training-invite`, {
   method: 'POST', body: { inviteId },
 });

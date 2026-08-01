@@ -26,7 +26,7 @@ import assert from 'node:assert/strict';
 process.env.TZ = 'Europe/Berlin';
 
 const { e1rm, isCounted, startOfWeek, entryStats, newMeal, dayKey, slotFor, seedExercises, bestOneRepMaxByName, estimatePlanDuration } = await import('../js/models.js');
-const { scoreFor, ANATOMY } = await import('../js/standards.js');
+const { scoreFor, scoreForMachine, buildRating, ANATOMY } = await import('../js/standards.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
 const { rateExercise } = await import('../js/exercise-rating.js');
@@ -39,6 +39,7 @@ const { dayTotals, energySplit, maintenanceEstimate, NUTRIENTS, macroTargets } =
 const { latestWeight } = await import('../js/models.js');
 const { STORES } = await import('../js/db.js');
 const { searchLibrary, searchFoods, toFoodFields } = await import('../js/foodsearch.js');
+const { normaliseBarcode, nutritionLooksPlausible } = await import('../js/foodlookup.js');
 const { parseNumber, plural } = await import('../js/ui.js');
 const { platePlan, describePlates } = await import('../js/plates.js');
 const { warmupSets, warmupCount } = await import('../js/warmup.js');
@@ -80,6 +81,27 @@ test('common machines contribute to the muscle map without fake strength tiers',
     'Triceps Pushdown', 'Rope Hammer Curl', 'Close-Grip Seated Row']) {
     assert.ok(ANATOMY[name], `${name} should have anatomy`);
   }
+});
+
+test('machine records get provisional tiers and contribute cautiously to strength regions', () => {
+  const profile = { sex: 'male', bodyweight: 80, age: 25 };
+  const score = scoreForMachine('Machine Chest Press', 90, profile);
+  assert.ok(score > 0 && score < 100);
+  const rating = buildRating(new Map([['Machine Chest Press', 90]]), profile,
+    { machineNames: new Set(['Machine Chest Press']) });
+  assert.equal(rating.lifts[0].machine, true);
+  assert.equal(rating.lifts[0].provisional, true);
+  assert.ok(rating.regions.chest.score > 0);
+  assert.ok(rating.regions.chest.score < score, 'uncertain machine data is discounted on the combined map');
+});
+
+test('same-model observations gradually adjust rather than replace the seed standard', () => {
+  const profile = { sex: 'male', bodyweight: 80, age: 25 };
+  const seed = scoreForMachine('Machine Chest Press', 90, profile);
+  const adjusted = scoreForMachine('Machine Chest Press', 90, profile,
+    { count: 100, q20: 0.3, q40: 0.5, q60: 0.7, q80: 0.9 });
+  assert.notEqual(adjusted, seed);
+  assert.ok(adjusted < 100 && adjusted > 0);
 });
 
 test('planned duration excludes a pointless rest after every exercise', () => {
@@ -443,6 +465,21 @@ test('the food library is searchable and scales to a portion', () => {
   assert.equal(fields.kcal, Math.round(oats.per100.kcal / 2));
   assert.ok(fields.protein > 0);
   assert.equal(typeof fields.micros, 'object');
+});
+
+test('German food terms find the measured offline library', () => {
+  assert.ok(searchLibrary('Hähnchen').some((food) => /chicken/i.test(food.name)));
+  assert.ok(searchLibrary('Haferflocken').some((food) => /oat/i.test(food.name)));
+  assert.ok(searchLibrary('Kartoffel').some((food) => /potato/i.test(food.name)));
+  assert.ok(searchLibrary('Tomato paste').length > 0, 'new common foods are bundled');
+});
+
+test('barcodes require a valid GTIN check digit and nutrition is sanity checked', () => {
+  assert.equal(normaliseBarcode('40084015'), '40084015');
+  assert.equal(normaliseBarcode('40084016'), null);
+  assert.equal(normaliseBarcode('123456789'), null);
+  assert.equal(nutritionLooksPlausible({ protein: 13, carbs: 1, fat: 11, kcal: 155 }), true);
+  assert.equal(nutritionLooksPlausible({ protein: 13, carbs: 1, fat: 11, kcal: 700 }), false);
 });
 
 test('branded products are searchable and rank behind measured ones', () => {

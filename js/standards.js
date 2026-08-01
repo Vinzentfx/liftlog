@@ -201,6 +201,71 @@ export const ANATOMY = { ...CONTRIB_EXTRA, ...CONTRIB };
 export const BENCHMARKS = Object.keys(CONTRIB);
 export const isBenchmark = (name) => Object.hasOwn(CONTRIB, name);
 
+// Provisional machine standards. These broad groups intentionally start
+// conservative: the printed stack is not the force at the handle. They are a
+// useful first estimate only, and can be blended with same-model community
+// percentiles by scoreForMachine as observations accumulate.
+const MACHINE_BOUNDS = {
+  male: {
+    upperPress: [0.40, 0.70, 1.05, 1.40], upperPull: [0.45, 0.75, 1.10, 1.45],
+    upperIsolation: [0.15, 0.28, 0.45, 0.65], lowerPress: [1.20, 2.00, 3.00, 4.20],
+    lowerIsolation: [0.35, 0.60, 0.90, 1.30], hip: [0.80, 1.40, 2.10, 3.00],
+    core: [0.35, 0.60, 0.90, 1.30],
+  },
+  female: {
+    upperPress: [0.25, 0.45, 0.70, 1.00], upperPull: [0.30, 0.50, 0.75, 1.05],
+    upperIsolation: [0.10, 0.18, 0.30, 0.45], lowerPress: [0.90, 1.50, 2.30, 3.20],
+    lowerIsolation: [0.25, 0.42, 0.65, 0.95], hip: [0.65, 1.10, 1.70, 2.50],
+    core: [0.25, 0.42, 0.65, 0.95],
+  },
+};
+
+export function machineCategory(name) {
+  const n = String(name || '').toLowerCase();
+  if (/(leg press|hack squat|pendulum|belt squat|smith machine squat)/.test(n)) return 'lowerPress';
+  if (/(hip thrust|glute drive)/.test(n)) return 'hip';
+  if (/(leg extension|leg curl|calf|hip abduction|hip adduction)/.test(n)) return 'lowerIsolation';
+  if (/(crunch|back extension)/.test(n)) return 'core';
+  if (/(row|pulldown|pull-up|pullover)/.test(n)) return 'upperPull';
+  if (/(chest press|bench press|incline press|shoulder press|machine dip|seated dip)/.test(n)) return 'upperPress';
+  return 'upperIsolation';
+}
+
+export function strengthRatio(oneRepMax, profile) {
+  const sex = profile.sex === 'female' ? 'female' : 'male';
+  const bw = Number(profile.bodyweight);
+  if (!bw || bw <= 0 || !oneRepMax) return null;
+  const referenceBw = sex === 'female' ? 60 : 80;
+  return oneRepMax / (Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33));
+}
+
+function scoreFromBounds(ratio, bounds) {
+  let score;
+  if (ratio < bounds[0]) score = 20 * ratio / bounds[0];
+  else if (ratio < bounds[1]) score = 20 + 20 * (ratio - bounds[0]) / (bounds[1] - bounds[0]);
+  else if (ratio < bounds[2]) score = 40 + 20 * (ratio - bounds[1]) / (bounds[2] - bounds[1]);
+  else if (ratio < bounds[3]) score = 60 + 20 * (ratio - bounds[2]) / (bounds[3] - bounds[2]);
+  else score = 80 + 20 * Math.min(1, (ratio - bounds[3]) / (bounds[3] * 0.3));
+  return Math.max(0, Math.min(100, score));
+}
+
+export function scoreForMachine(liftName, oneRepMax, profile, community = null) {
+  const sex = profile.sex === 'female' ? 'female' : 'male';
+  const ratio = strengthRatio(oneRepMax, profile);
+  if (ratio === null) return null;
+  const seed = MACHINE_BOUNDS[sex][machineCategory(liftName)].map((v) => v * ageFactor(profile.age));
+  let bounds = seed;
+  const observed = community && [community.q20, community.q40, community.q60, community.q80]
+    .map((value) => Number(value) * ageFactor(profile.age));
+  if (Number(community?.count) >= 10 && observed?.every((v, i) => v > 0 && (!i || v > observed[i - 1]))) {
+    // Seed data never disappears entirely; even a popular model can have a
+    // biased user base. At 100 observations the community contributes 80%.
+    const blend = Math.min(0.8, 0.15 + (Number(community.count) - 10) / 90 * 0.65);
+    bounds = seed.map((v, i) => v * (1 - blend) + observed[i] * blend);
+  }
+  return scoreFromBounds(ratio, bounds);
+}
+
 /**
  * Benchmarks whose standard is shakier than the rest, and why.
  *
@@ -241,9 +306,7 @@ export function scoreFor(liftName, oneRepMax, profile) {
 
   // 1RM for bodyweight movements is already the estimated total system load.
   // Allometric scaling avoids the strong bias of dividing linearly by BW.
-  const referenceBw = sex === 'female' ? 60 : 80;
-  const massScale = Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33);
-  const ratio = oneRepMax / massScale;
+  const ratio = strengthRatio(oneRepMax, profile);
 
   // Easier standard for masters / juniors => divide the bar, not the lifter.
   const f = ageFactor(profile.age);
@@ -293,20 +356,24 @@ export function toNextTier(liftName, score, profile) {
  *
  * @param bestByLift Map of lift name -> best estimated 1RM
  */
-export function buildRating(bestByLift, profile) {
+export function buildRating(bestByLift, profile, { machineNames = new Set(), community = {} } = {}) {
   const regions = {};
   const lifts = [];
 
   for (const [name, orm] of bestByLift) {
-    if (!isBenchmark(name)) continue;
-    const score = scoreFor(name, orm, profile);
+    const machine = machineNames.has(name) && !isBenchmark(name);
+    if (!isBenchmark(name) && !machine) continue;
+    const score = machine ? scoreForMachine(name, orm, profile, community[name]) : scoreFor(name, orm, profile);
     if (score === null) continue;
-    lifts.push({ name, oneRepMax: orm, score, tier: tierOf(score), next: toNextTier(name, score, profile) });
+    const sample = Number(community[name]?.count) || 0;
+    lifts.push({ name, oneRepMax: orm, score, tier: tierOf(score), next: machine ? null : toNextTier(name, score, profile),
+      machine, provisional: machine && sample < 10, sample });
 
-    for (const [region, weight] of Object.entries(CONTRIB[name])) {
-      const value = score * weight;
+    for (const [region, weight] of Object.entries(ANATOMY[name] || {})) {
+      const confidence = machine ? (sample >= 10 ? Math.min(0.95, 0.7 + sample / 400) : 0.65) : 1;
+      const value = score * weight * confidence;
       if (!regions[region] || value > regions[region].score) {
-        regions[region] = { score: value, via: name };
+        regions[region] = { score: value, via: name, machine, provisional: machine && sample < 10, sample };
       }
     }
   }

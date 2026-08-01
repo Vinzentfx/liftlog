@@ -19,6 +19,17 @@
 import { FOOD_LIBRARY } from './food-library.js';
 import { BRAND_LIBRARY } from './brand-library.js';
 import { NUTRIENTS, CORE_KEYS } from './nutrition.js';
+import { nutritionLooksPlausible } from './foodlookup.js';
+
+const GERMAN_ALIASES = new Map([
+  ['hähnchen', 'chicken'], ['huhn', 'chicken'], ['hackfleisch', 'beef mince'],
+  ['magerquark', 'cottage cheese'], ['quark', 'cottage cheese'], ['joghurt', 'yoghurt'],
+  ['haferflocken', 'oats'], ['reis', 'rice'], ['nudeln', 'pasta'], ['vollkornnudeln', 'pasta wholemeal'],
+  ['kartoffel', 'potato'], ['süßkartoffel', 'sweet potato'], ['erdnussbutter', 'peanut butter'],
+  ['erdbeeren', 'strawberries'], ['blaubeeren', 'blueberries'], ['himbeeren', 'raspberries'],
+  ['apfel', 'apple'], ['banane', 'banana'], ['gurke', 'cucumber'], ['paprika', 'bell pepper'],
+  ['zwiebel', 'onion'], ['knoblauch', 'garlic'], ['käse', 'cheese'], ['milch', 'milk'],
+]);
 
 /**
  * Both libraries at once, generic first.
@@ -31,14 +42,21 @@ import { NUTRIENTS, CORE_KEYS } from './nutrition.js';
  * provenance is part of the number here.
  */
 export function searchFoods(query, { limit = 25 } = {}) {
-  const q = String(query || '').trim().toLowerCase();
-  if (q.length < 2) return [];
+  const original = String(query || '').trim().toLowerCase();
+  const translated = GERMAN_ALIASES.get(original);
+  if (original.length < 2) return [];
 
-  const words = q.split(/\s+/);
+  const variants = [...new Set([original, translated].filter(Boolean))];
   const rank = (haystack) => {
     const h = haystack.toLowerCase();
-    if (!words.every((w) => h.includes(w))) return null;
-    return h.startsWith(q) ? 0 : h.indexOf(words[0]) + 1;
+    let best = null;
+    for (const variant of variants) {
+      const words = variant.split(/\s+/);
+      if (!words.every((word) => h.includes(word))) continue;
+      const score = h.startsWith(variant) ? 0 : h.indexOf(words[0]) + 1;
+      best = best === null ? score : Math.min(best, score);
+    }
+    return best;
   };
 
   const out = [];
@@ -51,7 +69,9 @@ export function searchFoods(query, { limit = 25 } = {}) {
     // when the brand is not repeated in the product name.
     const score = rank(`${product.name} ${product.brand || ''}`);
     // + 100 keeps generics ahead of brands at equal quality of match.
-    if (score !== null) out.push({ kind: 'brand', score: score + 100, entry: product, name: product.name });
+    if (score !== null && nutritionLooksPlausible(product.per100)) {
+      out.push({ kind: 'brand', score: score + 100, entry: product, name: product.name });
+    }
   }
 
   return out

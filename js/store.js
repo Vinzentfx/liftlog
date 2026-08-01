@@ -630,6 +630,7 @@ export async function updateFood(id, patch) {
   const food = state.foods.find((f) => f.id === id);
   if (!food) return null;
   Object.assign(food, patch);
+  food.updatedAt = Date.now();
   await db.put(db.STORES.foods, food);
   reindex(); emit();
   return food;
@@ -652,6 +653,7 @@ export async function logMeal(foodId, { amount = 1, day = dayKey(), at = Date.no
   const meal = newMeal(db.uid, food, { amount, day, at, slot });
   state.meals.unshift(meal);
   food.uses = (food.uses || 0) + 1;
+  food.updatedAt = Date.now();
 
   await Promise.all([
     db.put(db.STORES.meals, meal),
@@ -689,6 +691,7 @@ export async function updateMeal(id, patch) {
     meal.amount = Number(patch.amount) || 1;
   }
   if (patch.slot !== undefined) meal.slot = patch.slot;
+  meal.updatedAt = Date.now();
 
   await db.put(db.STORES.meals, meal);
   emit();
@@ -712,6 +715,7 @@ export async function copyDay(fromDay, toDay = dayKey()) {
     day: toDay,
     // Same time of day, new date, so the order and the slots survive.
     at: shiftToDay(m.at, toDay),
+    updatedAt: Date.now(),
   }));
 
   state.meals.unshift(...copies);
@@ -738,7 +742,7 @@ function shiftToDay(at, day) {
 export async function saveTemplate({ name, items, slot = null, id = null }) {
   const existing = id && state.templates.find((t) => t.id === id);
   const rec = existing
-    ? { ...existing, name: String(name).trim() || existing.name, items, slot }
+    ? { ...existing, name: String(name).trim() || existing.name, items, slot, updatedAt: Date.now() }
     : newTemplate(db.uid, { name, items, slot });
 
   if (existing) Object.assign(existing, rec);
@@ -774,6 +778,7 @@ export async function logTemplate(id, { day = dayKey(), slot = null } = {}) {
   }
 
   template.uses = (template.uses || 0) + 1;
+  template.updatedAt = Date.now();
   await db.put(db.STORES.templates, template);
   reindex(); emit();
   return { logged, missing, name: template.name };
@@ -790,9 +795,9 @@ export function waterOn(day = dayKey()) {
 /** Add (or subtract) millilitres. Never goes below zero. */
 export async function addWater(ml, day = dayKey()) {
   const next = Math.max(0, waterOn(day) + (Number(ml) || 0));
-  const row = { day, ml: next };
+  const row = { day, ml: next, updatedAt: Date.now() };
   const existing = state.water.find((w) => w.day === day);
-  if (existing) existing.ml = next;
+  if (existing) Object.assign(existing, row);
   else state.water.push(row);
 
   if (next === 0) await db.remove(db.STORES.water, day);

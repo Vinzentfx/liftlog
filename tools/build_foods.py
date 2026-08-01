@@ -260,6 +260,24 @@ STAPLES = [
     ("Wine, red", "alcoholic beverage wine table red"),
     ("Coffee, brewed", "beverages coffee brewed prepared with tap water"),
     ("Ice cream, vanilla", "ice creams vanilla"),
+    # --- common additional foods and preparation states ---
+    ("Chicken breast, roasted", "chicken breast meat only cooked roasted"),
+    ("Beef steak, grilled", "beef top sirloin steak cooked grilled"),
+    ("Salmon, cooked", "salmon atlantic farmed cooked dry heat"),
+    ("Egg, whole, boiled", "egg whole cooked hard-boiled"),
+    ("Rice, white, dry", "rice white long-grain regular raw enriched"),
+    ("Pasta, dry", "pasta dry enriched"),
+    ("Potato, raw", "potatoes flesh and skin raw"),
+    ("Chickpeas, canned", "chickpeas garbanzo canned drained"),
+    ("Kidney beans, canned", "beans kidney canned drained"),
+    ("Tomato paste", "tomato products canned paste"),
+    ("Passata / tomato purée", "tomato products canned puree"),
+    ("Soy milk, unsweetened", "soymilk unsweetened"),
+    ("Cocoa powder, unsweetened", "cocoa dry powder unsweetened"),
+    ("Wrap, corn tortilla", "tortillas corn ready-to-bake"),
+    ("Frozen mixed vegetables, cooked", "vegetables mixed frozen cooked boiled"),
+    ("Broccoli, cooked", "broccoli cooked boiled drained"),
+    ("Spinach, cooked", "spinach cooked boiled drained"),
 ]
 
 # FDC nutrient numbers -> the keys the app stores. Energy is handled separately:

@@ -5,11 +5,12 @@ import {
   openSheet, closeSheet, toast, confirmSheet,
 } from '../ui.js';
 import * as store from '../store.js';
+import * as cloud from '../cloud.js';
 import {
   bestOneRepMaxByName, isCounted, startOfWeek, weeklyMuscleSets, sessionStats,
 } from '../models.js';
 import {
-  buildRating, hasProfile, TIERS, tierIndex, tierOf, LOW_CONFIDENCE,
+  buildRating, hasProfile, TIERS, tierIndex, tierOf, LOW_CONFIDENCE, strengthRatio, ageFactor,
 } from '../standards.js';
 import { t, tn, tRegion, tTier } from '../i18n.js';
 import { bodyMap, tierLegend } from '../bodymap.js';
@@ -26,6 +27,9 @@ import { profileForm, doExport } from './settings.js';
 // Which map the user last looked at. Module-level so switching tabs and coming
 // back does not silently reset it.
 let mapMode = 'strength';
+let machineCommunity = {};
+let machineSyncSignature = null;
+let machineSyncing = false;
 
 export default function renderHome({ actions }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
@@ -490,7 +494,9 @@ function ratingSection(done, settings) {
   }
 
   const best = bestOneRepMaxByName(store.state.sessions, store.state.exerciseById, store.state.settings);
-  const rating = buildRating(best, settings);
+  const machineNames = new Set(store.state.exercises.filter((ex) => ex.equipment === 'Machine').map((ex) => ex.name));
+  const rating = buildRating(best, settings, { machineNames, community: machineCommunity });
+  refreshMachineStandards(best, settings).catch(() => {});
 
   if (rating.overall === null) {
     wrap.append(
@@ -501,7 +507,7 @@ function ratingSection(done, settings) {
     );
     mapMode = 'progress';
     wrap.append(mapSection(rating));
-    wrap.append(machineRecords(best));
+    wrap.append(machineRecords(rating.lifts));
     return wrap;
   }
 
@@ -560,16 +566,15 @@ function ratingSection(done, settings) {
     }
   }
 
-  wrap.append(machineRecords(best));
+  wrap.append(machineRecords(rating.lifts));
 
   return wrap;
 }
 
-function machineRecords(best) {
-  const records = [...best]
-    .map(([name, oneRepMax]) => ({ ex: store.state.exercises.find((e) => e.name === name), name, oneRepMax }))
-    .filter((row) => row.ex?.equipment === 'Machine')
-    .sort((a, b) => b.oneRepMax - a.oneRepMax)
+function machineRecords(lifts) {
+  const records = lifts.filter((lift) => lift.machine)
+    .map((lift) => ({ ...lift, ex: store.state.exercises.find((e) => e.name === lift.name) }))
+    .sort((a, b) => b.score - a.score)
     .slice(0, 5);
   const wrap = el('div');
   if (!records.length) return wrap;
@@ -580,11 +585,12 @@ function machineRecords(best) {
       el('div.row.between', {}, [
         el('div', {}, [
           el('div', { style: { fontWeight: '640' }, text: row.name }),
-          el('div.small.faint', { text: t('home.rating.machinePersonal') }),
+          el('div.small.faint', { text: t(row.provisional ? 'home.rating.machineEstimated' : 'home.rating.machineCommunity', { n: row.sample }) }),
           profile?.label ? el('div.small', { text: profile.label }) : null,
         ]),
         el('div', { style: { textAlign: 'right' } }, [
-          el('strong.num', { text: `e1RM ${fmtWeight(Math.round(row.oneRepMax), store.units())}` }),
+          el('span.tier-chip', { text: tTier(row.tier.key) }),
+          el('div.small.faint', { text: `e1RM ${fmtWeight(Math.round(row.oneRepMax), store.units())}` }),
           el('button.btn.quiet.sm', { onclick: () => machineProfileSheet(row.ex) }, [t('home.rating.machineIdentify')]),
         ]),
       ]),
@@ -609,21 +615,61 @@ function strengthDetailSheet(lift, profile) {
 }
 
 function machineProfileSheet(ex) {
-  const current = store.state.settings.machineProfiles?.[ex.id]?.label || '';
-  const input = el('input', { type: 'text', value: current, placeholder: t('home.rating.machinePlaceholder') });
+  const current = store.state.settings.machineProfiles?.[ex.id] || {};
+  const input = el('input', { type: 'text', value: current.label || '', placeholder: t('home.rating.machinePlaceholder') });
+  const model = el('input', { type: 'text', value: current.model || '', placeholder: t('home.rating.machineModelPlaceholder') });
+  const share = el('input', { type: 'checkbox', checked: !!current.shareComparison });
   openSheet(ex.name, el('div', {}, [
     el('div.small.muted', { style: { marginBottom: '12px' }, text: t('home.rating.machineProfileNote') }),
     el('label.field', {}, [el('span', { text: t('home.rating.machineLabel') }), input]),
+    el('label.field', {}, [el('span', { text: t('home.rating.machineModel') }), model]),
+    el('label.check', {}, [share, el('span', {}, [el('strong', { text: t('home.rating.machineShare') }),
+      el('small', { text: t('home.rating.machineShareNote') })])]),
     el('button.btn.primary.full', { onclick: async () => {
       const profiles = { ...(store.state.settings.machineProfiles || {}) };
       const label = input.value.trim();
-      if (label) profiles[ex.id] = { label };
+      const modelName = model.value.trim();
+      const willShare = share.checked && !!modelName;
+      if (label || modelName) profiles[ex.id] = { label, model: modelName, shareComparison: willShare };
       else delete profiles[ex.id];
       await store.setSetting('machineProfiles', profiles);
+      machineSyncSignature = null;
+      if (!willShare && cloud.isSignedIn()) await cloud.removeMachineRecord(ex.name).catch(() => {});
       closeSheet();
       toast(t('home.rating.machineSaved'));
     } }, [t('common.save')]),
   ]));
+}
+
+async function refreshMachineStandards(best, settings) {
+  if (machineSyncing || !cloud.isSignedIn() || !navigator.onLine) return;
+  const candidates = store.state.exercises.flatMap((ex) => {
+    const profile = settings.machineProfiles?.[ex.id];
+    const oneRepMax = best.get(ex.name);
+    return ex.equipment === 'Machine' && profile?.shareComparison && profile.model && oneRepMax
+      ? [{ ex, profile, oneRepMax }] : [];
+  });
+  const signature = JSON.stringify(candidates.map(({ ex, profile, oneRepMax }) => [ex.name, profile.model, oneRepMax]));
+  if (signature === machineSyncSignature) return;
+  machineSyncing = true;
+  try {
+    const next = { ...machineCommunity };
+    for (const { ex, profile, oneRepMax } of candidates) {
+      const normalized = profile.model.trim().toLowerCase().replace(/\s+/g, ' ');
+      const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalized));
+      const hash = [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+      const ratio = strengthRatio(oneRepMax, settings) / ageFactor(settings.age);
+      const result = await cloud.shareMachineRecord(hash, ex.name, ratio, settings.sex);
+      if (result) next[ex.name] = result;
+    }
+    machineCommunity = next;
+    machineSyncSignature = signature;
+    if (location.hash.replace(/^#\/?/, '').split('/')[0] === 'home') (await import('../app.js')).render();
+  } catch {
+    // An older server without patch 013 must not be hammered on every render.
+    // A reload after installing the patch starts a fresh attempt.
+    machineSyncSignature = signature;
+  } finally { machineSyncing = false; }
 }
 
 /**
@@ -720,6 +766,8 @@ function regionSheet(region, rating) {
             ]),
           ]),
           el('div.small.muted', { style: { textAlign: 'center' }, text: t('home.region.via', { lift: info.via }) }),
+          info.machine ? el('div.small.faint', { style: { marginTop: '8px', textAlign: 'center' },
+            text: t(info.provisional ? 'home.region.machineEstimated' : 'home.region.machineCommunity', { n: info.sample }) }) : null,
           LOW_CONFIDENCE[info.via]
             ? el('div.small', { style: { marginTop: '10px', color: 'var(--warn)' },
                 text: `!  ${LOW_CONFIDENCE[info.via]}` })

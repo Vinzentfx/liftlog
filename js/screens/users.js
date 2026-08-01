@@ -309,7 +309,8 @@ function weeklyStats(trainingToday, message) {
   const sets = sessions.reduce((n, s) => n + (s.entries || []).reduce(
     (sum, entry) => sum + (entry.sets || []).filter(isCounted).length, 0), 0);
   const best = bestOneRepMaxByName(store.state.sessions, store.state.exerciseById, store.state.settings);
-  const rating = hasProfile(store.state.settings) ? buildRating(best, store.state.settings) : null;
+  const machineNames = new Set(store.state.exercises.filter((ex) => ex.equipment === 'Machine').map((ex) => ex.name));
+  const rating = hasProfile(store.state.settings) ? buildRating(best, store.state.settings, { machineNames }) : null;
   const planned = plannedToday();
   return { workouts: sessions.length, sets, strengthScore: rating?.overall ?? null,
     trainingToday: trainingToday || !!planned, message, planToday: planned };

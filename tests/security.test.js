@@ -282,10 +282,11 @@ test('the social hub is opt-in and exposes no social tables directly', async () 
   assert.doesNotMatch(screen, /store\.state\.bodyweight.*publishSocialWeek/);
 });
 
-test('machine-only training still reaches the personal progress map', async () => {
+test('machine-only training reaches both combined strength and personal progress maps', async () => {
   const home = await read('js/screens/home.js');
-  assert.match(home, /rating\.overall === null[\s\S]*mapMode = 'progress'[\s\S]*mapSection\(rating\)/);
-  assert.match(home, /equipment === 'Machine'[\s\S]*home\.rating\.machinePersonal/);
+  assert.match(home, /equipment === 'Machine'[\s\S]*buildRating\(best, settings, \{ machineNames/);
+  assert.match(home, /regionProgress\(done[\s\S]*home\.map\.progressNote/);
+  assert.match(home, /home\.rating\.machineEstimated[\s\S]*home\.rating\.machineCommunity/);
 });
 
 test('approved secondary devices get a narrow conflict-checked backup RPC', async () => {
@@ -299,6 +300,9 @@ test('approved secondary devices get a narrow conflict-checked backup RPC', asyn
   assert.doesNotMatch(sql, /owner_token|owner_capability_ok/i);
   assert.match(sync, /latestVersion > baseVersion[\s\S]*mergeSnapshots[\s\S]*importData/);
   assert.match(sync, /err\.code !== 'STALE'[\s\S]*attempt === 1/);
+  assert.match(sync, /payload\.foods \|\| \[\]\)\.length/, 'a foods-only device is merged rather than replaced');
+  assert.match(await read('js/store.js'), /food\.updatedAt = Date\.now\(\)/,
+    'food edits carry a conflict timestamp into cloud merging');
   assert.match(cloud, /rpc\/upload_backup_from_device/);
 });
 
@@ -378,6 +382,18 @@ test('private social groups and PR reactions stay behind narrow RPCs', async () 
   assert.match(sql, /show_workouts[\s\S]*show_sets[\s\S]*show_strength[\s\S]*show_presence[\s\S]*show_plan[\s\S]*show_prs/i);
   assert.match(sql, /case when p\.show_strength then s\.strength_score end/i);
   assert.match(sql, /RATE_LIMITED/i);
+});
+
+test('machine comparisons expose aggregates only and require explicit opt-in', async () => {
+  const sql = await read('server/patch-013-machine-strength-standards.sql');
+  const home = await read('js/screens/home.js');
+  assert.match(sql, /machine_strength_observations enable row level security/i);
+  assert.match(sql, /revoke all on table public\.machine_strength_observations from anon,authenticated/i);
+  assert.match(sql, /count\(\*\)>=10[\s\S]*percentile_cont/i);
+  assert.match(sql, /machine_hash ~ '\^\[0-9a-f\]\{64\}\$'/i);
+  assert.match(home, /profile\?\.shareComparison[\s\S]*profile\.model/);
+  assert.match(home, /crypto\.subtle\.digest\('SHA-256'/);
+  assert.doesNotMatch(sql, /returns setof public\.machine_strength_observations/i);
 });
 
 test('one-workout restore decrypts the backup but imports only the selected session', async () => {

@@ -92,6 +92,7 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
 
   const bw = [...(bodyweightLog || [])].sort((a, b) => a.date - b.date);
   const best = new Map();          // lift name -> best e1RM so far
+  const machineNames = new Set([...exerciseById.values()].filter((ex) => ex.equipment === 'Machine').map((ex) => ex.name));
   let cursor = 0;                  // how far through `finished` we have walked
 
   const out = [];
@@ -111,7 +112,7 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
       for (const entry of s.entries || []) {
         const ex = exerciseById.get(entry.exerciseId);
         const name = ex ? ex.name : null;
-        if (!name || !isBenchmark(name)) continue;
+        if (!name || (!isBenchmark(name) && ex.equipment !== 'Machine')) continue;
         for (const set of (entry.sets || []).filter(isCounted)) {
           const est = historicalE1rm(name, set, sessionBodyweight);
           if (est > (best.get(name) || 0)) best.set(name, est);
@@ -123,7 +124,7 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
     const rating = buildRating(new Map(best), {
       ...profile,
       bodyweight: bodyweightAt(bw, cutoff) ?? profile.bodyweight,
-    });
+    }, { machineNames });
     if (rating.overall === null) continue;
     out.push({ week, score: rating.overall, tier: rating.overallTier, lifts: rating.lifts.length });
   }
@@ -146,12 +147,13 @@ export function strengthAt(sessions, bodyweightLog, profile, exerciseById, at = 
   if (!hasProfile(profile)) return null;
 
   const best = new Map();
+  const machineNames = new Set([...exerciseById.values()].filter((ex) => ex.equipment === 'Machine').map((ex) => ex.name));
   const bw = [...(bodyweightLog || [])].sort((a, b) => a.date - b.date);
   for (const s of sessions) {
     if (!s.finishedAt || s.startedAt > at) continue;
     for (const entry of s.entries || []) {
       const ex = exerciseById.get(entry.exerciseId);
-      if (!ex || !isBenchmark(ex.name)) continue;
+      if (!ex || (!isBenchmark(ex.name) && ex.equipment !== 'Machine')) continue;
       for (const set of (entry.sets || []).filter(isCounted)) {
         const sessionBodyweight = bodyweightAt(bw, s.startedAt) ?? profile.bodyweight;
         const est = historicalE1rm(ex.name, set, sessionBodyweight);
@@ -164,7 +166,7 @@ export function strengthAt(sessions, bodyweightLog, profile, exerciseById, at = 
   const rating = buildRating(best, {
     ...profile,
     bodyweight: bodyweightAt(bw, at) ?? profile.bodyweight,
-  });
+  }, { machineNames });
   return rating.overall === null ? null : rating;
 }
 

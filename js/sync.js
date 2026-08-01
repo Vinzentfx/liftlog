@@ -569,7 +569,7 @@ export function mergeSnapshots(local, remote) {
 
 function hasUserData(payload) {
   return !!((payload.sessions || []).length || (payload.plans || []).length
-    || (payload.bodyweight || []).length || (payload.meals || []).length
+    || (payload.bodyweight || []).length || (payload.foods || []).length || (payload.meals || []).length
     || (payload.water || []).length || (payload.templates || []).length
     || (payload.exercises || []).some((exercise) => exercise.isCustom));
 }

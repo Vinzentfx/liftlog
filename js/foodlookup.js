@@ -46,10 +46,26 @@ export const ATTRIBUTION = {
   licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/',
 };
 
-/** A barcode is 8–14 digits. Strip anything the user's keyboard added. */
+/** A GTIN is 8, 12, 13 or 14 digits and ends in a check digit. */
 export function normaliseBarcode(input) {
   const digits = String(input || '').replace(/\D/g, '');
-  return digits.length >= 8 && digits.length <= 14 ? digits : null;
+  if (![8, 12, 13, 14].includes(digits.length)) return null;
+  let sum = 0;
+  for (let i = digits.length - 2, position = 0; i >= 0; i--, position++) {
+    sum += Number(digits[i]) * (position % 2 === 0 ? 3 : 1);
+  }
+  return (10 - (sum % 10)) % 10 === Number(digits.at(-1)) ? digits : null;
+}
+
+/** Reject obviously corrupted community rows without pretending to verify labels. */
+export function nutritionLooksPlausible(per100) {
+  const values = ['protein', 'carbs', 'fat', 'fibre'].map((key) => per100?.[key]).filter((v) => v != null);
+  if (values.some((v) => !Number.isFinite(Number(v)) || Number(v) < 0 || Number(v) > 100)) return false;
+  const kcal = Number(per100?.kcal);
+  if (!Number.isFinite(kcal) || kcal < 0 || kcal > 950) return false;
+  const estimated = 4 * (Number(per100?.protein) || 0) + 4 * (Number(per100?.carbs) || 0)
+    + 9 * (Number(per100?.fat) || 0) + 2 * (Number(per100?.fibre) || 0);
+  return Math.abs(kcal - estimated) <= Math.max(120, estimated * 0.45);
 }
 
 /**
@@ -67,14 +83,21 @@ export async function lookupBarcode(code, { signal } = {}) {
     return { ok: false, reason: 'offline', detail: t('lookup.offline') };
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  const abort = () => controller.abort();
+  signal?.addEventListener('abort', abort, { once: true });
   let res;
   try {
     res = await fetch(`${ENDPOINT}/${ean}.json?fields=${FIELDS}`, {
-      signal,
+      signal: controller.signal,
       headers: { 'X-User-Agent': IDENT },
     });
   } catch (err) {
     return { ok: false, reason: 'network', detail: t('lookup.network', { message: err.message }) };
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', abort);
   }
 
   if (!res.ok) {
@@ -102,6 +125,9 @@ export async function lookupBarcode(code, { signal } = {}) {
       detail: t('lookup.noNutrition', { name: draft.name }),
       draft,
     };
+  }
+  if (!nutritionLooksPlausible(draft.per100)) {
+    return { ok: false, reason: 'nonutrition', detail: t('lookup.noNutrition', { name: draft.name }), draft };
   }
   return { ok: true, draft };
 }

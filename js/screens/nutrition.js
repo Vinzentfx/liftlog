@@ -1044,6 +1044,7 @@ function barcodeSheet(day) {
   const go = el('button.btn.primary.full', { style: { marginTop: '12px' } }, [t('food.lookItUp')]);
 
   async function run() {
+    if (go.disabled) return;
     const code = input.value.trim();
     if (!code) { input.focus(); return; }
 

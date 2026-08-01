@@ -467,6 +467,7 @@ export function newFood(uid, {
     per100,
     uses: 0,
     createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
 }
 
@@ -494,6 +495,7 @@ export function newMeal(uid, food, { amount = 1, day = dayKey(), at = Date.now()
     micros: Object.fromEntries(
       Object.entries(food.micros || {}).map(([k, v]) => [k, scale(v)])
     ),
+    updatedAt: Date.now(),
   };
 }
 
@@ -537,6 +539,7 @@ export function newTemplate(uid, { name, items = [], slot = null }) {
       .map((i) => ({ foodId: i.foodId, amount: Number(i.amount) || 1 })),
     uses: 0,
     createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
 }
 
