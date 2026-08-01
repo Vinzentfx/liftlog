@@ -9,7 +9,7 @@ import * as db from '../db.js';
 import { hasProfile } from '../standards.js';
 import { DEFAULT_BAR } from '../plates.js';
 import { evidenceList } from '../rating-ui.js';
-import { t, tn, LANGUAGES, language } from '../i18n.js';
+import { t, tn, LANGUAGES } from '../i18n.js';
 import { cloudSection } from './account.js';
 import * as sync from '../sync.js';
 
@@ -128,18 +128,26 @@ export function renderSettings() {
 
   // Language. Stored as null when it follows the device, which is what a fresh
   // install should do; picking one here pins it.
-  const langSel = el('select', { 'aria-label': t('settings.language') }, [
-    el('option', { value: '', selected: !s.language }, [t('settings.languageAuto')]),
-    ...LANGUAGES.map((l) =>
-      el('option', { value: l.key, selected: s.language === l.key }, [l.label])),
-  ]);
-  langSel.addEventListener('change', () => {
-    store.setSetting('language', langSel.value || null);
-    // The store's subscriber applies the language and re-renders the screen
-    // behind the sheet; the sheet itself was built in the old one.
-    closeSheet();
-    renderSettings();
-  });
+  const languageChoices = el('div.language-grid', {
+    role: 'group', 'aria-label': t('settings.language'),
+  }, [
+    { key: null, label: t('settings.languageAuto') },
+    ...LANGUAGES.map((l) => ({ key: l.key, label: l.label })),
+  ].map((option) => {
+    const selected = (s.language || null) === option.key;
+    return el('button.language-choice', {
+      type: 'button', 'aria-pressed': String(selected),
+      onclick: async () => {
+        await store.setSetting('language', option.key);
+        // Rebuild the open sheet immediately in the newly selected language.
+        closeSheet();
+        renderSettings();
+      },
+    }, [
+      el('span.language-dot', { 'aria-hidden': 'true' }, [selected ? '✓' : '']),
+      el('span', { text: option.label }),
+    ]);
+  }));
 
   const ratingToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
   ratingToggle.checked = s.showRatings !== false;
@@ -227,7 +235,10 @@ export function renderSettings() {
     ]),
 
     el('div.section-head', {}, [el('h2', { text: t('settings.appearance') })]),
-    el('label.field', {}, [el('span', { text: t('settings.language') }), langSel]),
+    el('div', {}, [
+      el('div.field-caption', { text: t('settings.language') }),
+      languageChoices,
+    ]),
     el('div.small.faint', { style: { marginTop: '-4px', marginBottom: '14px' }, text: t('settings.languageNote') }),
 
     el('div.section-head', {}, [el('h2', { text: t('route.train') })]),

@@ -55,12 +55,12 @@ function listView() {
   const chips = el('div.row', {
     style: { gap: '6px', overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: '8px' },
   });
-  const equipSel = el('select', {}, equipmentOptions().map((eq) =>
+  const equipSel = el('select.filter-select', { 'aria-label': t('library.anyEquipment') }, equipmentOptions().map((eq) =>
     el('option', { value: eq, selected: eq === equipFilter },
       [eq === 'All' ? t('library.anyEquipment') : tEquipment(eq)])));
   const sortable = Object.entries(SORTS).filter(([k]) => k !== 'rating' || store.starsShown());
   if (!store.starsShown() && sort === 'rating') sort = 'muscle';
-  const sortSel = el('select', { 'aria-label': t('library.sortAria') }, sortable.map(([k, key]) =>
+  const sortSel = el('select.filter-select', { 'aria-label': t('library.sortAria') }, sortable.map(([k, key]) =>
     el('option', { value: k, selected: k === sort }, [t(key)])));
   const list = el('div');
   const footer = el('div');
@@ -165,7 +165,7 @@ function listView() {
     }, [t('library.newExercise')]),
     el('div', { style: { marginBottom: '8px' } }, [search]),
     chips,
-    el('div.row', { style: { gap: '8px', marginBottom: '12px' } }, [equipSel, sortSel]),
+    el('div.filter-row', {}, [equipSel, sortSel]),
     list,
     footer
   );
