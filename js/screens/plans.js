@@ -20,6 +20,18 @@ import { t, tn, tMuscle, tRegion, tTier } from '../i18n.js';
 import { pickExercise } from '../pickers.js';
 import { navigate } from '../app.js';
 
+// In-app clipboard. It deliberately stays local to this installation: plan
+// editing should work offline and copying a day is not cloud data by itself.
+let copiedPlanItem = null;
+let copiedPlanDay = null;
+
+const clonePlanItem = (item) => ({
+  exerciseId: item.exerciseId,
+  targetSets: item.targetSets,
+  targetReps: item.targetReps,
+  note: item.note || '',
+});
+
 export default function renderPlans({ param, actions }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
   if (param) return planView(param);
@@ -509,6 +521,25 @@ function dayCard(plan, day, index) {
     card.append(exerciseRow(plan, day, item));
   }
 
+  if (copiedPlanItem || copiedPlanDay) {
+    card.append(el('div.row', { style: { gap: '7px', marginTop: '8px' } }, [
+      copiedPlanItem ? el('button.btn.ghost.full.sm', {
+        onclick: async () => {
+          day.items.push(clonePlanItem(copiedPlanItem));
+          await store.savePlan(plan);
+          toast(t('plans.exercisePasted'));
+        },
+      }, [t('plans.pasteExercise')]) : null,
+      copiedPlanDay ? el('button.btn.ghost.full.sm', {
+        onclick: async () => {
+          day.items.push(...copiedPlanDay.items.map(clonePlanItem));
+          await store.savePlan(plan);
+          toast(t('plans.dayExercisesPasted', { day: copiedPlanDay.name }));
+        },
+      }, [t('plans.pasteDay')]) : null,
+    ]));
+  }
+
   card.append(
     el('button.btn.ghost.full.sm', {
       style: { marginTop: '8px' },
@@ -585,6 +616,15 @@ function exerciseRow(plan, day, item) {
 /* ============================ menus ============================ */
 
 function itemMenu(plan, day, item, ex) {
+  const itemIndex = day.items.indexOf(item);
+  const move = async (delta) => {
+    const to = itemIndex + delta;
+    if (to < 0 || to >= day.items.length) return;
+    const [moving] = day.items.splice(itemIndex, 1);
+    day.items.splice(to, 0, moving);
+    await store.savePlan(plan);
+    closeSheet();
+  };
   const sets = el('input', {
     type: 'number', inputmode: 'numeric', min: '1', max: '20', value: item.targetSets,
   });
@@ -613,6 +653,15 @@ function itemMenu(plan, day, item, ex) {
           }),
         }, [t('plans.swapFor', { n: swaps.length })])
       : null,
+    el('div.stack', { style: { marginTop: '10px' } }, [
+      el('button.btn.ghost.full', { disabled: itemIndex === 0, onclick: () => move(-1) }, [`↑ ${t('train.menu.up')}`]),
+      el('button.btn.ghost.full', { disabled: itemIndex === day.items.length - 1, onclick: () => move(1) }, [`↓ ${t('train.menu.down')}`]),
+      el('button.btn.ghost.full', { onclick: () => {
+        copiedPlanItem = clonePlanItem(item);
+        closeSheet();
+        toast(t('plans.exerciseCopied', { name: ex.name }));
+      } }, [t('plans.copyExercise')]),
+    ]),
     el('button.btn.full.danger', {
       style: { marginTop: '10px' },
       onclick: async () => {
@@ -661,6 +710,11 @@ function dayMenu(plan, day, index) {
       },
     }, [t('common.save')]),
     el('div.stack', { style: { marginTop: '12px' } }, [
+      el('button.btn.ghost.full', { onclick: () => {
+        copiedPlanDay = { name: day.name, items: day.items.map(clonePlanItem) };
+        closeSheet();
+        toast(t('plans.dayCopied', { day: day.name }));
+      } }, [t('plans.copyDay')]),
       el('button.btn.ghost.full', { disabled: index === 0, onclick: () => move(-1) }, [`↑ ${t('train.menu.up')}`]),
       el('button.btn.ghost.full', { disabled: index === plan.days.length - 1, onclick: () => move(1) }, [`↓ ${t('train.menu.down')}`]),
       el('button.btn.full.danger', {

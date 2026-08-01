@@ -83,6 +83,7 @@ const SEED = [
   ['Incline Dumbbell Press', 'Chest', 'Dumbbell'],
   ['Cable Fly', 'Chest', 'Cable'],
   ['Pec Deck', 'Chest', 'Machine'],
+  ['Butterfly', 'Chest', 'Machine'],
   ['Push-Up', 'Chest', 'Bodyweight'],
   ['Dip', 'Chest', 'Bodyweight'],
 
@@ -168,11 +169,16 @@ const SEED = [
 
   ['Machine Shoulder Press', 'Shoulders', 'Machine'],
   ['Machine Lateral Raise', 'Shoulders', 'Machine'],
+  ['Lateral Raise Machine', 'Shoulders', 'Machine'],
   ['Machine Rear Delt Fly', 'Shoulders', 'Machine'],
 
   ['Machine Biceps Curl', 'Biceps', 'Machine'],
   ['Machine Preacher Curl', 'Biceps', 'Machine'],
+  ['Preacher Curl Machine', 'Biceps', 'Machine'],
+  ['Rope Hammer Curl', 'Biceps', 'Cable'],
   ['Machine Triceps Extension', 'Triceps', 'Machine'],
+  ['Overhead Rope Triceps Extension', 'Triceps', 'Cable'],
+  ['Rope Triceps Pushdown', 'Triceps', 'Cable'],
 
   ['Smith Machine Squat', 'Quads', 'Machine'],
   ['Machine Hip Abduction', 'Glutes', 'Machine'],
@@ -185,6 +191,7 @@ const SEED = [
   ['Pendulum Squat', 'Quads', 'Machine'],
   ['Belt Squat', 'Quads', 'Machine'],
   ['Smith Machine Romanian Deadlift', 'Hamstrings', 'Machine'],
+  ['Smith Machine Incline Bench Press', 'Chest', 'Machine'],
   ['Bayesian Cable Curl', 'Biceps', 'Cable'],
   ['Cross-Body Cable Lateral Raise', 'Shoulders', 'Cable'],
   ['Single-Arm Lat Pulldown', 'Back', 'Cable'],

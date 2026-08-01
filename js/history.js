@@ -17,6 +17,14 @@ import { buildRating, isBenchmark, hasProfile } from './standards.js';
 // containing a clock change is not this long. Anything that decides which week
 // a timestamp belongs to steps by calendar days instead.
 const WEEK = 7 * 86400000;
+const BODYWEIGHT_LIFTS = new Set(['Pull-Up', 'Chin-Up', 'Dip']);
+
+function historicalE1rm(name, set, bodyweight) {
+  if (!BODYWEIGHT_LIFTS.has(name)) return e1rm(set.weight, set.reps);
+  const added = Number(set.weight) || 0;
+  if (!(bodyweight > 0) || (added > 0 && set.loadMode !== 'added')) return 0;
+  return e1rm(bodyweight + added, set.reps);
+}
 
 /** Week-start timestamps, oldest first, stepping by calendar days for DST. */
 function weekStarts(count, endTs = Date.now()) {
@@ -99,12 +107,13 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
     // Walk forward only — the cumulative max never needs revisiting.
     while (cursor < finished.length && finished[cursor].startedAt < cutoff) {
       const s = finished[cursor++];
+      const sessionBodyweight = bodyweightAt(bw, s.startedAt) ?? profile.bodyweight;
       for (const entry of s.entries || []) {
         const ex = exerciseById.get(entry.exerciseId);
         const name = ex ? ex.name : null;
         if (!name || !isBenchmark(name)) continue;
         for (const set of (entry.sets || []).filter(isCounted)) {
-          const est = e1rm(set.weight, set.reps);
+          const est = historicalE1rm(name, set, sessionBodyweight);
           if (est > (best.get(name) || 0)) best.set(name, est);
         }
       }
@@ -137,20 +146,21 @@ export function strengthAt(sessions, bodyweightLog, profile, exerciseById, at = 
   if (!hasProfile(profile)) return null;
 
   const best = new Map();
+  const bw = [...(bodyweightLog || [])].sort((a, b) => a.date - b.date);
   for (const s of sessions) {
     if (!s.finishedAt || s.startedAt > at) continue;
     for (const entry of s.entries || []) {
       const ex = exerciseById.get(entry.exerciseId);
       if (!ex || !isBenchmark(ex.name)) continue;
       for (const set of (entry.sets || []).filter(isCounted)) {
-        const est = e1rm(set.weight, set.reps);
+        const sessionBodyweight = bodyweightAt(bw, s.startedAt) ?? profile.bodyweight;
+        const est = historicalE1rm(ex.name, set, sessionBodyweight);
         if (est > (best.get(ex.name) || 0)) best.set(ex.name, est);
       }
     }
   }
   if (!best.size) return null;
 
-  const bw = [...(bodyweightLog || [])].sort((a, b) => a.date - b.date);
   const rating = buildRating(best, {
     ...profile,
     bodyweight: bodyweightAt(bw, at) ?? profile.bodyweight,

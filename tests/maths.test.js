@@ -74,7 +74,10 @@ test('allometric bodyweight scaling reduces the former light-lifter bias', () =>
 });
 
 test('common machines contribute to the muscle map without fake strength tiers', () => {
-  for (const name of ['Hack Squat', 'Leg Extension', 'Seated Leg Curl', 'Pec Deck', 'Seated Cable Row']) {
+  for (const name of ['Hack Squat', 'Leg Extension', 'Seated Leg Curl', 'Pec Deck', 'Seated Cable Row',
+    'Chest-Supported T-Bar Row', 'Smith Machine Incline Bench Press', 'Butterfly',
+    'Lateral Raise Machine', 'Preacher Curl Machine', 'Overhead Rope Triceps Extension',
+    'Triceps Pushdown', 'Rope Hammer Curl', 'Close-Grip Seated Row']) {
     assert.ok(ANATOMY[name], `${name} should have anatomy`);
   }
 });

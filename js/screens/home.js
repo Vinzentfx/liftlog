@@ -500,6 +500,10 @@ function ratingSection(done, settings) {
               el('div.small.faint', { style: { marginTop: '4px' },
                 text: `e1RM ${fmtWeight(Math.round(lift.oneRepMax), store.units())}` }),
             ]),
+            el('button.btn.quiet.sm', {
+              onclick: () => strengthDetailSheet(lift, settings),
+              'aria-label': t('home.rating.explainLift', { name: lift.name }),
+            }, [t('plans.details')]),
           ]),
         ])
       );
@@ -521,17 +525,55 @@ function machineRecords(best) {
   if (!records.length) return wrap;
   wrap.append(el('div.section-head', {}, [el('h2', { text: t('home.rating.machineRecords') })]));
   for (const row of records) {
+    const profile = store.state.settings.machineProfiles?.[row.ex.id];
     wrap.append(el('div.card.tight', {}, [
       el('div.row.between', {}, [
         el('div', {}, [
           el('div', { style: { fontWeight: '640' }, text: row.name }),
           el('div.small.faint', { text: t('home.rating.machinePersonal') }),
+          profile?.label ? el('div.small', { text: profile.label }) : null,
         ]),
-        el('strong.num', { text: `e1RM ${fmtWeight(Math.round(row.oneRepMax), store.units())}` }),
+        el('div', { style: { textAlign: 'right' } }, [
+          el('strong.num', { text: `e1RM ${fmtWeight(Math.round(row.oneRepMax), store.units())}` }),
+          el('button.btn.quiet.sm', { onclick: () => machineProfileSheet(row.ex) }, [t('home.rating.machineIdentify')]),
+        ]),
       ]),
     ]));
   }
   return wrap;
+}
+
+function strengthDetailSheet(lift, profile) {
+  const absolute = fmtWeight(Math.round(lift.oneRepMax), store.units());
+  const bodyweight = fmtWeight(Number(profile.bodyweight), store.units());
+  const body = el('div', {}, [
+    el('div.card.glow', {}, [
+      el('div.row.between', {}, [el('span', { text: t('home.rating.absolute') }), el('strong.num', { text: absolute })]),
+      el('div.row.between', { style: { marginTop: '8px' } }, [el('span', { text: t('home.rating.relative') }), el('strong.num', { text: String(Math.round(lift.score)) })]),
+      el('div.row.between', { style: { marginTop: '8px' } }, [el('span', { text: t('home.bodyweight.title') }), el('strong.num', { text: bodyweight })]),
+    ]),
+    el('div.small.muted', { style: { marginTop: '12px' }, text: t('home.rating.calculationNote') }),
+    el('div.small.faint', { style: { marginTop: '8px' }, text: t('home.rating.heightNote') }),
+  ]);
+  openSheet(lift.name, body);
+}
+
+function machineProfileSheet(ex) {
+  const current = store.state.settings.machineProfiles?.[ex.id]?.label || '';
+  const input = el('input', { type: 'text', value: current, placeholder: t('home.rating.machinePlaceholder') });
+  openSheet(ex.name, el('div', {}, [
+    el('div.small.muted', { style: { marginBottom: '12px' }, text: t('home.rating.machineProfileNote') }),
+    el('label.field', {}, [el('span', { text: t('home.rating.machineLabel') }), input]),
+    el('button.btn.primary.full', { onclick: async () => {
+      const profiles = { ...(store.state.settings.machineProfiles || {}) };
+      const label = input.value.trim();
+      if (label) profiles[ex.id] = { label };
+      else delete profiles[ex.id];
+      await store.setSetting('machineProfiles', profiles);
+      closeSheet();
+      toast(t('home.rating.machineSaved'));
+    } }, [t('common.save')]),
+  ]));
 }
 
 /**

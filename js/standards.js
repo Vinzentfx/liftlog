@@ -143,16 +143,24 @@ export const CONTRIB_EXTRA = {
   'Incline Machine Press':     { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
   'Machine Chest Fly':         { chest: 1, 'delts-front': 0.3 },
   'Pec Deck':                  { chest: 1, 'delts-front': 0.25 },
+  'Butterfly':                 { chest: 1, 'delts-front': 0.25 },
   'Machine Shoulder Press':    { 'delts-front': 1, triceps: 0.6, traps: 0.35 },
   'Smith Machine Bench Press': { chest: 1, 'delts-front': 0.5, triceps: 0.5 },
+  'Smith Machine Incline Bench Press': { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
   'Smith Machine Squat':       { quads: 1, glutes: 0.7, 'lower-back': 0.3 },
 
   // --- arms and delts ---
   'Machine Lateral Raise':     { 'delts-front': 1, traps: 0.3 },
+  'Lateral Raise Machine':     { 'delts-front': 1, traps: 0.3 },
   'Machine Rear Delt Fly':     { 'delts-rear': 1, traps: 0.4 },
   'Machine Biceps Curl':       { biceps: 1, forearms: 0.3 },
   'Machine Preacher Curl':     { biceps: 1, forearms: 0.25 },
+  'Preacher Curl Machine':     { biceps: 1, forearms: 0.25 },
+  'Rope Hammer Curl':          { biceps: 0.75, forearms: 1 },
   'Machine Triceps Extension': { triceps: 1 },
+  'Overhead Rope Triceps Extension': { triceps: 1 },
+  'Triceps Pushdown':          { triceps: 1 },
+  'Rope Triceps Pushdown':     { triceps: 1 },
   'Machine Dip':               { triceps: 1, chest: 0.75, 'delts-front': 0.45 },
 
   // --- lower body and core ---
