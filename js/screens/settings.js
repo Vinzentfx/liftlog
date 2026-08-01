@@ -285,7 +285,7 @@ export function renderSettings() {
         // sides in step, rather than leaving a session pointing at an account
         // this device can no longer decrypt.
         await Promise.all(Object.values(db.STORES).map((st) => db.clear(st)));
-        await sync.signOutEverywhere().catch(() => {});
+        await sync.signOutEverywhere({ forgetDevice: true }).catch(() => {});
         await store.load();
         location.reload();
       },

@@ -155,3 +155,20 @@ test('signing out removes the local gate and reloads into the login screen', asy
   assert.match(sync, /signOutEverywhere[\s\S]*db\.remove\(db\.STORES\.keys, 'gate'\)/);
   assert.match(account, /signOutEverywhere\(\)[\s\S]*location\.reload\(\)/);
 });
+
+test('normal sign-out preserves device identity and full erasure forgets it', async () => {
+  const sync = await read('js/sync.js');
+  const settings = await read('js/screens/settings.js');
+  const start = sync.indexOf('export async function signOutEverywhere');
+  const end = sync.indexOf('/** For a deletion request', start);
+  const signOut = sync.slice(start, end);
+  assert.match(signOut, /forgetDevice = false/);
+  assert.match(signOut, /if \(forgetDevice\) await db\.remove\(db\.STORES\.keys, 'meta'\)/);
+  assert.match(settings, /signOutEverywhere\(\{ forgetDevice: true \}\)/);
+});
+
+test('an existing device row is reused by matching its public key', async () => {
+  const sync = await read('js/sync.js');
+  assert.match(sync, /requestAccess[\s\S]*listDevices\(\)[\s\S]*samePublicKey/);
+  assert.match(sync, /owner[\s\S]*samePublicKey\(owner\.public_key, keys\.jwk\)[\s\S]*saveMeta/);
+});

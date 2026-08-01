@@ -83,6 +83,12 @@ function newOwnerToken() {
   return crypto.toBase64(crypto.randomBytes(32));
 }
 
+function samePublicKey(a, b) {
+  return !!a && !!b
+    && a.kty === b.kty && a.crv === b.crv
+    && a.x === b.x && a.y === b.y;
+}
+
 async function requireOwnerToken() {
   const token = (await localMeta()).ownerToken;
   if (!token) throw Object.assign(new Error('RECOVERY_REQUIRED'), { code: 'RECOVERY_REQUIRED' });
@@ -211,6 +217,17 @@ export async function requestAccess() {
   const keys = await deviceKeys();
   const meta = await localMeta();
   if (meta.deviceId) return meta.deviceId;
+
+  // A previous version forgot the device id on sign-out but kept the private
+  // key. Reuse the server row belonging to that key instead of registering the
+  // same physical device a second time.
+  const existing = (await cloud.listDevices()).find((d) => samePublicKey(d.public_key, keys.jwk));
+  if (existing) {
+    await saveMeta({ deviceId: existing.id });
+    await load();
+    return existing.id;
+  }
+
   const device = await cloud.registerDevice({ name: keys.name, publicKey: keys.jwk });
   await saveMeta({ deviceId: device.id });
   await load();
@@ -297,9 +314,15 @@ export async function load() {
     return state;
   }
   try {
-    const [profile, devices, meta, local] = await Promise.all([
-      cloud.getProfile(), cloud.listDevices(), cloud.latestMeta(), localMeta(),
+    const [profile, devices, meta, savedLocal, keys] = await Promise.all([
+      cloud.getProfile(), cloud.listDevices(), cloud.latestMeta(), localMeta(), deviceKeys(),
     ]);
+    // Repair duplicate rows created by the old sign-out behaviour. The owner
+    // row wins when it carries this installation's exact public key.
+    const owner = devices.find((d) => d.id === profile?.owner_device);
+    const local = owner && samePublicKey(owner.public_key, keys.jwk)
+      ? await saveMeta({ deviceId: owner.id })
+      : savedLocal;
     set({
       signedIn: true,
       profile,
@@ -416,16 +439,15 @@ export async function onAppOpen() {
   return backupNow();
 }
 
-export async function signOutEverywhere() {
+export async function signOutEverywhere({ forgetDevice = false } = {}) {
   dataKey = null;
-  // Signing out is also leaving the invite-gated app, not merely disconnecting
-  // cloud backup. Remove both pieces of device-local authorization together.
-  await Promise.all([
-    db.remove(db.STORES.keys, 'meta'),
-    db.remove(db.STORES.keys, 'gate'),
-  ]);
+  // A normal sign-out keeps this installation's device identity and encrypted
+  // key material so signing back in does not manufacture a second device.
+  // Full local erasure explicitly opts into forgetting it.
+  await db.remove(db.STORES.keys, 'gate');
+  if (forgetDevice) await db.remove(db.STORES.keys, 'meta');
   await cloud.signOut();
-  await store.setSetting('cloudEnabled', false);
+  if (forgetDevice) await store.setSetting('cloudEnabled', false);
   await load();
 }
 
