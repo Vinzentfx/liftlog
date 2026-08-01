@@ -369,3 +369,20 @@ test('visible social hub adopts freshly fetched server state', async () => {
   const users = await read('js/screens/users.js');
   assert.match(users, /syncPresence\(\)[\s\S]*hub = current[\s\S]*location\.hash[\s\S]*render\(\)/);
 });
+
+test('private social groups and PR reactions stay behind narrow RPCs', async () => {
+  const sql = await readFile(new URL('../server/patch-012-social-groups-challenges-pr.sql', import.meta.url), 'utf8');
+  assert.match(sql, /alter table public\.social_groups enable row level security/i);
+  assert.match(sql, /revoke all on table public\.social_groups[\s\S]*from anon,authenticated/i);
+  assert.match(sql, /not exists\([\s\S]*social_friendships[\s\S]*status='accepted'/i);
+  assert.match(sql, /show_workouts[\s\S]*show_sets[\s\S]*show_strength[\s\S]*show_presence[\s\S]*show_plan[\s\S]*show_prs/i);
+  assert.match(sql, /case when p\.show_strength then s\.strength_score end/i);
+  assert.match(sql, /RATE_LIMITED/i);
+});
+
+test('one-workout restore decrypts the backup but imports only the selected session', async () => {
+  const sync = await readFile(new URL('../js/sync.js', import.meta.url), 'utf8');
+  assert.match(sync, /restoreBackupSession\(version, sessionId\)[\s\S]*find\(\(row\) => row\.id === sessionId\)/);
+  assert.match(sync, /sessions: \[session\][\s\S]*replace: false/);
+  assert.doesNotMatch(sync.match(/export async function restoreBackupSession[\s\S]*?\n\}/)?.[0] || '', /replace: true/);
+});

@@ -221,6 +221,12 @@ function detailView(id) {
       ]),
       el('div.stat-grid', { style: { marginTop: '12px' } }, [
         el('div.stat', {}, [el('span.stat-val', { text: fmtDuration(st.durationMs) }), el('span.stat-key', { text: t('calendar.duration') })]),
+        store.state.settings.plannedDuration !== false && session.plannedDurationMs
+          ? el('div.stat', {}, [el('span.stat-val', { text: fmtDuration(session.plannedDurationMs) }),
+              el('span.stat-key', { text: t('calendar.plannedDuration') })]) : null,
+        store.state.settings.plannedDuration !== false && session.plannedDurationMs
+          ? el('div.stat', {}, [el('span.stat-val', { text: `${st.durationMs >= session.plannedDurationMs ? '+' : '−'}${fmtDuration(Math.abs(st.durationMs-session.plannedDurationMs))}` }),
+              el('span.stat-key', { text: t('calendar.durationDifference') })]) : null,
         el('div.stat', {}, [el('span.stat-val', { text: String(st.sets) }), el('span.stat-key', { text: t('train.sets') })]),
         el('div.stat', {}, [el('span.stat-val', { text: fmtNum(st.volume) }), el('span.stat-key', { text: t('train.volume', { units }) })]),
       ]),

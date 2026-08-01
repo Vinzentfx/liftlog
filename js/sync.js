@@ -474,6 +474,32 @@ export async function restore(version = null) {
   }
 }
 
+async function openBackupPayload(version) {
+  const devices = await cloud.listDevices();
+  const key = await loadDataKey(devices);
+  const { blob, version: got } = await cloud.download(version);
+  return { payload: await crypto.open(key, blob), version: got };
+}
+
+export async function backupSessions(version) {
+  const { payload } = await openBackupPayload(version);
+  return (payload.sessions || []).filter((session) => session?.id && session.finishedAt)
+    .map((session) => ({ id: session.id, name: session.name, startedAt: session.startedAt,
+      finishedAt: session.finishedAt, exercises: (session.entries || []).length }));
+}
+
+export async function restoreBackupSession(version, sessionId) {
+  const { payload } = await openBackupPayload(version);
+  const session = (payload.sessions || []).find((row) => row.id === sessionId);
+  if (!session) throw Object.assign(new Error('SESSION_NOT_FOUND'), { code: 'SESSION_NOT_FOUND' });
+  const ids = new Set((session.entries || []).map((entry) => entry.exerciseId));
+  await store.importData({ format: 'liftlog-backup', version: 1,
+    exercises: (payload.exercises || []).filter((exercise) => ids.has(exercise.id)), sessions: [session],
+    plans: [], bodyweight: [], foods: [], meals: [], water: [], templates: [],
+  }, { replace: false });
+  return session;
+}
+
 /**
  * Called once on boot, after the store has loaded.
  *

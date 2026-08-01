@@ -545,6 +545,8 @@ export async function startSession({ planId = null, dayId = null, name } = {}) {
     // user could have typed. A later language switch does not rewrite history.
     name: name || label || t('train.quickWorkout'),
     entries,
+    plannedDurationMs: items ? items.reduce((total, item) => total
+      + Math.max(1, Number(item.targetSets) || 3) * (45 + Number(state.settings.restSeconds || 180)) * 1000, 0) : null,
   });
   state.sessions.unshift(session);
   await persistSession(session);

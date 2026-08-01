@@ -7,6 +7,7 @@ import {
 } from '../ui.js';
 import * as store from '../store.js';
 import * as rest from '../rest.js';
+import * as cloud from '../cloud.js';
 import { newSet, newEntry, entryStats, sessionStats, lastPerformance, e1rm, isCounted } from '../models.js';
 import { pickExercise } from '../pickers.js';
 import { todaysDays, weekdayName, weekdayShort } from '../schedule.js';
@@ -525,7 +526,11 @@ async function toggleDone(session, entry, set, weightInput, repsInput, hint) {
 
   if (turningOn) {
     const pr = checkPR(session, entry, set);
-    if (pr) toast(pr, 2600);
+    if (pr) {
+      toast(pr, 2600);
+      const ex = store.state.exerciseById.get(entry.exerciseId);
+      if (ex && cloud.isSignedIn()) cloud.publishSocialPr(ex.name, e1rm(set.weight,set.reps), pr).catch(() => {});
+    }
     if (set.type === 'working' && store.state.settings.autoStartRest) {
       rest.start(store.state.settings.restSeconds, {
         sound: store.state.settings.soundOnRestEnd !== false,

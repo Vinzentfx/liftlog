@@ -563,18 +563,36 @@ async function restoreSheet() {
     el('div', { style: { marginTop: '10px' } }, versions.map((v) => listItem({
       title: new Date(v.created_at).toLocaleString(locale()),
       sub: t('cloud.versionSub', { version: v.version, kb: Math.round(v.bytes / 1024) }),
-      onclick: async () => {
-        const ok = await confirmSheet(t('cloud.restoreConfirmTitle'),
-          t('cloud.restoreConfirmBody'), { confirmLabel: t('cloud.restoreGo') });
-        if (!ok) return;
-        const res = await sync.restore(v.version);
-        closeSheet();
-        toast(res.ok ? t('cloud.restored', { version: res.version })
-                     : t(`cloud.err.${res.code}`, { code: res.code }), 3200);
-      },
+      onclick: () => restoreVersionSheet(v),
     }))),
     el('div.small.faint', { style: { marginTop: '12px' }, text: t('cloud.restoreNote') }),
   );
+}
+
+async function restoreVersionSheet(version) {
+  const body = el('div', {}, [el('div.small.muted', { text: t('cloud.restoreChoose') })]);
+  openSheet(t('cloud.versionSub', { version: version.version, kb: Math.round(version.bytes / 1024) }), body);
+  body.append(el('button.btn.danger.full', { style: { marginTop: '12px' }, onclick: async () => {
+    const ok = await confirmSheet(t('cloud.restoreConfirmTitle'), t('cloud.restoreConfirmBody'), { confirmLabel: t('cloud.restoreGo') });
+    if (!ok) return;
+    const res = await sync.restore(version.version); closeSheet();
+    toast(res.ok ? t('cloud.restored', { version: res.version }) : t(`cloud.err.${res.code}`, { code: res.code }), 3200);
+  } }, [t('cloud.restoreEverything')]));
+  const list = el('div', { style: { marginTop: '14px' } }, [el('div.small.faint', { text: t('cloud.working') })]);
+  body.append(list);
+  try {
+    const sessions = await sync.backupSessions(version.version);
+    list.replaceChildren(el('div.section-head', {}, [el('h2', { text: t('cloud.restoreOne') })]),
+      ...sessions.map((session) => listItem({ title: session.name,
+        sub: `${fmtDate(session.startedAt)} · ${tn(session.exercises, 'unit.exercise')}`, onclick: async () => {
+          const ok = await confirmSheet(t('cloud.restoreOneConfirm'), t('cloud.restoreOneBody', { name: session.name }),
+            { danger: false, confirmLabel: t('settings.restore') });
+          if (!ok) return;
+          await sync.restoreBackupSession(version.version, session.id); closeSheet(); toast(t('cloud.restoreOneDone'));
+        } })));
+  } catch (err) {
+    list.replaceChildren(el('div.small', { style: { color: 'var(--warn)' }, text: t(`cloud.err.${err.code || 'SERVER'}`, { code: err.code || 'SERVER' }) }));
+  }
 }
 
 function manageSheet() {

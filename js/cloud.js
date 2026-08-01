@@ -348,6 +348,20 @@ export function listVersions() {
 const socialRpc = (name, body = {}) => authed(`${REST}/rpc/${name}`, { method: 'POST', body });
 
 export const socialHub = () => socialRpc('social_hub');
+export const socialExtras = () => socialRpc('social_extras');
+export const saveSocialVisibility = (v) => socialRpc('save_social_visibility', {
+  p_workouts: v.workouts, p_sets: v.sets, p_strength: v.strength,
+  p_presence: v.presence, p_plan: v.plan, p_prs: v.prs,
+});
+export const createSocialGroup = (name) => socialRpc('create_social_group', { group_name: name });
+export const addSocialGroupMember = (group, friend) => socialRpc('add_social_group_member', { p_group: group, p_friend: friend });
+export const leaveSocialGroup = (group) => socialRpc('leave_social_group', { p_group: group });
+export const createSocialChallenge = (group, title, metric, target, endsOn) => socialRpc('create_social_challenge', {
+  p_group: group, p_title: title, p_metric: metric, p_target: target, p_ends_on: endsOn,
+});
+export const updateChallengeProgress = (challenge, value) => socialRpc('update_challenge_progress', { p_challenge: challenge, p_value: value });
+export const publishSocialPr = (exercise, value, label) => socialRpc('publish_social_pr', { p_exercise: exercise, p_value: value, p_label: label });
+export const reactSocialPr = (pr, reaction) => socialRpc('react_social_pr', { p_pr: pr, p_reaction: reaction });
 export const saveSocialProfile = (profile) => socialRpc('save_social_profile', {
   new_handle: profile.handle,
   new_display_name: profile.displayName,

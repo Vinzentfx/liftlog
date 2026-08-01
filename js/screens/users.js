@@ -15,6 +15,14 @@ let loading = false;
 let problem = null;
 let publishedSignature = null;
 let leaderboardMode = 'workouts';
+let extras = { groups: [], challenges: [], prs: [], visibility: {} };
+const visibilityLabel = (key) => ({
+  workouts: t('users.visibility.workouts'), sets: t('users.visibility.sets'),
+  strength: t('users.visibility.strength'), presence: t('users.visibility.presence'),
+  plan: t('users.visibility.plan'), prs: t('users.visibility.prs'),
+}[key]);
+const challengeMetricLabel = (key) => key === 'sets'
+  ? t('users.challengeMetric.sets') : t('users.challengeMetric.workouts');
 
 export default function renderUsers({ actions, fresh }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
@@ -26,14 +34,15 @@ export default function renderUsers({ actions, fresh }) {
   if (problem && !hub) return unavailable(problem);
   if (!hub?.me) return setupCard();
 
-  root.append(profileCard(), invitesSection(), todayCard(), requestsSection(), friendsSection(), leaderboardSection(), notificationCard(), privacyCard());
+  root.append(profileCard(), invitesSection(), todayCard(), requestsSection(), friendsSection(),
+    groupsSection(), challengesSection(), prFeedSection(), leaderboardSection(), notificationCard(), privacyCard());
   return root;
 }
 
 async function loadHub() {
   loading = true; problem = null;
   try {
-    hub = await cloud.socialHub();
+    [hub, extras] = await Promise.all([cloud.socialHub(), cloud.socialExtras().catch(() => extras)]);
     if (hub?.me) {
       const stats = weeklyStats(hub.me.training_today, hub.me.status_text);
       const signature = JSON.stringify(stats);
@@ -42,6 +51,11 @@ async function loadHub() {
         publishedSignature = signature;
         hub = await cloud.socialHub();
       }
+      for (const challenge of extras.challenges || []) {
+        const value = challenge.metric === 'sets' ? stats.sets : stats.workouts;
+        await cloud.updateChallengeProgress(challenge.id, value).catch(() => {});
+      }
+      if (extras.challenges?.length) extras = await cloud.socialExtras();
     }
   }
   catch (err) { problem = err; }
@@ -123,20 +137,109 @@ function editProfile() {
   const name = el('input', { value: hub.me.display_name, maxlength: 40, autocomplete: 'name' });
   const discoverable = el('input', { type: 'checkbox', checked: hub.me.discoverable });
   const leaderboard = el('input', { type: 'checkbox', checked: hub.me.leaderboard_opt_in });
+  const visibility = extras.visibility || {};
+  const vis = Object.fromEntries(['workouts','sets','strength','presence','plan','prs'].map((key) =>
+    [key, el('input', { type: 'checkbox', checked: visibility[key] !== false })]));
   openSheet(t('users.editProfile'), el('div.stack', {}, [
     authField(t('users.handle'), handle, { icon: 'user', note: t('users.handleHint') }),
     authField(t('users.displayName'), name, { icon: 'user' }),
     check(discoverable, t('users.discoverable'), t('users.discoverableHint')),
     check(leaderboard, t('users.joinLeaderboard'), t('users.joinLeaderboardHint')),
+    el('div.section-head', {}, [el('h2', { text: t('users.visibility') })]),
+    ...Object.entries(vis).map(([key, input]) => check(input, visibilityLabel(key))),
     el('button.btn.primary.full', { onclick: async () => {
       try {
         await cloud.saveSocialProfile({ handle: handle.value, displayName: name.value,
           discoverable: discoverable.checked, leaderboard: leaderboard.checked });
-        closeSheet(); hub = await cloud.socialHub(); toast(t('users.saved'));
+        await cloud.saveSocialVisibility(Object.fromEntries(Object.entries(vis).map(([key,input]) => [key,input.checked])));
+        closeSheet(); [hub, extras] = await Promise.all([cloud.socialHub(), cloud.socialExtras()]); toast(t('users.saved'));
         (await import('../app.js')).render();
       } catch (err) { toast(socialError(err, 'users.saveFailed')); }
     } }, [t('common.save')]),
   ]));
+}
+
+function groupsSection() {
+  const wrap = el('div');
+  wrap.append(el('div.section-head', {}, [el('h2', { text: t('users.groups') }),
+    el('button.btn.quiet.sm', { onclick: createGroupSheet }, [`+ ${t('users.groupCreate')}`])]));
+  if (!extras.groups?.length) wrap.append(el('div.card', {}, [el('div.small.muted', { text: t('users.groupsEmpty') })]));
+  for (const group of extras.groups || []) wrap.append(el('div.card.tight', {}, [
+    el('div.row.between', {}, [
+      el('div', {}, [el('strong', { text: group.name }), el('div.small.faint', { text: tn(group.members?.length || 0, 'unit.person') })]),
+      el('button.btn.quiet.sm', { onclick: () => groupSheet(group) }, [t('common.edit')]),
+    ]),
+    el('div.small.muted', { style: { marginTop: '6px' }, text: (group.members || []).map((m) => m.display_name).join(', ') }),
+  ]));
+  return wrap;
+}
+
+function createGroupSheet() {
+  const name = el('input', { maxlength: 40, placeholder: t('users.groupName') });
+  openSheet(t('users.groupCreate'), el('div.stack', {}, [authField(t('users.groupName'), name, { icon: 'users' }),
+    el('button.btn.primary.full', { onclick: async () => {
+      try { await cloud.createSocialGroup(name.value); extras = await cloud.socialExtras(); closeSheet(); (await import('../app.js')).render(); }
+      catch (err) { toast(socialError(err, 'users.saveFailed')); }
+    } }, [t('users.groupCreate')]) ]));
+}
+
+function groupSheet(group) {
+  const memberIds = new Set((group.members || []).map((m) => m.user_id));
+  const choices = (hub.friends || []).filter((f) => !memberIds.has(f.user_id));
+  openSheet(group.name, el('div.stack', {}, [
+    ...choices.map((friend) => el('button.btn.ghost.full', { onclick: async () => {
+      await cloud.addSocialGroupMember(group.id, friend.user_id); extras = await cloud.socialExtras(); closeSheet(); (await import('../app.js')).render();
+    } }, [t('users.groupAdd', { name: friend.display_name })])),
+    el('button.btn.danger.full', { onclick: async () => {
+      await cloud.leaveSocialGroup(group.id); extras = await cloud.socialExtras(); closeSheet(); (await import('../app.js')).render();
+    } }, [group.owner_id === hub.me.user_id ? t('users.groupDelete') : t('users.groupLeave')]),
+  ]));
+}
+
+function challengesSection() {
+  const wrap = el('div');
+  wrap.append(el('div.section-head', {}, [el('h2', { text: t('users.challenges') }),
+    extras.groups?.length ? el('button.btn.quiet.sm', { onclick: challengeSheet }, [`+ ${t('users.challengeCreate')}`]) : null]));
+  for (const challenge of extras.challenges || []) {
+    const mine = (challenge.progress || []).find((p) => p.user_id === hub.me.user_id)?.value || 0;
+    wrap.append(el('div.card.tight', {}, [
+      el('div.row.between', {}, [el('strong', { text: challenge.title }), el('span.pill', { text: `${mine}/${challenge.target}` })]),
+      el('div.small.faint', { text: challengeMetricLabel(challenge.metric) }),
+      el('button.btn.ghost.full.sm', { style: { marginTop: '8px' }, onclick: () => challengeProgressSheet(challenge, mine) }, [t('users.challengeUpdate')]),
+    ]));
+  }
+  return wrap;
+}
+
+function challengeSheet() {
+  const title = el('input', { maxlength: 60 });
+  const group = el('select', {}, extras.groups.map((g) => el('option', { value: g.id }, [g.name])));
+  const metric = el('select', {}, ['workouts','sets'].map((x) => el('option', { value: x }, [challengeMetricLabel(x)])));
+  const target = el('input', { type: 'number', min: 1, max: 10000, value: 10 });
+  const end = el('input', { type: 'date', value: new Date(Date.now()+14*86400000).toISOString().slice(0,10) });
+  openSheet(t('users.challengeCreate'), el('div.stack', {}, [title,group,metric,target,end,
+    el('button.btn.primary.full', { onclick: async () => {
+      await cloud.createSocialChallenge(group.value,title.value,metric.value,Number(target.value),end.value);
+      extras=await cloud.socialExtras(); closeSheet(); (await import('../app.js')).render();
+    } }, [t('common.save')]) ]));
+}
+
+function challengeProgressSheet(challenge, current) {
+  const value = el('input', { type: 'number', min: 0, max: 10000, value: current });
+  openSheet(challenge.title, el('div.stack', {}, [value,el('button.btn.primary.full',{onclick:async()=>{
+    await cloud.updateChallengeProgress(challenge.id,Number(value.value));extras=await cloud.socialExtras();closeSheet();(await import('../app.js')).render();
+  }},[t('common.save')])]));
+}
+
+function prFeedSection() {
+  const wrap=el('div'); if(!extras.prs?.length) return wrap;
+  wrap.append(el('div.section-head',{},[el('h2',{text:t('users.prFeed')})]));
+  for(const pr of extras.prs) wrap.append(el('div.card.tight',{},[
+    el('strong',{text:t('users.prLine',{name:pr.display_name,exercise:pr.exercise_name,value:pr.value,label:pr.label})}),
+    el('div.row',{style:{marginTop:'8px'}},[['strong','💪'],['fire','🔥'],['clap','👏']].map(([key,icon])=>el('button.btn.quiet.sm',{onclick:async()=>{
+      await cloud.reactSocialPr(pr.id,key);extras=await cloud.socialExtras();(await import('../app.js')).render();
+    }},[`${icon} ${pr.reactions?.[key]||0}`]))) ]));
+  return wrap;
 }
 
 function weeklyStats(trainingToday, message) {
