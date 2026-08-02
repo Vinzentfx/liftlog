@@ -57,13 +57,12 @@ export default function renderNutrition({ actions, fresh }) {
   const target = proteinTarget(store.state.settings);
 
   root.append(dayHeader(day, isToday));
-  // Searching/logging is the primary action on this screen. Keep it above the
-  // analysis cards so a new user does not have to scroll past an empty day to
-  // discover that the bundled food library exists.
-  root.append(quickAdd(day));
+  // Today's calories and macros answer the first question on this screen.
+  // Search follows immediately afterwards, before water, meals and trends.
   root.append(targetCard(totals, target));
   root.append(targetsSection(totals));
   root.append(macroCard(totals));
+  root.append(quickAdd(day));
   root.append(waterCard(day));
   root.append(mealList(meals, day));
   root.append(savedMeals(day));
@@ -825,9 +824,11 @@ function quickAdd(day) {
   wrap.append(
     el('div', { style: { marginBottom: '8px' } }, [search]),
     list,
-    el('div.small.faint', { style: { marginTop: '10px' }, text: t('food.tapToLog') }),
-    foods.length ? el('button.btn.ghost.full.sm', { style: { marginTop: '8px' }, onclick: manageSheet }, [t('food.editMyFoods')]) : null
+    el('div.small.faint', { style: { marginTop: '10px' }, text: t('food.tapToLog') })
   );
+  if (foods.length) {
+    wrap.append(el('button.btn.ghost.full.sm', { style: { marginTop: '8px' }, onclick: manageSheet }, [t('food.editMyFoods')]));
+  }
   return wrap;
 }
 
