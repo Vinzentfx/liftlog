@@ -57,13 +57,16 @@ export default function renderNutrition({ actions, fresh }) {
   const target = proteinTarget(store.state.settings);
 
   root.append(dayHeader(day, isToday));
+  // Searching/logging is the primary action on this screen. Keep it above the
+  // analysis cards so a new user does not have to scroll past an empty day to
+  // discover that the bundled food library exists.
+  root.append(quickAdd(day));
   root.append(targetCard(totals, target));
   root.append(targetsSection(totals));
   root.append(macroCard(totals));
   root.append(waterCard(day));
   root.append(mealList(meals, day));
   root.append(savedMeals(day));
-  root.append(quickAdd(day));
   root.append(trendSection());
 
   return root;
@@ -741,7 +744,7 @@ function quickAdd(day) {
   const foods = store.state.foods;
 
   wrap.append(el('div.section-head', {}, [
-    el('h2', { text: t('food.myFoods') }),
+    el('h2', { text: t('food.searchTitle') }),
     el('div.row', { style: { gap: '4px' } }, [
       el('button.btn.quiet.sm', { onclick: () => barcodeSheet(day) }, [t('food.barcode')]),
       el('button.btn.quiet.sm', { onclick: () => foodForm(null, day) }, [t('food.new')]),
@@ -749,15 +752,10 @@ function quickAdd(day) {
   ]));
 
   if (!foods.length) {
-    wrap.append(emptyState(
-      t('food.listEmpty'),
-      t('food.listEmptyHint'),
-      el('div.stack', { style: { marginTop: '14px' } }, [
-        el('button.btn.primary', { onclick: () => foodForm(null, day) }, [t('food.addFirst')]),
-        el('button.btn.ghost', { onclick: () => barcodeSheet(day) }, [t('food.lookUpBarcode')]),
-      ])
-    ));
-    return wrap;
+    wrap.append(el('div.card.tight', { style: { marginBottom: '10px' } }, [
+      el('strong', { text: t('food.listEmpty') }),
+      el('div.small.muted', { style: { marginTop: '3px' }, text: t('food.listEmptyHint') }),
+    ]));
   }
 
   const search = el('input', {
@@ -828,7 +826,7 @@ function quickAdd(day) {
     el('div', { style: { marginBottom: '8px' } }, [search]),
     list,
     el('div.small.faint', { style: { marginTop: '10px' }, text: t('food.tapToLog') }),
-    el('button.btn.ghost.full.sm', { style: { marginTop: '8px' }, onclick: manageSheet }, [t('food.editMyFoods')])
+    foods.length ? el('button.btn.ghost.full.sm', { style: { marginTop: '8px' }, onclick: manageSheet }, [t('food.editMyFoods')]) : null
   );
   return wrap;
 }
