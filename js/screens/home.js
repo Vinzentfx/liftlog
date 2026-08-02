@@ -591,7 +591,13 @@ function machineRecords(lifts) {
         el('div', { style: { textAlign: 'right' } }, [
           el('span.tier-chip', { text: tTier(row.tier.key) }),
           el('div.small.faint', { text: `e1RM ${fmtWeight(Math.round(row.oneRepMax), store.units())}` }),
-          el('button.btn.quiet.sm', { onclick: () => machineProfileSheet(row.ex) }, [t('home.rating.machineIdentify')]),
+          el('button.btn.quiet.sm', {
+            onclick: () => machineProfileSheet(row.ex),
+            'aria-label': profile?.model
+              ? t('home.rating.machineDetails')
+              : t('home.rating.machineDetailsMissing'),
+            style: profile?.model ? {} : { color: 'var(--warn)', fontWeight: '750' },
+          }, [`${t('plans.details')}${profile?.model ? '' : '  !'}`]),
         ]),
       ]),
     ]));
