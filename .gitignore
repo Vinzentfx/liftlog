@@ -14,3 +14,6 @@ liftlog-backup-*.json
 *.tar.gz
 tools/.cache/
 server/.vapid-secrets
+
+# Supabase CLI local state: which project this checkout is linked to
+supabase/.temp/
