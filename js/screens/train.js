@@ -14,7 +14,7 @@ import { todaysDays, weekdayName, weekdayShort } from '../schedule.js';
 import { exerciseArt } from '../exercise-art.js';
 import { platePlan, describePlates, PLATES } from '../plates.js';
 import { warmupSets } from '../warmup.js';
-import { navigate, render } from '../app.js';
+import { navigate, render, flushBackup } from '../app.js';
 import { t, tn, tMuscle, tEquipment, locale } from '../i18n.js';
 
 const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
@@ -539,6 +539,10 @@ async function toggleDone(session, entry, set, weightInput, repsInput, hint) {
     if (set.type === 'working' && store.state.settings.autoStartRest) {
       rest.start(store.state.settings.restSeconds, {
         sound: store.state.settings.soundOnRestEnd !== false,
+        // This call is inside the tap that ticked the set off, which is the
+        // only place iOS lets playback begin. Starting the keeper anywhere
+        // later would be refused.
+        background: store.state.settings.restBackgroundAudio !== false,
       });
     }
   }
@@ -782,6 +786,9 @@ async function finishFlow(session) {
         closeSheet();
         await store.finishSession(session.id);
         rest.stop();
+        // The one moment worth not waiting for the routine interval: the phone
+        // is very often put away right here and not opened again for days.
+        flushBackup();
         toast(t('train.savedToast'), 2400);
         navigate('calendar', session.id);
       },

@@ -201,6 +201,11 @@ export function renderSettings() {
   soundToggle.checked = s.soundOnRestEnd !== false;
   soundToggle.addEventListener('change', () => store.setSetting('soundOnRestEnd', soundToggle.checked));
 
+  const bgAudioToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
+  bgAudioToggle.checked = s.restBackgroundAudio !== false;
+  bgAudioToggle.addEventListener('change', () =>
+    store.setSetting('restBackgroundAudio', bgAudioToggle.checked));
+
   const starToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
   starToggle.checked = s.showStars !== false;
   starToggle.addEventListener('change', () => store.setSetting('showStars', starToggle.checked));
@@ -324,6 +329,7 @@ export function renderSettings() {
 
     checkRow(autoRest, t('settings.autoRest')),
     checkRow(soundToggle, t('settings.chime')),
+    checkRow(bgAudioToggle, t('settings.restBackgroundAudio'), t('settings.restBackgroundAudioNote')),
     checkRow(rirToggle, t('settings.logRir'), t('settings.logRirNote')),
     checkRow(progressionToggle, t('settings.progressionSuggestions'), t('settings.progressionSuggestionsNote')),
     checkRow(warmupToggle, t('settings.warmupSuggestions')),

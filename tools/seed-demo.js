@@ -77,12 +77,10 @@
   }
   await db.putMany(db.STORES.bodyweight, bw);
 
-  await db.put(db.STORES.routines, {
-    id: 'r_demo_push',
-    name: 'Push Day',
-    items: DAYS[0].items.map(([name]) => ({ exerciseId: byName(name), targetSets: 3, note: '' })),
-    createdAt: now, updatedAt: now,
-  });
+  // The `routines` store was dropped in DB v4 (see js/db.js), so this used to
+  // throw on `db.STORES.routines` being undefined and the seeder never reached
+  // the reload below. Plans replaced routines; a demo plan is left out on
+  // purpose, because plan-builder.js generates a better one than a fixture.
 
   await store.load();
   console.log(`Seeded ${sessions.length} workouts and ${bw.length} bodyweight entries.`);

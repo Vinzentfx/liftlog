@@ -121,7 +121,30 @@ const listeners = new Set();
 export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 function emit() { listeners.forEach((fn) => fn()); }
 
-function set(patch) { Object.assign(state, patch); emit(); }
+// Objects here are small server rows and short device lists, so comparing them
+// as JSON is both exact enough and cheaper than the render it prevents.
+const same = (a, b) => a === b
+  || (a !== null && b !== null && typeof a === 'object' && typeof b === 'object'
+      && JSON.stringify(a) === JSON.stringify(b));
+
+/**
+ * Update the state, and notify only if something actually changed.
+ *
+ * The subscriber is a full screen re-render. Online maintenance calls `load()`
+ * every minute and writes the same eight values back every time, so without
+ * this the Train screen was torn down and rebuilt once a minute during a
+ * workout, taking the focused input and the caret with it: type a weight
+ * slowly and the field could empty itself under your thumb.
+ */
+function set(patch) {
+  let changed = false;
+  for (const [key, value] of Object.entries(patch)) {
+    if (same(state[key], value)) continue;
+    state[key] = value;
+    changed = true;
+  }
+  if (changed) emit();
+}
 
 /* ============================== the data key ============================== */
 
@@ -512,12 +535,35 @@ export async function restoreBackupSession(version, sessionId) {
  * it. A phone with no signal must behave exactly as it did before any of this
  * existed.
  */
-export async function onAppOpen() {
+/**
+ * How long a routine automatic backup waits after the last one.
+ *
+ * Every version is a full sealed snapshot and the server keeps only the last
+ * few, so uploading once a minute through a ninety-minute workout would push
+ * every rollback point out of reach by the time it ended. The moments actually
+ * worth capturing ask for `immediate` and ignore this.
+ */
+export const AUTO_BACKUP_MIN_GAP_MS = 5 * 60 * 1000;
+
+export async function onAppOpen({ immediate = false } = {}) {
   if (!cloud.isSignedIn()) return { ok: false, code: 'AUTH' };
   await load();
   if (state.lastError) return { ok: false, code: state.lastError };
   if (!state.enabled) return { ok: false, code: 'DISABLED' };
   if (!state.canBackup) return { ok: false, code: 'READ_ONLY' };
+
+  // Download before deciding whether to upload. The fingerprint check below
+  // answers "has this device changed since it last pushed", which is a
+  // different question from "is the server ahead of this device", and only the
+  // first one used to get asked. A phone that just sat there therefore never
+  // picked up what the other phone had logged.
+  const pulled = await pullIfNewer();
+  // A failed pull is reported, but it must not stop the upload: getting this
+  // device's own training to the server is the more important half, and the
+  // most likely reason a pull fails is that there is nothing to pull from.
+  if (!pulled.ok && !['DISABLED', 'BUSY', 'TRAINING', 'NO_BACKUP'].includes(pulled.code)) {
+    set({ lastError: pulled.code });
+  }
 
   // Upload as soon as the app's next online maintenance sees a real change,
   // while never creating a new server version for an identical snapshot.
@@ -527,9 +573,13 @@ export async function onAppOpen() {
   const fingerprint = backupFingerprint();
   if (store.state.settings.cloudLastFingerprint === fingerprint) {
     set({ lastSyncAt: last });
-    return { ok: true, skipped: true };
+    return { ok: true, skipped: true, pulled: pulled.version || null };
   }
-  return backupNow();
+  if (!immediate && last && Date.now() - last < AUTO_BACKUP_MIN_GAP_MS) {
+    return { ok: true, deferred: true, pulled: pulled.version || null };
+  }
+  const pushed = await backupNow();
+  return pushed.ok ? { ...pushed, pulled: pulled.version || null } : pushed;
 }
 
 function backupFingerprint() {
@@ -542,6 +592,67 @@ function backupFingerprint() {
   return JSON.stringify({ ...data, settings });
 }
 
+/**
+ * Take a newer cloud version and fold it into what this device holds.
+ *
+ * This is the half of syncing that was missing. `backupNow` already merges
+ * before it pushes, so a phone that had changed something did end up with the
+ * other one's training. A phone that had changed nothing never got that far:
+ * `onAppOpen` compared fingerprints and returned before anything looked at the
+ * server. Two devices on one account could stay different indefinitely, each
+ * of them convinced it was current, and the difference only ever showed up as
+ * missing workouts.
+ *
+ * It merges rather than replaces. `restore()` replaces, but a person asked for
+ * that and was warned; this runs by itself on launch, so it must not be able to
+ * drop a session that only exists here.
+ */
+export async function pullIfNewer() {
+  if (!cloud.isSignedIn()) return { ok: false, code: 'AUTH' };
+  if (!state.enabled) return { ok: false, code: 'DISABLED' };
+  if (state.busy) return { ok: false, code: 'BUSY' };
+  // Rewriting every object store under a workout in progress would pull the
+  // open session out from under the screen that is displaying it. The download
+  // can wait for the end of the session; nothing about it is urgent.
+  if (store.activeSession()) return { ok: false, code: 'TRAINING' };
+
+  set({ busy: true });
+  try {
+    const latest = await cloud.latestMeta();
+    const latestVersion = latest?.version ?? 0;
+    const baseVersion = Number(store.state.settings.cloudBaseVersion) || 0;
+    if (!latestVersion || latestVersion <= baseVersion) return { ok: true, skipped: true };
+
+    const devices = await cloud.listDevices();
+    const key = await loadDataKey(devices);
+    const remote = await cloud.download(latestVersion);
+    const remotePayload = await crypto.open(key, remote.blob);
+
+    const local = store.exportData();
+    const mine = hasUserData(local);
+    const { merged, tookLocal } = mergeDetailed(local, remotePayload);
+    await store.importData(mine ? merged : remotePayload, { replace: true });
+    await store.setSetting('cloudBaseVersion', latestVersion);
+
+    // Nothing of ours survived that the server did not already have, so this
+    // device now holds exactly that version. Recording the fingerprint stops
+    // the push below from uploading an identical copy as the next version,
+    // which the other phone would pull and answer in kind, forever.
+    if (!mine || !tookLocal) {
+      await store.setSetting('cloudLastFingerprint', backupFingerprint());
+      await store.setSetting('cloudLastSyncAt', Date.now());
+    }
+    set({ serverVersion: latestVersion, lastSyncAt: Date.now(), lastError: null });
+    return { ok: true, version: latestVersion, merged: mine && tookLocal };
+  } catch (err) {
+    const code = err.code || 'SERVER';
+    set({ lastError: code });
+    return { ok: false, code };
+  } finally {
+    set({ busy: false });
+  }
+}
+
 const MERGE_KEYS = {
   exercises: 'id', plans: 'id', sessions: 'id', bodyweight: 'id',
   foods: 'id', meals: 'id', water: 'day', templates: 'id',
@@ -552,19 +663,42 @@ const changedAt = (row) => Number(row?.updatedAt || row?.finishedAt || row?.at
 
 /** Remote is authoritative for equal records; genuinely newer local edits win. */
 export function mergeSnapshots(local, remote) {
+  return mergeDetailed(local, remote).merged;
+}
+
+/**
+ * The merge, plus whether anything on this device survived it.
+ *
+ * `tookLocal` is what stops two phones pushing versions at each other forever.
+ * A device that pulls a newer snapshot and contributes nothing of its own now
+ * holds exactly what the server holds, so it must not turn round and upload an
+ * identical copy as the next version — which the other phone would then pull,
+ * and answer in kind. The flag comes out of the merge itself rather than a
+ * second comparison, so there is only one rule about what counts as newer.
+ */
+export function mergeDetailed(local, remote) {
+  // Device bookkeeping is never taken from a snapshot. `cloudBaseVersion` and
+  // friends describe this installation's relationship to the server, so a
+  // remote copy of them is not merely stale, it is about a different phone.
+  const remoteSettings = Object.fromEntries(Object.entries(remote.settings || {})
+    .filter(([key]) => !key.startsWith('cloud')));
   const merged = {
     format: 'liftlog-backup', version: 1, exportedAt: new Date().toISOString(),
-    settings: { ...(local.settings || {}), ...(remote.settings || {}) },
+    settings: { ...(local.settings || {}), ...remoteSettings },
   };
+  let tookLocal = false;
   for (const [list, key] of Object.entries(MERGE_KEYS)) {
     const rows = new Map((remote[list] || []).map((row) => [row[key], row]));
     for (const row of local[list] || []) {
       const existing = rows.get(row[key]);
-      if (!existing || changedAt(row) > changedAt(existing)) rows.set(row[key], row);
+      if (!existing || changedAt(row) > changedAt(existing)) {
+        rows.set(row[key], row);
+        tookLocal = true;
+      }
     }
     merged[list] = [...rows.values()];
   }
-  return merged;
+  return { merged, tookLocal };
 }
 
 function hasUserData(payload) {

@@ -310,13 +310,13 @@ function openApp() {
  * encrypted backup. `onAppOpen` skips byte-identical snapshots, while this
  * coordinator prevents overlapping checks after several browser events.
  */
-async function runCloudMaintenance() {
+async function runCloudMaintenance({ immediate = false } = {}) {
   if (cloudMaintenanceRunning || !navigator.onLine) return;
   cloudMaintenanceRunning = true;
   try {
     if (await gate.recheck() === false) return;
     await handleNotificationAction();
-    const result = await sync.onAppOpen();
+    const result = await sync.onAppOpen({ immediate });
     // Social presence is deliberately best-effort. A missing community patch
     // must never interfere with backups or opening the local training log.
     import('./screens/users.js').then(({ syncPresence }) => syncPresence()).catch(() => {});
@@ -358,6 +358,17 @@ async function handleNotificationAction() {
   } catch { toast(t('settings.notificationsFailed')); }
 }
 
+/**
+ * Back up now rather than at the next routine interval.
+ *
+ * For the two moments where waiting is the wrong answer: a workout that has
+ * just been saved, and the app being put away. Both are exactly when a phone
+ * is most likely to be closed and not opened again for days.
+ */
+export function flushBackup() {
+  runCloudMaintenance({ immediate: true });
+}
+
 function startCloudMaintenance() {
   if (cloudMaintenanceStarted) return;
   cloudMaintenanceStarted = true;
@@ -365,10 +376,18 @@ function startCloudMaintenance() {
   // `online` is the portable signal browsers expose when Wi-Fi or another
   // connection returns. Mobile browsers do not reliably reveal whether that
   // connection is specifically Wi-Fi.
-  window.addEventListener('online', runCloudMaintenance);
+  window.addEventListener('online', () => runCloudMaintenance());
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') runCloudMaintenance();
+    // Going away is the last chance to save what this session produced, and on
+    // a phone "away" usually means hours. iOS gives a backgrounding page a
+    // short moment rather than a guarantee, so this is an extra attempt and
+    // never the only one: the launch after it retries anything that was cut off.
+    else flushBackup();
   });
+  // Safari can go straight to `pagehide` without a hidden visibility change
+  // when the app is swiped away.
+  window.addEventListener('pagehide', flushBackup);
 
   // Timers may be paused while a PWA is in the background; the online and
   // visibility handlers above catch up when it becomes active again.

@@ -40,6 +40,10 @@ export const DEFAULT_SETTINGS = {
   restSeconds: 180,
   autoStartRest: true,
   soundOnRestEnd: true,
+  // Hold an audio session open while a rest runs, so the chime still arrives
+  // when the phone has moved on to another app. Costs battery and takes over
+  // the media controls; switchable on its own, separate from the chime itself.
+  restBackgroundAudio: true,
   progressionSuggestions: true,
   warmupSuggestions: true,
   plateauHints: true,

@@ -145,6 +145,7 @@ export async function load() {
   await migrate();
 
   reindex();
+  markWorkoutOpen();
   state.ready = true;
   emit();
 }
@@ -224,6 +225,28 @@ async function migrate() {
 
 export function activeSession() {
   return state.sessions.find((s) => !s.finishedAt) || null;
+}
+
+const WORKOUT_OPEN_KEY = 'liftlog.workoutOpen';
+
+/**
+ * Publish "a workout is open" outside the module graph.
+ *
+ * The reader is `js/bootstrap.js`, which decides whether a service-worker
+ * update may reload the page, and which deliberately imports nothing so it can
+ * still run when the module graph is half-cached. localStorage is the only
+ * channel both ends can reach, and the value is the session's start time so a
+ * reader can tell an actual workout from one nobody ever closed.
+ *
+ * Called at the four points where the answer can change, not from `emit`: this
+ * is a synchronous write and `emit` fires on every logged set.
+ */
+function markWorkoutOpen() {
+  const open = activeSession();
+  try {
+    if (open) localStorage.setItem(WORKOUT_OPEN_KEY, String(open.startedAt));
+    else localStorage.removeItem(WORKOUT_OPEN_KEY);
+  } catch { /* private mode: updates reload exactly as they did before */ }
 }
 
 /**
@@ -550,6 +573,7 @@ export async function startSession({ planId = null, dayId = null, name } = {}) {
   });
   state.sessions.unshift(session);
   await persistSession(session);
+  markWorkoutOpen();
   return session;
 }
 
@@ -607,12 +631,14 @@ export async function finishSession(id) {
     .filter((e) => e.sets.length > 0);
   s.finishedAt = Date.now();
   await persistSession(s);
+  markWorkoutOpen();
   return s;
 }
 
 export async function discardSession(id) {
   state.sessions = state.sessions.filter((s) => s.id !== id);
   await db.remove(db.STORES.sessions, id);
+  markWorkoutOpen();
   emit();
 }
 

@@ -78,10 +78,10 @@ test('access revocation signs out before returning to the login gate', async () 
 
 test('cloud maintenance retries when connectivity returns and at intervals', async () => {
   const app = await read('js/app.js');
-  assert.match(app, /addEventListener\('online', runCloudMaintenance\)/);
+  assert.match(app, /addEventListener\('online', \(\) => runCloudMaintenance\(\)\)/);
   assert.match(app, /visibilitychange[\s\S]*runCloudMaintenance/);
   assert.match(app, /visibilityState === 'visible'[\s\S]*runCloudMaintenance\(\)[\s\S]*60 \* 1000/);
-  assert.match(app, /gate\.recheck\(\)[\s\S]*sync\.onAppOpen\(\)/);
+  assert.match(app, /gate\.recheck\(\)[\s\S]*sync\.onAppOpen\(\{ immediate \}\)/);
 });
 
 test('a removed device is kicked and cannot reuse its cached cloud key', async () => {
@@ -134,7 +134,7 @@ test('a revoked owner can still delete cloud data from the gate', async () => {
 
 test('unexpected automatic backup failures become visible', async () => {
   const app = await read('js/app.js');
-  assert.match(app, /sync\.onAppOpen\(\)[\s\S]*cloud\.autoBackupFailed/);
+  assert.match(app, /sync\.onAppOpen\(\{ immediate \}\)[\s\S]*cloud\.autoBackupFailed/);
 });
 
 test('the invite gate verifies access before opening', async () => {
@@ -336,7 +336,10 @@ test('offline updates cannot activate a partial JavaScript deployment', async ()
   assert.match(worker, /cache\.addAll\(SHELL/);
   assert.doesNotMatch(worker, /precache miss/);
   assert.match(html, /js\/bootstrap\.js[\s\S]*js\/app\.js/);
-  assert.match(bootstrap, /controllerchange[\s\S]*location\.reload/);
+  // The reload itself now waits for the workout to end; that it still happens
+  // is what this case is about.
+  assert.match(bootstrap, /controllerchange[\s\S]*reloadWhenIdle/);
+  assert.match(bootstrap, /location\.reload\(\)/);
 });
 
 test('social leaderboard module has a browser-parseable closing sequence', async () => {
@@ -402,4 +405,174 @@ test('one-workout restore decrypts the backup but imports only the selected sess
   assert.match(sync, /sessions: \[restored\][\s\S]*replace: false/);
   assert.match(sync, /alreadyExists[\s\S]*db\.uid\('s_'\)/);
   assert.doesNotMatch(sync.match(/export async function restoreBackupSession[\s\S]*?\n\}/)?.[0] || '', /replace: true/);
+});
+
+test('a running rest timer survives the page going away', async () => {
+  const rest = await read('js/rest.js');
+  // iOS discards a backgrounded PWA whenever it wants the memory, and a
+  // service-worker update reloads the page outright. Both used to take the
+  // timer with them, in the middle of the minute it exists for.
+  assert.match(rest, /localStorage\.setItem\(STATE_KEY/);
+  assert.match(rest, /function restore\(\)[\s\S]*localStorage\.getItem\(STATE_KEY\)/);
+  assert.match(rest, /export function init\(\)[\s\S]*restore\(\);/);
+  // A deadline already in the past is dropped rather than completed: a chime
+  // for a rest that ended twenty minutes ago is noise.
+  assert.match(rest, /deadline <= Date\.now\(\)[\s\S]*removeItem\(STATE_KEY\)[\s\S]*return;/);
+  assert.match(rest, /export function (start|stop|extend)[\s\S]*persist\(\)/);
+});
+
+test('the rest timer reaches its own deadline while the page is not painting', async () => {
+  const rest = await read('js/rest.js');
+  // requestAnimationFrame does not run at all while a page is hidden, so the
+  // countdown froze wherever it stood and the chime waited until you looked at
+  // the screen again, which is the one moment it is not needed.
+  assert.doesNotMatch(rest, /(?:request|cancel)AnimationFrame\(/);
+  assert.match(rest, /timer = setTimeout\(tick, 200\)/);
+  assert.match(rest, /function stop\(\)[\s\S]*clearTimeout\(timer\)/);
+  // And a chime that is minutes late is noise about something already on screen.
+  assert.match(rest, /ANNOUNCE_GRACE_MS/);
+  assert.match(rest, /remainingMs > -ANNOUNCE_GRACE_MS\)\s*\{\s*haptic/);
+});
+
+test('a service-worker update waits for the workout to finish before reloading', async () => {
+  const bootstrap = await read('js/bootstrap.js');
+  const store = await read('js/store.js');
+  // The sets are safe in IndexedDB either way. The rest timer, a half-typed
+  // weight and your place on the screen are not.
+  assert.match(bootstrap, /controllerchange[\s\S]*reloadWhenIdle\(\)/);
+  assert.match(bootstrap, /if \(!workoutOpen\(\)\)[\s\S]*location\.reload\(\)/);
+  assert.match(bootstrap, /setTimeout\(reloadWhenIdle/);
+  // Bootstrap must keep importing nothing: it has to run when the module graph
+  // is only half-cached, which is the case it exists for.
+  assert.doesNotMatch(bootstrap, /^\s*import\s/m);
+  // A session nobody ever closed is not a workout in progress.
+  assert.match(bootstrap, /STALE_WORKOUT_MS/);
+  assert.match(store, /localStorage\.setItem\(WORKOUT_OPEN_KEY, String\(open\.startedAt\)\)/);
+  for (const caller of ['startSession', 'finishSession', 'discardSession']) {
+    assert.match(store, new RegExp(`export async function ${caller}[\\s\\S]{0,2000}markWorkoutOpen\\(\\)`),
+      `${caller} has to republish whether a workout is open`);
+  }
+});
+
+test('the social screen can report a failed load instead of spinning forever', async () => {
+  const users = await read('js/screens/users.js');
+  // Without `!problem` the failed load starts another one on the very render
+  // that was meant to report it, so `unavailable()` was unreachable and the
+  // screen stayed on the spinner: no error, no retry, not even after leaving
+  // the tab and coming back.
+  assert.match(users, /if \(!hub && !loading && !problem\) loadHub\(\);/);
+  assert.match(users, /if \(problem && !hub\) return unavailable\(problem\);/);
+  assert.match(users, /function unavailable[\s\S]*onclick: loadHub/);
+});
+
+test('a second device pulls newer cloud training without having changed anything', async () => {
+  const sync = await read('js/sync.js');
+  const onAppOpen = sync.match(/export async function onAppOpen[\s\S]*?\n\}/)?.[0] || '';
+  // The fingerprint answers "has this device changed since it last pushed",
+  // which is a different question from "is the server ahead of this device".
+  // Only the first one used to get asked, so a phone that just sat there never
+  // picked up what the other phone had logged.
+  assert.match(onAppOpen, /pullIfNewer\(\)[\s\S]*cloudLastFingerprint === fingerprint/);
+  assert.match(sync, /export async function pullIfNewer[\s\S]*mergeDetailed[\s\S]*importData/);
+  // It merges rather than replaces: this runs by itself on launch, so it must
+  // not be able to drop a session that only exists on this device.
+  const pull = sync.match(/export async function pullIfNewer[\s\S]*?\n\}\n/)?.[0] || '';
+  assert.match(pull, /store\.activeSession\(\)/, 'a workout in progress is not rewritten underneath itself');
+  assert.match(pull, /if \(!mine \|\| !tookLocal\)[\s\S]*cloudLastFingerprint/,
+    'a pull that added nothing local must not push an identical version straight back');
+  assert.doesNotMatch(pull, /replace: false/);
+});
+
+test('online maintenance does not re-render the screen when nothing changed', async () => {
+  const sync = await read('js/sync.js');
+  // `load()` writes the same eight values back every minute and the subscriber
+  // is a full re-render, so the Train screen was torn down mid-workout once a
+  // minute, taking the focused input and the caret with it.
+  assert.match(sync, /function set\(patch\)[\s\S]*if \(same\(state\[key\], value\)\) continue;[\s\S]*if \(changed\) emit\(\);/);
+});
+
+test('automatic backups reach the server at the moments that matter', async () => {
+  const sync = await read('js/sync.js');
+  const app = await read('js/app.js');
+  const train = await read('js/screens/train.js');
+  // Every version is a full snapshot and the server keeps only the last few, so
+  // uploading once a minute through a long workout would push every rollback
+  // point out of reach by the time it ended.
+  assert.match(sync, /AUTO_BACKUP_MIN_GAP_MS/);
+  assert.match(sync, /!immediate && last && Date\.now\(\) - last < AUTO_BACKUP_MIN_GAP_MS/);
+  assert.match(app, /export function flushBackup[\s\S]*immediate: true/);
+  assert.match(app, /pagehide', flushBackup/);
+  assert.match(app, /visibilityState === 'visible'\) runCloudMaintenance\(\);[\s\S]*else flushBackup\(\)/);
+  assert.match(train, /store\.finishSession\(session\.id\);[\s\S]*flushBackup\(\)/);
+});
+
+test('the invite rate limits survive the attempt they are counting', async () => {
+  const sql = await read('server/patch-014-invite-hardening.sql');
+  const cloud = await read('js/cloud.js');
+  const claim = sql.match(/create or replace function public\.claim_invite[\s\S]*?\$\$;/)?.[0] || '';
+  const ownership = sql.match(/create or replace function public\.claim_ownership[\s\S]*?\$\$;/)?.[0] || '';
+  // `raise exception` aborts the transaction the RPC runs in, which rolled back
+  // the counter row the same function had written one line earlier. Ten
+  // attempts an hour was ten attempts a second.
+  assert.doesNotMatch(claim, /raise exception/i);
+  assert.doesNotMatch(ownership, /raise exception/i);
+  assert.match(claim, /return 'INVITE_INVALID'/);
+  assert.match(ownership, /return 'RECOVERY_WRONG'/);
+  // Changing the return type is not something `create or replace` will do.
+  assert.match(sql, /drop function if exists public\.claim_invite\(text\)/i);
+  assert.match(sql, /drop function if exists public\.claim_ownership\(text, uuid, text\)/i);
+  // A server still on the void-returning version answers null and has already
+  // raised for anything that went wrong, so null has to mean success.
+  assert.match(cloud, /status === null \|\| status === undefined \|\| status === 'OK'/);
+  assert.match(cloud, /claimInvite[\s\S]*statusOrThrow\(status, 'INVITE_INVALID'\)/);
+  assert.match(cloud, /claimOwnership[\s\S]*statusOrThrow\(status, 'RECOVERY_WRONG'\)/);
+});
+
+test('guessing an invite code is bounded across accounts, not per account', async () => {
+  const sql = await read('server/patch-014-invite-hardening.sql');
+  // Signing up is open and an account costs nothing, so a per-account counter
+  // is not a limit at all: one attempt per throwaway account never reaches it.
+  assert.match(sql, /invite_guard enable row level security/i);
+  assert.match(sql, /revoke all on table public\.invite_guard from anon, authenticated/i);
+  const claim = sql.match(/create or replace function public\.claim_invite[\s\S]*?\$\$;/)?.[0] || '';
+  assert.match(claim, /invites_locked\(\)[\s\S]*consume_security_attempt/,
+    'the shared cap is checked before the per-account one, which cannot stop this');
+  assert.match(claim, /claimed_code is null[\s\S]*note_invite_failure/);
+  // Codes people choose are worth about twenty bits. These are worth seventy-eight.
+  assert.match(sql, /gen_random_bytes\(16\)/);
+  assert.match(sql, /revoke all on function public\.new_invite\(text\) from public, anon, authenticated/i);
+  assert.doesNotMatch(sql, /grant execute on function public\.new_invite/i);
+});
+
+test('the background chime is a separate switch that costs nothing when off', async () => {
+  const rest = await read('js/rest.js');
+  const train = await read('js/screens/train.js');
+  const settings = await read('js/screens/settings.js');
+  const models = await read('js/models.js');
+  const html = await read('index.html');
+  const headers = await read('_headers');
+
+  // Its own setting, not folded into the chime and not into the timer.
+  assert.match(models, /restBackgroundAudio: true/);
+  assert.match(settings, /restBackgroundAudio', bgAudioToggle\.checked/);
+  assert.match(settings, /checkRow\(bgAudioToggle, t\('settings\.restBackgroundAudio'\)/);
+  assert.match(train, /sound: store\.state\.settings\.soundOnRestEnd !== false,\s*[\s\S]{0,220}background: store\.state\.settings\.restBackgroundAudio !== false/);
+
+  // Off means no media element at all: no battery, no media controls.
+  assert.match(rest, /keepAlive = background && withSound/);
+  assert.match(rest, /function startKeeper\(\)\s*\{\s*if \(!keepAlive \|\| keeper\) return;/);
+  // Playback can only begin inside the tap that logged the set.
+  assert.match(rest, /export function start[\s\S]{0,600}startKeeper\(\);/);
+  assert.match(rest, /function stop\(\)[\s\S]{0,200}stopKeeper\(\)/);
+  // In the background the AudioContext is suspended, so the element that is
+  // already playing has to carry the chime.
+  assert.match(rest, /if \(sound && !keeperChime\(\)\) chime\(\);/);
+  // A reload has no gesture to start from, so it must not pretend otherwise.
+  assert.match(rest, /function restore\(\)[\s\S]{0,1200}keepAlive = false;/);
+  // Both tracks are generated, so the "no audio asset to cache" rule holds.
+  assert.match(rest, /data:audio\/wav;base64/);
+  assert.doesNotMatch(await read('sw.js'), /\.(mp3|wav|m4a|ogg)/);
+  // ...which means the CSP has to allow a data: URI as media, in both places.
+  assert.match(html, /media-src 'self' data:/);
+  assert.match(headers, /media-src 'self' data:/);
 });

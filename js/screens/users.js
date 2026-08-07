@@ -29,7 +29,12 @@ export default function renderUsers({ actions, fresh }) {
   const root = el('div');
   if (!cloud.isSignedIn()) return emptyState(t('users.signInTitle'), t('users.signInBody'));
   if (fresh) { hub = null; extras = { groups: [], challenges: [], prs: [], visibility: {} }; problem = null; }
-  if (!hub && !loading) loadHub();
+  // `!problem` is what makes the card below reachable. Without it the failed
+  // load starts another one on the very render that was meant to report it, so
+  // the screen fell straight back into the spinner and stayed there: no error,
+  // no retry button, not even by leaving the tab and coming back. Arriving on
+  // the screen clears `problem` above, which is the deliberate way to try again.
+  if (!hub && !loading && !problem) loadHub();
   if (loading && !hub) return el('div.card', {}, [el('div.muted', { text: t('users.loading') })]);
   if (problem && !hub) return unavailable(problem);
   if (!hub?.me) return setupCard();

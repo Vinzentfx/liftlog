@@ -9,7 +9,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>LiftLog</title>
   <meta name="description" content="Personal workout tracker">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://txjikhreoshmkjuyomki.supabase.co https://world.openfoodfacts.org; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'self'">
+  <!-- media-src carries the rest timer's two generated WAVs (js/rest.js): a
+       silent loop that keeps a backgrounded iOS app running, and the chime.
+       Both are built in code as data: URIs so there is still no audio asset. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data:; connect-src 'self' https://txjikhreoshmkjuyomki.supabase.co https://world.openfoodfacts.org; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'self'">
 
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#0A0E1A">

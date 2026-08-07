@@ -217,10 +217,28 @@ export async function hasActiveAccess() {
   return await authed(`${REST}/rpc/access_status`, { method: 'POST', body: {} }) === true;
 }
 
+/**
+ * Turn a status the server *returned* into the error it used to *raise*.
+ *
+ * These RPCs stopped raising on purpose. A `raise exception` aborts the
+ * transaction the function runs in, which rolled back the rate-limit row the
+ * same function had just written one line earlier — so every counter reset
+ * itself on exactly the attempts it existed to count. Committing a status
+ * string is what makes the limit real. See server/patch-014.
+ *
+ * A server still on the older, void-returning version answers with null, and
+ * has already raised for anything that went wrong, so null means success here.
+ */
+function statusOrThrow(status, fallback) {
+  if (status === null || status === undefined || status === 'OK') return;
+  throw fail(typeof status === 'string' ? status : fallback, 'refused');
+}
+
 export async function claimInvite(code) {
-  await authed(`${REST}/rpc/claim_invite`, {
+  const status = await authed(`${REST}/rpc/claim_invite`, {
     method: 'POST', body: { invite_code: String(code || '').trim() },
   });
+  statusOrThrow(status, 'INVITE_INVALID');
 }
 
 /** Atomically establishes the first owner device and recovery material. */
@@ -271,10 +289,11 @@ export function touchDevice(deviceId, ownerToken) {
 }
 
 /** The recovery route: prove the key, take the account over, revoke the rest. */
-export function claimOwnership(verifier, deviceId, ownerToken) {
-  return authed(`${REST}/rpc/claim_ownership`, {
+export async function claimOwnership(verifier, deviceId, ownerToken) {
+  const status = await authed(`${REST}/rpc/claim_ownership`, {
     method: 'POST', body: { verifier, device: deviceId, owner_token: ownerToken },
   });
+  statusOrThrow(status, 'RECOVERY_WRONG');
 }
 
 /* ================================= backups ================================= */

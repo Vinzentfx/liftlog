@@ -46,7 +46,7 @@ const { warmupSets, warmupCount } = await import('../js/warmup.js');
 const { stallReport, describeStall } = await import('../js/fatigue.js');
 const { setLanguage } = await import('../js/i18n.js');
 const { timeline, timelineReady, MIN_LOGGED_DAYS } = await import('../js/timeline.js');
-const { mergeSnapshots } = await import('../js/sync.js');
+const { mergeSnapshots, mergeDetailed } = await import('../js/sync.js');
 
 test('pull-ups estimate total system load before applying the repetition formula', () => {
   const exercises = new Map([['pull', { id: 'pull', name: 'Pull-Up' }]]);
@@ -182,6 +182,49 @@ test('multi-device backup merge keeps new workouts from both devices', () => {
   const merged = mergeSnapshots(local, remote);
   assert.deepEqual(new Set(merged.sessions.map((s) => s.id)), new Set(['shared', 'phone', 'tablet']));
   assert.equal(merged.sessions.find((s) => s.id === 'shared').notes, 'new local edit');
+});
+
+// The flag that stops two phones uploading at each other forever. A device that
+// pulls a newer snapshot and adds nothing of its own already holds exactly what
+// the server holds, so it must not push an identical copy back as the next
+// version — which the other phone would pull, and answer in kind.
+test('a device that contributes nothing to the merge knows it contributed nothing', () => {
+  const base = { format: 'liftlog-backup', version: 1, settings: {}, exercises: [], plans: [],
+    bodyweight: [], foods: [], meals: [], water: [], templates: [] };
+  const remote = { ...base, sessions: [
+    { id: 'a', startedAt: 1, updatedAt: 20 },
+    { id: 'b', startedAt: 2, updatedAt: 30 },
+  ] };
+
+  const behind = { ...base, sessions: [{ id: 'a', startedAt: 1, updatedAt: 20 }] };
+  assert.equal(mergeDetailed(behind, remote).tookLocal, false);
+
+  const identical = { ...base, sessions: remote.sessions.map((s) => ({ ...s })) };
+  assert.equal(mergeDetailed(identical, remote).tookLocal, false);
+
+  const ahead = { ...base, sessions: [...remote.sessions, { id: 'c', startedAt: 3, updatedAt: 40 }] };
+  assert.equal(mergeDetailed(ahead, remote).tookLocal, true);
+
+  const edited = { ...base, sessions: [
+    { id: 'a', startedAt: 1, updatedAt: 99 }, { id: 'b', startedAt: 2, updatedAt: 30 },
+  ] };
+  assert.equal(mergeDetailed(edited, remote).tookLocal, true);
+});
+
+// `cloudBaseVersion` and friends describe this installation's relationship to
+// the server. A remote copy of them is not stale, it is about a different phone,
+// and letting one in makes a device believe it is at a version it never pulled.
+test('cloud bookkeeping is never taken from the other device snapshot', () => {
+  const base = { format: 'liftlog-backup', version: 1, exercises: [], plans: [], sessions: [],
+    bodyweight: [], foods: [], meals: [], water: [], templates: [] };
+  const local = { ...base, settings: { cloudBaseVersion: 4, cloudLastFingerprint: 'mine', units: 'kg' } };
+  const remote = { ...base, settings: { cloudBaseVersion: 91, cloudLastFingerprint: 'theirs', units: 'lb' } };
+
+  const { merged } = mergeDetailed(local, remote);
+  assert.equal(merged.settings.cloudBaseVersion, 4);
+  assert.equal(merged.settings.cloudLastFingerprint, 'mine');
+  // Everything that is genuinely about the account still follows the remote.
+  assert.equal(merged.settings.units, 'lb');
 });
 
 const INDIRECT = THRESHOLDS.indirectSetWeight.value;
