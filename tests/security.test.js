@@ -268,6 +268,18 @@ test('the installation hint cannot interrupt browser tests', async () => {
   assert.match(app, /if \(!skipInstallHint\) scheduleInstallHint\(\)/);
 });
 
+test('gym arrival is opt-in, local-only and allowed by the production headers', async () => {
+  const gym = await read('js/gym-location.js');
+  const app = await read('js/app.js');
+  const headers = await read('_headers');
+  const store = await read('js/store.js');
+  assert.match(gym, /localStorage\.setItem\(KEY/);
+  assert.doesNotMatch(store, /gymLatitude|gymLongitude|gymLocation/);
+  assert.match(app, /!config\?\.enabled \|\| !plan \|\| store\.activeSession\(\)/);
+  assert.match(headers, /Permissions-Policy:[^\n]*geolocation=\(self\)/);
+  assert.match(headers, /img-src[^;]*https:\/\/tile\.openstreetmap\.org/);
+});
+
 test('the selected colour theme is saved and applied to the whole app', async () => {
   const app = await read('js/app.js');
   const models = await read('js/models.js');

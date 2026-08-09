@@ -14,6 +14,7 @@ import { cloudSection } from './account.js';
 import * as sync from '../sync.js';
 import * as cloud from '../cloud.js';
 import * as push from '../push.js';
+import { loadGymLocation, saveGymLocation, clearGymLocation, gymMapPicker } from '../gym-location.js';
 
 const THEMES = [
   { key: 'ocean', label: 'settings.themeOcean', colours: ['#60A5FA', '#0A0E1A', '#17243A'] },
@@ -353,6 +354,8 @@ export function renderSettings() {
 
     notificationSection(s),
 
+    gymLocationSection(),
+
     cloudSection(),
 
     el('div.section-head', {}, [el('h2', { text: t('settings.health.title') })]),
@@ -439,6 +442,49 @@ export function renderSettings() {
   ]);
 
   openSheet(t('common.settings'), body);
+}
+
+function gymLocationSection() {
+  const saved = loadGymLocation();
+  const enabled = el('input', { type: 'checkbox', checked: !!saved?.enabled, disabled: !saved,
+    'aria-label': t('gym.autoTitle'),
+    style: { width: 'auto', minHeight: 'auto' } });
+  enabled.addEventListener('change', () => saveGymLocation({ enabled: enabled.checked }));
+  const radiusValue = el('span.small.muted', { text: t('gym.radiusValue', { n: saved?.radius || 120 }) });
+  const radius = el('input', { type: 'range', min: '50', max: '500', step: '10', value: String(saved?.radius || 120),
+    disabled: !saved, style: { width: '100%', minHeight: 'auto', padding: '0', background: 'transparent', border: '0' } });
+  radius.addEventListener('input', () => { radiusValue.textContent = t('gym.radiusValue', { n: radius.value }); });
+  radius.addEventListener('change', () => saveGymLocation({ radius: Number(radius.value) }));
+  const pick = () => gymMapPicker((point) => {
+    saveGymLocation({ ...point, radius: Number(radius.value), enabled: true });
+    // The picker closes itself after this callback. Reopen Settings on the next
+    // task so closeSheet cannot immediately close the freshly rebuilt sheet.
+    setTimeout(renderSettings, 0);
+  });
+
+  return el('div', {}, [
+    el('div.section-head', {}, [el('h2', { text: t('gym.settingsTitle') })]),
+    el('div.card', {}, [
+      el('div.row.between', { style: { gap: '14px' } }, [
+        el('div.grow', {}, [
+          el('strong', { text: t('gym.autoTitle') }),
+          el('div.small.muted', { style: { marginTop: '4px' }, text: t(saved ? 'gym.savedBody' : 'gym.notSetBody') }),
+        ]),
+        el('span.switch-control', {}, [enabled, el('span.switch-track', { 'aria-hidden': 'true' })]),
+      ]),
+      el('div.row.between', { style: { marginTop: '15px', marginBottom: '6px' } }, [
+        el('span.small', { text: t('gym.radius') }), radiusValue,
+      ]),
+      radius,
+      el('button.btn.ghost.full', { style: { marginTop: '12px' }, onclick: pick }, [
+        t(saved ? 'gym.changePoint' : 'gym.choosePoint'),
+      ]),
+      saved ? el('button.btn.quiet.full.sm', { style: { marginTop: '4px' }, onclick: async () => {
+        clearGymLocation(); toast(t('gym.removed')); closeSheet(); renderSettings();
+      } }, [t('gym.removePoint')]) : null,
+      el('div.small.faint', { style: { marginTop: '9px' }, text: t('gym.localOnly') }),
+    ]),
+  ]);
 }
 
 function notificationSection(settings) {

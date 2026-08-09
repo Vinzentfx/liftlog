@@ -48,6 +48,22 @@ const { setLanguage } = await import('../js/i18n.js');
 const { timeline, timelineReady, MIN_LOGGED_DAYS } = await import('../js/timeline.js');
 const { mergeSnapshots, mergeDetailed } = await import('../js/sync.js');
 const { exerciseSearchScore, searchText } = await import('../js/exercise-search.js');
+const { distanceMeters, nearbyPlannedWorkout } = await import('../js/gym-location.js');
+
+test('gym arrival only matches a scheduled workout inside the chosen radius', () => {
+  const now = Date.now();
+  const day = { id: 'push', name: 'Push', weekday: new Date(now).getDay(), items: [] };
+  const plan = { id: 'p', days: [day] };
+  const config = { enabled: true, latitude: 52.30, longitude: 8.90, radius: 120 };
+  const near = { latitude: 52.3005, longitude: 8.90, accuracy: 10 };
+  const far = { latitude: 52.31, longitude: 8.90, accuracy: 10 };
+  assert.equal(nearbyPlannedWorkout(config, near, plan, [], now)?.day.id, 'push');
+  assert.equal(nearbyPlannedWorkout(config, far, plan, [], now), null);
+  assert.ok(distanceMeters(config, near) > 40 && distanceMeters(config, near) < 70);
+  const date = new Date(now), pad = (n) => String(n).padStart(2, '0');
+  const today = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  assert.equal(nearbyPlannedWorkout({ ...config, lastPromptDay: today }, near, plan, [], now), null);
+});
 
 test('exercise search understands German aliases, accents and one typo', () => {
   const pullUp = { name: 'Pull-Up', muscle: 'Back', equipment: 'Bodyweight' };

@@ -22,3 +22,16 @@ test('main tabs stay interactive and sections collapse', async ({ page }) => {
   await page.reload();
   await expect(page.locator('.section-head h2[role="button"]').first()).toHaveAttribute('aria-expanded', 'false');
 });
+
+test('chooses a gym point on the map and keeps it on this device', async ({ page, context }) => {
+  await context.grantPermissions(['geolocation'], { origin: 'http://127.0.0.1:4173' });
+  await context.setGeolocation({ latitude: 52.302, longitude: 8.895, accuracy: 12 });
+  await page.getByRole('button', { name: /Settings|Einstellungen/ }).click();
+  await page.getByRole('button', { name: /Choose gym on map|Gym auf Karte auswählen/ }).click();
+  await expect(page.locator('.geo-map')).toBeVisible();
+  await expect(page.getByText('52.30200, 8.89500')).toBeVisible();
+  await page.getByRole('button', { name: /Save point as gym|Punkt als Gym speichern/ }).click();
+  await expect(page.getByRole('checkbox', { name: /Suggest today’s workout|Heutiges Training/ })).toBeChecked();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('liftlog.gymLocation.v1')));
+  expect(saved).toMatchObject({ latitude: 52.302, longitude: 8.895, enabled: true });
+});

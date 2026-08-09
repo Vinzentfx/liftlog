@@ -7,6 +7,7 @@ import * as db from './db.js';
 import * as rest from './rest.js';
 import * as sync from './sync.js';
 import * as cloud from './cloud.js';
+import { loadGymLocation, saveGymLocation, currentPosition, nearbyPlannedWorkout } from './gym-location.js';
 
 import renderHome from './screens/home.js';
 import renderTrain from './screens/train.js';
@@ -137,6 +138,7 @@ let cloudMaintenanceRunning = false;
 let cloudMaintenanceImmediatePending = false;
 let lastBackupWarningAt = 0;
 let cloudSetupPrompted = false;
+let gymLocationChecking = false;
 const announcedPendingDevices = new Set();
 
 export function render() {
@@ -302,6 +304,7 @@ function openApp({ skipInstallHint = false } = {}) {
   if (!location.hash) location.replace('#/home');
   render();
   if (!skipInstallHint) scheduleInstallHint();
+  if (!skipInstallHint) scheduleGymArrivalCheck();
 
   // The cloud copy is a copy. It must never delay the app opening, never block
   // on a phone with no signal, and never be the reason a screen does not draw,
@@ -420,6 +423,7 @@ function startCloudMaintenance() {
   window.addEventListener('online', () => runCloudMaintenance());
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') runCloudMaintenance();
+    if (document.visibilityState === 'visible') scheduleGymArrivalCheck();
     // Going away is the last chance to save what this session produced, and on
     // a phone "away" usually means hours. iOS gives a backgrounding page a
     // short moment rather than a guarantee, so this is an extra attempt and
@@ -437,6 +441,39 @@ function startCloudMaintenance() {
   setInterval(() => {
     if (document.visibilityState === 'visible') runCloudMaintenance();
   }, 60 * 1000);
+}
+
+function scheduleGymArrivalCheck(attempt = 0) {
+  setTimeout(() => {
+    if (!$('#sheet-host').hidden && attempt < 4) scheduleGymArrivalCheck(attempt + 1);
+    else if ($('#sheet-host').hidden) checkGymArrival();
+  }, attempt ? 1400 : 1800);
+}
+
+async function checkGymArrival() {
+  const config = loadGymLocation();
+  const plan = store.activePlan();
+  if (gymLocationChecking || !config?.enabled || !plan || store.activeSession()) return;
+  gymLocationChecking = true;
+  try {
+    const position = await currentPosition();
+    const match = nearbyPlannedWorkout(config, position, plan, store.state.sessions);
+    if (!match || !$('#sheet-host').hidden) return;
+    saveGymLocation({ lastPromptDay: match.dayKey });
+    openSheet(t('gym.arrivedTitle'), el('div', {}, [
+      el('div.gym-arrival-mark', { 'aria-hidden': 'true' }, ['⌖']),
+      el('h3', { style: { textAlign: 'center', margin: '5px 0 6px' }, text: match.day.name }),
+      el('div.muted', { style: { textAlign: 'center', marginBottom: '16px' },
+        text: t('gym.arrivedBody', { n: Math.round(match.distance) }) }),
+      el('button.btn.primary.full', { onclick: async () => {
+        closeSheet();
+        const session = await startWorkout({ planId: match.plan.id, dayId: match.day.id });
+        if (session) navigate('train');
+      } }, [t('gym.startToday')]),
+      el('button.btn.ghost.full', { style: { marginTop: '8px' }, onclick: closeSheet }, [t('gym.notNow')]),
+    ]));
+  } catch { /* Location refusal or a weak signal should never block the app. */ }
+  finally { gymLocationChecking = false; }
 }
 
 window.addEventListener('error', (e) => {
