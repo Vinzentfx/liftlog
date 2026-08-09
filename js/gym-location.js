@@ -72,11 +72,14 @@ export function gymMapPicker(onSave) {
   const saved = loadGymLocation();
   let centre = saved ? { latitude: saved.latitude, longitude: saved.longitude } : null;
   let zoom = 16, dragging = false, origin = null, originWorld = null;
+  let gymRequest = 0, gymTimer = null;
   const tiles = el('div.geo-map-tiles');
+  const markers = el('div.geo-map-markers');
   const map = el('div.geo-map', { role: 'application', 'aria-label': t('gym.mapLabel') }, [
-    tiles, el('div.geo-map-shade'), el('div.geo-map-pin', { 'aria-hidden': 'true' }, ['●']),
+    tiles, markers, el('div.geo-map-shade'), el('div.geo-map-pin', { 'aria-hidden': 'true' }, ['●']),
   ]);
   const coordinates = el('div.small.muted', { text: t('gym.mapWaiting') });
+  const nearby = el('div.geo-nearby', {}, [el('div.small.muted', { text: t('gym.gymsWaiting') })]);
   const save = el('button.btn.primary.full', { disabled: !centre }, [t('gym.savePoint')]);
 
   const paint = () => {
@@ -84,10 +87,33 @@ export function gymMapPicker(onSave) {
     coordinates.textContent = `${centre.latitude.toFixed(5)}, ${centre.longitude.toFixed(5)}`;
     save.disabled = false;
     renderTiles(tiles, centre, zoom);
+    renderGymMarkers(markers, map, centre, zoom, markers._gyms || [], chooseGym);
+  };
+  const chooseGym = (gym) => {
+    centre = { latitude: gym.latitude, longitude: gym.longitude };
+    paint();
+    coordinates.textContent = gym.name;
+  };
+  const loadGyms = () => {
+    clearTimeout(gymTimer);
+    gymTimer = setTimeout(async () => {
+      if (!centre) return;
+      const request = ++gymRequest;
+      nearby.replaceChildren(el('div.small.muted', { text: t('gym.gymsLoading') }));
+      try {
+        const gyms = await nearbyGyms(centre);
+        if (request !== gymRequest) return;
+        markers._gyms = gyms;
+        renderGymMarkers(markers, map, centre, zoom, gyms, chooseGym);
+        renderGymList(nearby, gyms, chooseGym);
+      } catch {
+        if (request === gymRequest) nearby.replaceChildren(el('div.small.muted', { text: t('gym.gymsUnavailable') }));
+      }
+    }, 350);
   };
   const locate = async () => {
     coordinates.textContent = t('gym.locating');
-    try { centre = await currentPosition({ enableHighAccuracy: true }); paint(); }
+    try { centre = await currentPosition({ enableHighAccuracy: true }); paint(); loadGyms(); }
     catch (error) { coordinates.textContent = locationErrorText(error.code); }
   };
 
@@ -102,7 +128,7 @@ export function gymMapPicker(onSave) {
     centre = worldToLatLon({ x: originWorld.x - dx, y: originWorld.y - dy }, zoom);
     paint();
   });
-  const stop = () => { dragging = false; };
+  const stop = () => { if (dragging) loadGyms(); dragging = false; };
   map.addEventListener('pointerup', stop); map.addEventListener('pointercancel', stop);
 
   save.addEventListener('click', () => {
@@ -111,7 +137,7 @@ export function gymMapPicker(onSave) {
     closeSheet(); toast(t('gym.locationSaved'));
   });
   const zoomButton = (label, delta) => el('button.icon-btn', { onclick: () => {
-    zoom = clamp(zoom + delta, 13, 19); paint();
+    zoom = clamp(zoom + delta, 13, 19); paint(); loadGyms();
   }, 'aria-label': t(delta > 0 ? 'gym.zoomIn' : 'gym.zoomOut') }, [label]);
 
   openSheet(t('gym.pickTitle'), el('div', {}, [
@@ -119,12 +145,56 @@ export function gymMapPicker(onSave) {
     map,
     el('div.row.between', { style: { marginTop: '9px' } }, [coordinates,
       el('div.row', {}, [zoomButton('−', -1), zoomButton('+', 1)])]),
+    nearby,
     el('button.btn.ghost.full.sm', { style: { marginTop: '10px' }, onclick: locate }, [t('gym.useCurrent')]),
     save,
     el('div.geo-attribution', {}, [t('gym.mapBy') + ' ',
       el('a', { href: 'https://www.openstreetmap.org/copyright', target: '_blank', rel: 'noopener' }, ['OpenStreetMap'])]),
   ]));
-  if (centre) paint(); else locate();
+  if (centre) { paint(); loadGyms(); } else locate();
+}
+
+async function nearbyGyms(centre) {
+  const point = `${centre.latitude.toFixed(6)},${centre.longitude.toFixed(6)}`;
+  const query = `[out:json][timeout:12];(nwr(around:3500,${point})["leisure"="fitness_centre"];nwr(around:3500,${point})["leisure"="fitness_station"];nwr(around:3500,${point})["sport"="fitness"];);out center tags;`;
+  let data = null;
+  for (const endpoint of ['https://overpass.kumi.systems/api/interpreter', 'https://overpass-api.de/api/interpreter']) {
+    const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 6500);
+    try {
+      const response = await fetch(`${endpoint}?data=${encodeURIComponent(query)}`, { signal: controller.signal });
+      if (response.ok) { data = await response.json(); break; }
+    } catch { /* Try the other public Overpass instance. */ }
+    finally { clearTimeout(timeout); }
+  }
+  if (!data) throw new Error('GYMS_UNAVAILABLE');
+  const seen = new Set();
+  return (data.elements || []).map((item) => ({
+    id: `${item.type}-${item.id}`,
+    latitude: Number(item.lat ?? item.center?.lat), longitude: Number(item.lon ?? item.center?.lon),
+    name: item.tags?.name || t('gym.unnamedGym'),
+  })).filter((gym) => validCoordinate(gym.latitude, gym.longitude) && !seen.has(gym.id) && seen.add(gym.id))
+    .sort((a, b) => distanceMeters(centre, a) - distanceMeters(centre, b)).slice(0, 12);
+}
+
+function renderGymMarkers(host, map, centre, zoom, gyms, onChoose) {
+  const width = map.clientWidth || 420, height = map.clientHeight || 260;
+  const origin = latLonToWorld(centre, zoom);
+  host.replaceChildren(...gyms.map((gym) => {
+    const point = latLonToWorld(gym, zoom);
+    return el('button.geo-gym-marker', {
+      type: 'button', title: gym.name, 'aria-label': t('gym.chooseNamed', { name: gym.name }),
+      style: { left: `${point.x - origin.x + width / 2}px`, top: `${point.y - origin.y + height / 2}px` },
+      onclick: () => onChoose(gym),
+    }, ['🏋']);
+  }));
+}
+
+function renderGymList(host, gyms, onChoose) {
+  if (!gyms.length) {
+    host.replaceChildren(el('div.small.muted', { text: t('gym.noGyms') })); return;
+  }
+  host.replaceChildren(el('div.small.faint', { text: t('gym.nearbyGyms') }), el('div.geo-gym-list', {},
+    gyms.slice(0, 5).map((gym) => el('button.chip', { onclick: () => onChoose(gym) }, [gym.name]))));
 }
 
 function renderTiles(host, centre, zoom) {

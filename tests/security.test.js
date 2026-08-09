@@ -278,6 +278,9 @@ test('gym arrival is opt-in, local-only and allowed by the production headers', 
   assert.match(app, /!config\?\.enabled \|\| !plan \|\| store\.activeSession\(\)/);
   assert.match(headers, /Permissions-Policy:[^\n]*geolocation=\(self\)/);
   assert.match(headers, /img-src[^;]*https:\/\/tile\.openstreetmap\.org/);
+  assert.match(headers, /connect-src[^;]*https:\/\/overpass-api\.de/);
+  assert.match(headers, /connect-src[^;]*https:\/\/overpass\.kumi\.systems/);
+  assert.match(gym, /leisure.+fitness_centre/);
 });
 
 test('the selected colour theme is saved and applied to the whole app', async () => {

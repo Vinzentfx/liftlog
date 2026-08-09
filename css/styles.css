@@ -1147,8 +1147,17 @@ svg.chart .hit { fill: transparent; }
 .geo-map-tiles { position: absolute; inset: 0; }
 .geo-map-tiles img {
   position: absolute; width: 256px; height: 256px; max-width: none;
+  display: block; margin: 0; padding: 0; border: 0; border-radius: 0;
   user-select: none; -webkit-user-drag: none;
 }
+.geo-map-markers { position: absolute; inset: 0; }
+.geo-gym-marker {
+  position: absolute; z-index: 2; width: 34px; min-width: 34px; height: 34px; min-height: 34px;
+  padding: 0; translate: -50% -50%; display: grid; place-items: center;
+  border: 2px solid #fff; border-radius: 50%; background: #142033; color: #fff;
+  font-size: 17px; box-shadow: 0 4px 13px rgba(0,0,0,.5); cursor: pointer;
+}
+.geo-gym-marker:active { scale: .93; }
 .geo-map-shade {
   position: absolute; inset: 0; pointer-events: none;
   box-shadow: inset 0 0 42px rgba(3, 9, 20, .34);
@@ -1164,6 +1173,10 @@ svg.chart .hit { fill: transparent; }
 .geo-map-pin::first-letter { rotate: 45deg; }
 .geo-attribution { margin-top: 8px; text-align: center; color: var(--text-faint); font-size: 10px; }
 .geo-attribution a { color: var(--text-dim); }
+.geo-nearby { min-height: 24px; margin-top: 10px; }
+.geo-gym-list { display: flex; gap: 6px; overflow-x: auto; padding: 6px 1px 2px; scrollbar-width: none; }
+.geo-gym-list::-webkit-scrollbar { display: none; }
+.geo-gym-list .chip { flex: 0 0 auto; }
 .gym-arrival-mark {
   width: 58px; height: 58px; margin: 2px auto 12px; display: grid; place-items: center;
   border-radius: 18px; color: #fff; font-size: 30px;
