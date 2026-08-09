@@ -9,13 +9,16 @@ export async function onRequestGet({ request }) {
     return Response.json({ error: 'Invalid location' }, { status: 400 });
   }
 
-  const point = `${latitude.toFixed(5)},${longitude.toFixed(5)}`;
-  const query = `[out:json][timeout:10];(nwr(around:3500,${point})["leisure"="fitness_centre"];nwr(around:3500,${point})["leisure"="fitness_station"];nwr(around:3500,${point})["sport"="fitness"];);out center tags;`;
+  const south = (latitude - 0.035).toFixed(5), north = (latitude + 0.035).toFixed(5);
+  const longitudeSpan = 0.035 / Math.max(Math.cos(latitude * Math.PI / 180), 0.25);
+  const west = (longitude - longitudeSpan).toFixed(5), east = (longitude + longitudeSpan).toFixed(5);
+  const box = `${south},${west},${north},${east}`;
+  const query = `[out:json][timeout:12];(nwr["leisure"="fitness_centre"](${box});nwr["leisure"="fitness_station"](${box});nwr["sport"="fitness"](${box}););out center tags;`;
   let data = null;
   for (const endpoint of ['https://overpass.kumi.systems/api/interpreter', 'https://overpass-api.de/api/interpreter']) {
     try {
       const response = await fetch(`${endpoint}?data=${encodeURIComponent(query)}`, {
-        signal: AbortSignal.timeout(7000), cf: { cacheEverything: true, cacheTtl: 1800 },
+        signal: AbortSignal.timeout(14000), cf: { cacheEverything: true, cacheTtl: 1800 },
       });
       if (response.ok) { data = await response.json(); break; }
     } catch { /* Try the fallback instance. */ }
