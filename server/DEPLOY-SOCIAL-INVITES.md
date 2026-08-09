@@ -3,6 +3,8 @@
 Run these commands from the LiftLog repository, not in the Supabase SQL editor.
 
 1. Run `server/patch-010-social-plans-invites.sql` once in the Supabase SQL editor.
+   For invitation replies and response notifications, also run
+   `server/patch-015-training-invite-responses.sql` once.
 2. Link the local folder if it is not linked already:
 
    ```sh

@@ -320,7 +320,18 @@ test('push sender is authenticated and cannot choose an arbitrary recipient', as
   const edge = await read('supabase/functions/send-training-invite/index.ts');
   assert.match(edge, /withSupabase\(\{ auth: "user" \}/);
   assert.match(edge, /\.eq\("sender", userData\.user\.id\)\.eq\("status", "pending"\)/);
-  assert.match(edge, /\.eq\("user_id", invite\.recipient\)/);
+  assert.match(edge, /const target = response \? invite\.sender : invite\.recipient/);
+});
+
+test('training invite replies are private and their push cannot be replayed', async () => {
+  const sql = await read('server/patch-015-training-invite-responses.sql');
+  const edge = await read('supabase/functions/send-training-invite/index.ts');
+  assert.match(sql, /recipient=auth\.uid\(\) and status='pending'/i);
+  assert.match(sql, /response_note=nullif\(left\(trim\(response_message\),140\)/i);
+  assert.match(sql, /revoke all on function public\.answer_training_invite\(uuid,boolean,text\) from public,anon/i);
+  assert.match(edge, /\.eq\("recipient", userData\.user\.id\)\.in\("status", \["accepted", "declined"\]\)/);
+  assert.match(edge, /\.is\("response_push_sent_at", null\)/);
+  assert.match(edge, /RESPONSE_ALREADY_SENT/);
 });
 
 test('rest timer unlocks and reuses audio after a user gesture', async () => {

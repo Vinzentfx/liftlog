@@ -464,11 +464,15 @@ function inviteCard(invite, incoming) {
           ? t('users.inviteMessage', { name: invite.display_name, time: when })
           : t('users.inviteOutgoing', { name: invite.display_name, time: when }) }),
         invite.note ? el('div.small.muted', { style: { marginTop: '3px' }, text: `“${invite.note}”` }) : null,
+        !incoming && invite.response_note ? el('div.invite-response', {}, [
+          el('b.small', { text: t('users.inviteReply') }),
+          el('div.small.muted', { text: `“${invite.response_note}”` }),
+        ]) : null,
       ]),
     ]),
     incoming ? el('div.row', { style: { marginTop: '12px' } }, [
-      el('button.btn.primary.grow', { onclick: () => answerInvite(invite.id, true) }, [t('users.accept')]),
-      el('button.btn.ghost.grow', { onclick: () => answerInvite(invite.id, false) }, [t('users.decline')]),
+      el('button.btn.primary.grow', { onclick: () => answerInvite(invite, true) }, [t('users.accept')]),
+      el('button.btn.ghost.grow', { onclick: () => answerInvite(invite, false) }, [t('users.decline')]),
     ]) : el('div.small.faint', { style: { marginTop: '8px' }, text: inviteStatus(invite.status) }),
   ]);
 }
@@ -479,9 +483,24 @@ function inviteStatus(status) {
   return t('users.inviteStatus.pending');
 }
 
-async function answerInvite(id, accept) {
-  try { await cloud.answerTrainingInvite(id, accept); hub = await cloud.socialHub(); toast(t(accept ? 'users.inviteAccepted' : 'users.inviteDeclined')); (await import('../app.js')).render(); }
-  catch { toast(t('users.saveFailed')); }
+function answerInvite(invite, accept) {
+  const message = el('textarea', { maxlength: 140, rows: 3,
+    placeholder: t(accept ? 'users.acceptReplyPlaceholder' : 'users.declineReplyPlaceholder') });
+  openSheet(t(accept ? 'users.acceptInviteTitle' : 'users.declineInviteTitle'), el('div.stack', {}, [
+    el('div.small.muted', { text: t(accept ? 'users.acceptInviteBody' : 'users.declineInviteBody', {
+      name: invite.display_name,
+    }) }),
+    authField(t('users.optionalReply'), message, { icon: 'note', note: t('users.replyPushNote') }),
+    el('button.btn.full' + (accept ? '.primary' : '.ghost'), { onclick: async () => {
+      try {
+        await cloud.answerTrainingInvite(invite.id, accept, message.value);
+        cloud.sendInviteResponsePush(invite.id).catch(() => {});
+        hub = await cloud.socialHub(); closeSheet();
+        toast(t(accept ? 'users.inviteAccepted' : 'users.inviteDeclined'));
+        (await import('../app.js')).render();
+      } catch { toast(t('users.saveFailed')); }
+    } }, [t(accept ? 'users.confirmAccept' : 'users.confirmDecline')]),
+  ]));
 }
 
 function leaderboardSection() {

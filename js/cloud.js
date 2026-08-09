@@ -410,8 +410,8 @@ export const blockSocialUser = (userId) => socialRpc('block_social_user', { bloc
 export const sendTrainingInvite = (friendId, at, note) => socialRpc('send_training_invite', {
   friend_id: friendId, training_at: at, invite_note: note || null,
 });
-export const answerTrainingInvite = (inviteId, accept) => socialRpc('answer_training_invite', {
-  invite_id: inviteId, accept_invite: accept,
+export const answerTrainingInvite = (inviteId, accept, message = '') => socialRpc('answer_training_invite', {
+  invite_id: inviteId, accept_invite: accept, response_message: message || null,
 });
 export const savePushSubscription = (subscription) => socialRpc('save_push_subscription', {
   push_endpoint: subscription.endpoint,
@@ -436,4 +436,7 @@ export const removeMachineRecord = (exercise) =>
   socialRpc('remove_machine_record', { p_exercise: exercise });
 export const sendInvitePush = (inviteId) => authed(`${SUPABASE_URL}/functions/v1/send-training-invite`, {
   method: 'POST', body: { inviteId },
+});
+export const sendInviteResponsePush = (inviteId) => authed(`${SUPABASE_URL}/functions/v1/send-training-invite`, {
+  method: 'POST', body: { inviteId, response: true },
 });

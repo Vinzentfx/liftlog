@@ -16,30 +16,55 @@ const handler = withSupabase({ auth: "user" }, async (request, ctx) => {
   if (!publicKey || !privateKey) return reply(503, { code: "PUSH_NOT_CONFIGURED" });
 
   try {
-    const { inviteId } = await request.json();
+    const { inviteId, response = false } = await request.json();
     const { data: userData } = await ctx.supabase.auth.getUser();
-    if (!userData?.user?.id || typeof inviteId !== "string") return reply(400, { code: "INVALID_REQUEST" });
+    if (!userData?.user?.id || typeof inviteId !== "string" || typeof response !== "boolean") {
+      return reply(400, { code: "INVALID_REQUEST" });
+    }
 
-    // The browser-supplied id is never trusted: the admin lookup must prove the
-    // signed-in caller actually sent this invitation before any push is sent.
-    const { data: invite, error } = await ctx.supabaseAdmin.from("training_invites")
-      .select("id,sender,recipient,training_at,note")
-      .eq("id", inviteId).eq("sender", userData.user.id).eq("status", "pending").single();
+    // The browser-supplied id is never trusted. For a new invitation the caller
+    // must be its sender; for an answer the caller must be its recipient.
+    const query = ctx.supabaseAdmin.from("training_invites")
+      .select("id,sender,recipient,training_at,note,status,response_note,answered_at,response_push_sent_at")
+      .eq("id", inviteId);
+    const { data: invite, error } = response
+      ? await query.eq("recipient", userData.user.id).in("status", ["accepted", "declined"]).single()
+      : await query.eq("sender", userData.user.id).eq("status", "pending").single();
     if (error || !invite) return reply(404, { code: "INVITE_NOT_FOUND" });
 
+    if (response) {
+      if (invite.response_push_sent_at || !invite.answered_at
+        || Date.now() - new Date(invite.answered_at).getTime() > 15 * 60 * 1000) {
+        return reply(409, { code: "RESPONSE_ALREADY_SENT" });
+      }
+      // Claim the one permitted notification before sending it. The conditional
+      // update prevents repeated requests from becoming a push-spam endpoint.
+      const { data: claimed } = await ctx.supabaseAdmin.from("training_invites")
+        .update({ response_push_sent_at: new Date().toISOString() }).eq("id", invite.id)
+        .is("response_push_sent_at", null).select("id").maybeSingle();
+      if (!claimed) return reply(409, { code: "RESPONSE_ALREADY_SENT" });
+    }
+
+    const target = response ? invite.sender : invite.recipient;
+
     const { data: subscriptions } = await ctx.supabaseAdmin.from("push_subscriptions")
-      .select("endpoint,p256dh,auth").eq("user_id", invite.recipient);
+      .select("endpoint,p256dh,auth").eq("user_id", target);
     const { data: notificationPreference } = await ctx.supabaseAdmin.from("notification_preferences")
-      .select("all_enabled").eq("user_id", invite.recipient).maybeSingle();
+      .select("all_enabled").eq("user_id", target).maybeSingle();
     if (notificationPreference?.all_enabled === false) return reply(200, { ok: true, delivered: 0 });
     const { data: profile } = await ctx.supabaseAdmin.from("social_profiles")
-      .select("display_name").eq("user_id", invite.sender).single();
+      .select("display_name").eq("user_id", response ? invite.recipient : invite.sender).single();
     const name = profile?.display_name || "Ein Freund";
     const time = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" })
       .format(new Date(invite.training_at));
-    const payload = JSON.stringify({ title: `Trainingseinladung von ${name}`,
-      body: `${name} möchte um ${time} trainieren.${invite.note ? ` ${invite.note}` : ""}`,
-      tag: `training-invite-${invite.id}`, url: "./#/users" });
+    const accepted = invite.status === "accepted";
+    const payload = JSON.stringify(response
+      ? { title: `${name} hat ${accepted ? "zugesagt" : "abgesagt"}`,
+        body: `${name} hat das Training um ${time} ${accepted ? "angenommen" : "abgelehnt"}.${invite.response_note ? ` ${invite.response_note}` : ""}`,
+        tag: `training-response-${invite.id}`, url: "./#/users" }
+      : { title: `Trainingseinladung von ${name}`,
+        body: `${name} möchte um ${time} trainieren.${invite.note ? ` ${invite.note}` : ""}`,
+        tag: `training-invite-${invite.id}`, url: "./#/users" });
 
     webpush.setVapidDetails(subject, publicKey, privateKey);
     await Promise.all((subscriptions || []).map(async (subscription) => {
