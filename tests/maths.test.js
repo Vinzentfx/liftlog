@@ -25,7 +25,7 @@ import assert from 'node:assert/strict';
 // Set before any Date is constructed; imports above only define functions.
 process.env.TZ = 'Europe/Berlin';
 
-const { e1rm, isCounted, startOfWeek, entryStats, sessionStats, newMeal, dayKey, slotFor, seedExercises, bestOneRepMaxByName, estimatePlanDuration } = await import('../js/models.js');
+const { e1rm, isCounted, startOfWeek, entryStats, sessionStats, newMeal, dayKey, slotFor, seedExercises, bestOneRepMaxByName, estimatePlanDuration, bodyweightLoadMode } = await import('../js/models.js');
 const { scoreFor, scoreForMachine, buildRating, ANATOMY } = await import('../js/standards.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
@@ -56,6 +56,20 @@ test('pull-ups estimate total system load before applying the repetition formula
   const best = bestOneRepMaxByName(sessions, exercises, { bodyweight: 80 });
   assert.ok(Math.abs(best.get('Pull-Up') - e1rm(80, 10)) < 0.001);
   assert.ok(scoreFor('Pull-Up', best.get('Pull-Up'), { sex: 'male', bodyweight: 80, age: 25 }) < 80);
+});
+
+test('bodyweight movements use bodyweight while weighted variants collect only added load', () => {
+  assert.equal(bodyweightLoadMode({ name: 'Dip', equipment: 'Bodyweight' }), 'bodyweight');
+  assert.equal(bodyweightLoadMode({ name: 'Weighted Dip', equipment: 'Bodyweight' }), 'added');
+  const weighted = new Map([['dip', { id: 'dip', name: 'Weighted Dip' }]]);
+  const sessions = [{ finishedAt: '2026-01-01', entries: [{ exerciseId: 'dip', sets: [
+    { type: 'working', done: true, weight: 20, systemWeight: 100, loadMode: 'added', reps: 8 },
+  ] }] }];
+  const best = bestOneRepMaxByName(sessions, weighted, { bodyweight: 80 });
+  assert.equal(best.get('Weighted Dip'), e1rm(100, 8));
+  assert.ok(scoreFor('Weighted Dip', best.get('Weighted Dip'), { sex: 'male', bodyweight: 80, age: 25 }) > 0);
+  assert.equal(entryStats({ sets: [{ type: 'working', done: true, weight: 20,
+    systemWeight: 100, loadMode: 'added', reps: 8 }] }).volume, 800);
 });
 
 test('ambiguous old weighted pull-up entries cannot create a false Elite score', () => {
@@ -158,7 +172,7 @@ test('the curated catalogue keeps corrected anatomy, equipment and plain instruc
     'Iso-Lateral Chest Press', 'Iso-Lateral Incline Chest Press', 'Iso-Lateral Shoulder Press',
     'Iso-Lateral High Row', 'Iso-Lateral Low Row', 'Plate-Loaded Pullover',
     'Glute Drive Machine', 'Standing Hip Abduction Machine', 'Kneeling Leg Curl Machine',
-    'Seated Dip Machine',
+    'Seated Dip Machine', 'Weighted Pull-Up', 'Weighted Chin-Up', 'Weighted Dip', 'Weighted Push-Up',
   ];
 
   additions.forEach((name) => assert.ok(byName.has(name), `${name} is missing`));

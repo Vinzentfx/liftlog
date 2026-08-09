@@ -88,7 +88,12 @@ const BOUNDS = {
 };
 
 /** Lifts where the load is bodyweight plus any added weight. */
-const BODYWEIGHT_INCLUSIVE = new Set(['Pull-Up', 'Chin-Up', 'Dip']);
+const BODYWEIGHT_INCLUSIVE = new Set([
+  'Pull-Up', 'Chin-Up', 'Dip', 'Weighted Pull-Up', 'Weighted Chin-Up', 'Weighted Dip',
+]);
+const BENCHMARK_BASE = {
+  'Weighted Pull-Up': 'Pull-Up', 'Weighted Chin-Up': 'Chin-Up', 'Weighted Dip': 'Dip',
+};
 
 /** Which regions a benchmark lift trains, and how strongly (0–1). */
 export const CONTRIB = {
@@ -109,6 +114,9 @@ export const CONTRIB = {
   'Pull-Up':                  { lats: 1, biceps: 0.6, forearms: 0.4, 'delts-rear': 0.3 },
   'Chin-Up':                  { lats: 0.9, biceps: 0.85, forearms: 0.4 },
   'Dip':                      { triceps: 1, chest: 0.8, 'delts-front': 0.5 },
+  'Weighted Pull-Up':         { lats: 1, biceps: 0.6, forearms: 0.4, 'delts-rear': 0.3 },
+  'Weighted Chin-Up':         { lats: 0.9, biceps: 0.85, forearms: 0.4 },
+  'Weighted Dip':             { triceps: 1, chest: 0.8, 'delts-front': 0.5 },
 };
 
 /**
@@ -301,7 +309,7 @@ export function scoreFor(liftName, oneRepMax, profile) {
   const bw = Number(profile.bodyweight);
   if (!bw || bw <= 0 || !oneRepMax) return null;
 
-  const table = BOUNDS[sex][liftName];
+  const table = BOUNDS[sex][BENCHMARK_BASE[liftName] || liftName];
   if (!table) return null;
 
   // 1RM for bodyweight movements is already the estimated total system load.
@@ -335,7 +343,7 @@ export function toNextTier(liftName, score, profile) {
   const i = tierIndex(score);
   if (i === null || i >= 4) return null;
   const sex = profile.sex === 'female' ? 'female' : 'male';
-  const table = BOUNDS[sex][liftName];
+  const table = BOUNDS[sex][BENCHMARK_BASE[liftName] || liftName];
   if (!table) return null;
   const bw = Number(profile.bodyweight);
   const f = ageFactor(profile.age);

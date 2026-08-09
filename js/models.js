@@ -97,6 +97,8 @@ const SEED = [
   ['Butterfly', 'Chest', 'Machine'],
   ['Push-Up', 'Chest', 'Bodyweight'],
   ['Dip', 'Chest', 'Bodyweight'],
+  ['Weighted Push-Up', 'Chest', 'Bodyweight'],
+  ['Weighted Dip', 'Chest', 'Bodyweight'],
 
   ['Deadlift', 'Back', 'Barbell'],
   ['Barbell Row', 'Back', 'Barbell'],
@@ -104,6 +106,8 @@ const SEED = [
   ['Dumbbell Row', 'Back', 'Dumbbell'],
   ['Pull-Up', 'Back', 'Bodyweight'],
   ['Chin-Up', 'Back', 'Bodyweight'],
+  ['Weighted Pull-Up', 'Back', 'Bodyweight'],
+  ['Weighted Chin-Up', 'Back', 'Bodyweight'],
   ['Lat Pulldown', 'Back', 'Cable'],
   ['Seated Cable Row', 'Back', 'Cable'],
   ['T-Bar Row', 'Back', 'Machine'],
@@ -240,7 +244,7 @@ export function regionsForMuscle(muscle) {
 }
 
 /** Bumped whenever the bundled catalogue changes, to top up existing installs. */
-export const LIBRARY_VERSION = 10;
+export const LIBRARY_VERSION = 11;
 
 /**
  * Bumped for one-off repairs to *stored* records, independently of the
@@ -594,21 +598,37 @@ export function isCounted(set) {
   return set.done && set.type === 'working' && Number(set.reps) > 0;
 }
 
+const WEIGHTED_BODYWEIGHT = new Set([
+  'Weighted Pull-Up', 'Weighted Chin-Up', 'Weighted Dip', 'Weighted Push-Up',
+]);
+
+/** How the training screen should collect load for a movement. */
+export function bodyweightLoadMode(exercise) {
+  if (exercise?.equipment !== 'Bodyweight') return 'external';
+  return WEIGHTED_BODYWEIGHT.has(exercise.name) ? 'added' : 'bodyweight';
+}
+
+/** Total moving load, retained per set so later bodyweight edits cannot rewrite history. */
+export function effectiveSetWeight(set) {
+  return Number(set?.systemWeight ?? set?.weight) || 0;
+}
+
 export function setVolume(set) {
   if (set.leftReps != null || set.rightReps != null) {
     return (Number(set.leftWeight) || 0) * (Number(set.leftReps) || 0)
       + (Number(set.rightWeight) || 0) * (Number(set.rightReps) || 0);
   }
-  return (Number(set.weight) || 0) * (Number(set.reps) || 0);
+  return effectiveSetWeight(set) * (Number(set.reps) || 0);
 }
 
 export function entryStats(entry) {
   const counted = entry.sets.filter(isCounted);
   let volume = 0, topWeight = 0, best = 0, reps = 0;
   for (const s of counted) {
+    const load = effectiveSetWeight(s);
     volume += setVolume(s);
-    topWeight = Math.max(topWeight, Number(s.weight) || 0);
-    best = Math.max(best, e1rm(s.weight, s.reps));
+    topWeight = Math.max(topWeight, load);
+    best = Math.max(best, e1rm(load, s.reps));
     reps += Number(s.reps) || 0;
   }
   return { sets: counted.length, volume, topWeight, e1rm: best, reps };
@@ -721,8 +741,8 @@ export function personalRecords(sessions, exerciseId) {
     if (!st.sets) continue;
     if (!bestVolume || st.volume > bestVolume.value) bestVolume = { value: st.volume, at: s.startedAt };
     for (const set of entry.sets.filter(isCounted)) {
-      const est = e1rm(set.weight, set.reps);
-      const w = Number(set.weight) || 0, r = Number(set.reps) || 0;
+      const w = effectiveSetWeight(set), r = Number(set.reps) || 0;
+      const est = e1rm(w, r);
       if (!bestE1rm || est > bestE1rm.value) bestE1rm = { value: est, at: s.startedAt, weight: w, reps: r };
       if (!bestWeight || w > bestWeight.value) bestWeight = { value: w, at: s.startedAt, reps: r };
       if (!bestReps || r > bestReps.value) bestReps = { value: r, at: s.startedAt, weight: w };
@@ -736,7 +756,9 @@ export function personalRecords(sessions, exerciseId) {
  * (the strength-standard tables are keyed by name, not id).
  * @returns {Map<string, number>}
  */
-const BODYWEIGHT_STRENGTH_LIFTS = new Set(['Pull-Up', 'Chin-Up', 'Dip']);
+const BODYWEIGHT_STRENGTH_LIFTS = new Set([
+  'Pull-Up', 'Chin-Up', 'Dip', 'Weighted Pull-Up', 'Weighted Chin-Up', 'Weighted Dip',
+]);
 
 export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
   const best = new Map();
@@ -753,8 +775,11 @@ export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
           // Before loadMode existed the field was ambiguous: some people logged
           // total bodyweight, others additional weight. A positive legacy value
           // must not silently be counted twice and produce a false Elite score.
-          if (added > 0 && set.loadMode !== 'added') continue;
-          est = e1rm(bodyweight + added, set.reps);
+          if (set.loadMode === 'bodyweight') est = e1rm(set.systemWeight || set.weight || bodyweight, set.reps);
+          else {
+            if (added > 0 && set.loadMode !== 'added') continue;
+            est = e1rm(set.systemWeight || bodyweight + added, set.reps);
+          }
         } else {
           est = e1rm(set.weight, set.reps);
         }

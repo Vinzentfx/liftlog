@@ -8,7 +8,10 @@ import {
 import * as store from '../store.js';
 import * as rest from '../rest.js';
 import * as cloud from '../cloud.js';
-import { newSet, newEntry, entryStats, sessionStats, lastPerformance, e1rm, isCounted } from '../models.js';
+import {
+  newSet, newEntry, entryStats, sessionStats, lastPerformance, e1rm, isCounted,
+  bodyweightLoadMode, effectiveSetWeight,
+} from '../models.js';
 import { pickExercise } from '../pickers.js';
 import { todaysDays, weekdayName, weekdayShort } from '../schedule.js';
 import { exerciseArt } from '../exercise-art.js';
@@ -267,9 +270,10 @@ function exerciseBlock(session, entry, entryIndex) {
   }
 
   const rirOn = store.state.settings.logRir !== false;
-  const bodyweightLoad = ['Pull-Up', 'Chin-Up', 'Dip'].includes(ex?.name);
+  const loadMode = bodyweightLoadMode(ex);
   block.append(el('div.set-labels' + (rirOn ? '.with-rir' : ''), {}, [
-    el('span', { text: t('train.col.set') }), el('span', { text: bodyweightLoad ? `+${units}` : units }),
+    el('span', { text: t('train.col.set') }), el('span', { text: loadMode === 'bodyweight'
+      ? t('train.bodyweightShort') : loadMode === 'added' ? `+${units}` : units }),
     el('span', { text: t('train.col.reps') }),
     rirOn ? el('span', { text: 'RIR', title: t('train.rirTitle') }) : null,
     el('span', { text: '✓' }),
@@ -298,6 +302,7 @@ function setRow(session, entry, set, index, last, ex) {
   }
   const workingNo = entry.sets.slice(0, index + 1).filter((s) => s.type === 'working').length;
   const rirOn = store.state.settings.logRir !== false;
+  const loadMode = bodyweightLoadMode(ex);
   const row = el('div.set-row'
     + (rirOn ? '.with-rir' : '')
     + (set.done ? '.done' : '')
@@ -325,7 +330,7 @@ function setRow(session, entry, set, index, last, ex) {
     decimal: true,
     value: set.weight ?? '',
     placeholder: hint ? String(hint.weight) : '–',
-    'aria-label': ['Pull-Up', 'Chin-Up', 'Dip'].includes(ex?.name) ? t('train.addedWeight') : t('train.weight'),
+    'aria-label': loadMode === 'added' ? t('train.addedWeight') : t('train.weight'),
   }));
   const reps = normaliseOnBlur(numberInput({
     value: set.reps ?? '',
@@ -336,7 +341,13 @@ function setRow(session, entry, set, index, last, ex) {
   // Keystrokes persist quietly — a re-render here would kill the caret.
   weight.addEventListener('input', () => {
     set.weight = parseNumber(weight.value);
-    if (['Pull-Up', 'Chin-Up', 'Dip'].includes(ex?.name)) set.loadMode = 'added';
+    if (loadMode === 'added') {
+      set.loadMode = 'added';
+      set.systemWeight = Number(store.state.settings.bodyweight) + (Number(set.weight) || 0);
+    } else {
+      set.loadMode = 'external';
+      set.systemWeight = Number(set.weight) || 0;
+    }
     saveSoon(session);
   });
   reps.addEventListener('input', () => {
@@ -368,10 +379,13 @@ function setRow(session, entry, set, index, last, ex) {
   const doneBtn = el('button.done-btn', {
     'aria-label': t(set.done ? 'train.untick' : 'train.tick'),
     'aria-pressed': String(!!set.done),
-    onclick: () => toggleDone(session, entry, set, weight, reps, hint),
+    onclick: () => toggleDone(session, entry, set, weight, reps, hint, ex),
   }, ['✓']);
 
-  const weightCell = ex?.equipment === 'Barbell'
+  const weightCell = loadMode === 'bodyweight'
+    ? el('div.bodyweight-load', { text: store.state.settings.bodyweight
+      ? fmtWeight(store.state.settings.bodyweight, store.units()) : t('train.bodyweightMissingShort') })
+    : ex?.equipment === 'Barbell'
     ? el('div.set-weight-cell', {}, [weight, el('button.set-plates', {
         'aria-label': t('train.menu.whatToLoad'),
         onclick: () => plateSheet(entry, ex, Number(weight.value) || Number(set.weight) || 0),
@@ -467,6 +481,7 @@ function setMenu(session, entry, set, index) {
  */
 function warmupOffer(session, entry, ex, units) {
   const wrap = el('div');
+  if (ex?.equipment === 'Bodyweight') return wrap;
   if (entry.sets.some((s) => s.type === 'warmup')) return wrap;
 
   // What the working sets are aiming at: whatever is already typed in, else
@@ -528,6 +543,11 @@ function suggestNext(last, targetReps, ex, units, rule = 'double') {
   const rirs = sets.map((s) => s.rir).filter((v) => v !== null && v !== undefined);
   const topWeight = Math.max(...sets.map((s) => Number(s.weight) || 0));
   if (!topWeight) return null;
+
+  if (bodyweightLoadMode(ex) === 'bodyweight') return {
+    headline: t('train.tip.bodyweight'),
+    why: t('train.tip.addReps', { high: range.high }),
+  };
 
   const step = ex && ex.equipment === 'Dumbbell' ? (units === 'lb' ? 5 : 2) : (units === 'lb' ? 5 : 2.5);
   const next = `${fmtWeight(topWeight + step, units)}`;
@@ -594,27 +614,41 @@ function parseReps(spec) {
  * matters most. Firing the PR toast and the rest timer first had the same
  * shape: a personal best announced for a set that never reached the disk.
  */
-async function toggleDone(session, entry, set, weightInput, repsInput, hint) {
+async function toggleDone(session, entry, set, weightInput, repsInput, hint, ex = null) {
   const turningOn = !set.done;
   let fill = null;
 
   if (turningOn) {
+    const loadMode = bodyweightLoadMode(ex);
+    const bodyweight = Number(store.state.settings.bodyweight);
+    if (loadMode !== 'external' && (!bodyweight || bodyweight <= 0)) {
+      toast(t('train.bodyweightMissing')); return;
+    }
     // Empty fields fall back to the placeholder — repeating last week is the
     // common case and shouldn't need typing.
-    const weight = (set.weight === null || set.weight === undefined || weightInput.value === '')
-      ? (hint ? hint.weight : null)
-      : set.weight;
+    const weight = loadMode === 'bodyweight' ? bodyweight
+      : (set.weight === null || set.weight === undefined || weightInput.value === '')
+        ? (hint ? hint.weight : null)
+        : set.weight;
     const reps = (!set.reps || repsInput.value === '')
       ? (hint ? hint.reps : null)
       : set.reps;
 
     if (weight === null || weight === undefined) { toast(t('train.needWeight')); weightInput.focus(); return; }
     if (!reps) { toast(t('train.needReps')); repsInput.focus(); return; }
-    fill = { weight, reps };
+    fill = {
+      weight, reps, loadMode,
+      systemWeight: loadMode === 'added' ? bodyweight + Number(weight) : Number(weight),
+      bodyweightUsed: loadMode === 'external' ? null : bodyweight,
+    };
   }
 
   const saved = await store.updateSession(session.id, () => {
-    if (fill) { set.weight = fill.weight; set.reps = fill.reps; }
+    if (fill) {
+      set.weight = fill.weight; set.reps = fill.reps;
+      set.loadMode = fill.loadMode; set.systemWeight = fill.systemWeight;
+      set.bodyweightUsed = fill.bodyweightUsed;
+    }
     set.done = turningOn;
   });
   if (!saved) return;   // rolled back, and the failure has already been reported
@@ -628,7 +662,7 @@ async function toggleDone(session, entry, set, weightInput, repsInput, hint) {
       toast(pr, 2600);
       const ex = store.state.exerciseById.get(entry.exerciseId);
       if (ex && cloud.isSignedIn() && !set.prSharedAt) {
-        cloud.publishSocialPr(ex.name, e1rm(set.weight,set.reps), pr).then(() => {
+        cloud.publishSocialPr(ex.name, e1rm(effectiveSetWeight(set),set.reps), pr).then(() => {
           set.prSharedAt = Date.now();
           store.saveSessionQuiet(session);
         }).catch(() => {});
@@ -655,15 +689,15 @@ function checkPR(session, entry, set) {
     const e = s.entries.find((x) => x.exerciseId === entry.exerciseId);
     if (!e) continue;
     for (const prev of e.sets.filter(isCounted)) {
-      bestE1rm = Math.max(bestE1rm, e1rm(prev.weight, prev.reps));
-      bestWeight = Math.max(bestWeight, Number(prev.weight) || 0);
+      bestE1rm = Math.max(bestE1rm, e1rm(effectiveSetWeight(prev), prev.reps));
+      bestWeight = Math.max(bestWeight, effectiveSetWeight(prev));
     }
   }
   if (!bestE1rm) return null;   // nothing to beat yet
 
-  const w = Number(set.weight) || 0;
+  const w = effectiveSetWeight(set);
   if (w > bestWeight) return t('train.pr.weight', { weight: fmtWeight(w, units) });
-  if (e1rm(set.weight, set.reps) > bestE1rm) return t('train.pr.e1rm');
+  if (e1rm(w, set.reps) > bestE1rm) return t('train.pr.e1rm');
   return null;
 }
 

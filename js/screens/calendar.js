@@ -2,12 +2,12 @@
 // History lives here rather than in its own tab: tapping a date opens that session.
 
 import {
-  el, fmtNum, fmtDuration, fmtDate, relDay, setsSummary,
+  el, fmtNum, fmtWeight, fmtDuration, fmtDate, relDay, setsSummary,
   confirmSheet, toast, emptyState, listItem, debounce,
   numberInput, parseNumber, normaliseOnBlur, undoToast,
 } from '../ui.js';
 import * as store from '../store.js';
-import { sessionStats, entryStats, isCounted, newSet, newEntry } from '../models.js';
+import { sessionStats, entryStats, isCounted, newSet, newEntry, bodyweightLoadMode } from '../models.js';
 import { pickExercise } from '../pickers.js';
 import { navigate, flushBackup } from '../app.js';
 import { t, tn, locale } from '../i18n.js';
@@ -350,6 +350,7 @@ function editHeader(session) {
 
 function editEntry(session, entry, units) {
   const ex = store.state.exerciseById.get(entry.exerciseId);
+  const loadMode = bodyweightLoadMode(ex);
   const block = el('div.card.exercise-block');
 
   block.append(
@@ -378,11 +379,12 @@ function editEntry(session, entry, units) {
   );
 
   block.append(el('div.set-labels.with-rir', {}, [
-    el('span', { text: t('train.col.set') }), el('span', { text: units }),
+    el('span', { text: t('train.col.set') }), el('span', { text: loadMode === 'bodyweight'
+      ? t('train.bodyweightShort') : loadMode === 'added' ? `+${units}` : units }),
     el('span', { text: t('train.col.reps') }), el('span', { text: 'RIR' }), el('span', { text: '' }),
   ]));
 
-  entry.sets.forEach((set, i) => block.append(editRow(session, entry, set, i)));
+  entry.sets.forEach((set, i) => block.append(editRow(session, entry, set, i, ex)));
 
   block.append(
     el('button.btn.ghost.full.sm', {
@@ -390,7 +392,13 @@ function editEntry(session, entry, units) {
       onclick: async () => {
         const prev = entry.sets.filter((s) => s.type === 'working').slice(-1)[0] || null;
         await store.updateSession(session.id, () => {
-          entry.sets.push({ ...newSet(prev), done: true });
+          const added = { ...newSet(prev), done: true };
+          if (loadMode === 'bodyweight') {
+            const used = Number(store.state.settings.bodyweight) || 0;
+            added.weight = used; added.systemWeight = used;
+            added.bodyweightUsed = used; added.loadMode = 'bodyweight';
+          }
+          entry.sets.push(added);
         });
       },
     }, [t('train.addSet')])
@@ -399,9 +407,10 @@ function editEntry(session, entry, units) {
   return block;
 }
 
-function editRow(session, entry, set, index) {
+function editRow(session, entry, set, index, ex) {
   if (entry.movementMode === 'unilateral') return editUnilateralRow(session, entry, set, index);
   const workingNo = entry.sets.slice(0, index + 1).filter((s) => s.type === 'working').length;
+  const loadMode = bodyweightLoadMode(ex);
   const row = el('div.set-row.with-rir' + (set.type === 'warmup' ? '.warmup' : ''));
 
   row.append(
@@ -428,6 +437,11 @@ function editRow(session, entry, set, index) {
 
   weight.addEventListener('input', () => {
     set.weight = parseNumber(weight.value);
+    if (loadMode === 'added') {
+      const used = Number(set.bodyweightUsed) || Number(store.state.settings.bodyweight) || 0;
+      set.loadMode = 'added'; set.bodyweightUsed = used;
+      set.systemWeight = used + (Number(set.weight) || 0);
+    } else set.systemWeight = Number(set.weight) || 0;
     saveSoon(session);
   });
   reps.addEventListener('input', () => {
@@ -442,7 +456,9 @@ function editRow(session, entry, set, index) {
   });
   [weight, reps, rir].forEach((input) => input.addEventListener('focus', () => input.select()));
 
-  row.append(weight, reps, rir);
+  row.append(loadMode === 'bodyweight'
+    ? el('div.bodyweight-load', { text: fmtWeight(set.systemWeight || set.weight, store.units()) })
+    : weight, reps, rir);
   row.append(
     el('button.done-btn', {
       'aria-label': t('calendar.deleteSet', { n: workingNo }),

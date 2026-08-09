@@ -1059,3 +1059,17 @@ svg.chart .hit { fill: transparent; }
   border-radius: 10px;
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
+
+.bodyweight-load {
+  display: grid;
+  min-height: 42px;
+  place-items: center;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+}
