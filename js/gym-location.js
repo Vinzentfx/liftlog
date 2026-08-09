@@ -156,23 +156,14 @@ export function gymMapPicker(onSave) {
 }
 
 async function nearbyGyms(centre) {
-  const point = `${centre.latitude.toFixed(6)},${centre.longitude.toFixed(6)}`;
-  const query = `[out:json][timeout:12];(nwr(around:3500,${point})["leisure"="fitness_centre"];nwr(around:3500,${point})["leisure"="fitness_station"];nwr(around:3500,${point})["sport"="fitness"];);out center tags;`;
-  let data = null;
-  for (const endpoint of ['https://overpass.kumi.systems/api/interpreter', 'https://overpass-api.de/api/interpreter']) {
-    const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 6500);
-    try {
-      const response = await fetch(`${endpoint}?data=${encodeURIComponent(query)}`, { signal: controller.signal });
-      if (response.ok) { data = await response.json(); break; }
-    } catch { /* Try the other public Overpass instance. */ }
-    finally { clearTimeout(timeout); }
-  }
-  if (!data) throw new Error('GYMS_UNAVAILABLE');
+  const response = await fetch(`./api/nearby-gyms?lat=${centre.latitude.toFixed(5)}&lon=${centre.longitude.toFixed(5)}`);
+  if (!response.ok) throw new Error('GYMS_UNAVAILABLE');
+  const data = await response.json();
   const seen = new Set();
-  return (data.elements || []).map((item) => ({
-    id: `${item.type}-${item.id}`,
-    latitude: Number(item.lat ?? item.center?.lat), longitude: Number(item.lon ?? item.center?.lon),
-    name: item.tags?.name || t('gym.unnamedGym'),
+  return (data.gyms || []).map((item) => ({
+    id: item.id,
+    latitude: Number(item.latitude), longitude: Number(item.longitude),
+    name: item.name || t('gym.unnamedGym'),
   })).filter((gym) => validCoordinate(gym.latitude, gym.longitude) && !seen.has(gym.id) && seen.add(gym.id))
     .sort((a, b) => distanceMeters(centre, a) - distanceMeters(centre, b)).slice(0, 12);
 }
@@ -211,7 +202,7 @@ function renderTiles(host, centre, zoom) {
     if (y < 0 || y >= count) continue;
     const wrappedX = ((x % count) + count) % count;
     fragment.append(el('img', {
-      src: `https://a.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${wrappedX}/${y}.png`, alt: '', draggable: 'false',
+      src: `./api/map-tile?z=${zoom}&x=${wrappedX}&y=${y}`, alt: '', draggable: 'false',
       style: { left: `${x * 256 - world.x + width / 2}px`, top: `${y * 256 - world.y + height / 2}px` },
     }));
   }

@@ -50,10 +50,12 @@
     <li><strong>Cloudflare, Inc.</strong>: Auslieferung der Website, Sicherheits- und Verbindungsdaten.</li>
     <li><strong>Open Food Facts</strong>: Nur bei einer von dir ausgelösten Barcodeabfrage werden
       Barcode und technisch bedingt Verbindungsdaten an den Dienst übertragen.</li>
-    <li><strong>CARTO und OpenStreetMap-Mitwirkende</strong>: Nur beim Öffnen der freiwilligen Gym-Karte werden
-      auf OpenStreetMap-Daten basierende Kartenkacheln von CARTO geladen. Dabei erhält CARTO technisch bedingt insbesondere IP-Adresse,
-      Zeitpunkt und den angeforderten Kartenausschnitt. Um Gyms in der Nähe auf der Karte zu markieren,
-      wird der Mittelpunkt des sichtbaren Kartenausschnitts an den Overpass-Dienst übermittelt.</li>
+    <li><strong>CARTO und OpenStreetMap-Mitwirkende</strong>: Nur beim Öffnen der freiwilligen Gym-Karte ruft
+      LiftLog über Cloudflare auf OpenStreetMap-Daten basierende Kartenkacheln von CARTO ab. Um Gyms in
+      der Nähe zu markieren, wird der auf fünf Nachkommastellen gerundete Mittelpunkt des sichtbaren
+      Kartenausschnitts über Cloudflare an einen Overpass-Dienst übermittelt. Diese Anbieter erhalten
+      dabei die Cloudflare-Verbindung und den angeforderten Kartenausschnitt, aber nicht deine direkte
+      IP-Verbindung.</li>
   </ul>
   <p>Die Anbieter können Unterauftragsverarbeiter einsetzen. Je nach Verarbeitung können Daten auch
     außerhalb des Europäischen Wirtschaftsraums verarbeitet werden. Soweit erforderlich werden dafür

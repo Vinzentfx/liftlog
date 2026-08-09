@@ -277,10 +277,22 @@ test('gym arrival is opt-in, local-only and allowed by the production headers', 
   assert.doesNotMatch(store, /gymLatitude|gymLongitude|gymLocation/);
   assert.match(app, /!config\?\.enabled \|\| !plan \|\| store\.activeSession\(\)/);
   assert.match(headers, /Permissions-Policy:[^\n]*geolocation=\(self\)/);
-  assert.match(headers, /img-src[^;]*https:\/\/a\.basemaps\.cartocdn\.com/);
-  assert.match(headers, /connect-src[^;]*https:\/\/overpass-api\.de/);
-  assert.match(headers, /connect-src[^;]*https:\/\/overpass\.kumi\.systems/);
-  assert.match(gym, /leisure.+fitness_centre/);
+  assert.doesNotMatch(headers, /img-src[^;]*cartocdn/);
+  assert.doesNotMatch(headers, /connect-src[^;]*overpass/);
+  assert.match(gym, /\.\/api\/map-tile/);
+  assert.match(gym, /\.\/api\/nearby-gyms/);
+});
+
+test('map relays are fixed upstreams with bounded numeric inputs', async () => {
+  const tiles = await read('functions/api/map-tile.js');
+  const gyms = await read('functions/api/nearby-gyms.js');
+  assert.match(tiles, /zoom < 13 \|\| zoom > 19/);
+  assert.match(tiles, /https:\/\/a\.basemaps\.cartocdn\.com/);
+  assert.doesNotMatch(tiles, /searchParams\.get\(['"](?:url|host|origin)/);
+  assert.match(gyms, /latitude < -90 \|\| latitude > 90/);
+  assert.match(gyms, /longitude < -180 \|\| longitude > 180/);
+  assert.match(gyms, /leisure.+fitness_centre/);
+  assert.doesNotMatch(gyms, /tags:\s*item\.tags/);
 });
 
 test('the selected colour theme is saved and applied to the whole app', async () => {
