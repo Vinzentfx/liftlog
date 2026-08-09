@@ -99,6 +99,10 @@ test('blocked devices stay blocked and disappear from the visible device list', 
   assert.match(sync, /current\?\.status === 'revoked'[\s\S]*DEVICE_REVOKED/);
   assert.match(sync, /matching\?\.status === 'revoked'[\s\S]*DEVICE_REVOKED/);
   assert.match(account, /activeDevices = devices\.filter\(\(d\) => d\.status !== 'revoked'\)[\s\S]*activeDevices\.map/);
+  // Native replaceChildren stringifies null, unlike our el() helper. Omitting
+  // the optional heading entirely prevents a visible "null" below the list.
+  assert.match(account, /\.\.\.\(blockedDevices\.length \? \[el\('div\.section-head'/);
+  assert.doesNotMatch(account, /blockedDevices\.length \? el\('div\.section-head'[\s\S]{0,150}: null/);
 });
 
 test('pending devices remain at a polling approval gate', async () => {

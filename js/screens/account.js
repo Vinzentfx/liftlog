@@ -566,9 +566,9 @@ async function devicesSheet() {
         },
       }, ['×']),
     ])),
-    blockedDevices.length ? el('div.section-head', {}, [
+    ...(blockedDevices.length ? [el('div.section-head', {}, [
       el('h2', { text: t('cloud.blockedDevices') }),
-    ]) : null,
+    ])] : []),
     ...blockedDevices.map((d) => el('div.row.between', {
       style: { padding: '10px 0', borderBottom: '1px solid var(--line-soft)', gap: '10px' },
     }, [
