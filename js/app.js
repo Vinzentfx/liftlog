@@ -1,6 +1,6 @@
 // Bootstrap + hash router.
 
-import { $, clear, el, initSheet, openSheet, closeSheet, toast } from './ui.js';
+import { $, clear, el, initSheet, openSheet, closeSheet, toast, enableCollapsibleSections } from './ui.js';
 import { t, setLanguage } from './i18n.js';
 import * as store from './store.js';
 import * as db from './db.js';
@@ -172,7 +172,10 @@ export function render() {
     // you tap around that screen is right, keeping it after you have been to
     // another tab and come back is how you log today's lunch into last Tuesday.
     const node = route.render({ param, actions: $('#topbar-actions'), fresh: !samePlace });
-    if (node) host.append(node);
+    if (node) {
+      enableCollapsibleSections(node, name);
+      host.append(node);
+    }
 
     lastRouteKey = routeKey;
     screen.scrollTop = keepScroll;

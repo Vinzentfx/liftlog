@@ -56,6 +56,72 @@ export function authField(label, input, { icon = 'email', note = null } = {}) {
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 
+const COLLAPSED_SECTIONS_KEY = 'liftlog.collapsedSections.v1';
+
+function collapsedSections() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(COLLAPSED_SECTIONS_KEY) || '[]');
+    return new Set(Array.isArray(saved) ? saved : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveCollapsedSections(sections) {
+  try { localStorage.setItem(COLLAPSED_SECTIONS_KEY, JSON.stringify([...sections])); }
+  catch { /* private mode: collapsing still works until the next render */ }
+}
+
+/** Make ordinary screen headings toggle the cards and rows below them. */
+export function enableCollapsibleSections(root, route) {
+  const saved = collapsedSections();
+  const occurrences = new Map();
+
+  root.querySelectorAll('.section-head').forEach((head) => {
+    const title = head.querySelector(':scope > h2');
+    if (!title || head.dataset.fixed === 'true') return;
+
+    const content = [];
+    for (let next = head.nextElementSibling; next; next = next.nextElementSibling) {
+      // A direct heading or a neighbouring wrapper beginning with a heading is
+      // a new section, not part of the current one.
+      if (next.matches('.section-head')
+          || next.firstElementChild?.matches('.section-head')) break;
+      content.push(next);
+    }
+    if (!content.length) return;
+
+    const label = title.textContent.trim().toLocaleLowerCase();
+    const occurrence = occurrences.get(label) || 0;
+    occurrences.set(label, occurrence + 1);
+    const key = `${route}:${label}:${occurrence}`;
+    title.append(el('span.section-chevron', { 'aria-hidden': 'true', text: '⌄' }));
+    title.classList.add('section-toggle');
+    title.setAttribute('role', 'button');
+    title.setAttribute('tabindex', '0');
+
+    const apply = (collapsed) => {
+      title.setAttribute('aria-expanded', String(!collapsed));
+      head.classList.toggle('is-collapsed', collapsed);
+      content.forEach((item) => { item.hidden = collapsed; });
+    };
+    apply(saved.has(key));
+
+    const toggle = () => {
+      const collapsed = title.getAttribute('aria-expanded') === 'true';
+      if (collapsed) saved.add(key); else saved.delete(key);
+      saveCollapsedSections(saved);
+      apply(collapsed);
+    };
+    title.addEventListener('click', toggle);
+    title.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      toggle();
+    });
+  });
+}
+
 /**
  * A number field that accepts the separator the keyboard actually offers.
  *

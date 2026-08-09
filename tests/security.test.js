@@ -510,6 +510,19 @@ test('automatic backups reach the server at the moments that matter', async () =
   assert.match(app, /if \(cloudMaintenanceImmediatePending\)[\s\S]*runCloudMaintenance\(\{ immediate: true \}\)/);
 });
 
+test('screen sections collapse from their headings and remember the choice', async () => {
+  const app = await read('js/app.js');
+  const ui = await read('js/ui.js');
+  const css = await read('css/styles.css');
+  assert.match(app, /enableCollapsibleSections\(node, name\)/);
+  assert.match(ui, /export function enableCollapsibleSections/);
+  assert.match(ui, /localStorage\.setItem\(COLLAPSED_SECTIONS_KEY/);
+  assert.match(ui, /title\.setAttribute\('aria-expanded'/);
+  assert.match(ui, /event\.key !== 'Enter' && event\.key !== ' '/);
+  assert.match(ui, /item\.hidden = collapsed/);
+  assert.match(css, /\.section-head\.is-collapsed \.section-chevron/);
+});
+
 test('the invite rate limits survive the attempt they are counting', async () => {
   const sql = await read('server/patch-014-invite-hardening.sql');
   const cloud = await read('js/cloud.js');
