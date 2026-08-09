@@ -277,7 +277,7 @@ test('gym arrival is opt-in, local-only and allowed by the production headers', 
   assert.doesNotMatch(store, /gymLatitude|gymLongitude|gymLocation/);
   assert.match(app, /!config\?\.enabled \|\| !plan \|\| store\.activeSession\(\)/);
   assert.match(headers, /Permissions-Policy:[^\n]*geolocation=\(self\)/);
-  assert.match(headers, /img-src[^;]*https:\/\/tile\.openstreetmap\.org/);
+  assert.match(headers, /img-src[^;]*https:\/\/a\.basemaps\.cartocdn\.com/);
   assert.match(headers, /connect-src[^;]*https:\/\/overpass-api\.de/);
   assert.match(headers, /connect-src[^;]*https:\/\/overpass\.kumi\.systems/);
   assert.match(gym, /leisure.+fitness_centre/);

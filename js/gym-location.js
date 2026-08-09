@@ -149,7 +149,8 @@ export function gymMapPicker(onSave) {
     el('button.btn.ghost.full.sm', { style: { marginTop: '10px' }, onclick: locate }, [t('gym.useCurrent')]),
     save,
     el('div.geo-attribution', {}, [t('gym.mapBy') + ' ',
-      el('a', { href: 'https://www.openstreetmap.org/copyright', target: '_blank', rel: 'noopener' }, ['OpenStreetMap'])]),
+      el('a', { href: 'https://www.openstreetmap.org/copyright', target: '_blank', rel: 'noopener' }, ['OpenStreetMap']),
+      ' · ', el('a', { href: 'https://carto.com/attributions', target: '_blank', rel: 'noopener' }, ['CARTO'])]),
   ]));
   if (centre) { paint(); loadGyms(); } else locate();
 }
@@ -210,7 +211,7 @@ function renderTiles(host, centre, zoom) {
     if (y < 0 || y >= count) continue;
     const wrappedX = ((x % count) + count) % count;
     fragment.append(el('img', {
-      src: `https://tile.openstreetmap.org/${zoom}/${wrappedX}/${y}.png`, alt: '', draggable: 'false',
+      src: `https://a.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${wrappedX}/${y}.png`, alt: '', draggable: 'false',
       style: { left: `${x * 256 - world.x + width / 2}px`, top: `${y * 256 - world.y + height / 2}px` },
     }));
   }
