@@ -251,7 +251,7 @@ function detailView(id) {
     for (const entry of session.entries) root.append(readEntry(entry, units));
     root.append(el('button.btn.primary.full', { style: { marginTop: '10px' }, onclick: async () => {
       const duplicated = await duplicateWorkout(session);
-      if (!duplicated) return;
+      if (!duplicated) { toast(t('calendar.activeWorkout')); navigate('train'); return; }
       toast(t('calendar.duplicated')); navigate('train');
     } }, [t('calendar.duplicateWorkout')]));
   }

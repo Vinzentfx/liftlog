@@ -11,6 +11,12 @@ export async function requestWorkoutStart(options = {}) {
   if (store.state.settings.workoutPreview === false || !day) return startWorkout(options);
 
   return new Promise((resolve) => {
+    let settled = false;
+    const dismiss = () => {
+      if (settled) return;
+      settled = true;
+      resolve(null);
+    };
     const rows = day.items.map((item) => {
       const exercise = store.state.exerciseById.get(item.exerciseId);
       const last = lastPerformance(store.state.sessions, item.exerciseId);
@@ -32,9 +38,12 @@ export async function requestWorkoutStart(options = {}) {
       ]),
       el('div', { style: { maxHeight: '48vh', overflowY: 'auto' } }, rows),
       el('button.btn.primary.full', { style: { marginTop: '12px' }, onclick: async () => {
-        closeSheet(); resolve(await startWorkout(options));
+        if (settled) return;
+        settled = true;
+        closeSheet();
+        resolve(await startWorkout(options));
       } }, [t('train.previewStart')]),
-      el('button.btn.ghost.full', { style: { marginTop: '8px' }, onclick: () => { closeSheet(); resolve(null); } }, [t('common.cancel')]),
-    ]));
+      el('button.btn.ghost.full', { style: { marginTop: '8px' }, onclick: closeSheet }, [t('common.cancel')]),
+    ]), { onClose: dismiss });
   });
 }

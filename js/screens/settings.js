@@ -190,7 +190,8 @@ export function renderSettings() {
   }));
 
   const ratingToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
-  ratingToggle.checked = s.showRatings !== false;
+  ratingToggle.checked = hasProfile(s) && s.showRatings !== false;
+  ratingToggle.disabled = !hasProfile(s);
   ratingToggle.addEventListener('change', () => store.setSetting('showRatings', ratingToggle.checked));
 
   const rirToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
@@ -255,15 +256,12 @@ export function renderSettings() {
     store.setSetting('defaultReps', v);
   });
 
-  const checkRow = (input, label, hint) => el('label.field', {}, [
-    el('div.row', { style: { gap: '10px' } }, [
-      input,
-      el('span.grow', {
-        text: label,
-        style: { textTransform: 'none', letterSpacing: '0', fontSize: '15px', fontWeight: '500', color: 'var(--text)', marginBottom: '0' },
-      }),
+  const checkRow = (input, label, hint) => el('label.setting-toggle', {}, [
+    el('span.setting-toggle-copy', {}, [
+      el('strong', { text: label }),
+      hint ? el('small', { text: hint }) : null,
     ]),
-    hint ? el('div.small.faint', { style: { marginTop: '4px' }, text: hint }) : null,
+    el('span.switch-control', {}, [input, el('span.switch-track', { 'aria-hidden': 'true' })]),
   ]);
 
   const profileSummary = hasProfile(s)
@@ -287,15 +285,7 @@ export function renderSettings() {
       ]),
       el('span.chev', { text: '›', 'aria-hidden': 'true' }),
     ]),
-    el('label.field', { style: { marginTop: '12px' } }, [
-      el('div.row', { style: { gap: '10px' } }, [
-        ratingToggle,
-        el('span.grow', {
-          text: t('settings.showRatings'),
-          style: { textTransform: 'none', letterSpacing: '0', fontSize: '15px', fontWeight: '500', color: 'var(--text)', marginBottom: '0' },
-        }),
-      ]),
-    ]),
+    el('div.settings-toggle-list', {}, [checkRow(ratingToggle, t('settings.showRatings'))]),
 
     el('div.section-head', {}, [el('h2', { text: t('settings.appearance') })]),
     el('div', {}, [
@@ -329,19 +319,21 @@ export function renderSettings() {
       rest,
     ]),
 
-    checkRow(autoRest, t('settings.autoRest')),
-    checkRow(soundToggle, t('settings.chime')),
-    checkRow(bgAudioToggle, t('settings.restBackgroundAudio'), t('settings.restBackgroundAudioNote')),
-    checkRow(rirToggle, t('settings.logRir'), t('settings.logRirNote')),
-    checkRow(progressionToggle, t('settings.progressionSuggestions'), t('settings.progressionSuggestionsNote')),
-    checkRow(warmupToggle, t('settings.warmupSuggestions')),
-    checkRow(plateauToggle, t('settings.plateauHints')),
-    checkRow(deloadToggle, t('settings.deloadHints'), t('settings.deloadHintsNote')),
-    checkRow(techniqueToggle, t('settings.techniqueHints'), t('settings.techniqueHintsNote')),
-    checkRow(durationToggle, t('settings.plannedDuration')),
-    checkRow(previewToggle, t('settings.workoutPreview'), t('settings.workoutPreviewNote')),
-    checkRow(setHistoryToggle, t('settings.setHistory'), t('settings.setHistoryNote')),
-    checkRow(regenerationToggle, t('settings.regeneration'), t('settings.regenerationNote')),
+    el('div.settings-toggle-list', {}, [
+      checkRow(autoRest, t('settings.autoRest')),
+      checkRow(soundToggle, t('settings.chime')),
+      checkRow(bgAudioToggle, t('settings.restBackgroundAudio'), t('settings.restBackgroundAudioNote')),
+      checkRow(rirToggle, t('settings.logRir'), t('settings.logRirNote')),
+      checkRow(progressionToggle, t('settings.progressionSuggestions'), t('settings.progressionSuggestionsNote')),
+      checkRow(warmupToggle, t('settings.warmupSuggestions')),
+      checkRow(plateauToggle, t('settings.plateauHints')),
+      checkRow(deloadToggle, t('settings.deloadHints'), t('settings.deloadHintsNote')),
+      checkRow(techniqueToggle, t('settings.techniqueHints'), t('settings.techniqueHintsNote')),
+      checkRow(durationToggle, t('settings.plannedDuration')),
+      checkRow(previewToggle, t('settings.workoutPreview'), t('settings.workoutPreviewNote')),
+      checkRow(setHistoryToggle, t('settings.setHistory'), t('settings.setHistoryNote')),
+      checkRow(regenerationToggle, t('settings.regeneration'), t('settings.regenerationNote')),
+    ]),
 
     el('div.section-head', {}, [el('h2', { text: t('settings.newPlanExercises') })]),
     el('div.small.muted', { style: { marginBottom: '10px' }, text: t('settings.newPlanExercisesNote') }),
@@ -357,7 +349,7 @@ export function renderSettings() {
       text: t('settings.barWeightNote', { bar: `${DEFAULT_BAR[s.units] ?? DEFAULT_BAR.kg}${s.units}` }) }),
 
     el('div.section-head', {}, [el('h2', { text: t('settings.whatToShow') })]),
-    checkRow(starToggle, t('settings.stars'), t('settings.starsNote')),
+    el('div.settings-toggle-list', {}, [checkRow(starToggle, t('settings.stars'), t('settings.starsNote'))]),
 
     notificationSection(s),
 
@@ -485,7 +477,7 @@ function notificationSection(settings) {
       el('div.row.between', {}, [
         el('div.grow', {}, [el('strong', { text: t('settings.creatineTitle') }),
           el('div.small.muted', { style: { marginTop: '4px' }, text: t('settings.creatineBody') })]),
-        creatine,
+        el('span.switch-control', {}, [creatine, el('span.switch-track', { 'aria-hidden': 'true' })]),
       ]),
       el('label.field', { style: { marginTop: '12px' } }, [
         el('span', { text: t('settings.creatineTime') }), time,

@@ -349,14 +349,14 @@ select {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
 }
 .theme-preview::before {
-  content: ''; position: absolute; left: 5px; right: 5px; top: 5px; height: 10px;
+  content: ''; position: absolute; left: 5px; right: 5px; top: 5px; height: 13px;
   border-radius: 4px; background: var(--preview-surface);
-  box-shadow: 0 12px 0 -2px var(--preview-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
 }
 .theme-preview::after {
-  content: ''; position: absolute; right: 7px; bottom: 5px; width: 12px; height: 5px;
+  content: ''; position: absolute; left: 5px; right: 5px; bottom: 5px; height: 6px;
   border-radius: 3px; background: var(--preview-accent);
-  box-shadow: 0 0 7px color-mix(in srgb, var(--preview-accent) 70%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--preview-accent) 72%, transparent);
 }
 .theme-check { color: var(--accent-hi); text-align: center; font-weight: 800; }
 input:focus, select:focus, textarea:focus {
@@ -368,6 +368,60 @@ input:focus, select:focus, textarea:focus {
 input[type="checkbox"] {
   width: 19px; height: 19px; flex: none;
   border-radius: 6px;
+}
+.settings-toggle-list {
+  overflow: hidden; margin: 0 0 14px;
+  border: 1px solid rgba(96, 165, 250, .12);
+  border-radius: 16px;
+  background: linear-gradient(155deg, rgba(23, 36, 58, .72), rgba(12, 18, 31, .78));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035), 0 14px 34px -30px #000;
+}
+.setting-toggle {
+  min-height: 58px; padding: 11px 13px;
+  display: flex; align-items: center; gap: 14px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.setting-toggle + .setting-toggle { border-top: 1px solid var(--line-soft); }
+.setting-toggle:has(input:disabled) { opacity: .48; cursor: default; }
+.setting-toggle-copy { min-width: 0; flex: 1; }
+.setting-toggle-copy strong {
+  display: block; color: var(--text); font-size: 14.5px; font-weight: 640;
+  line-height: 1.3; letter-spacing: -.005em;
+}
+.setting-toggle-copy small {
+  display: block; margin-top: 3px; color: var(--text-faint);
+  font-size: 11.5px; line-height: 1.38;
+}
+.switch-control { position: relative; width: 46px; height: 27px; flex: none; }
+.switch-control input {
+  position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%;
+  margin: 0; opacity: 0; cursor: pointer;
+}
+.switch-track {
+  position: absolute; inset: 0; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--bg-sunken);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, .28);
+  transition: background .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.switch-track::after {
+  content: ''; position: absolute; width: 21px; height: 21px;
+  left: 2px; top: 2px; border-radius: 50%; background: var(--text-dim);
+  box-shadow: 0 2px 7px rgba(0, 0, 0, .4);
+  transition: transform .18s ease, background .18s ease;
+}
+.switch-control input:checked + .switch-track {
+  border-color: color-mix(in srgb, var(--accent-hi) 60%, transparent);
+  background: color-mix(in srgb, var(--accent) 74%, var(--bg-raised));
+  box-shadow: 0 0 13px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+.switch-control input:checked + .switch-track::after {
+  transform: translateX(19px); background: #fff;
+}
+.switch-control input:focus-visible + .switch-track {
+  outline: 2px solid var(--accent-hi); outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .switch-track, .switch-track::after { transition: none; }
 }
 textarea { min-height: 76px; resize: vertical; }
 input::placeholder { color: var(--text-faint); }

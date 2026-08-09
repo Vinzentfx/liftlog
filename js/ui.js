@@ -13,7 +13,12 @@ export function el(spec, props = {}, children = []) {
     if (v === null || v === undefined || v === false) continue;
     if (k === 'class') node.className = [node.className, v].filter(Boolean).join(' ');
     else if (k === 'text') node.textContent = v;
-    else if (k === 'style' && typeof v === 'object') Object.assign(node.style, v);
+    else if (k === 'style' && typeof v === 'object') {
+      for (const [property, value] of Object.entries(v)) {
+        if (property.startsWith('--')) node.style.setProperty(property, value);
+        else node.style[property] = value;
+      }
+    }
     else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
     else if (k === 'dataset') Object.assign(node.dataset, v);
     else if (v === true) node.setAttribute(k, '');

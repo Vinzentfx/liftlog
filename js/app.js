@@ -282,7 +282,7 @@ async function boot() {
     await gate.lock();
     deviceUnlocked = false;
   }
-  if (deviceUnlocked) openApp();
+  if (deviceUnlocked) openApp({ skipInstallHint: browserTest });
   else {
     // A browser tab must explain installation before it can become the main
     // device. Otherwise the first login silently binds ownership to Safari or
@@ -297,11 +297,11 @@ async function boot() {
   }
 }
 
-function openApp() {
+function openApp({ skipInstallHint = false } = {}) {
   locked = false;
   if (!location.hash) location.replace('#/home');
   render();
-  scheduleInstallHint();
+  if (!skipInstallHint) scheduleInstallHint();
 
   // The cloud copy is a copy. It must never delay the app opening, never block
   // on a phone with no signal, and never be the reason a screen does not draw,
@@ -404,7 +404,7 @@ export async function startWorkout(options = {}) {
 export async function duplicateWorkout(source) {
   if (navigator.onLine && cloud.isSignedIn()) await sync.onAppOpen({ immediate: true });
   const existing = store.activeSession();
-  if (existing) return existing;
+  if (existing) return null;
   const session = await store.duplicateSession(source);
   flushBackup();
   return session;

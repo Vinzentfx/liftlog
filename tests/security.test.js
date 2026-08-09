@@ -41,6 +41,11 @@ test('the DOM helper has no raw HTML escape hatch', async () => {
   assert.doesNotMatch(ui, /innerHTML|insertAdjacentHTML|outerHTML/);
 });
 
+test('the DOM helper applies custom colour properties used by theme previews', async () => {
+  const ui = await read('js/ui.js');
+  assert.match(ui, /property\.startsWith\('--'\)[\s\S]*style\.setProperty\(property, value\)/);
+});
+
 test('the invite gate never renders null optional children as text', async () => {
   const gate = await read('js/screens/gate.js');
   assert.match(gate, /function paint\(pane, \.\.\.children\)[\s\S]*children\.filter\(Boolean\)/);
@@ -255,6 +260,12 @@ test('mobile browsers get a one-time home-screen installation hint', async () =>
   assert.match(app, /display-mode: standalone/);
   assert.match(app, /install\.ios[\s\S]*install\.androidReady[\s\S]*install\.androidMenu/);
   assert.match(app, /localStorage\.setItem\(INSTALL_HINT_KEY, '1'\)/);
+});
+
+test('the installation hint cannot interrupt browser tests', async () => {
+  const app = await read('js/app.js');
+  assert.match(app, /openApp\(\{ skipInstallHint: browserTest \}\)/);
+  assert.match(app, /if \(!skipInstallHint\) scheduleInstallHint\(\)/);
 });
 
 test('the selected colour theme is saved and applied to the whole app', async () => {
@@ -608,4 +619,18 @@ test('the background chime is a separate switch that costs nothing when off', as
   // ...which means the CSP has to allow a data: URI as media, in both places.
   assert.match(html, /media-src 'self' data:/);
   assert.match(headers, /media-src 'self' data:/);
+});
+
+test('closing the workout preview cancels its pending start', async () => {
+  const preview = await read('js/workout-start.js');
+  assert.match(preview, /let settled = false/);
+  assert.match(preview, /onClose: dismiss/);
+  assert.match(preview, /if \(settled\) return;[\s\S]*settled = true;[\s\S]*startWorkout/);
+});
+
+test('duplicating cannot claim success when another workout is active', async () => {
+  const app = await read('js/app.js');
+  const calendar = await read('js/screens/calendar.js');
+  assert.match(app, /duplicateWorkout\(source\)[\s\S]{0,300}if \(existing\) return null/);
+  assert.match(calendar, /if \(!duplicated\) \{ toast\(t\('calendar\.activeWorkout'\)\); navigate\('train'\); return; \}/);
 });

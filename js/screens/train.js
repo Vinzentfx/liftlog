@@ -248,7 +248,8 @@ function exerciseBlock(session, entry, entryIndex) {
     if (store.state.settings.setHistory !== false) {
       const history = store.state.sessions.filter((row) => row.finishedAt && row.id !== session.id)
         .map((row) => ({ session: row, entry: row.entries.find((item) => item.exerciseId === entry.exerciseId) }))
-        .filter((row) => row.entry?.sets.some(isCounted)).slice(0, 3);
+        .filter((row) => row.entry?.sets.some(isCounted))
+        .sort((a, b) => b.session.startedAt - a.session.startedAt).slice(0, 3);
       const expanded = openHistories.has(entry.exerciseId);
       block.append(el('button.btn.quiet.sm', { style: { padding: '3px 0', marginBottom: expanded ? '4px' : '8px' },
         'aria-expanded': String(expanded), onclick: () => {
