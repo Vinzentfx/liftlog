@@ -504,6 +504,10 @@ test('automatic backups reach the server at the moments that matter', async () =
   assert.match(app, /pagehide', flushBackup/);
   assert.match(app, /visibilityState === 'visible'\) runCloudMaintenance\(\);[\s\S]*else flushBackup\(\)/);
   assert.match(train, /store\.finishSession\(session\.id\);[\s\S]*flushBackup\(\)/);
+  // Finishing a workout during an already-running routine check must not lose
+  // the immediate request and fall back to the five-minute cadence.
+  assert.match(app, /if \(cloudMaintenanceRunning\)[\s\S]*if \(immediate\) cloudMaintenanceImmediatePending = true/);
+  assert.match(app, /if \(cloudMaintenanceImmediatePending\)[\s\S]*runCloudMaintenance\(\{ immediate: true \}\)/);
 });
 
 test('the invite rate limits survive the attempt they are counting', async () => {

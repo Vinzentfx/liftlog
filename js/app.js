@@ -134,6 +134,7 @@ let lastRouteKey = null;
 let locked = true;
 let cloudMaintenanceStarted = false;
 let cloudMaintenanceRunning = false;
+let cloudMaintenanceImmediatePending = false;
 let lastBackupWarningAt = 0;
 let cloudSetupPrompted = false;
 const announcedPendingDevices = new Set();
@@ -311,7 +312,15 @@ function openApp() {
  * coordinator prevents overlapping checks after several browser events.
  */
 async function runCloudMaintenance({ immediate = false } = {}) {
-  if (cloudMaintenanceRunning || !navigator.onLine) return;
+  // A routine check may already be downloading when the user finishes a
+  // workout. Dropping that second call would turn "save now" into "perhaps in
+  // five minutes". Remember only the stronger, immediate request and run it as
+  // soon as the current pass releases the single-flight lock.
+  if (cloudMaintenanceRunning) {
+    if (immediate) cloudMaintenanceImmediatePending = true;
+    return;
+  }
+  if (!navigator.onLine) return;
   cloudMaintenanceRunning = true;
   try {
     if (await gate.recheck() === false) return;
@@ -342,6 +351,12 @@ async function runCloudMaintenance({ immediate = false } = {}) {
     console.warn('[liftlog] cloud maintenance', err);
   } finally {
     cloudMaintenanceRunning = false;
+    if (cloudMaintenanceImmediatePending) {
+      cloudMaintenanceImmediatePending = false;
+      // Leave the current promise and its finally block before starting the
+      // queued pass. This also prevents a synchronous failure from recursing.
+      queueMicrotask(() => runCloudMaintenance({ immediate: true }));
+    }
   }
 }
 
