@@ -292,6 +292,8 @@ test('map relays are fixed upstreams with bounded numeric inputs', async () => {
   assert.match(gyms, /latitude < -90 \|\| latitude > 90/);
   assert.match(gyms, /longitude < -180 \|\| longitude > 180/);
   assert.match(gyms, /leisure.+fitness_centre/);
+  assert.match(gyms, /https:\/\/photon\.komoot\.io\/api/);
+  assert.match(gyms, /distanceMetres[\s\S]*<= 7000/);
   assert.doesNotMatch(gyms, /tags:\s*item\.tags/);
 });
 

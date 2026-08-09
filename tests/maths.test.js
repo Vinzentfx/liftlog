@@ -935,8 +935,11 @@ const dayMeal = (day, kcal, protein) => ({
 
 test('a week without enough logged days reports no intake, not a zero', () => {
   // Three days in the most recent week, which is one short of the convention.
-  const meals = [0, 1, 2].map((i) => dayMeal(dayBack(i), 2000, 150));
-  const { weeks } = timeline({ meals }, { weeks: 2 });
+  // Anchor on a Wednesday so this remains one week even when the suite itself
+  // happens to run on a Sunday or Monday.
+  const now = new Date('2026-08-12T12:00:00').getTime();
+  const meals = [0, 1, 2].map((i) => dayMeal(dayBack(i, now), 2000, 150));
+  const { weeks } = timeline({ meals }, { weeks: 2, now });
   const last = weeks[weeks.length - 1];
 
   assert.equal(last.loggedDays, 3, 'the days themselves are still counted');
