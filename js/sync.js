@@ -612,6 +612,7 @@ export async function diagnostics() {
     activeWorkouts: active.length,
     activeElsewhere: active.some((session) => session.originDevice
       && session.originDevice !== store.installationId()),
+    lastMerge: store.state.settings.cloudLastMergeSummary || null,
   };
 }
 
@@ -653,9 +654,10 @@ export async function pullIfNewer() {
 
     const local = store.exportData();
     const mine = hasUserData(local);
-    const { merged, tookLocal } = mergeDetailed(local, remotePayload);
+    const { merged, tookLocal, summary } = mergeDetailed(local, remotePayload);
     await store.importData(mine ? merged : remotePayload, { replace: true });
     await store.setSetting('cloudBaseVersion', latestVersion);
+    await store.setSetting('cloudLastMergeSummary', { ...summary, at: Date.now(), version: latestVersion });
 
     // Nothing of ours survived that the server did not already have, so this
     // device now holds exactly that version. Recording the fingerprint stops
@@ -727,23 +729,28 @@ export function mergeDetailed(local, remote) {
     const remoteRow = remoteDeletionRows.get(`${row.collection}:${row.id}`);
     return !remoteRow || Number(row.deletedAt) > Number(remoteRow.deletedAt);
   });
+  const summary = { localAdded: 0, localNewer: 0, remoteNewer: 0, deletions: 0 };
   for (const [list, key] of Object.entries(MERGE_KEYS)) {
     const rows = new Map((remote[list] || []).map((row) => [row[key], row]));
     for (const row of local[list] || []) {
       const existing = rows.get(row[key]);
       if (!existing || changedAt(row) > changedAt(existing)) {
+        if (!existing) summary.localAdded++;
+        else summary.localNewer++;
         rows.set(row[key], row);
         tookLocal = true;
-      }
+      } else if (changedAt(existing) > changedAt(row)) summary.remoteNewer++;
     }
     for (const deletion of deletions) {
       if (deletion.collection !== list) continue;
       const existing = rows.get(deletion.id);
-      if (existing && Number(deletion.deletedAt) >= changedAt(existing)) rows.delete(deletion.id);
+      if (existing && Number(deletion.deletedAt) >= changedAt(existing)) {
+        rows.delete(deletion.id); summary.deletions++;
+      }
     }
     merged[list] = [...rows.values()];
   }
-  return { merged, tookLocal };
+  return { merged, tookLocal, summary };
 }
 
 function hasUserData(payload) {

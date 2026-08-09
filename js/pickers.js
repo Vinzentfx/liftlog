@@ -3,6 +3,7 @@
 import { el, openSheet, closeSheet, toast, listItem } from './ui.js';
 import { t, tMuscle, tEquipment } from './i18n.js';
 import { MUSCLES } from './models.js';
+import { exerciseSearchScore } from './exercise-search.js';
 import * as store from './store.js';
 
 // Must cover every value the bundled catalogue uses. It didn't: opening Edit on
@@ -43,12 +44,11 @@ export function pickExercise(onPick, exclude = []) {
   }
 
   function renderResults() {
-    const q = search.value.trim().toLowerCase();
-    const matches = store.state.exercises.filter((ex) => {
+    const q = search.value.trim();
+    const matches = store.state.exercises.map((ex) => ({ ex, score: exerciseSearchScore(ex, q) })).filter(({ ex, score }) => {
       if (muscleFilter !== 'All' && ex.muscle !== muscleFilter) return false;
-      if (!q) return true;
-      return ex.name.toLowerCase().includes(q) || ex.equipment.toLowerCase().includes(q);
-    });
+      return score > 0;
+    }).sort((a, b) => b.score - a.score).map(({ ex }) => ex);
 
     results.replaceChildren();
 

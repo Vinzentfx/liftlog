@@ -593,6 +593,21 @@ export async function startSession({ planId = null, dayId = null, name } = {}) {
   return session;
 }
 
+export async function duplicateSession(source) {
+  if (activeSession() || !source) return activeSession();
+  const entries = (source.entries || []).map((entry) => ({
+    ...newEntry(entry.exerciseId, (entry.sets || []).map((set) => ({ ...newSet(set), type: set.type || 'working' }))),
+    note: entry.note || '', movementMode: entry.movementMode || 'bilateral',
+    targetReps: entry.targetReps || null, progressionRule: entry.progressionRule || 'double',
+    alternativeExerciseId: entry.alternativeExerciseId || null,
+  }));
+  const session = newSession(db.uid, { name: source.name, entries, plannedDurationMs: source.plannedDurationMs || null });
+  session.originDevice = installationId();
+  state.sessions.unshift(session);
+  await persistSession(session); markWorkoutOpen();
+  return session;
+}
+
 export async function pauseSession(id) {
   return updateSession(id, (session) => {
     if (!session.finishedAt && !session.pausedAt) session.pausedAt = Date.now();

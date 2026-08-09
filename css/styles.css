@@ -1073,3 +1073,11 @@ svg.chart .hit { fill: transparent; }
   font-weight: 750;
   white-space: nowrap;
 }
+.set-history {
+  display: grid;
+  gap: 5px;
+  margin: -2px 0 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}

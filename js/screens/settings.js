@@ -222,6 +222,8 @@ export function renderSettings() {
   const deloadToggle = preferenceToggle('deloadHints');
   const techniqueToggle = preferenceToggle('techniqueHints');
   const durationToggle = preferenceToggle('plannedDuration');
+  const previewToggle = preferenceToggle('workoutPreview');
+  const setHistoryToggle = preferenceToggle('setHistory');
   const regenerationToggle = el('input', { type: 'checkbox', checked: !!s.regenerationEnabled,
     style: { width: 'auto', minHeight: 'auto' } });
   regenerationToggle.addEventListener('change', () => store.setSetting('regenerationEnabled', regenerationToggle.checked));
@@ -337,6 +339,8 @@ export function renderSettings() {
     checkRow(deloadToggle, t('settings.deloadHints'), t('settings.deloadHintsNote')),
     checkRow(techniqueToggle, t('settings.techniqueHints'), t('settings.techniqueHintsNote')),
     checkRow(durationToggle, t('settings.plannedDuration')),
+    checkRow(previewToggle, t('settings.workoutPreview'), t('settings.workoutPreviewNote')),
+    checkRow(setHistoryToggle, t('settings.setHistory'), t('settings.setHistoryNote')),
     checkRow(regenerationToggle, t('settings.regeneration'), t('settings.regenerationNote')),
 
     el('div.section-head', {}, [el('h2', { text: t('settings.newPlanExercises') })]),
@@ -358,6 +362,13 @@ export function renderSettings() {
     notificationSection(s),
 
     cloudSection(),
+
+    el('div.section-head', {}, [el('h2', { text: t('settings.health.title') })]),
+    el('div.card.tight', {}, [
+      el('div.small.muted', { text: t('settings.health.nativeRequired') }),
+      el('button.btn.ghost.full.sm', { style: { marginTop: '10px' }, onclick: exportHealthData },
+        [t('settings.health.export')]),
+    ]),
 
     el('div.section-head', {}, [el('h2', { text: t('settings.backup') })]),
     el('div.small.muted', { style: { marginBottom: '10px' }, text: t('settings.backupNote') }),
@@ -581,6 +592,31 @@ export async function doExport() {
   // one cancelled download.
   await store.markExported();
   toast(t('settings.backupDownloaded'));
+}
+
+function exportHealthData() {
+  const quote = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+  const rows = [['workout_id', 'started_at', 'finished_at', 'workout', 'exercise', 'set_type',
+    'weight', 'repetitions', 'rir', 'unit']];
+  for (const session of store.state.sessions.filter((row) => row.finishedAt)) {
+    for (const entry of session.entries || []) {
+      const exercise = store.state.exerciseById.get(entry.exerciseId);
+      for (const set of entry.sets || []) {
+        if (!set.done) continue;
+        rows.push([
+          session.id, new Date(session.startedAt).toISOString(), new Date(session.finishedAt).toISOString(),
+          session.name, exercise?.name || '', set.type || 'working', set.systemWeight ?? set.weight ?? '',
+          set.reps ?? '', set.rir ?? '', store.units(),
+        ]);
+      }
+    }
+  }
+  const blob = new Blob([rows.map((row) => row.map(quote).join(',')).join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const link = el('a', { href: url, download: `liftlog-health-${new Date().toISOString().slice(0, 10)}.csv` });
+  document.body.append(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast(t('settings.health.exported'));
 }
 
 function doImport() {

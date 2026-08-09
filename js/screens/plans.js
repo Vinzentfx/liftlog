@@ -18,7 +18,8 @@ import { planLink } from '../plan-share.js';
 import { scoreFor, tierIndex, tierOf, isBenchmark, hasProfile, toNextTier } from '../standards.js';
 import { t, tn, tMuscle, tRegion, tTier } from '../i18n.js';
 import { pickExercise } from '../pickers.js';
-import { navigate, startWorkout } from '../app.js';
+import { navigate } from '../app.js';
+import { requestWorkoutStart } from '../workout-start.js';
 
 // In-app clipboard. It deliberately stays local to this installation: plan
 // editing should work offline and copying a day is not cloud data by itself.
@@ -536,7 +537,8 @@ function dayCard(plan, day, index) {
       ]),
       el('button.btn.sm.primary', {
         onclick: async () => {
-          await startWorkout({ planId: plan.id, dayId: day.id });
+          const started = await requestWorkoutStart({ planId: plan.id, dayId: day.id });
+          if (!started) return;
           toast(t('train.startedDay', { day: day.name }));
           navigate('train');
         },

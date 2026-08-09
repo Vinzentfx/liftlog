@@ -1,7 +1,7 @@
 // Home — overall strength rating, the muscle map, and training-at-a-glance.
 
 import {
-  el, fmtNum, fmtWeight, fmtDate, emptyState, listItem,
+  el, fmtNum, fmtWeight, fmtDate, fmtDuration, emptyState, listItem,
   openSheet, closeSheet, toast, confirmSheet,
 } from '../ui.js';
 import * as store from '../store.js';
@@ -12,7 +12,7 @@ import {
 import {
   buildRating, hasProfile, TIERS, tierIndex, tierOf, LOW_CONFIDENCE, strengthRatio, ageFactor,
 } from '../standards.js';
-import { t, tn, tRegion, tTier } from '../i18n.js';
+import { t, tn, tRegion, tTier, locale } from '../i18n.js';
 import { bodyMap, tierLegend } from '../bodymap.js';
 import { barChart, lineChart } from '../charts.js';
 import { analyseWeek, compareToPlan, weekVerdict, weekStreak } from '../log-analysis.js';
@@ -21,7 +21,8 @@ import { todaysDays, weekdayName } from '../schedule.js';
 import { regionProgress, progressFills, describeRegion } from '../region-progress.js';
 import { analysePlan } from '../plan-rating.js';
 import { THRESHOLDS } from '../evidence.js';
-import { navigate, startWorkout } from '../app.js';
+import { navigate } from '../app.js';
+import { requestWorkoutStart } from '../workout-start.js';
 import { profileForm, doExport } from './settings.js';
 
 // Which map the user last looked at. Module-level so switching tabs and coming
@@ -132,6 +133,8 @@ export default function renderHome({ actions }) {
     ])
   );
 
+  root.append(monthlyReportCard(done));
+
   // ---------- what's on today ----------
   root.append(todayCard(done));
 
@@ -215,6 +218,40 @@ export default function renderHome({ actions }) {
   );
 
   return root;
+}
+
+function monthlyReportCard(done) {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const sessions = done.filter((session) => session.startedAt >= start);
+  const totals = sessions.reduce((sum, session) => {
+    const stats = sessionStats(session);
+    sum.sets += stats.sets; sum.volume += stats.volume; sum.duration += stats.durationMs;
+    return sum;
+  }, { sets: 0, volume: 0, duration: 0 });
+  const previousBest = new Map(); let prs = 0;
+  for (const session of [...done].sort((a, b) => a.startedAt - b.startedAt)) {
+    for (const entry of session.entries || []) {
+      const best = Math.max(0, ...(entry.sets || []).filter(isCounted)
+        .map((set) => (Number(set.systemWeight ?? set.weight) || 0) * (1 + Number(set.reps) / 30)));
+      if (best > (previousBest.get(entry.exerciseId) || 0) && previousBest.has(entry.exerciseId)
+        && session.startedAt >= start) prs++;
+      if (best > (previousBest.get(entry.exerciseId) || 0)) previousBest.set(entry.exerciseId, best);
+    }
+  }
+  return el('div', {}, [
+    el('div.section-head', {}, [el('h2', { text: t('home.month.title', {
+      month: now.toLocaleDateString(locale(), { month: 'long' }),
+    }) })]),
+    el('div.stat-grid.two', {}, [
+      el('div.stat', {}, [el('span.stat-val', { text: String(sessions.length) }), el('span.stat-key', { text: t('home.stat.workouts') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(totals.sets) }), el('span.stat-key', { text: t('home.stat.workingSets') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: fmtNum(totals.volume) }), el('span.stat-key', { text: t('home.month.volume') })]),
+      el('div.stat', {}, [el('span.stat-val', { text: String(prs) }), el('span.stat-key', { text: t('home.month.prs') })]),
+    ]),
+    totals.duration ? el('div.small.faint', { style: { marginTop: '7px', textAlign: 'center' },
+      text: t('home.month.time', { duration: fmtDuration(totals.duration) }) }) : null,
+  ]);
 }
 
 function regenerationCard() {
@@ -373,7 +410,8 @@ function todayCard(done) {
             ? el('span.pill.pr', { text: '✓' })
             : el('button.btn.primary.sm', {
                 onclick: async () => {
-                  await startWorkout({ planId: plan.id, dayId: day.id });
+                  const started = await requestWorkoutStart({ planId: plan.id, dayId: day.id });
+                  if (!started) return;
                   navigate('train');
                 },
               }, [t('home.today.start')]),

@@ -148,6 +148,7 @@ async function diagnosticsSheet() {
       row(t('cloud.diagServerVersion'), d.serverVersion || '–'),
       row(t('cloud.diagDeletions'), d.deletionCount),
       row(t('cloud.diagActive'), d.activeElsewhere ? t('cloud.diagOtherDevice') : d.activeWorkouts),
+      d.lastMerge ? row(t('cloud.diagLastMerge'), t('cloud.diagMergeSummary', d.lastMerge)) : null,
       d.lastError ? row(t('cloud.diagError'), t(`cloud.err.${d.lastError}`, { code: d.lastError })) : null,
     ]),
     el('button.btn.primary.full', { onclick: async () => {
@@ -155,8 +156,31 @@ async function diagnosticsSheet() {
       toast(t(result.ok ? 'cloud.diagChecked' : 'cloud.autoBackupFailed'));
       closeSheet();
     } }, [t('cloud.diagCheckNow')]),
+    el('button.btn.ghost.full', { style: { marginTop: '8px' }, onclick: async () => {
+      const report = diagnosticReport(d);
+      try {
+        if (navigator.share) await navigator.share({ title: 'LiftLog diagnostics', text: report });
+        else { await navigator.clipboard.writeText(report); toast(t('cloud.diagCopied')); }
+      } catch (error) { if (error?.name !== 'AbortError') toast(t('cloud.diagCopyFailed')); }
+    } }, [t('cloud.diagShare')]),
   ]);
   openSheet(t('cloud.diagnostics'), body);
+}
+
+function diagnosticReport(d) {
+  return [
+    'LiftLog diagnostics',
+    `Created: ${new Date().toISOString()}`,
+    `Online: ${d.online}`,
+    `Signed in: ${d.signedIn}`,
+    `Backup allowed: ${d.canBackup}`,
+    `Unsynced changes: ${d.unsyncedChanges}`,
+    `Device/cloud version: ${d.baseVersion}/${d.serverVersion}`,
+    `Remembered deletions: ${d.deletionCount}`,
+    `Active workouts: ${d.activeWorkouts}`,
+    `Last error: ${d.lastError || 'none'}`,
+    d.lastMerge ? `Last merge: local added ${d.lastMerge.localAdded}, local newer ${d.lastMerge.localNewer}, remote newer ${d.lastMerge.remoteNewer}, deletions ${d.lastMerge.deletions}` : 'Last merge: none',
+  ].join('\n');
 }
 
 function statusLine(s) {

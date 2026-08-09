@@ -18,9 +18,11 @@ import { exerciseArt } from '../exercise-art.js';
 import { platePlan, describePlates, PLATES } from '../plates.js';
 import { warmupSets } from '../warmup.js';
 import { navigate, render, flushBackup, startWorkout } from '../app.js';
+import { requestWorkoutStart } from '../workout-start.js';
 import { t, tn, tMuscle, tEquipment, locale } from '../i18n.js';
 
 const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
+const openHistories = new Set();
 
 export default function renderTrain({ actions }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings'), title: t('common.settings') }, ['⚙']));
@@ -110,7 +112,8 @@ function launcherView() {
         ].filter(Boolean).join(' · '),
         ariaLabel: t('train.startDay', { day: day.name }),
         onclick: async () => {
-          await startWorkout({ planId: plan.id, dayId: day.id });
+          const started = await requestWorkoutStart({ planId: plan.id, dayId: day.id });
+          if (!started) return;
           toast(t('train.startedDay', { day: day.name }));
         },
       }));
@@ -241,6 +244,21 @@ function exerciseBlock(session, entry, entryIndex) {
           el('span', { text: `: ${tip.why}` }),
         ])
       );
+    }
+    if (store.state.settings.setHistory !== false) {
+      const history = store.state.sessions.filter((row) => row.finishedAt && row.id !== session.id)
+        .map((row) => ({ session: row, entry: row.entries.find((item) => item.exerciseId === entry.exerciseId) }))
+        .filter((row) => row.entry?.sets.some(isCounted)).slice(0, 3);
+      const expanded = openHistories.has(entry.exerciseId);
+      block.append(el('button.btn.quiet.sm', { style: { padding: '3px 0', marginBottom: expanded ? '4px' : '8px' },
+        'aria-expanded': String(expanded), onclick: () => {
+          if (expanded) openHistories.delete(entry.exerciseId); else openHistories.add(entry.exerciseId);
+          render();
+        } }, [t(expanded ? 'train.hideSetHistory' : 'train.showSetHistory')]));
+      if (expanded) block.append(el('div.set-history', {}, history.map((row) => el('div.row.between.small', {}, [
+        el('span.faint', { text: new Date(row.session.startedAt).toLocaleDateString(locale(), { day: '2-digit', month: '2-digit' }) }),
+        el('b', { text: setsSummary(row.entry.sets.filter(isCounted), units) }),
+      ]))));
     }
   } else {
     block.append(el('div.small.faint', { style: { marginBottom: '10px' }, text: t('train.firstTime') }));

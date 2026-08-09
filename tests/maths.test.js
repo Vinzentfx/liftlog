@@ -47,6 +47,16 @@ const { stallReport, describeStall } = await import('../js/fatigue.js');
 const { setLanguage } = await import('../js/i18n.js');
 const { timeline, timelineReady, MIN_LOGGED_DAYS } = await import('../js/timeline.js');
 const { mergeSnapshots, mergeDetailed } = await import('../js/sync.js');
+const { exerciseSearchScore, searchText } = await import('../js/exercise-search.js');
+
+test('exercise search understands German aliases, accents and one typo', () => {
+  const pullUp = { name: 'Pull-Up', muscle: 'Back', equipment: 'Bodyweight' };
+  const bench = { name: 'Barbell Bench Press', muscle: 'Chest', equipment: 'Barbell' };
+  assert.ok(exerciseSearchScore(pullUp, 'Klimmzüge') > 0);
+  assert.ok(exerciseSearchScore(bench, 'Bankdrücken') > 0);
+  assert.ok(exerciseSearchScore(pullUp, 'Pull-Uo') > 0);
+  assert.equal(searchText('Körpergröße'), 'korpergrosse');
+});
 
 test('pull-ups estimate total system load before applying the repetition formula', () => {
   const exercises = new Map([['pull', { id: 'pull', name: 'Pull-Up' }]]);
@@ -230,7 +240,9 @@ test('a device that contributes nothing to the merge knows it contributed nothin
   ] };
 
   const behind = { ...base, sessions: [{ id: 'a', startedAt: 1, updatedAt: 20 }] };
-  assert.equal(mergeDetailed(behind, remote).tookLocal, false);
+  const behindResult = mergeDetailed(behind, remote);
+  assert.equal(behindResult.tookLocal, false);
+  assert.equal(behindResult.summary.remoteNewer, 0);
 
   const identical = { ...base, sessions: remote.sessions.map((s) => ({ ...s })) };
   assert.equal(mergeDetailed(identical, remote).tookLocal, false);
@@ -241,7 +253,9 @@ test('a device that contributes nothing to the merge knows it contributed nothin
   const edited = { ...base, sessions: [
     { id: 'a', startedAt: 1, updatedAt: 99 }, { id: 'b', startedAt: 2, updatedAt: 30 },
   ] };
-  assert.equal(mergeDetailed(edited, remote).tookLocal, true);
+  const editedResult = mergeDetailed(edited, remote);
+  assert.equal(editedResult.tookLocal, true);
+  assert.equal(editedResult.summary.localNewer, 1);
 });
 
 // `cloudBaseVersion` and friends describe this installation's relationship to

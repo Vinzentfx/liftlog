@@ -9,6 +9,7 @@ import { t, tn, tMuscle, tEquipment, tRegion } from '../i18n.js';
 import { exerciseArt, hasArt } from '../exercise-art.js';
 import { newExerciseForm } from '../pickers.js';
 import { rateExercise } from '../exercise-rating.js';
+import { exerciseSearchScore } from '../exercise-search.js';
 import { exerciseRatingCard, myRatingRow } from '../rating-ui.js';
 import { navigate, render } from '../app.js';
 
@@ -75,15 +76,12 @@ function listView() {
   }
 
   function matches() {
-    const q = query.trim().toLowerCase();
-    return store.state.exercises.filter((ex) => {
+    const q = query.trim();
+    return store.state.exercises.map((ex) => ({ ex, score: exerciseSearchScore(ex, q) })).filter(({ ex, score }) => {
       if (muscleFilter !== 'All' && ex.muscle !== muscleFilter) return false;
       if (equipFilter !== 'All' && ex.equipment !== equipFilter) return false;
-      if (!q) return true;
-      return ex.name.toLowerCase().includes(q)
-        || ex.muscle.toLowerCase().includes(q)
-        || (ex.equipment || '').toLowerCase().includes(q);
-    });
+      return score > 0;
+    }).sort((a, b) => q ? b.score - a.score : 0).map(({ ex }) => ex);
   }
 
   function paint() {

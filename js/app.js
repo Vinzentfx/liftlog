@@ -401,6 +401,15 @@ export async function startWorkout(options = {}) {
   return session;
 }
 
+export async function duplicateWorkout(source) {
+  if (navigator.onLine && cloud.isSignedIn()) await sync.onAppOpen({ immediate: true });
+  const existing = store.activeSession();
+  if (existing) return existing;
+  const session = await store.duplicateSession(source);
+  flushBackup();
+  return session;
+}
+
 function startCloudMaintenance() {
   if (cloudMaintenanceStarted) return;
   cloudMaintenanceStarted = true;

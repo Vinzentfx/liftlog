@@ -9,7 +9,7 @@ import {
 import * as store from '../store.js';
 import { sessionStats, entryStats, isCounted, newSet, newEntry, bodyweightLoadMode } from '../models.js';
 import { pickExercise } from '../pickers.js';
-import { navigate, flushBackup } from '../app.js';
+import { navigate, flushBackup, duplicateWorkout } from '../app.js';
 import { t, tn, locale } from '../i18n.js';
 import { WEEK_ORDER } from '../schedule.js';
 
@@ -249,6 +249,11 @@ function detailView(id) {
     );
   } else {
     for (const entry of session.entries) root.append(readEntry(entry, units));
+    root.append(el('button.btn.primary.full', { style: { marginTop: '10px' }, onclick: async () => {
+      const duplicated = await duplicateWorkout(session);
+      if (!duplicated) return;
+      toast(t('calendar.duplicated')); navigate('train');
+    } }, [t('calendar.duplicateWorkout')]));
   }
 
   root.append(
