@@ -25,7 +25,7 @@ import assert from 'node:assert/strict';
 // Set before any Date is constructed; imports above only define functions.
 process.env.TZ = 'Europe/Berlin';
 
-const { e1rm, isCounted, startOfWeek, entryStats, newMeal, dayKey, slotFor, seedExercises, bestOneRepMaxByName, estimatePlanDuration } = await import('../js/models.js');
+const { e1rm, isCounted, startOfWeek, entryStats, sessionStats, newMeal, dayKey, slotFor, seedExercises, bestOneRepMaxByName, estimatePlanDuration } = await import('../js/models.js');
 const { scoreFor, scoreForMachine, buildRating, ANATOMY } = await import('../js/standards.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
@@ -184,6 +184,25 @@ test('multi-device backup merge keeps new workouts from both devices', () => {
   assert.equal(merged.sessions.find((s) => s.id === 'shared').notes, 'new local edit');
 });
 
+test('a synced workout deletion cannot be resurrected by an older device', () => {
+  const base = { format: 'liftlog-backup', version: 1, settings: {}, exercises: [], plans: [],
+    bodyweight: [], foods: [], meals: [], water: [], templates: [] };
+  const oldDevice = { ...base, sessions: [{ id: 'gone', startedAt: 1, updatedAt: 20 }] };
+  const deletingDevice = { ...base, sessions: [],
+    deletions: [{ collection: 'sessions', id: 'gone', deletedAt: 21 }] };
+  const merged = mergeSnapshots(oldDevice, deletingDevice);
+  assert.equal(merged.sessions.some((session) => session.id === 'gone'), false);
+  assert.equal(merged.deletions.length, 1);
+});
+
+test('a newer intentional restore wins over an older deletion marker', () => {
+  const base = { format: 'liftlog-backup', version: 1, settings: {}, exercises: [], plans: [],
+    bodyweight: [], foods: [], meals: [], water: [], templates: [] };
+  const restored = { ...base, sessions: [{ id: 'back', startedAt: 1, updatedAt: 50 }] };
+  const deleted = { ...base, sessions: [], deletions: [{ collection: 'sessions', id: 'back', deletedAt: 40 }] };
+  assert.equal(mergeSnapshots(restored, deleted).sessions.length, 1);
+});
+
 // The flag that stops two phones uploading at each other forever. A device that
 // pulls a newer snapshot and adds nothing of its own already holds exactly what
 // the server holds, so it must not push an identical copy back as the next
@@ -283,6 +302,22 @@ test('entryStats ignores warm-ups in every number it reports', () => {
   assert.equal(st.sets, 2);
   assert.equal(st.volume, 80 * 8 + 80 * 6);
   assert.equal(st.reps, 14);
+});
+
+test('unilateral volume counts both sides but strength uses the weaker side', () => {
+  const unilateral = set(18, 9, {
+    leftWeight: 20, leftReps: 10, rightWeight: 18, rightReps: 9,
+  });
+  const st = entryStats(entry(BENCH.id, [unilateral]));
+  assert.equal(st.volume, 20 * 10 + 18 * 9);
+  assert.equal(st.e1rm, e1rm(18, 9));
+});
+
+test('paused time is excluded from workout duration', () => {
+  const stopped = session(1000, [], { finishedAt: 11000, pausedMs: 4000 });
+  assert.equal(sessionStats(stopped).durationMs, 6000);
+  const paused = session(1000, [], { finishedAt: null, pausedAt: 8000, pausedMs: 2000 });
+  assert.equal(sessionStats(paused).durationMs, 5000);
 });
 
 test('parseNumber takes the separator the keyboard offers', () => {

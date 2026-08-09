@@ -585,11 +585,34 @@ export async function onAppOpen({ immediate = false } = {}) {
 function backupFingerprint() {
   const payload = store.exportData();
   const settings = Object.fromEntries(Object.entries(payload.settings || {})
-    .filter(([key]) => !key.startsWith('cloud')));
+    .filter(([key]) => !key.startsWith('cloud') && key !== 'syncDeletions'));
   // exportedAt necessarily changes on every call; everything else is real app
   // state, including edits to today's water or a set that retained the same id.
   const { exportedAt: _volatile, settings: _settings, ...data } = payload;
   return JSON.stringify({ ...data, settings });
+}
+
+/** Plain, non-secret facts used by the Settings diagnostics screen. */
+export async function diagnostics() {
+  let latest = null;
+  try { latest = await cloud.latestMeta(); } catch { /* state.lastError explains it */ }
+  const active = store.state.sessions.filter((session) => !session.finishedAt);
+  return {
+    online: navigator.onLine,
+    signedIn: cloud.isSignedIn(),
+    enabled: state.enabled,
+    canBackup: state.canBackup,
+    busy: state.busy,
+    lastError: state.lastError,
+    lastSyncAt: Number(store.state.settings.cloudLastSyncAt) || null,
+    baseVersion: Number(store.state.settings.cloudBaseVersion) || 0,
+    serverVersion: Number(latest?.version ?? state.serverVersion) || 0,
+    unsyncedChanges: store.state.settings.cloudLastFingerprint !== backupFingerprint(),
+    deletionCount: (store.state.settings.syncDeletions || []).length,
+    activeWorkouts: active.length,
+    activeElsewhere: active.some((session) => session.originDevice
+      && session.originDevice !== store.installationId()),
+  };
 }
 
 /**
@@ -681,12 +704,29 @@ export function mergeDetailed(local, remote) {
   // friends describe this installation's relationship to the server, so a
   // remote copy of them is not merely stale, it is about a different phone.
   const remoteSettings = Object.fromEntries(Object.entries(remote.settings || {})
-    .filter(([key]) => !key.startsWith('cloud')));
+    .filter(([key]) => !key.startsWith('cloud') && key !== 'syncDeletions'));
+  const remoteDeletionRows = new Map((remote.deletions || remote.settings?.syncDeletions || [])
+    .filter((row) => row?.collection && row?.id)
+    .map((row) => [`${row.collection}:${row.id}`, row]));
+  const deletionRows = new Map();
+  for (const row of [...(remote.deletions || remote.settings?.syncDeletions || []),
+    ...(local.deletions || local.settings?.syncDeletions || [])]) {
+    if (!row?.collection || !row?.id) continue;
+    const key = `${row.collection}:${row.id}`;
+    if (!deletionRows.has(key) || Number(row.deletedAt) > Number(deletionRows.get(key).deletedAt)) {
+      deletionRows.set(key, row);
+    }
+  }
+  const deletions = [...deletionRows.values()];
   const merged = {
     format: 'liftlog-backup', version: 1, exportedAt: new Date().toISOString(),
-    settings: { ...(local.settings || {}), ...remoteSettings },
+    settings: { ...(local.settings || {}), ...remoteSettings, syncDeletions: deletions },
+    deletions,
   };
-  let tookLocal = false;
+  let tookLocal = (local.deletions || local.settings?.syncDeletions || []).some((row) => {
+    const remoteRow = remoteDeletionRows.get(`${row.collection}:${row.id}`);
+    return !remoteRow || Number(row.deletedAt) > Number(remoteRow.deletedAt);
+  });
   for (const [list, key] of Object.entries(MERGE_KEYS)) {
     const rows = new Map((remote[list] || []).map((row) => [row[key], row]));
     for (const row of local[list] || []) {
@@ -695,6 +735,11 @@ export function mergeDetailed(local, remote) {
         rows.set(row[key], row);
         tookLocal = true;
       }
+    }
+    for (const deletion of deletions) {
+      if (deletion.collection !== list) continue;
+      const existing = rows.get(deletion.id);
+      if (existing && Number(deletion.deletedAt) >= changedAt(existing)) rows.delete(deletion.id);
     }
     merged[list] = [...rows.values()];
   }

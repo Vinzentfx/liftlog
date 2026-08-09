@@ -260,6 +260,20 @@ export function toast(message, ms = 2000) {
   toastTimer = setTimeout(() => { node.hidden = true; }, ms);
 }
 
+/** A toast with one short-lived recovery action for accidental destructive taps. */
+export function undoToast(message, undo, ms = 6000) {
+  const node = $('#toast');
+  const button = el('button.toast-action', { onclick: async () => {
+    clearTimeout(toastTimer);
+    node.hidden = true;
+    await undo();
+  } }, [t('common.undo')]);
+  node.replaceChildren(el('span', { text: message }), button);
+  node.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { node.hidden = true; }, ms);
+}
+
 export function haptic(pattern = 8) {
   if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch { /* unsupported */ } }
 }

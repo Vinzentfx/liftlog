@@ -227,6 +227,17 @@ export function activeSession() {
   return state.sessions.find((s) => !s.finishedAt) || null;
 }
 
+const INSTALLATION_KEY = 'liftlog.installationId';
+export function installationId() {
+  try {
+    let id = localStorage.getItem(INSTALLATION_KEY);
+    if (!id) { id = db.uid('install_'); localStorage.setItem(INSTALLATION_KEY, id); }
+    return id;
+  } catch {
+    return 'installation-unavailable';
+  }
+}
+
 const WORKOUT_OPEN_KEY = 'liftlog.workoutOpen';
 
 /**
@@ -363,8 +374,10 @@ export function exerciseUsageCount(id) {
 }
 
 export async function deleteExercise(id) {
+  const removed = state.exercises.find((e) => e.id === id);
   state.exercises = state.exercises.filter((e) => e.id !== id);
   await db.remove(db.STORES.exercises, id);
+  if (removed) await recordDeletion('exercises', id, removed.updatedAt || removed.createdAt);
   // And from plans. This was missing: the delete dialog promised it, the plan
   // screen rendered an empty row where the exercise had been, and the plan
   // rating quietly counted a slot that trained nothing.
@@ -515,8 +528,10 @@ export async function importSharedPlan(shared) {
 }
 
 export async function deletePlan(id) {
+  const removed = state.plans.find((p) => p.id === id);
   state.plans = state.plans.filter((p) => p.id !== id);
   await db.remove(db.STORES.plans, id);
+  if (removed) await recordDeletion('plans', id, removed.updatedAt || removed.createdAt);
   if (state.settings.activePlanId === id) {
     await setSetting('activePlanId', state.plans.length ? state.plans[0].id : null);
   } else {
@@ -571,10 +586,25 @@ export async function startSession({ planId = null, dayId = null, name } = {}) {
     entries,
     plannedDurationMs: items ? estimatePlanDuration(items, state.settings.restSeconds) : null,
   });
+  session.originDevice = installationId();
   state.sessions.unshift(session);
   await persistSession(session);
   markWorkoutOpen();
   return session;
+}
+
+export async function pauseSession(id) {
+  return updateSession(id, (session) => {
+    if (!session.finishedAt && !session.pausedAt) session.pausedAt = Date.now();
+  });
+}
+
+export async function resumeSession(id) {
+  return updateSession(id, (session) => {
+    if (!session.pausedAt) return;
+    session.pausedMs = (Number(session.pausedMs) || 0) + Math.max(0, Date.now() - session.pausedAt);
+    session.pausedAt = null;
+  });
 }
 
 /**
@@ -629,17 +659,48 @@ export async function finishSession(id) {
   s.entries = s.entries
     .map((e) => ({ ...e, sets: e.sets.filter((st) => st.done && Number(st.reps) > 0) }))
     .filter((e) => e.sets.length > 0);
-  s.finishedAt = Date.now();
+  const now = Date.now();
+  if (s.pausedAt) {
+    s.pausedMs = (Number(s.pausedMs) || 0) + Math.max(0, now - s.pausedAt);
+    s.pausedAt = null;
+  }
+  s.finishedAt = now;
   await persistSession(s);
   markWorkoutOpen();
   return s;
 }
 
 export async function discardSession(id) {
+  const removed = state.sessions.find((s) => s.id === id);
   state.sessions = state.sessions.filter((s) => s.id !== id);
   await db.remove(db.STORES.sessions, id);
+  if (removed) await recordDeletion('sessions', id, removed.updatedAt || Date.now());
   markWorkoutOpen();
   emit();
+}
+
+export async function restoreSession(session) {
+  const restored = JSON.parse(JSON.stringify(session));
+  restored.updatedAt = Date.now();
+  state.sessions = state.sessions.filter((row) => row.id !== restored.id);
+  state.sessions.push(restored);
+  const deletions = (state.settings.syncDeletions || [])
+    .filter((row) => !(row.collection === 'sessions' && row.id === restored.id));
+  await db.put(db.STORES.settings, { key: 'syncDeletions', value: deletions });
+  state.settings.syncDeletions = deletions;
+  await db.put(db.STORES.sessions, restored);
+  reindex(); markWorkoutOpen(); emit();
+  return restored;
+}
+
+async function recordDeletion(collection, id, rowUpdatedAt = 0) {
+  const previous = Number(rowUpdatedAt);
+  const deletions = [...(state.settings.syncDeletions || [])
+    .filter((row) => !(row.collection === collection && row.id === id)), {
+      collection, id, deletedAt: Math.max(Date.now(), Number.isFinite(previous) ? previous + 1 : 0),
+    }];
+  state.settings.syncDeletions = deletions;
+  await db.put(db.STORES.settings, { key: 'syncDeletions', value: deletions });
 }
 
 // ---------- nutrition ----------
@@ -663,8 +724,10 @@ export async function updateFood(id, patch) {
 }
 
 export async function deleteFood(id) {
+  const removed = state.foods.find((f) => f.id === id);
   state.foods = state.foods.filter((f) => f.id !== id);
   await db.remove(db.STORES.foods, id);
+  if (removed) await recordDeletion('foods', id, removed.updatedAt || removed.createdAt);
   // Logged meals deliberately survive. They carry their own copy of the name
   // and numbers (see newMeal), so deleting a food edits your list, never your
   // history — the same rule the exercise library follows for logged sessions.
@@ -690,8 +753,10 @@ export async function logMeal(foodId, { amount = 1, day = dayKey(), at = Date.no
 }
 
 export async function deleteMeal(id) {
+  const removed = state.meals.find((m) => m.id === id);
   state.meals = state.meals.filter((m) => m.id !== id);
   await db.remove(db.STORES.meals, id);
+  if (removed) await recordDeletion('meals', id, removed.updatedAt || removed.at);
   emit();
 }
 
@@ -780,8 +845,10 @@ export async function saveTemplate({ name, items, slot = null, id = null }) {
 }
 
 export async function deleteTemplate(id) {
+  const removed = state.templates.find((t) => t.id === id);
   state.templates = state.templates.filter((t) => t.id !== id);
   await db.remove(db.STORES.templates, id);
+  if (removed) await recordDeletion('templates', id, removed.updatedAt || removed.createdAt);
   emit();
 }
 
@@ -826,7 +893,11 @@ export async function addWater(ml, day = dayKey()) {
   if (existing) Object.assign(existing, row);
   else state.water.push(row);
 
-  if (next === 0) await db.remove(db.STORES.water, day);
+  if (next === 0) {
+    await db.remove(db.STORES.water, day);
+    if (existing) await recordDeletion('water', day, existing.updatedAt);
+    state.water = state.water.filter((item) => item.day !== day);
+  }
   else await db.put(db.STORES.water, row);
   emit();
   return next;
@@ -871,8 +942,10 @@ export async function logBodyweight(weight, date = Date.now()) {
 }
 
 export async function deleteBodyweight(id) {
+  const removed = state.bodyweight.find((b) => b.id === id);
   state.bodyweight = state.bodyweight.filter((b) => b.id !== id);
   await db.remove(db.STORES.bodyweight, id);
+  if (removed) await recordDeletion('bodyweight', id, removed.updatedAt || removed.date);
   emit();
 }
 
@@ -923,6 +996,7 @@ export function exportData() {
     meals: state.meals,
     water: state.water,
     templates: state.templates,
+    deletions: state.settings.syncDeletions || [],
   };
 }
 
@@ -934,7 +1008,7 @@ export async function importData(payload, { replace = true } = {}) {
   // and then writes, so a payload that passes the format check but carries a
   // truncated or wrong-typed body used to leave you with neither the backup nor
   // what you had. Cheap to verify, impossible to undo.
-  const lists = ['exercises', 'plans', 'sessions', 'bodyweight', 'foods', 'meals', 'water', 'templates'];
+  const lists = ['exercises', 'plans', 'sessions', 'bodyweight', 'foods', 'meals', 'water', 'templates', 'deletions'];
   for (const key of lists) {
     if (payload[key] !== undefined && !Array.isArray(payload[key])) {
       throw new Error(`This backup is damaged — "${key}" is not a list.`);
@@ -951,7 +1025,7 @@ export async function importData(payload, { replace = true } = {}) {
   // been touched. Validate every record and bound hostile/corrupt files first.
   const keyFor = {
     exercises: 'id', plans: 'id', sessions: 'id', bodyweight: 'id',
-    foods: 'id', meals: 'id', water: 'day', templates: 'id',
+    foods: 'id', meals: 'id', water: 'day', templates: 'id', deletions: 'id',
   };
   const totalRows = lists.reduce((sum, key) => sum + (payload[key] || []).length, 0);
   if (totalRows > 100000) throw new Error('This backup contains too many records.');
@@ -964,9 +1038,16 @@ export async function importData(payload, { replace = true } = {}) {
       if ((typeof recordKey !== 'string' && typeof recordKey !== 'number') || String(recordKey).length > 256) {
         throw new Error(`This backup is damaged — "${key}" item ${index + 1} has no valid key.`);
       }
+      if (key === 'deletions') {
+        const allowed = ['exercises', 'plans', 'sessions', 'bodyweight', 'foods', 'meals', 'water', 'templates'];
+        if (!allowed.includes(row.collection) || !Number.isFinite(Number(row.deletedAt))) {
+          throw new Error(`This backup is damaged — deletion ${index + 1} is invalid.`);
+        }
+      }
     }
   }
-  const settings = payload.settings || {};
+  const settings = { ...(payload.settings || {}) };
+  if (payload.deletions !== undefined) settings.syncDeletions = payload.deletions;
   if (Object.keys(settings).length > 500) throw new Error('This backup contains too many settings.');
   for (const key of Object.keys(settings)) {
     if (!key || key.length > 128) throw new Error('This backup contains an invalid setting name.');

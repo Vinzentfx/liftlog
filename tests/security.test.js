@@ -193,7 +193,8 @@ test('deleting the cloud account also returns this installation to the login gat
 
 test('a legacy deleted account repairs its stale local gate on the next launch', async () => {
   const app = await read('js/app.js');
-  assert.match(app, /deviceUnlocked = await gate\.isUnlocked\(\)[\s\S]*deviceUnlocked && !cloud\.isSignedIn\(\)[\s\S]*await gate\.lock\(\)[\s\S]*deviceUnlocked = false/);
+  assert.match(app, /deviceUnlocked = browserTest \|\| await gate\.isUnlocked\(\)[\s\S]*deviceUnlocked && !browserTest && !cloud\.isSignedIn\(\)[\s\S]*await gate\.lock\(\)[\s\S]*deviceUnlocked = false/);
+  assert.match(app, /\['localhost', '127\.0\.0\.1'\]\.includes\(location\.hostname\)[\s\S]*searchParams\.get\('e2e'\) === '1'/);
 });
 
 test('normal sign-out preserves device identity and full erasure forgets it', async () => {
@@ -367,7 +368,7 @@ test('creatine reminder dispatcher requires its cron secret', async () => {
 test('automatic backups react to data changes without uploading identical snapshots', async () => {
   const sync = await read('js/sync.js');
   assert.match(sync, /cloudLastFingerprint === fingerprint[\s\S]*skipped: true/);
-  assert.match(sync, /filter\(\(\[key\]\) => !key\.startsWith\('cloud'\)\)/);
+  assert.match(sync, /filter\(\(\[key\]\) => !key\.startsWith\('cloud'\)[^)]*\)/);
   assert.match(sync, /setSetting\('cloudLastFingerprint', backupFingerprint\(\)\)/);
   assert.doesNotMatch(sync, /Date\.now\(\) - last < 3600000/);
 });

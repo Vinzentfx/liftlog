@@ -75,12 +75,16 @@ data**. To load demo data again, paste `tools/seed-demo.js` into the browser con
 ## Run the tests
 
 ```bash
-cd ~/liftlog && node --test
+cd ~/liftlog
+npm install
+npm test
+npm run test:browser
 ```
 
-No framework, no `package.json`, no dependency — `node:test` ships with Node, and
-every module under test is DOM-free, so `tests/maths.test.js` imports straight
-out of `js/` with nothing stubbed. The browser never sees the directory.
+The fast suite uses Node's built-in test runner. The browser suite uses
+Playwright with a mobile-sized Chromium window and drives the real app through
+workout and navigation flows. GitHub Actions runs both suites for every push and
+pull request.
 
 What is tested is narrow on purpose. Not the rating weights: those are judgement
 calls against the literature and will move again, and a test would only pin them

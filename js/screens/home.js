@@ -21,7 +21,7 @@ import { todaysDays, weekdayName } from '../schedule.js';
 import { regionProgress, progressFills, describeRegion } from '../region-progress.js';
 import { analysePlan } from '../plan-rating.js';
 import { THRESHOLDS } from '../evidence.js';
-import { navigate } from '../app.js';
+import { navigate, startWorkout } from '../app.js';
 import { profileForm, doExport } from './settings.js';
 
 // Which map the user last looked at. Module-level so switching tabs and coming
@@ -373,7 +373,7 @@ function todayCard(done) {
             ? el('span.pill.pr', { text: '✓' })
             : el('button.btn.primary.sm', {
                 onclick: async () => {
-                  await store.startSession({ planId: plan.id, dayId: day.id });
+                  await startWorkout({ planId: plan.id, dayId: day.id });
                   navigate('train');
                 },
               }, [t('home.today.start')]),

@@ -3,7 +3,7 @@
 import {
   el, $, toast, haptic, fmtWeight, fmtDuration, fmtNum, setsSummary,
   openSheet, closeSheet, confirmSheet, emptyState, debounce, listItem,
-  numberInput, parseNumber, normaliseOnBlur,
+  numberInput, parseNumber, normaliseOnBlur, undoToast,
 } from '../ui.js';
 import * as store from '../store.js';
 import * as rest from '../rest.js';
@@ -14,7 +14,7 @@ import { todaysDays, weekdayName, weekdayShort } from '../schedule.js';
 import { exerciseArt } from '../exercise-art.js';
 import { platePlan, describePlates, PLATES } from '../plates.js';
 import { warmupSets } from '../warmup.js';
-import { navigate, render, flushBackup } from '../app.js';
+import { navigate, render, flushBackup, startWorkout } from '../app.js';
 import { t, tn, tMuscle, tEquipment, locale } from '../i18n.js';
 
 const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
@@ -22,7 +22,23 @@ const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
 export default function renderTrain({ actions }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings'), title: t('common.settings') }, ['⚙']));
   const session = store.activeSession();
+  if (session?.originDevice && session.originDevice !== store.installationId()) {
+    return remoteWorkoutView(session);
+  }
   return session ? activeView(session) : launcherView();
+}
+
+function remoteWorkoutView(session) {
+  return el('div.card.glow', {}, [
+    el('div', { style: { fontSize: '18px', fontWeight: '730' }, text: t('train.remoteActiveTitle') }),
+    el('div.small.muted', { style: { marginTop: '7px' }, text: t('train.remoteActiveBody', { name: session.name }) }),
+    el('button.btn.primary.full', { style: { marginTop: '16px' }, onclick: () => flushBackup() }, [t('train.remoteRefresh')]),
+    el('button.btn.ghost.full', { style: { marginTop: '8px' }, onclick: async () => {
+      await store.updateSession(session.id, (row) => { row.originDevice = store.installationId(); });
+      flushBackup();
+    } }, [t('train.remoteTakeOver')]),
+    el('div.small.faint', { style: { marginTop: '10px' }, text: t('train.remoteTakeOverNote') }),
+  ]);
 }
 
 /* ============================ launcher ============================ */
@@ -35,7 +51,7 @@ function launcherView() {
   root.append(
     el('button.btn.primary.full', {
       style: { minHeight: '56px', fontSize: '16px', marginBottom: '18px' },
-      onclick: async () => { await store.startSession({}); toast(t('train.started')); },
+      onclick: async () => { await startWorkout({}); toast(t('train.started')); },
     }, [t('train.startEmpty')])
   );
 
@@ -91,7 +107,7 @@ function launcherView() {
         ].filter(Boolean).join(' · '),
         ariaLabel: t('train.startDay', { day: day.name }),
         onclick: async () => {
-          await store.startSession({ planId: plan.id, dayId: day.id });
+          await startWorkout({ planId: plan.id, dayId: day.id });
           toast(t('train.startedDay', { day: day.name }));
         },
       }));
@@ -127,7 +143,13 @@ function activeView(session) {
         el('div', { style: { fontWeight: '680', fontSize: '17px' }, text: session.name }),
         el('div.small.faint', { text: t('train.startedAt', { time: new Date(session.startedAt).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit' }) }) }),
       ]),
-      el('button.btn.sm.ghost', { onclick: () => renameSession(session) }, [t('train.rename')]),
+      el('div.row', {}, [
+        el('button.btn.sm.ghost', { onclick: async () => {
+          if (session.pausedAt) await store.resumeSession(session.id);
+          else { await store.pauseSession(session.id); rest.stop(); }
+        } }, [t(session.pausedAt ? 'train.resume' : 'train.pause')]),
+        el('button.btn.sm.ghost', { onclick: () => renameSession(session) }, [t('train.rename')]),
+      ]),
     ]),
     el('div.stat-grid', {}, [
       el('div.stat', {}, [elapsed, el('span.stat-key', { text: t('train.elapsed') })]),
@@ -136,11 +158,14 @@ function activeView(session) {
     ]),
   ]);
   root.append(header);
+  if (session.pausedAt) root.append(el('div.pause-banner', {}, [
+    el('b', { text: t('train.paused') }), el('span', { text: t('train.pausedBody') }),
+  ]));
 
   // Tick the elapsed clock without re-rendering the whole screen.
   const clockTimer = setInterval(() => {
     if (!document.body.contains(elapsed)) { clearInterval(clockTimer); return; }
-    elapsed.textContent = fmtDuration(Date.now() - session.startedAt);
+    elapsed.textContent = fmtDuration(sessionStats(session).durationMs);
   }, 30000);
 
   // --- exercises ---
@@ -268,6 +293,9 @@ function exerciseBlock(session, entry, entryIndex) {
 }
 
 function setRow(session, entry, set, index, last, ex) {
+  if (entry.movementMode === 'unilateral') {
+    return unilateralSetRow(session, entry, set, index, last, ex);
+  }
   const workingNo = entry.sets.slice(0, index + 1).filter((s) => s.type === 'working').length;
   const rirOn = store.state.settings.logRir !== false;
   const row = el('div.set-row'
@@ -275,16 +303,13 @@ function setRow(session, entry, set, index, last, ex) {
     + (set.done ? '.done' : '')
     + (set.type === 'warmup' ? '.warmup' : ''));
 
-  // Tap the number to flip a set between warmup and working.
+  // The set number opens the quick menu: duplicate, warm-up and delete without
+  // hunting through the exercise-level menu.
   row.append(
     el('button.set-no', {
       style: { background: 'none', border: 0 },
-      title: t('train.toggleWarmup'),
-      onclick: async () => {
-        await store.updateSession(session.id, () => {
-          set.type = set.type === 'warmup' ? 'working' : 'warmup';
-        });
-      },
+      title: t('train.setMenu'),
+      onclick: () => setMenu(session, entry, set, index),
     }, [set.type === 'warmup' ? t('train.warmupLetter') : String(workingNo)])
   );
 
@@ -354,6 +379,79 @@ function setRow(session, entry, set, index, last, ex) {
     : weight;
   row.append(weightCell, reps, rirOn ? rir : null, doneBtn);
   return row;
+}
+
+function unilateralSetRow(session, entry, set, index, last, ex) {
+  const workingNo = entry.sets.slice(0, index + 1).filter((row) => row.type === 'working').length;
+  const row = el('div.unilateral-set' + (set.done ? '.done' : '')
+    + (set.type === 'warmup' ? '.warmup' : ''));
+  const hint = set.type === 'warmup' || !last ? null
+    : last.sets[workingNo - 1] || last.sets[last.sets.length - 1];
+  const makeSide = (side, short) => {
+    const weightKey = `${side}Weight`, repsKey = `${side}Reps`;
+    const weight = normaliseOnBlur(numberInput({ decimal: true, value: set[weightKey] ?? '',
+      placeholder: hint ? String(hint.weight) : '–', 'aria-label': t('train.sideWeight', { side: short }) }));
+    const reps = normaliseOnBlur(numberInput({ value: set[repsKey] ?? '',
+      placeholder: hint ? String(hint.reps) : '–', 'aria-label': t('train.sideReps', { side: short }) }), { integer: true });
+    weight.addEventListener('input', () => { set[weightKey] = parseNumber(weight.value); saveSoon(session); });
+    reps.addEventListener('input', () => {
+      const value = parseNumber(reps.value); set[repsKey] = value === null ? null : Math.round(value); saveSoon(session);
+    });
+    [weight, reps].forEach((input) => input.addEventListener('focus', () => input.select()));
+    return { node: el('div.unilateral-side', {}, [el('b', { text: short }), weight, reps]), weight, reps };
+  };
+  const left = makeSide('left', t('train.leftShort'));
+  const right = makeSide('right', t('train.rightShort'));
+  const done = el('button.done-btn', { 'aria-label': t(set.done ? 'train.untick' : 'train.tick'),
+    'aria-pressed': String(!!set.done), onclick: async () => {
+      if (!set.done) {
+        const values = [left.weight, left.reps, right.weight, right.reps];
+        if (values.some((input) => input.value === '')) { toast(t('train.needBothSides')); return; }
+        const weights = [parseNumber(left.weight.value), parseNumber(right.weight.value)];
+        const reps = [parseNumber(left.reps.value), parseNumber(right.reps.value)];
+        if (weights.some((value) => value === null) || reps.some((value) => !value)) {
+          toast(t('train.needBothSides')); return;
+        }
+        set.leftWeight = weights[0]; set.rightWeight = weights[1];
+        set.leftReps = Math.round(reps[0]); set.rightReps = Math.round(reps[1]);
+        // The conservative side feeds PRs and strength standards; volume uses
+        // both sides in models.setVolume.
+        set.weight = Math.min(...weights);
+        set.reps = Math.min(set.leftReps, set.rightReps);
+      }
+      await toggleDone(session, entry, set,
+        { value: String(set.weight ?? ''), focus() {} },
+        { value: String(set.reps ?? ''), focus() {} }, hint);
+    } }, ['✓']);
+  row.append(el('button.set-no', { onclick: () => setMenu(session, entry, set, index),
+    title: t('train.setMenu') }, [set.type === 'warmup' ? t('train.warmupLetter') : String(workingNo)]),
+  el('div.unilateral-sides', {}, [left.node, right.node]), done);
+  return row;
+}
+
+function setMenu(session, entry, set, index) {
+  const duplicate = async () => {
+    await store.updateSession(session.id, () => {
+      const copy = newSet(set);
+      copy.type = set.type;
+      entry.sets.splice(index + 1, 0, copy);
+    });
+    closeSheet();
+  };
+  const remove = async () => {
+    const snapshot = JSON.parse(JSON.stringify(set));
+    await store.updateSession(session.id, () => entry.sets.splice(index, 1));
+    closeSheet();
+    undoToast(t('train.setRemoved'), () => store.updateSession(session.id, () => entry.sets.splice(index, 0, snapshot)));
+  };
+  openSheet(t('train.setMenuTitle', { n: index + 1 }), el('div.stack', {}, [
+    el('button.btn.ghost.full', { onclick: duplicate }, [t('train.duplicateSet')]),
+    el('button.btn.ghost.full', { onclick: async () => {
+      await store.updateSession(session.id, () => { set.type = set.type === 'warmup' ? 'working' : 'warmup'; });
+      closeSheet();
+    } }, [t(set.type === 'warmup' ? 'train.makeWorking' : 'train.makeWarmup')]),
+    el('button.btn.danger.full', { onclick: remove }, [t('train.removeSet')]),
+  ]));
 }
 
 /**
@@ -655,6 +753,26 @@ function exerciseMenu(session, entry, index, name) {
         } }, [t('train.useAlternative', { name: store.state.exerciseById.get(entry.alternativeExerciseId).name })])
       : null,
     el('button.btn.ghost.full', { onclick: () => temporarySwap() }, [t('train.replaceOnce')]),
+    el('button.btn.ghost.full', { onclick: async () => {
+      const unilateral = entry.movementMode !== 'unilateral';
+      await store.updateSession(session.id, () => {
+        entry.movementMode = unilateral ? 'unilateral' : 'bilateral';
+        for (const set of entry.sets) {
+          if (unilateral) {
+            set.leftWeight ??= set.weight; set.rightWeight ??= set.weight;
+            set.leftReps ??= set.reps; set.rightReps ??= set.reps;
+          } else if (set.leftReps !== null || set.rightReps !== null) {
+            const weights = [set.leftWeight, set.rightWeight].map(Number).filter(Number.isFinite);
+            const reps = [set.leftReps, set.rightReps].map(Number).filter(Number.isFinite);
+            set.weight = weights.length ? Math.min(...weights) : set.weight;
+            set.reps = reps.length ? Math.min(...reps) : set.reps;
+            set.leftWeight = set.leftReps = set.rightWeight = set.rightReps = null;
+          }
+        }
+      });
+      closeSheet();
+      toast(t(unilateral ? 'train.unilateralOn' : 'train.bilateralOn'));
+    } }, [t(entry.movementMode === 'unilateral' ? 'train.useBilateral' : 'train.useUnilateral')]),
     // Only for a loaded bar. On a machine "per side" means nothing, and on a
     // dumbbell there is nothing to work out.
     ex && ex.equipment === 'Barbell'
@@ -671,7 +789,10 @@ function exerciseMenu(session, entry, index, name) {
         const ok = await confirmSheet(t('train.menu.removeTitle'),
           t('train.menu.removeBody', { name }), { confirmLabel: t('common.remove') });
         if (!ok) return;
+        const snapshot = JSON.parse(JSON.stringify(entry));
         await store.updateSession(session.id, (s) => { s.entries.splice(index, 1); });
+        undoToast(t('train.exerciseRemoved', { name }), () => store.updateSession(session.id,
+          (s) => s.entries.splice(index, 0, snapshot)));
       },
     }, [t('train.menu.removeAction')]),
   ]);
@@ -805,6 +926,7 @@ async function discardFlow(session) {
     { confirmLabel: t('home.stale.discard') });
   if (!ok) return;
   await store.discardSession(session.id);
+  flushBackup();
   rest.stop();
   toast(t('home.stale.discarded'));
   render();

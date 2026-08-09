@@ -413,7 +413,9 @@ export function refineRegions(name, primary = [], secondary = []) {
 
 // ---------- factories ----------
 
-export function newSession(uid, { name = 'Workout', planId = null, dayId = null, entries = [] } = {}) {
+export function newSession(uid, {
+  name = 'Workout', planId = null, dayId = null, entries = [], plannedDurationMs = null,
+} = {}) {
   const now = Date.now();
   return {
     id: uid('s_'),
@@ -423,13 +425,16 @@ export function newSession(uid, { name = 'Workout', planId = null, dayId = null,
     startedAt: now,
     updatedAt: now,
     finishedAt: null,
+    pausedAt: null,
+    pausedMs: 0,
     notes: '',
     entries,
+    plannedDurationMs,
   };
 }
 
 export function newEntry(exerciseId, sets = []) {
-  return { exerciseId, sets, note: '' };
+  return { exerciseId, sets, note: '', movementMode: 'bilateral' };
 }
 
 /**
@@ -565,6 +570,13 @@ export function newSet(prev = null) {
     rir: null,
     type: 'working',   // 'working' | 'warmup'
     done: false,
+    // Filled only when the exercise is logged one side at a time. `weight` and
+    // `reps` remain the weaker side so every existing strength calculation is
+    // conservative and old backups remain readable.
+    leftWeight: prev?.leftWeight ?? null,
+    leftReps: prev?.leftReps ?? null,
+    rightWeight: prev?.rightWeight ?? null,
+    rightReps: prev?.rightReps ?? null,
   };
 }
 
@@ -583,6 +595,10 @@ export function isCounted(set) {
 }
 
 export function setVolume(set) {
+  if (set.leftReps != null || set.rightReps != null) {
+    return (Number(set.leftWeight) || 0) * (Number(set.leftReps) || 0)
+      + (Number(set.rightWeight) || 0) * (Number(set.rightReps) || 0);
+  }
   return (Number(set.weight) || 0) * (Number(set.reps) || 0);
 }
 
@@ -604,7 +620,8 @@ export function sessionStats(session) {
     const st = entryStats(e);
     volume += st.volume; sets += st.sets; reps += st.reps;
   }
-  const durationMs = (session.finishedAt || Date.now()) - session.startedAt;
+  const end = session.finishedAt || session.pausedAt || Date.now();
+  const durationMs = Math.max(0, end - session.startedAt - (Number(session.pausedMs) || 0));
   return { volume, sets, reps, durationMs, exercises: session.entries.length };
 }
 

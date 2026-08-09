@@ -4,12 +4,12 @@
 import {
   el, fmtNum, fmtDuration, fmtDate, relDay, setsSummary,
   confirmSheet, toast, emptyState, listItem, debounce,
-  numberInput, parseNumber, normaliseOnBlur,
+  numberInput, parseNumber, normaliseOnBlur, undoToast,
 } from '../ui.js';
 import * as store from '../store.js';
 import { sessionStats, entryStats, isCounted, newSet, newEntry } from '../models.js';
 import { pickExercise } from '../pickers.js';
-import { navigate } from '../app.js';
+import { navigate, flushBackup } from '../app.js';
 import { t, tn, locale } from '../i18n.js';
 import { WEEK_ORDER } from '../schedule.js';
 
@@ -258,9 +258,15 @@ function detailView(id) {
         const ok = await confirmSheet(t('calendar.deleteTitle'),
           t('calendar.deleteBody', { name: session.name, date: fmtDate(session.startedAt) }));
         if (!ok) return;
+        const snapshot = JSON.parse(JSON.stringify(session));
         await store.discardSession(session.id);
+        flushBackup();
         editingId = null;
-        toast(t('calendar.deleted'));
+        undoToast(t('calendar.deleted'), async () => {
+          await store.restoreSession(snapshot);
+          flushBackup();
+          navigate('calendar', snapshot.id);
+        });
         navigate('calendar');
       },
     }, [t('calendar.deleteWorkout')])
@@ -279,7 +285,9 @@ function readEntry(entry, units) {
       el('div', { style: { fontWeight: '650' }, text: ex ? ex.name : t('train.unknownExercise') }),
       ex ? el('button.btn.quiet.sm', { onclick: () => navigate('progress', ex.id) }, [`${t('calendar.chart')} ›`]) : null,
     ]),
-    el('div.small', { style: { marginBottom: '6px' }, text: setsSummary(counted, units) }),
+    el('div.small', { style: { marginBottom: '6px' }, text: entry.movementMode === 'unilateral'
+      ? counted.map((set) => `${t('train.leftShort')} ${fmtNum(set.leftWeight)}×${set.leftReps} · ${t('train.rightShort')} ${fmtNum(set.rightWeight)}×${set.rightReps}`).join(', ')
+      : setsSummary(counted, units) }),
     el('div.row', { style: { gap: '14px' } }, [
       el('span.small.faint', { text: tn(stats.sets, 'unit.set') }),
       el('span.small.faint', { text: t('calendar.volumeOf', { volume: `${fmtNum(stats.volume)}${units}` }) }),
@@ -357,9 +365,13 @@ function editEntry(session, entry, units) {
             }),
             { confirmLabel: t('common.remove') });
           if (!ok) return;
+          const snapshot = JSON.parse(JSON.stringify(entry));
+          const index = session.entries.indexOf(entry);
           await store.updateSession(session.id, (s) => {
             s.entries = s.entries.filter((e) => e !== entry);
           });
+          undoToast(t('train.exerciseRemoved', { name: ex ? ex.name : t('train.unknownExercise') }),
+            () => store.updateSession(session.id, (s) => s.entries.splice(index, 0, snapshot)));
         },
       }, [t('common.remove')]),
     ])
@@ -388,6 +400,7 @@ function editEntry(session, entry, units) {
 }
 
 function editRow(session, entry, set, index) {
+  if (entry.movementMode === 'unilateral') return editUnilateralRow(session, entry, set, index);
   const workingNo = entry.sets.slice(0, index + 1).filter((s) => s.type === 'working').length;
   const row = el('div.set-row.with-rir' + (set.type === 'warmup' ? '.warmup' : ''));
 
@@ -436,16 +449,54 @@ function editRow(session, entry, set, index) {
       title: t('calendar.deleteSetTitle'),
       style: { color: 'var(--danger)' },
       onclick: async () => {
+        const snapshot = JSON.parse(JSON.stringify(set));
         await store.updateSession(session.id, (s) => {
           entry.sets.splice(index, 1);
           // An exercise with no sets left is not a record of anything, and it
           // would still be counted as an exercise performed.
           if (!entry.sets.length) s.entries = s.entries.filter((e) => e !== entry);
         });
+        undoToast(t('train.setRemoved'), () => store.updateSession(session.id, (s) => {
+          if (!s.entries.includes(entry)) s.entries.push(entry);
+          entry.sets.splice(index, 0, snapshot);
+        }));
       },
     }, ['✕'])
   );
 
+  return row;
+}
+
+function editUnilateralRow(session, entry, set, index) {
+  const row = el('div.unilateral-set' + (set.type === 'warmup' ? '.warmup' : ''));
+  const field = (key, label, decimal = false) => {
+    const input = normaliseOnBlur(numberInput({ decimal, value: set[key] ?? '', placeholder: '–', 'aria-label': label }),
+      decimal ? {} : { integer: true });
+    input.addEventListener('input', () => {
+      const value = parseNumber(input.value);
+      set[key] = value === null ? null : (decimal ? value : Math.round(value));
+      const weights = [set.leftWeight, set.rightWeight].map(Number).filter(Number.isFinite);
+      const reps = [set.leftReps, set.rightReps].map(Number).filter(Number.isFinite);
+      set.weight = weights.length ? Math.min(...weights) : null;
+      set.reps = reps.length ? Math.min(...reps) : null;
+      saveSoon(session);
+    });
+    input.addEventListener('focus', () => input.select());
+    return input;
+  };
+  const side = (name, prefix) => el('div.unilateral-side', {}, [
+    el('b', { text: name }), field(`${prefix}Weight`, t('train.sideWeight', { side: name }), true),
+    field(`${prefix}Reps`, t('train.sideReps', { side: name })),
+  ]);
+  row.append(el('button.set-no', { onclick: async () => {
+    await store.updateSession(session.id, () => { set.type = set.type === 'warmup' ? 'working' : 'warmup'; });
+  } }, [String(index + 1)]), el('div.unilateral-sides', {}, [
+    side(t('train.leftShort'), 'left'), side(t('train.rightShort'), 'right'),
+  ]), el('button.done-btn', { style: { color: 'var(--danger)' }, onclick: async () => {
+    const snapshot = JSON.parse(JSON.stringify(set));
+    await store.updateSession(session.id, () => entry.sets.splice(index, 1));
+    undoToast(t('train.setRemoved'), () => store.updateSession(session.id, () => entry.sets.splice(index, 0, snapshot)));
+  } }, ['✕']));
   return row;
 }
 

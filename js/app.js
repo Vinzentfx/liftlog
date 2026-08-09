@@ -271,12 +271,14 @@ async function boot() {
 
   // The gate asks once per device. After that it never runs again, so a phone
   // with no reception behaves exactly as it did before any of this existed.
-  let deviceUnlocked = await gate.isUnlocked();
+  const browserTest = ['localhost', '127.0.0.1'].includes(location.hostname)
+    && new URL(location.href).searchParams.get('e2e') === '1';
+  let deviceUnlocked = browserTest || await gate.isUnlocked();
   // Repair the state left by older builds after a successful Auth-account
   // deletion: the session was gone but the IndexedDB gate survived, making the
   // deleted account appear to remain inside the app forever. A real offline
   // launch still has its persisted session, so it is unaffected.
-  if (deviceUnlocked && !cloud.isSignedIn()) {
+  if (deviceUnlocked && !browserTest && !cloud.isSignedIn()) {
     await gate.lock();
     deviceUnlocked = false;
   }
@@ -385,6 +387,18 @@ async function handleNotificationAction() {
  */
 export function flushBackup() {
   runCloudMaintenance({ immediate: true });
+}
+
+/** Pull an active workout from another device before creating a second one. */
+export async function startWorkout(options = {}) {
+  if (navigator.onLine && cloud.isSignedIn()) await sync.onAppOpen({ immediate: true });
+  // The pull may have revealed a workout started on another device while this
+  // launcher was already visible. Never create a second session after that.
+  const existing = store.activeSession();
+  if (existing) return existing;
+  const session = await store.startSession(options);
+  flushBackup();
+  return session;
 }
 
 function startCloudMaintenance() {

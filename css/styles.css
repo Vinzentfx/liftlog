@@ -771,6 +771,30 @@ label.field > span {
 .set-row.with-rir, .set-labels.with-rir { grid-template-columns: 26px 1fr 1fr 48px 44px; gap: 6px; }
 .set-row .rir { font-size: 15px; font-weight: 600; color: var(--text-dim); }
 .set-row .rir::placeholder { color: var(--text-faint); }
+.unilateral-set {
+  display: grid; grid-template-columns: 28px minmax(0,1fr) 46px;
+  gap: 7px; align-items: center; margin-bottom: 9px;
+  padding: 7px; border: 1px solid var(--line-soft); border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-sunken) 82%, transparent);
+}
+.unilateral-set.warmup { border-style: dashed; border-color: color-mix(in srgb, var(--warn) 42%, transparent); }
+.unilateral-set .set-no { border: 0; background: transparent; color: var(--text-faint); font-weight: 750; padding: 0; }
+.unilateral-sides { display: grid; gap: 6px; min-width: 0; }
+.unilateral-side { display: grid; grid-template-columns: 22px 1fr 1fr; gap: 6px; align-items: center; }
+.unilateral-side b { color: var(--accent-hi); font-size: 11px; text-align: center; }
+.unilateral-side input { min-height: 42px; padding: 7px 4px; text-align: center; font-weight: 650; }
+.unilateral-set .done-btn {
+  min-height: 46px; width: 46px; border-radius: var(--r-sm); border: 1px solid var(--line);
+  background: var(--bg-sunken); color: var(--text-faint); font-size: 18px;
+}
+.unilateral-set.done .done-btn { background: var(--good); color: #04241A; border-color: transparent; }
+.unilateral-set.done input { opacity: .6; }
+.pause-banner {
+  display: flex; justify-content: space-between; gap: 10px; margin: 10px 0;
+  padding: 11px 13px; border-radius: 12px; color: var(--warn);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+  background: color-mix(in srgb, var(--warn) 8%, var(--bg-raised)); font-size: 13px;
+}
 
 .suggest {
   font-size: 12.5px; color: var(--text-dim);
@@ -869,8 +893,14 @@ label.field > span {
   box-shadow: 0 14px 36px rgba(0, 0, 0, .6), 0 0 28px -12px rgba(96, 165, 250, .8);
   animation: fade .18s ease;
   max-width: calc(100vw - 40px); text-align: center;
+  display: flex; align-items: center; gap: 14px;
 }
 #toast[hidden] { display: none; }
+.toast-action {
+  border: 0; border-left: 1px solid rgba(6,18,42,.22); background: transparent;
+  color: #0758bd; padding: 3px 0 3px 14px; font: inherit; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .04em;
+}
 
 /* ============ stats + charts ============ */
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }

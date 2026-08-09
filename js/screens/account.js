@@ -122,12 +122,41 @@ export function cloudSection() {
     el('div.stack', { style: { marginTop: '14px' } }, [
       el('button.btn.ghost.full.sm', { onclick: () => devicesSheet() }, [t('cloud.devices')]),
       el('button.btn.ghost.full.sm', { onclick: () => restoreSheet() }, [t('cloud.restore')]),
+      el('button.btn.ghost.full.sm', { onclick: () => diagnosticsSheet() }, [t('cloud.diagnostics')]),
       el('button.btn.ghost.full.sm', { onclick: () => manageSheet() }, [t('cloud.manage')]),
     ])
   );
 
   wrap.append(card);
   return wrap;
+}
+
+async function diagnosticsSheet() {
+  openSheet(t('cloud.diagnostics'), el('div.card', {}, [el('div.muted', { text: t('cloud.diagnosticsLoading') })]));
+  const d = await sync.diagnostics();
+  const value = (good, yes, no) => el('span.pill' + (good ? '.pr' : ''), { text: t(good ? yes : no) });
+  const row = (label, node) => el('div.row.between', { style: { padding: '8px 0', borderBottom: '1px solid var(--line-soft)' } }, [
+    el('span.small.muted', { text: label }), node instanceof Node ? node : el('b.small', { text: String(node) }),
+  ]);
+  const body = el('div', {}, [
+    el('div.small.muted', { style: { marginBottom: '10px' }, text: t('cloud.diagnosticsIntro') }),
+    el('div.card.tight', {}, [
+      row(t('cloud.diagConnection'), value(d.online, 'cloud.diagOnline', 'cloud.diagOffline')),
+      row(t('cloud.diagPermission'), value(d.canBackup, 'cloud.diagAllowed', 'cloud.diagBlocked')),
+      row(t('cloud.diagLocalChanges'), value(!d.unsyncedChanges, 'cloud.diagSynced', 'cloud.diagWaiting')),
+      row(t('cloud.diagLocalVersion'), d.baseVersion),
+      row(t('cloud.diagServerVersion'), d.serverVersion || '–'),
+      row(t('cloud.diagDeletions'), d.deletionCount),
+      row(t('cloud.diagActive'), d.activeElsewhere ? t('cloud.diagOtherDevice') : d.activeWorkouts),
+      d.lastError ? row(t('cloud.diagError'), t(`cloud.err.${d.lastError}`, { code: d.lastError })) : null,
+    ]),
+    el('button.btn.primary.full', { onclick: async () => {
+      const result = await sync.onAppOpen({ immediate: true });
+      toast(t(result.ok ? 'cloud.diagChecked' : 'cloud.autoBackupFailed'));
+      closeSheet();
+    } }, [t('cloud.diagCheckNow')]),
+  ]);
+  openSheet(t('cloud.diagnostics'), body);
 }
 
 function statusLine(s) {
