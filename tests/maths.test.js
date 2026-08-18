@@ -245,6 +245,36 @@ test('every muscle region can be ranked by something in the library', () => {
   assert.ok(traps.includes('Barbell Row'));
 });
 
+test('a region rank is the best driver, with the corroboration alongside it', () => {
+  // Deliberately not an average of the movements that train a muscle. Averaging
+  // punishes having several: somebody who benches heavy and also does two light
+  // accessory flies would rank below somebody who only benches, and their chest
+  // can still bench what it benches. So the number is the best demonstration and
+  // the spread rides next to it.
+  const profile = { sex: 'male', bodyweight: 82, age: 24, units: 'kg' };
+  const rating = buildRating(new Map([
+    ['Barbell Bench Press', 140],      // the strong one
+    ['Machine Chest Press', 100],      // a much lighter accessory
+    ['Butterfly', 70],
+  ]), profile, { machineNames: new Set(['Machine Chest Press', 'Butterfly']) });
+
+  const bench = rating.lifts.find((l) => l.name === 'Barbell Bench Press');
+  assert.ok(Math.abs(rating.regions.chest.score - bench.score) < 0.01,
+    'three chest movements must not average the bench down');
+  assert.equal(rating.regions.chest.drivers, 3);
+  assert.ok(rating.regions.chest.spread > BAND, 'and the disagreement is recorded, not hidden');
+
+  // One driver is reported as one driver, with no spread to speak of.
+  const alone = buildRating(new Map([['Barbell Bench Press', 140]]), profile, {});
+  assert.equal(alone.regions.chest.drivers, 1);
+  assert.equal(alone.regions.chest.spread, 0);
+
+  // Adding a movement can never lower a region. That is the property averaging
+  // would have broken.
+  const before = alone.regions.chest.score;
+  assert.ok(rating.regions.chest.score >= before);
+});
+
 test('a suggestion is phrased in the names the library actually uses', () => {
   // The curated tables call it "Cable Oblique Twist"; the bundled catalogue
   // calls it "Cable Russian Twists". Telling somebody to do the former is

@@ -1017,6 +1017,9 @@ export function buildRating(bestByLift, profile,
   // them. Deliberately not a score: a number here is what caused the bug this
   // replaced.
   const indirect = {};
+  // Every lift that *could* rank each region, so the rating can say whether a
+  // rank is corroborated or resting on one movement.
+  const support = {};
   const lifts = [];
   const outside = extrapolated instanceof Set ? extrapolated : new Set();
   const dates = achievedAt instanceof Map ? achievedAt : new Map();
@@ -1081,6 +1084,10 @@ export function buildRating(bestByLift, profile,
       // A plate-loaded bar counts as a free weight for the tie-break, because
       // it is one. Only a stack loses a tie to a published standard.
       const stack = machine && !isPlateLoaded(name);
+      // Every qualifying driver is remembered, not only the winner. The rank
+      // itself is still the best of them (see below), but how many there are and
+      // how far apart they sit is the useful part that a single number hides.
+      (support[region] ||= []).push({ name, score: value });
       const better = !held || value > held.score
         || (!stack && held.stack && value >= held.score);
       if (better) {
@@ -1123,6 +1130,31 @@ export function buildRating(bestByLift, profile,
   const touched = {};
   for (const [region, seen] of Object.entries(indirect)) touched[region] = { via: seen.via };
   const counted = rated;
+
+  /**
+   * A rank is the best demonstration, and this says how well corroborated it is.
+   *
+   * Deliberately not an average. Averaging the movements that train a muscle
+   * punishes having several: somebody who benches heavy and also does two light
+   * accessory flies would rank below somebody who only benches, which
+   * contradicts both the plan rating (it rewards two movements per muscle) and
+   * common sense, because their chest can still bench what it benches. And the
+   * single-movement failure mode averaging is meant to guard against is already
+   * handled: an outlier that disagrees with everything else gets flagged and
+   * offered a correction.
+   *
+   * So the number stays the best driver, and the spread rides alongside it. On
+   * one real log the well-covered regions agreed to within half a rank across
+   * three movements each, while quads came out 1.3 ranks apart between a squat
+   * and a leg extension. That disagreement is worth saying out loud. Hiding it
+   * inside a mean would have turned it into a number that describes neither.
+   */
+  for (const [region, drivers] of Object.entries(support)) {
+    if (!regions[region]) continue;
+    const scores = drivers.map((d) => d.score);
+    regions[region].drivers = drivers.length;
+    regions[region].spread = drivers.length > 1 ? Math.max(...scores) - Math.min(...scores) : 0;
+  }
   const overall = counted.length
     ? counted.reduce((n, r) => n + r.score, 0) / counted.length
     : null;

@@ -523,6 +523,20 @@ rather than a front-delt one. Obliques had *nothing* that could rank them at
 all; the catalogue's rotation and side-flexion patterns now do. A test asserts
 every one of the sixteen regions has at least one movement that can rank it.
 
+**A region's rank is the best driver, not an average of them, and the
+corroboration rides alongside.** Averaging the movements that train a muscle
+punishes having several: somebody who benches heavy and also does two light
+accessory flies would rank below somebody who only benches, which contradicts
+both the plan rating (it rewards two movements per muscle) and common sense,
+because their chest can still bench what it benches. The single-movement failure
+mode averaging is meant to guard against is already handled by the outlier
+check. So the number stays the best demonstration, and `drivers` and `spread`
+carry what a mean would have smuggled in: on one real log the well-covered
+regions agreed to within half a rank across three movements each, while quads
+came out 1.3 ranks apart between a squat and a leg extension. The region sheet
+says which of those three situations it is. A test asserts adding a movement can
+never lower a region.
+
 **And a grey muscle now says what would open it.** `canRank` resolves through the
 alias so the suggestion is phrased in the names the user's own library uses:
 telling somebody to do a "Cable Oblique Twist" is useless advice about an

@@ -769,6 +769,27 @@ function machineCorrections() {
 }
 
 /**
+ * How well corroborated a rank is.
+ *
+ * The rank is the best demonstration and stays that way, so this is the honest
+ * place to put what a lifter would otherwise have to guess: whether three
+ * movements agree on it or one movement is carrying it alone, and whether the
+ * movements that should agree actually do.
+ */
+function supportLine(info) {
+  const drivers = Number(info.drivers) || 1;
+  if (drivers < 2) {
+    return el('div.small.faint', { style: { marginTop: '6px', textAlign: 'center' },
+      text: t('home.region.oneDriver') });
+  }
+  const ranks = (Number(info.spread) || 0) / BAND;
+  return el('div.small.faint', { style: { marginTop: '6px', textAlign: 'center' },
+    text: ranks >= 1
+      ? t('home.region.driversDisagree', { n: drivers, ranks: ranks.toFixed(1) })
+      : t('home.region.driversAgree', { n: drivers }) });
+}
+
+/**
  * "Any of these would rank it", listing only movements this library actually has.
  *
  * Filtered against the user's own exercises rather than the whole curated table:
@@ -1280,13 +1301,15 @@ function regionSheet(region, rating) {
   const body = el('div', {}, [
     info
       ? el(`div.tier-${tierIndex(info.score)}`, {}, [
+          // The rank, not the number. Same reason as on Home: a score out of a
+          // hundred whose top nobody reaches reads as a mark out of a hundred.
           el('div.rating-hero', { style: { paddingBottom: '10px' } }, [
-            el('div.rating-val', { style: { fontSize: '40px' }, text: String(Math.round(info.score)) }),
-            el('div', { style: { marginTop: '8px' } }, [
-              rankChip(rankOf(info.score)),
-            ]),
+            el('div.rank-hero-badge', {}, [rankBadge(tierIndex(info.score), { size: 58, glow: true })]),
+            el('div.rank-hero-name', { style: { fontSize: '24px' }, text: tTier(rankOf(info.score).tier.key) }),
+            el('div.rank-hero-division', { text: rankOf(info.score).division }),
           ]),
           el('div.small.muted', { style: { textAlign: 'center' }, text: t('home.region.via', { lift: info.via }) }),
+          supportLine(info),
           percentileBar(`region:${region}`),
           info.machine ? el('div.small.faint', { style: { marginTop: '8px', textAlign: 'center' },
             text: t(info.provisional ? 'home.region.machineEstimated' : 'home.region.machineCommunity', { n: info.sample }) }) : null,
@@ -1311,12 +1334,21 @@ function regionSheet(region, rating) {
           unlockList(region),
         ]),
     el('div.section-head', {}, [el('h2', { text: t('home.region.tierScale') })]),
-    el('div', {}, TIERS.map((tier, i) =>
-      el(`div.row.between.tier-${i}`, { style: { padding: '7px 0', borderBottom: '1px solid var(--line-soft)' } }, [
-        el('span.tier-chip', { text: tTier(tier.key) }),
-        el('span.small.faint', { text: `${Math.round(i * BAND)}–${Math.round((i + 1) * BAND)}` }),
-      ])
-    )),
+    // The point ranges used to sit here. With the score no longer shown
+    // anywhere they referred to a number nobody sees, so the ladder now marks
+    // where this muscle stands on it instead.
+    el('div', {}, TIERS.map((tier, i) => {
+      const here = info && tierIndex(info.score) === i;
+      return el(`div.row.between.tier-${i}`, {
+        style: { padding: '7px 0', borderBottom: '1px solid var(--line-soft)', opacity: here ? '1' : '.55' },
+      }, [
+        // .with-badge hides the chip's dot, or the row carries both a dot and a
+        // shield and reads as two markers for one thing.
+        el('span.tier-chip.with-badge', {}, [rankBadge(i, { size: 15 }), tTier(tier.key)]),
+        here ? el('span.small', { style: { color: 'var(--tier)', fontWeight: '700' },
+          text: t('home.region.youAreHere') }) : null,
+      ]);
+    })),
   ]);
 
   openSheet(label, body);
