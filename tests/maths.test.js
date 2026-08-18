@@ -29,7 +29,7 @@ const { e1rm, isCounted, startOfWeek, entryStats, sessionStats, newMeal, dayKey,
 const { scoreFor, scoreForMachine, buildRating, ANATOMY, TIERS, DIVISIONS, RANK_STEPS,
   rankOf, ladder, boundsFor, toNextDivision, ratedMachineNames, machineCategory,
   LOW_CONFIDENCE, EXTRAPOLATED_TIERS, isBenchmark, BAND, canonical,
-  weightForRatio } = await import('../js/standards.js');
+  weightForRatio, isPlateLoaded } = await import('../js/standards.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
 const { rateExercise } = await import('../js/exercise-rating.js');
@@ -225,6 +225,31 @@ test('a log with nothing trained directly still gets a number', () => {
   const anyDirect = Object.values(rating.regions).some((r) => r.direct);
   if (!anyDirect) assert.ok(rating.overall > 0, 'no direct regions must not mean no rating');
   assert.ok(rating.overall !== null);
+});
+
+test('a plate-loaded bar is ranked, and is not treated as a stack', () => {
+  // A chest-supported T-bar row is a barbell with a pad. The catalogue tags
+  // some of these as Barbell equipment, which kept them out of the rated set
+  // entirely: a plate-loaded T-bar row produced no rank at all.
+  const barTagged = { name: 'T-Bar Row with Handle', equipment: 'Barbell' };
+  assert.ok(ratedMachineNames([barTagged]).has(barTagged.name),
+    'plate-loaded work is rankable whatever the catalogue calls its equipment');
+  assert.ok(isPlateLoaded('Chest-Supported T-Bar Row'));
+  assert.ok(isPlateLoaded('Lying T-Bar Row'), 'and the catalogue name resolves through the alias');
+  assert.equal(isPlateLoaded('Seated Cable Row'), false, 'a stack is not plate-loaded');
+
+  // On the body map a plate-loaded bar wins a tie the way a barbell does,
+  // because it is one. Only a stack loses one to a published standard.
+  const profile = { sex: 'male', bodyweight: 82, age: 24, units: 'kg' };
+  const factor = boundsFor('Chest-Supported T-Bar Row', profile, { machine: true })[0]
+    / boundsFor('Barbell Row', profile)[0];
+  const tie = buildRating(new Map([['Chest-Supported T-Bar Row', 120 * factor], ['Barbell Row', 120]]),
+    profile, { machineNames: new Set(['Chest-Supported T-Bar Row']) });
+  assert.equal(tie.regions.lats.stack, false);
+
+  const stackTie = buildRating(new Map([['Seated Cable Row', 120 * 1.17], ['Barbell Row', 120]]),
+    profile, { machineNames: new Set(['Seated Cable Row']) });
+  assert.equal(stackTie.regions.lats.via, 'Barbell Row', 'a stack still yields to the standard');
 });
 
 test('a free-weight lift keeps a region it ties a machine on', () => {

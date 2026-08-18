@@ -178,6 +178,7 @@ export const CONTRIB_EXTRA = {
   'Seated Cable Row':          { lats: 1, traps: 0.55, biceps: 0.55, 'delts-rear': 0.4 },
   'T-Bar Row':                 { lats: 1, traps: 0.65, biceps: 0.5, 'delts-rear': 0.45, 'lower-back': 0.3 },
   'Machine High Row':          { lats: 1, traps: 0.6, 'delts-rear': 0.5, biceps: 0.45 },
+  'Lying T-Bar Row':           { lats: 1, traps: 0.7, 'delts-rear': 0.6, biceps: 0.5 },
   'Machine Pullover':          { lats: 1, chest: 0.4, triceps: 0.3 },
   'Assisted Pull-Up Machine':  { lats: 1, biceps: 0.6, 'delts-rear': 0.3 },
 
@@ -321,6 +322,7 @@ const MACHINE_ANCHOR = {
   'Machine Row':                ['Barbell Row', 1.17],
   'Seated Cable Row':           ['Barbell Row', 1.17],
   'T-Bar Row':                  ['Barbell Row', 1.05],
+  'Lying T-Bar Row':            ['Barbell Row', 1.10],
   'Machine High Row':           ['Barbell Row', 1.20],
   'Iso-Lateral High Row':       ['Barbell Row', 1.15],
   'Iso-Lateral Low Row':        ['Barbell Row', 1.15],
@@ -463,6 +465,9 @@ const ALIAS = {
   'Wide-Grip Pulldown Behind The Neck': 'Lat Pulldown Machine',
   'One Arm Lat Pulldown': 'Single-Arm Lat Pulldown',
   'Straight-Arm Pulldown': 'Machine Pullover',
+  'Lying T-Bar Row': 'Chest-Supported T-Bar Row',
+  'T-Bar Row with Handle': 'T-Bar Row',
+  'Dumbbell Incline Row': 'Chest-Supported Row',
 
   // Variants that differ from an anchored name by a letter, a bracket or a word
   // order. Each of these was falling through to the coarse category bands and
@@ -559,6 +564,33 @@ export function machineCategory(name) {
 export const RATED_EQUIPMENT = new Set(['Machine', 'Cable']);
 
 /**
+ * Movements that take real plates on a real bar, whatever the catalogue calls
+ * their equipment.
+ *
+ * A chest-supported T-bar row is not a stack machine: it is a barbell with a
+ * pad, and the number logged is plates. That matters three times over. The
+ * full-stack calibration rule has nothing to say about it, because there is no
+ * stack to max. The "count half of it" correction is about a display showing
+ * both sides at once, which a plate-loaded bar does not do. And on the body map
+ * it should win a tie the way a barbell does, because it is one.
+ *
+ * It also has to be rankable at all: several of these are tagged `Barbell` in
+ * the catalogue, which kept them out of RATED_EQUIPMENT entirely, so a
+ * plate-loaded T-bar row produced no rank whatsoever.
+ */
+export const PLATE_LOADED = new Set([
+  'T-Bar Row', 'Chest-Supported T-Bar Row', 'Chest-Supported Row', 'Lying T-Bar Row',
+  'T-Bar Row with Handle', 'Plate-Loaded Pullover', 'Leverage Deadlift',
+  'Iso-Lateral Chest Press', 'Iso-Lateral Incline Chest Press', 'Iso-Lateral Shoulder Press',
+  'Iso-Lateral High Row', 'Iso-Lateral Low Row',
+  'Hack Squat', 'Pendulum Squat', 'Belt Squat', 'Smith Machine Squat',
+  'Smith Machine Bench Press', 'Smith Machine Incline Bench Press',
+  'Smith Machine Romanian Deadlift', 'Smith Machine Deadlift', 'Smith Machine Good Morning',
+]);
+
+export const isPlateLoaded = (name) => PLATE_LOADED.has(canonical(name)) || PLATE_LOADED.has(name);
+
+/**
  * Every exercise name whose load gets a rank without a published standard.
  *
  * Cables used to be excluded outright, which quietly meant a pushdown, a cable
@@ -568,7 +600,8 @@ export const RATED_EQUIPMENT = new Set(['Machine', 'Cable']);
  */
 export function ratedMachineNames(exercises = []) {
   return new Set(exercises
-    .filter((ex) => RATED_EQUIPMENT.has(ex.equipment) && !isBenchmark(ex.name) && !UNRATEABLE.has(ex.name))
+    .filter((ex) => (RATED_EQUIPMENT.has(ex.equipment) || isPlateLoaded(ex.name))
+      && !isBenchmark(ex.name) && !UNRATEABLE.has(ex.name))
     .map((ex) => ex.name));
 }
 
@@ -970,7 +1003,8 @@ export function buildRating(bestByLift, profile,
       name, oneRepMax: orm, score, tier: tierOf(score), rank: rankOf(score),
       next: toNextTier(name, score, profile, opts),
       nextDivision: toNextDivision(name, score, profile, opts),
-      machine, derived: machine && !!MACHINE_ANCHOR[canonical(name)],
+      machine, plateLoaded: isPlateLoaded(name),
+      derived: machine && !!MACHINE_ANCHOR[canonical(name)],
       provisional: machine && sample < 10, sample,
       // Built from a set outside the range a 1RM estimate is valid over, because
       // this lift has never been trained inside it. See THRESHOLDS.e1rmWindow.
@@ -1000,10 +1034,14 @@ export function buildRating(bestByLift, profile,
       const held = regions[region];
       // Ties go to the published standard: a machine only takes a region off a
       // barbell lift by being strictly better.
+      // A plate-loaded bar counts as a free weight for the tie-break, because
+      // it is one. Only a stack loses a tie to a published standard.
+      const stack = machine && !isPlateLoaded(name);
       const better = !held || value > held.score
-        || (!machine && held.machine && value >= held.score);
+        || (!stack && held.stack && value >= held.score);
       if (better) {
-        regions[region] = { score: value, via: name, machine, provisional: machine && sample < 10, sample,
+        regions[region] = { score: value, via: name, machine, stack,
+          provisional: machine && sample < 10, sample,
           extrapolated: outside.has(name),
           // Whether this region was actually measured or merely glimpsed
           // through a lift aimed somewhere else.

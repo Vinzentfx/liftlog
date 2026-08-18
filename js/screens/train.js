@@ -21,6 +21,7 @@ import {
   exerciseHistory, priorWork, openingSet, nextSet, pooledOrderCost, loadStep as defaultStep,
 } from '../progression.js';
 import { alreadyWarm } from '../warmup.js';
+import { isPlateLoaded } from '../standards.js';
 import { navigate, render, flushBackup, startWorkout } from '../app.js';
 import { requestWorkoutStart } from '../workout-start.js';
 import { t, tn, tMuscle, tEquipment, locale } from '../i18n.js';
@@ -965,7 +966,7 @@ function machineSetupSheet(ex) {
     el('label.field', {}, [el('span', { text: t('train.machine.note') }), note]),
     el('label.field', {}, [el('span', { text: t('train.machine.stepLabel', { units: store.units() }) }), stepInput]),
     el('div.small.faint', { style: { marginTop: '-6px', marginBottom: '12px' }, text: t('train.machine.stepNote') }),
-    el('label.field', {}, [
+    isPlateLoaded(ex.name) ? null : el('label.field', {}, [
       el('span', { text: t('home.rating.stackMax', { units: store.units() }) }), stackInput,
       el('small', { text: t('home.rating.stackMaxNote') }),
     ]),

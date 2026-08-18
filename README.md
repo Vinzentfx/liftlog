@@ -598,6 +598,15 @@ a recognised one, and `machineCategory` now checks for squat, deadlift and shrug
 patterns before it gives up — a Smith machine deadlift landing in the triceps
 band is not a rounding error, it is three ranks.
 
+**A plate-loaded bar is not a stack.** A chest-supported T-bar row is a barbell
+with a pad, and the number logged is plates. That matters three times over: the
+full-stack calibration rule has nothing to say about it, the "count half of it"
+correction is about a display showing both sides at once, and on the body map it
+should win a tie the way a barbell does, because it is one. `PLATE_LOADED` marks
+them. It also has to make them *rankable at all* — several are tagged `Barbell`
+in the catalogue, which kept them out of `RATED_EQUIPMENT` entirely, so a
+plate-loaded T-bar row produced no rank whatsoever.
+
 **Two name spaces had drifted apart.** The curated tables were written against
 the seed list; the bundled catalogue calls many of the same machines something
 else ("Ab Crunch Machine" for Machine Crunch, four spellings of a triceps

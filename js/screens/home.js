@@ -843,7 +843,8 @@ function loadCorrectionSheet(ex, lift) {
       [t('home.rating.outlierHalve')]),
     el('div.small.faint', { style: { marginTop: '6px' }, text: t('home.rating.outlierHalveNote') }),
 
-    el('label.field', { style: { marginTop: '16px' } }, [
+    // No stack field for a bar with plates on it: there is no stack to max.
+    lift.plateLoaded ? null : el('label.field', { style: { marginTop: '16px' } }, [
       el('span', { text: t('home.rating.stackMax', { units: store.units() }) }), stack,
       el('small', { text: t('home.rating.stackMaxNote') }),
     ]),
