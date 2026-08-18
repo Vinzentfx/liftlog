@@ -68,6 +68,12 @@ export const DEFAULT_SETTINGS = {
   // though what it sends is a bodyweight-normalised 0-100 with no lift weight,
   // no repetitions and no identity attached.
   shareRankComparison: false,
+  // The last rank step this device celebrated. The rating is rebuilt from the
+  // whole log on every render, so there is no event to hang a celebration on
+  // and this is the event: a stored number that the computed one can overtake
+  // exactly once. Null means "never recorded", which is deliberately not the
+  // same as zero — see announceRankUp.
+  lastSeenRankStep: null,
   // What a newly added plan exercise starts at. 2 x 6-10 is the app's default
   // for reasons documented in plan-builder.js, but it is a preference, not a
   // finding — someone running 3 x 8-12 should not have to retype it every time.

@@ -472,6 +472,32 @@ test('private social groups and PR reactions stay behind narrow RPCs', async () 
   assert.match(sql, /RATE_LIMITED/i);
 });
 
+test('the rank-up celebration fires on a real step and respects reduced motion', async () => {
+  const home = await read('js/screens/home.js');
+  const art = await read('js/rank-art.js');
+  const css = await read('css/styles.css');
+
+  // Number(null) is 0 and finite, so a null check through Number() reads a
+  // device that has never stored a step as "was on step 0" and congratulates
+  // every existing user on first launch. It has to be checked by identity.
+  assert.match(home, /seen === null \|\| seen === undefined/);
+  // A drop stores silently. Being told you went down is the banner's job.
+  assert.match(home, /if \(rank\.step <= from\)[\s\S]*return;/);
+
+  assert.match(art, /prefers-reduced-motion: reduce/);
+  assert.match(art, /if \(still\) overlay\.classList\.add\('still'\)/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*rank-up-overlay/);
+
+  // Nothing is fetched to draw a badge: the artwork is paths in the module, so
+  // it works offline and there is no third party to credit or to outlive. The
+  // only URL allowed anywhere in the file is the SVG namespace, and the only
+  // other mentions are the licences in the header explaining what was not used.
+  assert.doesNotMatch(art, /\bfetch\(/);
+  const urls = [...art.matchAll(/https?:\/\/[^\s'"`)]+/g)].map((m) => m[0])
+    .filter((url) => url !== 'http://www.w3.org/2000/svg');
+  assert.deepEqual(urls.filter((url) => !/game-icons\.net/.test(url)), []);
+});
+
 test('the rank comparison is an aggregate, opt-in, and withdrawable', async () => {
   const sql = await read('server/patch-016-rank-percentiles.sql');
   const home = await read('js/screens/home.js');

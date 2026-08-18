@@ -14,6 +14,7 @@ import {
   LOW_CONFIDENCE, strengthRatio, ageFactor, ratedMachineNames, RATED_EQUIPMENT, isBenchmark,
 } from '../standards.js';
 import { strengthAt } from '../history.js';
+import { rankBadge, celebrateRankUp } from '../rank-art.js';
 import { t, tn, tRegion, tTier, locale } from '../i18n.js';
 import { bodyMap, tierLegend } from '../bodymap.js';
 import { barChart, lineChart } from '../charts.js';
@@ -569,6 +570,7 @@ function ratingSection(done, settings) {
 
   const hero = el(`div.card.glow.tier-${idx}`, {}, [
     el('div.rating-hero', {}, [
+      el('div.rank-hero-badge', {}, [rankBadge(idx, { size: 76, glow: true })]),
       el('div.rating-val', { text: String(Math.round(rating.overall)) }),
       el('div', { style: { marginTop: '8px' } }, [rankChip(rank)]),
       el('div.rating-sub', {
@@ -590,6 +592,10 @@ function ratingSection(done, settings) {
     el('div.small.muted', { style: { marginTop: '10px' }, text: t(`tier.${rank.tier.key}.note`) }),
     percentileBar('overall'),
   ]);
+
+  // The live moment, kept apart from the eight-week summary below it: this one
+  // fires once, for a step that was actually just crossed.
+  announceRankUp(rank);
 
   const change = recentRankChange(rating.overall);
   if (change) {
@@ -663,6 +669,46 @@ function ratingSection(done, settings) {
 }
 
 /**
+ * Fire the celebration once, for a step that was genuinely just gained.
+ *
+ * The rating is rebuilt from the whole log on every render, so there is no
+ * event to hang this on; the stored step is the event. Three rules keep it
+ * from becoming noise:
+ *
+ *   * A device that has never stored a step gets nothing. Otherwise every
+ *     existing user is congratulated the first time they open the new version,
+ *     for something they did months ago.
+ *   * A drop stores silently. Being told you went down is what the banner is
+ *     for, and it says it in a quieter voice than a full-screen overlay.
+ *   * More than one step at once still fires once, and names where you came
+ *     from, because "you gained three steps" is the better sentence anyway.
+ */
+function announceRankUp(rank) {
+  const seen = store.state.settings.lastSeenRankStep;
+  // Explicitly against null, not through Number(): Number(null) is 0, which is
+  // finite, so a device that has never recorded a step read as "was on step 0"
+  // and every existing user was congratulated on first launch for work they did
+  // months ago.
+  if (seen === null || seen === undefined || !Number.isFinite(Number(seen))) {
+    store.setSetting('lastSeenRankStep', rank.step);
+    return;
+  }
+  const from = Number(seen);
+  if (rank.step <= from) {
+    if (rank.step < from) store.setSetting('lastSeenRankStep', rank.step);
+    return;
+  }
+  store.setSetting('lastSeenRankStep', rank.step);
+  celebrateRankUp(rank, {
+    title: `${tTier(rank.tier.key)} ${rank.division}`,
+    subtitle: t(rank.step - from > 1 ? 'home.rating.rankUpNowMany' : 'home.rating.rankUpNow', {
+      steps: rank.step - from, step: rank.step, steps_total: rank.steps,
+    }),
+    dismiss: t('common.close'),
+  });
+}
+
+/**
  * How old a personal best has to be before the app admits it is history.
  *
  * Six months. The rank is an all-time record by design and stays one, because
@@ -698,9 +744,10 @@ const relMonths = (days) => tn(Math.max(1, Math.round(days / 30.44)), 'unit.mont
 /* ===================== the rank ladder on screen ===================== */
 
 /** "Diamond II" as one chip, coloured by rank. */
-function rankChip(rank) {
+function rankChip(rank, { badge = true } = {}) {
   if (!rank) return null;
-  return el(`span.tier-chip.tier-${rank.tierIndex}`, {}, [
+  return el(`span.tier-chip.tier-${rank.tierIndex}${badge ? '.with-badge' : ''}`, {}, [
+    badge ? rankBadge(rank.tierIndex, { size: 17 }) : null,
     tTier(rank.tier.key),
     el('span.div-mark', { text: rank.division }),
   ]);

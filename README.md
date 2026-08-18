@@ -331,6 +331,7 @@ warnings that do matter.
 | `index.html` | App shell — top bar, screen host, tab bar, sheet, rest timer |
 | `js/app.js` | Bootstrap and hash router (`#/home`, `#/progress/<exerciseId>`) |
 | `js/standards.js` | Strength standards tables and the rating engine |
+| `js/rank-art.js` | The nine rank badges, and the rank-up celebration |
 | `js/bodymap.js` | Loads the body SVGs and colours regions by tier |
 | `assets/body-*.svg` | GENERATED muscle map art — rebuild, don't hand-edit |
 | `tools/build_bodymap.py` | Regenerates the body map from body-muscles |
@@ -538,6 +539,34 @@ and a share-below. What that shape rules out is the point:
 - Contributing is what buys the answer. There is no read-only path, so nobody is
   measured against a population they declined to join, and switching the setting
   off calls `forget_rank_scores`, which deletes rather than pauses.
+
+**The badges are drawn, not downloaded.** `js/rank-art.js`. The sets worth
+having (game-icons.net under CC BY 3.0, the Noun Project, Flaticon, Vecteezy)
+are all usable with attribution, and this app already has the machinery for
+that. The reason none of them is used is not the licence: none of them is a
+*ladder*. A bronze medal from one set, a diamond from another and a crown from
+a third share no silhouette, stroke weight or optical size, and the whole point
+of twenty-seven steps is that the badges read as one family that escalates.
+Nine unrelated icons would look like clip art in a row.
+
+So there is one shield, and it earns things: a stud, then chevrons, then a cut
+gem, then stars, then wings, then a crown. Every part is filled with
+`var(--tier)`, so the artwork inherits the colour ramp instead of fighting it,
+it draws at any size from a chip to a full-screen celebration, it costs nothing
+over the wire, and there is no third party to credit or to outlive. A test
+asserts the ladder only ever gains: no rank may lose an embellishment the rank
+below it had.
+
+**Ranking up is a moment, and it happens once.** The rating is rebuilt from the
+whole log on every render, so there is no event to hang a celebration on. The
+stored `lastSeenRankStep` is the event: the computed step can overtake it
+exactly once. A device that has never stored one gets nothing, or every
+existing user would be congratulated on first launch for work they did months
+ago — and that check has to be `seen === null`, because `Number(null)` is 0 and
+finite. A drop stores silently; being told you went down is the banner's job
+and it says it more quietly. Under `prefers-reduced-motion` the rays and every
+animation are dropped and the badge and the words remain, because the
+decoration is the part that is safe to lose.
 
 **The ladder reports a drop as plainly as a climb.** `recentRankChange` compares
 against where you stood eight weeks ago in both directions. A demotion is

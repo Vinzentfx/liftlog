@@ -678,6 +678,81 @@ label.field > span {
   background: linear-gradient(90deg, color-mix(in srgb, var(--tier, var(--accent)) 45%, transparent), var(--tier, var(--accent)));
 }
 
+/* ============ rank badges ============ */
+
+/* The badge inherits --tier from a .tier-N ancestor or carries its own. It is
+   drawn at 64x64 and scaled, so one definition serves the chip and the
+   celebration. */
+.rank-badge { display: block; overflow: visible; }
+.rank-badge.glow { filter: drop-shadow(0 0 18px color-mix(in srgb, var(--tier) 55%, transparent)); }
+
+/* Inside a chip the badge replaces the dot, so the dot has to go. */
+.tier-chip.with-badge::before { display: none; }
+.tier-chip.with-badge { padding-left: 6px; gap: 5px; }
+.tier-chip .rank-badge { margin: -3px 0; }
+
+/* The hero badge sits above the score and carries the rank's colour. */
+.rank-hero-badge { display: flex; justify-content: center; margin-bottom: 2px; }
+
+/* ============ ranking up ============ */
+
+.rank-up-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; padding: 24px; text-align: center;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  animation: rank-up-in .22s ease both;
+}
+.rank-up-overlay.leaving { animation: rank-up-out .2s ease both; }
+.rank-up-overlay.still, .rank-up-overlay.still * { animation: none !important; }
+
+.rank-up-stage { position: relative; display: grid; place-items: center; width: 210px; height: 210px; }
+
+/* One rotating conic sweep rather than a dozen animated spokes: a single
+   composited layer, and it reads as light rather than as a loading spinner. */
+.rank-up-rays {
+  position: absolute; inset: 0; border-radius: 50%;
+  /* repeating-, not plain: a conic-gradient whose stops stop at 30deg holds the
+     last colour for the remaining 330, which drew exactly one spoke sticking
+     out of the badge like a stray line. */
+  background: repeating-conic-gradient(from 0deg,
+    color-mix(in srgb, var(--tier) 58%, transparent) 0deg 5deg, transparent 5deg 30deg);
+  mask-image: radial-gradient(circle, transparent 34%, #000 46%, #000 68%, transparent 78%);
+  -webkit-mask-image: radial-gradient(circle, transparent 34%, #000 46%, #000 68%, transparent 78%);
+  animation: rank-up-spin 9s linear infinite;
+  opacity: .85;
+}
+.rank-up-badge { position: relative; animation: rank-up-pop .62s cubic-bezier(.2, 1.5, .35, 1) both .06s; }
+
+.rank-up-title {
+  font-size: 27px; font-weight: 780; letter-spacing: -.02em; color: var(--tier, var(--text));
+  animation: rank-up-rise .4s ease both .3s;
+}
+.rank-up-sub {
+  font-size: 14px; color: var(--text-dim); max-width: 22rem; line-height: 1.45;
+  animation: rank-up-rise .4s ease both .4s;
+}
+
+@keyframes rank-up-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rank-up-out { to { opacity: 0; } }
+@keyframes rank-up-spin { to { transform: rotate(360deg); } }
+@keyframes rank-up-pop {
+  from { transform: scale(.3) rotate(-14deg); opacity: 0; }
+  to { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes rank-up-rise {
+  from { transform: translateY(9px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* The overlay is celebration, so it is the first thing to stand down when the
+   reader has asked for less movement. The badge and the words remain. */
+@media (prefers-reduced-motion: reduce) {
+  .rank-up-overlay, .rank-up-overlay * { animation: none !important; }
+  .rank-up-rays { display: none; }
+}
+
 /* Where a rank sits in the distribution of everyone logging the same thing.
    A track with a marker rather than a fill: the number is a position among
    others, not an amount of anything. */

@@ -39,6 +39,7 @@ const { weekSummary } = await import('../js/week-card.js');
 const { THRESHOLDS } = await import('../js/evidence.js');
 const { dayTotals, energySplit, maintenanceEstimate, NUTRIENTS, macroTargets } = await import('../js/nutrition.js');
 const { latestWeight, withinE1rmWindow } = await import('../js/models.js');
+const { PARTS: BADGE_PARTS } = await import('../js/rank-art.js');
 const { STORES } = await import('../js/db.js');
 const { searchLibrary, searchFoods, toFoodFields } = await import('../js/foodsearch.js');
 const { normaliseBarcode, nutritionLooksPlausible } = await import('../js/foodlookup.js');
@@ -1141,6 +1142,29 @@ test('every caveat the rating shows is a translatable key', () => {
   for (const value of Object.values(LOW_CONFIDENCE)) {
     assert.match(value, /^[a-z][\w.]+$/, `${value} looks like prose, not a key`);
   }
+});
+
+test('every rank has a badge, and the badges only ever gain', () => {
+  assert.equal(BADGE_PARTS.length, TIERS.length, 'one badge per rank, no gaps');
+
+  // The ladder has to read as a ladder: a rank never loses an embellishment the
+  // rank below it had. Chevrons reset once when the gem arrives, which is the
+  // one deliberate exception and is asserted rather than allowed by accident.
+  const gemAt = BADGE_PARTS.findIndex((p) => p.gem);
+  assert.ok(gemAt > 0);
+  for (let i = 1; i < BADGE_PARTS.length; i++) {
+    const prev = BADGE_PARTS[i - 1], here = BADGE_PARTS[i];
+    if (i !== gemAt) assert.ok(here.chevrons >= prev.chevrons, `rank ${i} lost a chevron`);
+    assert.ok(here.stars >= prev.stars || here.wings, `rank ${i} lost a star for nothing`);
+    for (const key of ['gem', 'wings', 'crown']) {
+      assert.ok(!prev[key] || here[key], `rank ${i} lost its ${key}`);
+    }
+  }
+  // And the top rank has everything there is.
+  const top = BADGE_PARTS[BADGE_PARTS.length - 1];
+  assert.ok(top.gem && top.wings && top.crown && top.chevrons === 3);
+  // The bottom is plain but not empty.
+  assert.equal(BADGE_PARTS[0].stud, true);
 });
 
 test('a rank remembers when its best was actually set', () => {
