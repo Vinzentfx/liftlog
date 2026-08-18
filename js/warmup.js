@@ -39,7 +39,10 @@ const TOP_SHARE = THRESHOLDS.warmupTopShare.value;
  */
 function ramp(exercise, { targetReps = 10, alreadyWarm = false } = {}) {
   const heavyBar = isBenchmark(exercise?.name) || exercise?.equipment === 'Barbell';
-  const reps = Number(targetReps) || 10;
+  // Guarded against a nonsense target: a negative or zero rep goal used to
+  // fall into the heavy-single branch and offer a three-step ramp.
+  const parsed = Number(targetReps);
+  const reps = Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
 
   // Heavy, low-rep work. Not covered by either trial — see the header — so this
   // stays the conventional three-step ramp, and the caveat in the UI says which

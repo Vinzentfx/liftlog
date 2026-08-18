@@ -543,6 +543,10 @@ test('the rank comparison is an aggregate, opt-in, and withdrawable', async () =
   // somebody switched off a hint.
   assert.match(models, /outlierHints: true/);
   assert.match(home, /if \(settings\.outlierHints === false\) return null;/);
+  // Machines and cables only. Every cause the sheet explains is about how a
+  // machine reports load, so offering "count half of it" for a barbell squat
+  // would be an offer to make the log wrong.
+  assert.match(home, /if \(!lift\.machine\) return null;/);
   const standards = await read('js/standards.js');
   assert.doesNotMatch(standards, /outlierHints/);
   assert.match(home, /if \(rankSyncing \|\| !settings\.shareRankComparison/);

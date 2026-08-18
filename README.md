@@ -559,6 +559,24 @@ national-record strength. That is the honest answer, and it is what fixed the
 case this was found through — a lateral raise machine handing out the top rank
 at well under a full stack.
 
+**Everything in `standards.js` is kilograms, and the app is not.** The published
+standards are bodyweight multiples against a 60 or 80 kg reference, and the
+allometric exponent means the arithmetic does not cancel out: fed pounds, it
+inflates. The same lifter came out a rank and a half stronger in pounds than in
+kilograms, silently, for as long as the units setting has existed. The ratio is
+now computed in kilograms whatever the app displays, and anything handed back
+for a screen is converted on the way out.
+
+**The fallback bands have to stay in step with the anchors.** When the anchored
+isolation machines were tightened, `MACHINE_BOUNDS` was left behind, so
+`upperIsolation` asked for a Legend of 85 kg where every *recognised* isolation
+machine asked 110 to 175. The 63 library movements with no anchor became the
+softest route to a rank in the app: a full cable tower on a wrist curl came out
+Radiant. There is a test asserting an unrecognised machine is never easier than
+a recognised one, and `machineCategory` now checks for squat, deadlift and shrug
+patterns before it gives up — a Smith machine deadlift landing in the triceps
+band is not a rounding error, it is three ranks.
+
 **Two name spaces had drifted apart.** The curated tables were written against
 the seed list; the bundled catalogue calls many of the same machines something
 else ("Ab Crunch Machine" for Machine Crunch, four spellings of a triceps

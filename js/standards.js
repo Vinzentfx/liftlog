@@ -200,6 +200,7 @@ export const CONTRIB_EXTRA = {
   'Machine Preacher Curl':     { biceps: 1, forearms: 0.25 },
   'Preacher Curl Machine':     { biceps: 1, forearms: 0.25 },
   'Rope Hammer Curl':          { biceps: 0.75, forearms: 1 },
+  'Cable Wrist Curl':          { forearms: 1 },
   'Machine Triceps Extension': { triceps: 1 },
   'Overhead Rope Triceps Extension': { triceps: 1 },
   'Triceps Pushdown':          { triceps: 1 },
@@ -236,6 +237,10 @@ export const CONTRIB_EXTRA = {
   'Glute Drive Machine':       { glutes: 1, hamstrings: 0.5 },
   'Standing Hip Abduction Machine': { glutes: 1 },
   'Kneeling Leg Curl Machine': { hamstrings: 1, calves: 0.2 },
+  'Single-Leg Extension':      { quads: 1 },
+  'Machine Shrug':             { traps: 1, forearms: 0.35 },
+  'Smith Machine Deadlift':    { 'lower-back': 1, hamstrings: 0.85, glutes: 0.8, traps: 0.5, forearms: 0.45 },
+  'Smith Machine Good Morning': { hamstrings: 1, 'lower-back': 0.9, glutes: 0.7 },
   'Seated Dip Machine':        { triceps: 1, chest: 0.75, 'delts-front': 0.4 },
 };
 
@@ -349,6 +354,9 @@ const MACHINE_ANCHOR = {
   'Machine Preacher Curl':      ['Barbell Row', 0.98],
   'Preacher Curl Machine':      ['Barbell Row', 0.98],
   'Rope Hammer Curl':           ['Barbell Row', 0.86],
+  // Forearms move a lot of weight through almost no range, so the number on the
+  // stack is at its least honest here of anywhere in the gym.
+  'Cable Wrist Curl':           ['Barbell Row', 0.90],
   'Bayesian Cable Curl':        ['Barbell Row', 0.22],
   'Machine Triceps Extension':  ['Close-Grip Bench Press', 0.89],
   'Triceps Pushdown':           ['Close-Grip Bench Press', 0.89],
@@ -364,6 +372,10 @@ const MACHINE_ANCHOR = {
   'Lying Leg Curl':             ['Romanian Deadlift', 0.92],
   'Seated Leg Curl':            ['Romanian Deadlift', 0.95],
   'Kneeling Leg Curl Machine':  ['Romanian Deadlift', 0.45],
+  'Single-Leg Extension':       ['Back Squat', 0.45],
+  'Machine Shrug':              ['Deadlift', 0.85],
+  'Smith Machine Deadlift':     ['Deadlift', 1.00],
+  'Smith Machine Good Morning': ['Romanian Deadlift', 0.75],
   'Standing Calf Raise':        ['Back Squat', 1.00],
   'Seated Calf Raise':          ['Back Squat', 0.65],
   'Smith Machine Romanian Deadlift': ['Romanian Deadlift', 1.00],
@@ -400,7 +412,7 @@ const ALIAS = {
   'Kneeling Cable Crunch With Alternating Oblique Twists': 'Machine Crunch',
 
   'Leg Extensions': 'Leg Extension',
-  'Single-Leg Leg Extension': 'Kneeling Leg Curl Machine',
+  'Single-Leg Leg Extension': 'Single-Leg Extension',
   'Lying Leg Curls': 'Lying Leg Curl',
   'Standing Leg Curl': 'Kneeling Leg Curl Machine',
 
@@ -419,6 +431,8 @@ const ALIAS = {
   'Machine Preacher Curls': 'Machine Preacher Curl',
   'Cable Preacher Curl': 'Machine Preacher Curl',
   'Cable Hammer Curls - Rope Attachment': 'Rope Hammer Curl',
+  'Seated Two-Arm Palms-Up Low-Pulley Wrist Curl': 'Cable Wrist Curl',
+  'Cable Wrist Curl ': 'Cable Wrist Curl',
 
   'Cable Seated Lateral Raise': 'Machine Lateral Raise',
   'Cable Rear Delt Fly': 'Machine Rear Delt Fly',
@@ -449,6 +463,28 @@ const ALIAS = {
   'Wide-Grip Pulldown Behind The Neck': 'Lat Pulldown Machine',
   'One Arm Lat Pulldown': 'Single-Arm Lat Pulldown',
   'Straight-Arm Pulldown': 'Machine Pullover',
+
+  // Variants that differ from an anchored name by a letter, a bracket or a word
+  // order. Each of these was falling through to the coarse category bands and
+  // coming out at Legend on a normal stack.
+  'Butterfly Machine': 'Butterfly',
+  'Machine Bicep Curl': 'Machine Biceps Curl',
+  'Machine Shoulder (Military) Press': 'Machine Shoulder Press',
+  'Dip Machine': 'Machine Dip',
+  'Reverse Machine Flyes': 'Machine Rear Delt Fly',
+  'Decline Smith Press': 'Smith Machine Bench Press',
+  'Smith Machine Decline Press': 'Smith Machine Bench Press',
+  'Leverage Shrug': 'Machine Shrug',
+  'Smith Machine Shoulder Shrugs': 'Machine Shrug',
+  'Smith Machine Behind the Back Shrug': 'Machine Shrug',
+  'Leverage Deadlift': 'Smith Machine Deadlift',
+  'Smith Machine Dead Lifts': 'Smith Machine Deadlift',
+  'Smith Machine Good Mornings': 'Smith Machine Good Morning',
+  'Reverse Hyperextension': 'Glute-Biased 45-Degree Back Extension',
+  'Smith Machine Pistol Squat': 'Single-Leg Extension',
+  'Lying Machine Squat': 'Smith Machine Squat',
+  'Lying Squat': 'Smith Machine Squat',
+  'Chair Squat': 'Smith Machine Squat',
   'Rope Straight-Arm Pulldown': 'Machine Pullover',
   'Cable Incline Pushdown': 'Machine Pullover',
 };
@@ -469,21 +505,28 @@ const UNRATEABLE = new Set(['Assisted Pull-Up Machine', 'Reverse Nordic Curl']);
  * Fallback bands for a machine with no anchor — a custom exercise, or one of the
  * long tail of the library. Same four published anchor points as a barbell lift
  * (novice / intermediate / advanced / elite entry) so they run through the same
- * ladder, and deliberately strict: an unrecognised machine should not be an
- * easier route to a rank than a recognised one.
+ * ladder.
+ *
+ * These have to stay in step with MACHINE_ANCHOR, and once did not: when the
+ * anchored isolation machines were tightened, this table was left behind, so
+ * `upperIsolation` sat at a Legend of 85 kg while every *recognised* isolation
+ * machine asked for 110 to 175. The result was that the 63 library movements
+ * with no anchor became the easiest route to a rank in the whole app — a full
+ * cable tower on a wrist curl came out Radiant. An unrecognised machine must
+ * never be an easier route than a recognised one, and there is a test for it.
  */
 const MACHINE_BOUNDS = {
   male: {
-    upperPress: [0.55, 0.95, 1.45, 1.95], upperPull: [0.60, 1.00, 1.45, 1.90],
-    upperIsolation: [0.30, 0.50, 0.75, 1.05], lowerPress: [2.00, 3.20, 4.50, 6.00],
-    lowerIsolation: [0.50, 0.85, 1.25, 1.70], hip: [1.25, 2.00, 2.75, 3.60],
-    core: [0.45, 0.75, 1.10, 1.50],
+    upperPress: [0.60, 1.05, 1.60, 2.15], upperPull: [0.68, 1.14, 1.65, 2.16],
+    upperIsolation: [0.48, 0.80, 1.19, 1.67], lowerPress: [2.00, 3.20, 4.50, 6.00],
+    lowerIsolation: [0.73, 1.23, 1.81, 2.46], hip: [1.25, 2.00, 2.75, 3.60],
+    core: [0.50, 0.84, 1.23, 1.68],
   },
   female: {
-    upperPress: [0.35, 0.62, 0.95, 1.30], upperPull: [0.40, 0.68, 1.00, 1.32],
-    upperIsolation: [0.20, 0.34, 0.52, 0.72], lowerPress: [1.50, 2.45, 3.45, 4.60],
-    lowerIsolation: [0.35, 0.60, 0.88, 1.20], hip: [1.00, 1.65, 2.35, 3.10],
-    core: [0.32, 0.53, 0.78, 1.06],
+    upperPress: [0.39, 0.68, 1.05, 1.43], upperPull: [0.45, 0.77, 1.14, 1.50],
+    upperIsolation: [0.32, 0.54, 0.83, 1.15], lowerPress: [1.50, 2.45, 3.45, 4.60],
+    lowerIsolation: [0.51, 0.87, 1.28, 1.74], hip: [1.00, 1.65, 2.35, 3.10],
+    core: [0.36, 0.59, 0.87, 1.19],
   },
 };
 
@@ -495,12 +538,20 @@ export function machineCategory(name) {
   if (/(crunch|back extension)/.test(n)) return 'core';
   if (/(row|pulldown|pull-up|pullover)/.test(n)) return 'upperPull';
   if (/(chest press|bench press|incline press|shoulder press|machine dip|seated dip)/.test(n)) return 'upperPress';
-  // Before falling through, ask which half of the body it is. An unrecognised
-  // leg machine used to land on the triceps band, which is the wrong direction
-  // to be wrong in: it made an unknown lower-body movement far easier to rank
-  // than a known one.
+  // Heavy compound patterns, before anything else gets a chance to call them
+  // isolation. A Smith machine deadlift landing on the triceps band is not a
+  // rounding error, it is three ranks.
+  if (/(squat|lunge|split squat|step-up)/.test(n)) return 'lowerPress';
+  if (/(deadlift|dead lift|good morning|hang clean|power clean|romanian)/.test(n)) return 'hip';
+  if (/(shrug|high pull)/.test(n)) return 'upperPull';
+
+  // Then which half of the body it is. An unrecognised leg machine used to land
+  // on the triceps band, which is the wrong direction to be wrong in: it made
+  // an unknown lower-body movement far easier to rank than a known one.
   if (/(leg|glute|hamstring|quad|thigh|calf|hip|adduct|abduct)/.test(n)) return 'lowerIsolation';
   if (/(abs|core|oblique|crunch|sit-up|plank)/.test(n)) return 'core';
+  if (/(fly|flye|pec|rear delt|lateral raise)/.test(n)) return 'upperIsolation';
+  if (/(press|dip)/.test(n)) return 'upperPress';
   return 'upperIsolation';
 }
 
@@ -570,21 +621,37 @@ export function ladder(anchors) {
 /** Ranks with no published standard behind them at all. */
 export const EXTRAPOLATED_TIERS = new Set(['challenger', 'immortal', 'radiant']);
 
+/**
+ * Everything in this file is kilograms, and the app is not.
+ *
+ * The published standards are bodyweight multiples against a 60 or 80 kg
+ * reference, and the allometric exponent means the arithmetic is *not*
+ * unit-agnostic: feeding it pounds does not cancel out, it inflates. The same
+ * lifter logged in pounds came out a rank and a half stronger than in
+ * kilograms, silently, for as long as the setting has existed. So the ratio is
+ * computed in kilograms whatever the app is displaying, and anything handed
+ * back for a screen is converted return.
+ */
+const LB_PER_KG = 2.2046226218;
+const toKg = (value, units) => (units === 'lb' ? Number(value) / LB_PER_KG : Number(value));
+const fromKg = (value, units) => (units === 'lb' ? value * LB_PER_KG : value);
+
 export function strengthRatio(oneRepMax, profile) {
   const sex = profile.sex === 'female' ? 'female' : 'male';
-  const bw = Number(profile.bodyweight);
-  if (!bw || bw <= 0 || !oneRepMax) return null;
+  const bw = toKg(profile.bodyweight, profile.units);
+  const load = toKg(oneRepMax, profile.units);
+  if (!bw || bw <= 0 || !load) return null;
   const referenceBw = sex === 'female' ? 60 : 80;
-  return oneRepMax / (Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33));
+  return load / (Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33));
 }
 
-/** The inverse of strengthRatio: what a ratio is worth in kilograms. */
+/** The inverse of strengthRatio, in whatever unit the app is displaying. */
 export function weightForRatio(ratio, profile) {
   const sex = profile.sex === 'female' ? 'female' : 'male';
-  const bw = Number(profile.bodyweight);
+  const bw = toKg(profile.bodyweight, profile.units);
   if (!bw || bw <= 0) return null;
   const referenceBw = sex === 'female' ? 60 : 80;
-  return ratio * Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33);
+  return fromKg(ratio * Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33), profile.units);
 }
 
 /**

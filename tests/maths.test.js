@@ -28,7 +28,8 @@ process.env.TZ = 'Europe/Berlin';
 const { e1rm, isCounted, startOfWeek, entryStats, sessionStats, newMeal, dayKey, slotFor, seedExercises, bestOneRepMaxByName, estimatePlanDuration, bodyweightLoadMode } = await import('../js/models.js');
 const { scoreFor, scoreForMachine, buildRating, ANATOMY, TIERS, DIVISIONS, RANK_STEPS,
   rankOf, ladder, boundsFor, toNextDivision, ratedMachineNames, machineCategory,
-  LOW_CONFIDENCE, EXTRAPOLATED_TIERS, isBenchmark, BAND } = await import('../js/standards.js');
+  LOW_CONFIDENCE, EXTRAPOLATED_TIERS, isBenchmark, BAND, canonical,
+  weightForRatio } = await import('../js/standards.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
 const { rateExercise } = await import('../js/exercise-rating.js');
@@ -47,7 +48,7 @@ const { parseNumber, plural } = await import('../js/ui.js');
 const { platePlan, describePlates } = await import('../js/plates.js');
 const { warmupSets, warmupCount, alreadyWarm } = await import('../js/warmup.js');
 const { exerciseHistory, priorWork, readiness, openingSet, nextSet, projectFresh, setDecay,
-  effortE1rm, pooledOrderCost, loadStep, roundLoad } = await import('../js/progression.js');
+  effortE1rm, pooledOrderCost, loadStep, roundLoad, parseReps } = await import('../js/progression.js');
 const { stallReport, describeStall } = await import('../js/fatigue.js');
 const { setLanguage } = await import('../js/i18n.js');
 const { timeline, timelineReady, MIN_LOGGED_DAYS } = await import('../js/timeline.js');
@@ -110,6 +111,29 @@ test('ambiguous old weighted pull-up entries cannot create a false Elite score',
   assert.equal(bestOneRepMaxByName(make(old), exercises, { bodyweight: 80 }).has('Pull-Up'), false);
   const confirmed = { ...old, weight: 20, loadMode: 'added' };
   assert.ok(bestOneRepMaxByName(make(confirmed), exercises, { bodyweight: 80 }).get('Pull-Up') > 100);
+});
+
+test('the same lifter ranks the same in pounds as in kilograms', () => {
+  // The standards are bodyweight multiples against a 60 or 80 kg reference, and
+  // the allometric exponent means the arithmetic does not cancel out: fed
+  // pounds, it inflates. The same person came out a rank and a half stronger in
+  // pounds than in kilograms, silently, for as long as the setting existed.
+  const inKg = { sex: 'male', bodyweight: 81.6, age: 24, units: 'kg' };
+  const inLb = { sex: 'male', bodyweight: 180, age: 24, units: 'lb' };
+  const kg = scoreFor('Barbell Bench Press', 102, inKg);
+  const lb = scoreFor('Barbell Bench Press', 225, inLb);
+  assert.ok(Math.abs(kg - lb) < 0.2, `${kg.toFixed(1)} in kg against ${lb.toFixed(1)} in lb`);
+
+  // And what comes back for a screen is in the unit that screen is using.
+  const nextKg = toNextDivision('Barbell Bench Press', kg, inKg).weight;
+  const nextLb = toNextDivision('Barbell Bench Press', lb, inLb).weight;
+  assert.ok(Math.abs(nextLb / 2.2046226218 - nextKg) < 0.5,
+    `${nextKg.toFixed(1)} kg against ${nextLb.toFixed(1)} lb`);
+
+  // A profile with no units at all is treated as kilograms, which is what every
+  // record written before the setting existed means.
+  assert.equal(scoreFor('Barbell Bench Press', 102, { sex: 'male', bodyweight: 81.6, age: 24 }).toFixed(3),
+    kg.toFixed(3));
 });
 
 test('allometric bodyweight scaling reduces the former light-lifter bias', () => {
@@ -1283,6 +1307,64 @@ test('one lifter\'s machines agree with their own barbell lifts', () => {
   }
 });
 
+test('an unrecognised machine lands in a category that fits the movement', () => {
+  // machineCategory used to send anything it did not recognise to
+  // upperIsolation, so a Smith machine deadlift was ranked against a triceps
+  // band. That is not a rounding error, it is three ranks.
+  const cases = {
+    'Smith Machine Dead Lifts': 'hip',
+    'Smith Machine Good Mornings': 'hip',
+    'Lying Machine Squat': 'lowerPress',
+    'Machine Lunge': 'lowerPress',
+    'Leverage Shrug': 'upperPull',
+    'Reverse Machine Flyes': 'upperIsolation',
+    'Some Unnamed Chest Press': 'upperPress',
+    'Leg Press': 'lowerPress',
+    'Ab Crunch Machine': 'core',
+  };
+  for (const [name, expected] of Object.entries(cases)) {
+    assert.equal(machineCategory(name), expected, name);
+  }
+});
+
+test('an unrecognised machine is never an easier route than a recognised one', () => {
+  // The fallback bands and the anchored machines have to stay in step. They once
+  // did not: the anchored isolation machines were tightened and this table was
+  // left behind, so the 63 library movements with no anchor became the softest
+  // thing in the app and a full cable tower on a wrist curl came out Radiant.
+  const profile = { sex: 'male', bodyweight: 82, age: 24 };
+  const legendOf = (name) => weightForRatio(boundsFor(name, profile, { machine: true })[7], profile);
+
+  const pairs = [
+    ['upperIsolation', 'Machine Lateral Raise', 'Triceps Pushdown'],
+    ['upperPress', 'Machine Chest Press', 'Machine Shoulder Press'],
+    ['upperPull', 'Seated Cable Row', 'Machine Row'],
+    ['core', 'Machine Crunch'],
+  ];
+  for (const [category, ...anchored] of pairs) {
+    // A name nothing matches, steered into the category under test.
+    const unknown = { upperIsolation: 'Zzz Unknown Contraption', upperPress: 'Zzz Unknown Chest Press',
+      upperPull: 'Zzz Unknown Row', core: 'Zzz Unknown Crunch' }[category];
+    assert.equal(machineCategory(unknown), category, `${unknown} should land in ${category}`);
+    const fallback = legendOf(unknown);
+    for (const name of anchored) {
+      assert.ok(fallback >= legendOf(name) * 0.8,
+        `${category}: the fallback asks ${Math.round(fallback)} kg where ${name} asks ${Math.round(legendOf(name))}`);
+    }
+  }
+});
+
+test('a full cable tower is not a top rank on a wrist curl', () => {
+  // Forearms move a lot of weight through almost no range, which makes the
+  // number on the stack least honest here of anywhere in the gym.
+  const profile = { sex: 'male', bodyweight: 82, age: 24 };
+  const maxed = rankOf(scoreForMachine('Cable Wrist Curl', e1rm(85, 12), profile));
+  assert.ok(maxed.tierIndex < TIERS.findIndex((t) => t.key === 'legend'),
+    `maxing a tower on wrist curls came out ${maxed.tier.key}`);
+  assert.equal(canonical('Seated Two-Arm Palms-Up Low-Pulley Wrist Curl'), 'Cable Wrist Curl');
+  assert.ok(ANATOMY['Cable Wrist Curl'].forearms, 'and it reaches the forearms on the map');
+});
+
 test('an estimate beyond what the stack can produce says so', () => {
   const profile = { sex: 'male', bodyweight: 82, age: 24 };
   const best = new Map([['Machine Lateral Raise', 187]]);
@@ -1322,6 +1404,39 @@ test('a rank remembers when its best was actually set', () => {
   const rating = buildRating(best, { sex: 'male', bodyweight: 80, age: 25 });
   assert.equal(rating.lifts[0].achievedAt, long,
     'and the date travels with it, so the screen can say how old it is');
+});
+
+test('a rep target written as sets times reps is not read as a range', () => {
+  // "3x8" is three sets of eight. Read as a range it becomes 3 to 8, which
+  // makes the engine treat a set of three as clearing the bottom of the target
+  // and hand out weight increases for it.
+  assert.deepEqual(parseReps('3x8'), { low: 8, high: 8 });
+  assert.deepEqual(parseReps('4 × 10'), { low: 10, high: 10 });
+  assert.deepEqual(parseReps('3x8-12'), { low: 8, high: 12 });
+  // A real range is still a range.
+  assert.deepEqual(parseReps('8-12'), { low: 8, high: 12 });
+  assert.deepEqual(parseReps('12'), { low: 12, high: 12 });
+  assert.equal(parseReps('AMRAP'), null);
+  assert.equal(parseReps('0-0'), null, 'zero reps is not a target, it is a typo');
+});
+
+test('a suggestion never prints reps the weight cannot carry', () => {
+  // After a heavy single the old version stepped down one increment and then
+  // clamped the rep count up into the range, printing "197.5 kg × 6" off a
+  // 200 kg single. The weight has to move far enough to reach the range, and
+  // what is printed has to be what the maths predicts.
+  const single = [session(at(2026, 7, 1), [entry(BENCH.id, [set(200, 1)])])];
+  const rows = exerciseHistory(single, BENCH.id, byId);
+  const tip = openingSet(rows, { exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20 });
+  assert.equal(tip.change, 'down');
+  assert.ok(tip.weight < 200 * 0.9, `${tip.weight} kg is still a single, not a set of six`);
+  assert.ok(tip.reps >= 5 && tip.reps <= 10);
+
+  // The predicted reps and the predicted weight have to agree with each other:
+  // Epley on the suggestion must land inside the range it claims to aim at.
+  const implied = tip.weight * (1 + (tip.reps + 1) / 30);
+  assert.ok(Math.abs(implied - tip.capacity) / tip.capacity < 0.08,
+    `${tip.weight} × ${tip.reps} implies ${implied.toFixed(0)} against a capacity of ${tip.capacity.toFixed(0)}`);
 });
 
 test('a manual exercise is never given a number it did not ask for', () => {

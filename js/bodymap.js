@@ -54,6 +54,9 @@ export function bodyMap(byRegion = {}, opts = {}) {
   const fills = {};
   for (const [region, rating] of Object.entries(byRegion)) {
     if (rating === null || rating === undefined) continue;
+    // A string is a colour, used straight. That is for maps which are not rank
+    // scales at all and must not borrow the ladder's palette.
+    if (typeof rating === 'string') { fills[region] = rating; continue; }
     let idx;
     if (typeof rating === 'number') idx = rating;
     else if (rating.tier !== undefined && rating.tier !== null) idx = rating.tier;
@@ -93,10 +96,12 @@ export function bodyMap(byRegion = {}, opts = {}) {
 /** Highlight-only map for the exercise library: primary vs secondary muscles. */
 export function muscleHighlight(primary = [], secondary = []) {
   const byRegion = {};
-  // Two ends of the ramp, not two ranks: this map says "primary or secondary",
-  // and reusing the ladder's colours keeps one visual language.
-  for (const r of secondary) byRegion[r] = 1;                // dimmer step
-  for (const r of primary) byRegion[r] = TIERS.length - 1;   // brightest step
+  // Not the rank ramp. This map answers "primary or secondary", which is not a
+  // scale and has no business borrowing one: pinned to the ends of the ladder,
+  // it went from cyan-against-silver to near-white-against-silver the moment
+  // three ranks were added on top, and the two stopped being tellable apart.
+  for (const r of secondary) byRegion[r] = 'var(--text-faint)';
+  for (const r of primary) byRegion[r] = 'var(--accent-hi)';
   return bodyMap(byRegion, { lit: true });
 }
 

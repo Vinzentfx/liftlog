@@ -758,12 +758,16 @@ function machineCorrections() {
     if (Number(setup.loadFactor) > 0 && Number(setup.loadFactor) !== 1) loadFactors[ex.name] = Number(setup.loadFactor);
     if (Number(setup.stackMax) > 0) stackMax[ex.name] = Number(setup.stackMax);
   }
-  return { loadFactors, stackMax, regionsByName: regionsFromExercises(store.state.exercises) };
+  return { loadFactors, stackMax };
 }
 
 /** The "this one does not belong" row, with the fix attached. */
 function outlierNotice(lift, settings) {
   if (settings.outlierHints === false) return null;
+  // Machines and cables only. Every cause the sheet explains is about how a
+  // machine reports load, and offering "count half of it" for a barbell squat
+  // or a pull-up is an offer to make the log wrong.
+  if (!lift.machine) return null;
   if (!lift.outlier && !lift.overStack) return null;
   const ex = store.state.exercises.find((e) => e.name === lift.name);
   if (!ex) return null;

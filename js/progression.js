@@ -345,9 +345,15 @@ export function setDecay(rows, assumedRir = 0) {
 
 export function parseReps(spec) {
   if (!spec) return null;
-  const nums = String(spec).match(/\d+/g);
+  // "3x8" is three sets of eight, not a range of three to eight. Written that
+  // way it used to widen the target to 3–8, which made the engine chase eight
+  // reps as the *top* of a range whose bottom was three, and recommend weight
+  // increases off a set of three.
+  const text = String(spec).replace(/^\s*\d+\s*[x×*]\s*/i, '');
+  const nums = text.match(/\d+/g);
   if (!nums || !nums.length) return null;
-  const ns = nums.map(Number);
+  const ns = nums.map(Number).filter((n) => n > 0);
+  if (!ns.length) return null;
   return { low: Math.min(...ns), high: Math.max(...ns) };
 }
 
@@ -490,7 +496,12 @@ export function openingSet(rows, {
     // projection to say so, not a single bad set.
     const holdReps = repsAt(capacity, last.openingWeight, TARGET_RESERVE);
     if (holdReps < range.low) {
-      weight = roundLoad(Math.max(step, last.openingWeight - step), exercise, { units, barWeight, step: stackStep });
+      // Far enough down to actually reach the bottom of the range, not one
+      // increment. After a heavy single, one increment still leaves a weight
+      // nobody is doing six reps with, and the old version printed exactly that.
+      const wanted = loadFor(capacity, range.low, TARGET_RESERVE);
+      weight = roundLoad(Math.max(step, Math.min(last.openingWeight - step, wanted)),
+        exercise, { units, barWeight, step: stackStep });
       change = 'down';
       reasons.unshift({ key: falling ? 'trendDown' : 'tooHeavyToday', params: { low: range.low } });
     } else {
@@ -498,8 +509,13 @@ export function openingSet(rows, {
       change = 'hold';
       reasons.unshift({ key: 'buildReps', params: { reps: firstReps, high: range.high } });
     }
-    reps = Math.max(range.low, Math.min(range.high, repsAt(capacity, weight, TARGET_RESERVE)));
+    reps = repsAt(capacity, weight, TARGET_RESERVE);
   }
+
+  // Reported as predicted, never rounded up into the range. `nextSet` has
+  // always done it this way; this one used to clamp upward, so a suggestion
+  // built on a 200 kg single came out as "197.5 kg × 6".
+  reps = Math.min(range.high, Math.max(1, reps));
 
   if (projected.slope !== null && Math.abs(projected.slope) >= 0.5) {
     reasons.push({
