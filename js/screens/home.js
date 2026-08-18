@@ -13,6 +13,7 @@ import {
 import {
   buildRating, hasProfile, TIERS, DIVISIONS, BAND, tierIndex, rankOf,
   LOW_CONFIDENCE, strengthRatio, ageFactor, ratedMachineNames, RATED_EQUIPMENT, isBenchmark,
+  regionsFromExercises,
 } from '../standards.js';
 import { strengthAt } from '../history.js';
 import { rankBadge, celebrateRankUp } from '../rank-art.js';
@@ -551,6 +552,7 @@ function ratingSection(done, settings) {
   const machineNames = ratedMachineNames(store.state.exercises);
   const rating = buildRating(best, settings, {
     machineNames, community: machineCommunity, ...machineCorrections(),
+    regionsByName: regionsFromExercises(store.state.exercises),
   });
   refreshMachineStandards(best, settings).catch(() => {});
   refreshRankPercentiles(rating, settings).catch(() => {});
@@ -756,7 +758,7 @@ function machineCorrections() {
     if (Number(setup.loadFactor) > 0 && Number(setup.loadFactor) !== 1) loadFactors[ex.name] = Number(setup.loadFactor);
     if (Number(setup.stackMax) > 0) stackMax[ex.name] = Number(setup.stackMax);
   }
-  return { loadFactors, stackMax };
+  return { loadFactors, stackMax, regionsByName: regionsFromExercises(store.state.exercises) };
 }
 
 /** The "this one does not belong" row, with the fix attached. */

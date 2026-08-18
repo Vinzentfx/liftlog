@@ -949,6 +949,14 @@ function machineSetupSheet(ex) {
     placeholder: String(defaultStep(ex, store.units())),
     'aria-label': t('train.machine.step'),
   }));
+  // The stack maximum belongs here too, not only behind an outlier warning:
+  // somebody who knows their gym should be able to write it down before the app
+  // has anything to complain about.
+  const stackInput = normaliseOnBlur(numberInput({
+    decimal: true, value: saved.stackMax ?? '', placeholder: t('home.rating.stackPlaceholder'),
+    'aria-label': t('home.rating.stackMax', { units: store.units() }),
+  }));
+
   openSheet(t('train.machine.title', { name: ex.name }), el('div', {}, [
     el('div.small.muted', { style: { marginBottom: '12px' }, text: t('train.machine.intro') }),
     el('label.field', {}, [el('span', { text: t('train.machine.seat') }), seat]),
@@ -957,6 +965,10 @@ function machineSetupSheet(ex) {
     el('label.field', {}, [el('span', { text: t('train.machine.note') }), note]),
     el('label.field', {}, [el('span', { text: t('train.machine.stepLabel', { units: store.units() }) }), stepInput]),
     el('div.small.faint', { style: { marginTop: '-6px', marginBottom: '12px' }, text: t('train.machine.stepNote') }),
+    el('label.field', {}, [
+      el('span', { text: t('home.rating.stackMax', { units: store.units() }) }), stackInput,
+      el('small', { text: t('home.rating.stackMaxNote') }),
+    ]),
     el('button.btn.primary.full', { onclick: async () => {
       const setups = { ...(store.state.settings.machineSetups || {}) };
       const step = parseNumber(stepInput.value);
@@ -964,9 +976,10 @@ function machineSetupSheet(ex) {
       // the load correction on Home writes loadFactor and stackMax into the same
       // object, and rebuilding it from these four fields silently threw them
       // away the next time somebody adjusted their seat height.
+      const stackMax = parseNumber(stackInput.value);
       const next = { ...saved,
         seat: seat.value.trim(), backrest: backrest.value.trim(), pad: pad.value.trim(), note: note.value.trim(),
-        step: step > 0 ? step : null };
+        step: step > 0 ? step : null, stackMax: stackMax > 0 ? stackMax : null };
       if (Object.values(next).some(Boolean)) setups[ex.id] = next;
       else delete setups[ex.id];
       await store.setSetting('machineSetups', setups);

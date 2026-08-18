@@ -541,6 +541,31 @@ Both the machine-setup sheet on Train and the correction sheet on Home write
 rebuilding it from their own fields. A test asserts that, because the first
 version of the second sheet silently deleted the first one's work.
 
+**The machine anchors are calibrated against real stack maxima.** A training
+standard cannot answer what it *means* to max out a particular frame; a stack
+maximum can. Measured against one real gym's fourteen machines, the rule fitted
+was **Legend ≈ a full stack taken for about ten repetitions**, which is where
+the one movement with both a published standard and a known stack already sat (a
+105 kg pulldown stack against a Legend of 138 kg). The machines were fitted to
+agree with it, and a test checks all fourteen still land there.
+
+The consequence is deliberate: on an isolation machine the three ranks above
+Legend are out of reach, because a commercial stack cannot express
+national-record strength. That is the honest answer, and it is what fixed the
+case this was found through — a lateral raise machine handing out the top rank
+at well under a full stack.
+
+**Two name spaces had drifted apart.** The curated tables were written against
+the seed list; the bundled catalogue calls many of the same machines something
+else ("Ab Crunch Machine" for Machine Crunch, four spellings of a triceps
+pushdown). An exercise with no curated entry was ranked off the coarse category
+bands *and contributed to no muscle region at all* — 52 machine and cable
+movements were invisible on the body map while still producing a rank, which is
+how an ab machine could be trained for months without the abs ever lighting up.
+`ALIAS` maps the catalogue's names onto the curated ones, and `buildRating`
+falls back to the exercise's own primary and secondary regions for anything left
+over. Those regions come from the library record, not from guessing at a name.
+
 **A rank is only built from sets a 1RM estimate is valid for.** Prediction
 equations are validated to about ten repetitions and their error grows past it,
 worst of all on light isolation work (`SOURCES.ribeiro1rm2024` finds every

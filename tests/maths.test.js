@@ -1193,9 +1193,12 @@ test('every rank has a badge, and the badges only ever gain', () => {
 test('a lift standing ranks clear of the rest is questioned, not corrected', () => {
   const profile = { sex: 'male', bodyweight: 82, age: 24 };
   const machines = new Set(['Machine Lateral Raise']);
+  // 70 kg for 12 on an 85 kg stack, logged as both sides at once: 140 kg, which
+  // estimates to about 187. The machine cannot produce that, and the shape it
+  // makes is the one this exists to catch.
   const best = new Map([
     ['Barbell Bench Press', 144], ['Back Squat', 198], ['Deadlift', 232],
-    ['Overhead Press', 84], ['Machine Lateral Raise', 100],
+    ['Overhead Press', 84], ['Machine Lateral Raise', 187],
   ]);
 
   const flagged = buildRating(best, profile, { machineNames: machines });
@@ -1214,32 +1217,52 @@ test('a lift standing ranks clear of the rest is questioned, not corrected', () 
   const fixed = halved.lifts.find((l) => l.name === 'Machine Lateral Raise');
   assert.equal(fixed.corrected, true);
   assert.ok(fixed.score < raise.score - 20, 'and it actually moves the rank');
+  assert.ok(fixed.rank.tierIndex < raise.rank.tierIndex, 'by whole ranks, not decimals');
   assert.equal(fixed.outlier, undefined, 'once corrected it is in line with the rest');
-  assert.equal(best.get('Machine Lateral Raise'), 100, 'the estimate itself is untouched');
+  assert.equal(best.get('Machine Lateral Raise'), 187, 'the estimate itself is untouched');
+});
+
+test('a full stack taken for reps lands at Legend, not past the top', () => {
+  // The rule the machine anchors were fitted to, checked against the gym they
+  // were fitted from. A full stack for about ten reps should be Legend, and the
+  // three ranks above it should be out of reach on a commercial stack.
+  const profile = { sex: 'male', bodyweight: 82, age: 24 };
+  const stacks = {
+    'Butterfly': 105, 'Leg Extension': 135, 'Machine Preacher Curl': 100,
+    'Seated Leg Curl': 135, 'Machine Crunch': 105, 'Machine Hip Adduction': 105,
+    'Standing Calf Raise': 187, 'Triceps Pushdown': 85, 'Machine Lateral Raise': 85,
+    'Overhead Rope Triceps Extension': 135, 'Seated Cable Row': 135,
+    'Machine Rear Delt Fly': 105, 'Machine Shoulder Press': 105,
+  };
+  for (const [name, stack] of Object.entries(stacks)) {
+    const maxed = e1rm(stack, 10);          // the whole stack, ten times
+    const rank = rankOf(scoreForMachine(name, maxed, profile));
+    assert.equal(rank.tier.key, 'legend', `${name}: a full stack came out ${rank.tier.key}`);
+  }
 });
 
 test('an estimate beyond what the stack can produce says so', () => {
   const profile = { sex: 'male', bodyweight: 82, age: 24 };
-  const best = new Map([['Machine Lateral Raise', 100]]);
+  const best = new Map([['Machine Lateral Raise', 187]]);
   const rating = buildRating(best, profile, {
     machineNames: new Set(['Machine Lateral Raise']),
-    stackMax: { 'Machine Lateral Raise': 60 },
+    stackMax: { 'Machine Lateral Raise': 85 },
   });
   const lift = rating.lifts[0];
-  assert.ok(lift.overStack, '100 kg out of a 60 kg stack is not a thing that happened');
+  assert.ok(lift.overStack, '187 kg out of an 85 kg stack is not a thing that happened');
   assert.ok(lift.overStack.times > 1.6);
 
   // A number the machine can actually make raises nothing.
-  const fine = buildRating(new Map([['Machine Lateral Raise', 55]]), profile, {
+  const fine = buildRating(new Map([['Machine Lateral Raise', 95]]), profile, {
     machineNames: new Set(['Machine Lateral Raise']),
-    stackMax: { 'Machine Lateral Raise': 60 },
+    stackMax: { 'Machine Lateral Raise': 85 },
   });
   assert.equal(fine.lifts[0].overStack, null);
 });
 
 test('too few lifts to compare means no outlier at all', () => {
   const profile = { sex: 'male', bodyweight: 82, age: 24 };
-  const rating = buildRating(new Map([['Machine Lateral Raise', 100], ['Back Squat', 100]]), profile,
+  const rating = buildRating(new Map([['Machine Lateral Raise', 187], ['Back Squat', 100]]), profile,
     { machineNames: new Set(['Machine Lateral Raise']) });
   assert.equal(rating.lifts.filter((l) => l.outlier).length, 0,
     'two lifts cannot tell an outlier from a preference');

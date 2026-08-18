@@ -223,6 +223,7 @@ export const CONTRIB_EXTRA = {
   'Bayesian Cable Curl':       { biceps: 1, forearms: 0.2 },
   'Cross-Body Cable Lateral Raise': { 'delts-front': 1, traps: 0.25 },
   'Single-Arm Lat Pulldown':   { lats: 1, biceps: 0.5, 'delts-rear': 0.25 },
+  'Lat Pulldown Machine':      { lats: 1, biceps: 0.55, 'delts-rear': 0.35 },
   'Reverse Nordic Curl':       { quads: 1, abs: 0.25 },
   'Glute-Biased 45-Degree Back Extension': { glutes: 1, hamstrings: 0.7, 'lower-back': 0.3 },
   'Cable Y-Raise':             { 'delts-front': 1, traps: 0.45 },
@@ -248,6 +249,20 @@ export const isBenchmark = (name) => Object.hasOwn(CONTRIB, name);
 
 /**
  * What a machine lift is measured against.
+ *
+ * Recalibrated in August 2026 against the measured full-stack weights of one
+ * real gym, which is the only hard data available up here: a stack maximum
+ * answers the question a training standard cannot, namely what it *means* to
+ * max this particular frame out. The rule used was **Legend ≈ a full stack
+ * taken for about ten repetitions**, which is where the one movement with both
+ * a published standard and a known stack already sat (a 105 kg pulldown stack
+ * against a Legend of 138 kg), so the machines were fitted to agree with it.
+ *
+ * The consequence is deliberate: on an isolation machine the three ranks above
+ * Legend are effectively out of reach, because a commercial stack cannot
+ * express national-record strength. That is the honest answer. It is also what
+ * fixes the case this was found through, a lateral raise machine handing out
+ * the top rank at well under a full stack.
  *
  * The old version rated machines off seven very broad category bands, and both
  * halves of that were wrong at once: the bands were far too soft (Elite on a
@@ -276,9 +291,9 @@ const MACHINE_ANCHOR = {
   // --- rows and pulls ---
   'Chest-Supported T-Bar Row':  ['Barbell Row', 1.10],
   'Chest-Supported Row':        ['Barbell Row', 1.10],
-  'Close-Grip Seated Row':      ['Barbell Row', 1.15],
-  'Machine Row':                ['Barbell Row', 1.15],
-  'Seated Cable Row':           ['Barbell Row', 1.15],
+  'Close-Grip Seated Row':      ['Barbell Row', 1.17],
+  'Machine Row':                ['Barbell Row', 1.17],
+  'Seated Cable Row':           ['Barbell Row', 1.17],
   'T-Bar Row':                  ['Barbell Row', 1.05],
   'Machine High Row':           ['Barbell Row', 1.20],
   'Iso-Lateral High Row':       ['Barbell Row', 1.15],
@@ -286,6 +301,7 @@ const MACHINE_ANCHOR = {
   'Machine Pullover':           ['Lat Pulldown', 0.70],
   'Plate-Loaded Pullover':      ['Lat Pulldown', 0.70],
   'Single-Arm Lat Pulldown':    ['Lat Pulldown', 0.50],
+  'Lat Pulldown Machine':       ['Lat Pulldown', 1.00],
 
   // --- pressing ---
   'Machine Chest Press':        ['Barbell Bench Press', 0.95],
@@ -294,50 +310,130 @@ const MACHINE_ANCHOR = {
   'Incline Machine Press':      ['Incline Barbell Bench Press', 0.95],
   'Iso-Lateral Incline Chest Press': ['Incline Barbell Bench Press', 0.95],
   'Smith Machine Incline Bench Press': ['Incline Barbell Bench Press', 1.00],
-  'Machine Chest Fly':          ['Barbell Bench Press', 0.60],
-  'Pec Deck':                   ['Barbell Bench Press', 0.60],
-  'Butterfly':                  ['Barbell Bench Press', 0.60],
-  'Machine Shoulder Press':     ['Overhead Press', 1.15],
-  'Iso-Lateral Shoulder Press': ['Overhead Press', 1.15],
+  'Machine Chest Fly':          ['Barbell Bench Press', 0.75],
+  'Pec Deck':                   ['Barbell Bench Press', 0.75],
+  'Butterfly':                  ['Barbell Bench Press', 0.75],
+  'Machine Shoulder Press':     ['Overhead Press', 1.24],
+  'Iso-Lateral Shoulder Press': ['Overhead Press', 1.24],
   'Machine Dip':                ['Close-Grip Bench Press', 0.90],
   'Seated Dip Machine':         ['Close-Grip Bench Press', 0.90],
 
   // --- arms and delts ---
-  'Machine Lateral Raise':      ['Overhead Press', 0.55],
-  'Lateral Raise Machine':      ['Overhead Press', 0.55],
-  'Cable Y-Raise':              ['Overhead Press', 0.35],
-  'Cross-Body Cable Lateral Raise': ['Overhead Press', 0.22],
-  'Machine Rear Delt Fly':      ['Barbell Row', 0.55],
-  'Machine Biceps Curl':        ['Barbell Row', 0.55],
-  'Machine Preacher Curl':      ['Barbell Row', 0.50],
-  'Preacher Curl Machine':      ['Barbell Row', 0.50],
-  'Rope Hammer Curl':           ['Barbell Row', 0.50],
+  'Machine Lateral Raise':      ['Overhead Press', 1.01],
+  'Lateral Raise Machine':      ['Overhead Press', 1.01],
+  'Cable Y-Raise':              ['Overhead Press', 0.50],
+  'Cross-Body Cable Lateral Raise': ['Overhead Press', 0.29],
+  'Machine Rear Delt Fly':      ['Barbell Row', 0.91],
+  'Machine Biceps Curl':        ['Barbell Row', 0.80],
+  'Machine Preacher Curl':      ['Barbell Row', 0.86],
+  'Preacher Curl Machine':      ['Barbell Row', 0.86],
+  'Rope Hammer Curl':           ['Barbell Row', 0.73],
   'Bayesian Cable Curl':        ['Barbell Row', 0.22],
-  'Machine Triceps Extension':  ['Close-Grip Bench Press', 0.60],
-  'Triceps Pushdown':           ['Close-Grip Bench Press', 0.70],
-  'Rope Triceps Pushdown':      ['Close-Grip Bench Press', 0.65],
-  'Overhead Rope Triceps Extension': ['Close-Grip Bench Press', 0.45],
+  'Machine Triceps Extension':  ['Close-Grip Bench Press', 0.73],
+  'Triceps Pushdown':           ['Close-Grip Bench Press', 0.73],
+  'Rope Triceps Pushdown':      ['Close-Grip Bench Press', 0.70],
+  'Overhead Rope Triceps Extension': ['Close-Grip Bench Press', 1.17],
 
   // --- lower body and core ---
   'Hack Squat':                 ['Back Squat', 1.15],
   'Pendulum Squat':             ['Back Squat', 0.95],
   'Belt Squat':                 ['Back Squat', 0.95],
   'Smith Machine Squat':        ['Back Squat', 1.00],
-  'Leg Extension':              ['Back Squat', 0.80],
-  'Lying Leg Curl':             ['Romanian Deadlift', 0.62],
-  'Seated Leg Curl':            ['Romanian Deadlift', 0.64],
+  'Leg Extension':              ['Back Squat', 0.72],
+  'Lying Leg Curl':             ['Romanian Deadlift', 0.75],
+  'Seated Leg Curl':            ['Romanian Deadlift', 0.78],
   'Kneeling Leg Curl Machine':  ['Romanian Deadlift', 0.35],
-  'Standing Calf Raise':        ['Back Squat', 1.10],
-  'Seated Calf Raise':          ['Back Squat', 0.60],
+  'Standing Calf Raise':        ['Back Squat', 1.00],
+  'Seated Calf Raise':          ['Back Squat', 0.65],
   'Smith Machine Romanian Deadlift': ['Romanian Deadlift', 1.00],
   'Glute-Biased 45-Degree Back Extension': ['Romanian Deadlift', 0.40],
   'Machine Back Extension':     ['Back Squat', 0.50],
-  'Machine Crunch':             ['Back Squat', 0.45],
+  'Machine Crunch':             ['Back Squat', 0.56],
   'Glute Drive Machine':        ['Hip Thrust', 1.00],
-  'Machine Hip Abduction':      ['Hip Thrust', 0.40],
-  'Machine Hip Adduction':      ['Hip Thrust', 0.40],
+  'Machine Hip Abduction':      ['Hip Thrust', 0.47],
+  'Machine Hip Adduction':      ['Hip Thrust', 0.47],
   'Standing Hip Abduction Machine': ['Hip Thrust', 0.20],
 };
+
+/**
+ * The same movement under the name the library actually uses.
+ *
+ * The curated tables above were written against the seed list; the bundled
+ * catalogue calls a lot of the same machines something else ("Ab Crunch
+ * Machine" for Machine Crunch, "Leg Extensions" with an s, four different
+ * spellings of a triceps pushdown). Without this an exercise gets ranked off
+ * the coarse category bands and contributes to no muscle at all, which is how
+ * an ab machine ended up invisible on the body map while still producing a
+ * rank.
+ *
+ * Aliasing affects anatomy, the machine anchor and the category — never
+ * `isBenchmark`, because a wide-grip pulldown is close enough to borrow the
+ * pulldown's ratio and not close enough to inherit its published standard.
+ */
+const ALIAS = {
+  'Ab Crunch Machine': 'Machine Crunch',
+  'Cable Reverse Crunch': 'Machine Crunch',
+  'Cable Seated Crunch': 'Machine Crunch',
+  'Rope Crunch': 'Machine Crunch',
+  'Standing Rope Crunch': 'Machine Crunch',
+  'Kneeling Cable Crunch With Alternating Oblique Twists': 'Machine Crunch',
+
+  'Leg Extensions': 'Leg Extension',
+  'Single-Leg Leg Extension': 'Kneeling Leg Curl Machine',
+  'Lying Leg Curls': 'Lying Leg Curl',
+  'Standing Leg Curl': 'Kneeling Leg Curl Machine',
+
+  'Standing Calf Raises': 'Standing Calf Raise',
+  'Calf Press': 'Standing Calf Raise',
+  'Calf Press On The Leg Press Machine': 'Standing Calf Raise',
+  'Smith Machine Calf Raise': 'Standing Calf Raise',
+  'Smith Machine Reverse Calf Raises': 'Seated Calf Raise',
+
+  'Triceps Pushdown - Rope Attachment': 'Rope Triceps Pushdown',
+  'Triceps Pushdown - V-Bar Attachment': 'Triceps Pushdown',
+  'Triceps Pushdown with Cable': 'Triceps Pushdown',
+  'Reverse Grip Triceps Pushdown': 'Triceps Pushdown',
+  'Triceps Overhead Extension with Rope': 'Overhead Rope Triceps Extension',
+
+  'Machine Preacher Curls': 'Machine Preacher Curl',
+  'Cable Preacher Curl': 'Machine Preacher Curl',
+  'Cable Hammer Curls - Rope Attachment': 'Rope Hammer Curl',
+
+  'Cable Seated Lateral Raise': 'Machine Lateral Raise',
+  'Cable Rear Delt Fly': 'Machine Rear Delt Fly',
+  'Smith Machine Rear Deltoid Row': 'Machine Rear Delt Fly',
+
+  'Seated Shoulder Press Machine': 'Machine Shoulder Press',
+  'Leverage Shoulder Press': 'Machine Shoulder Press',
+  'Cable Shoulder Press': 'Machine Shoulder Press',
+  'Seated Cable Shoulder Press': 'Machine Shoulder Press',
+  'Alternating Cable Shoulder Press': 'Machine Shoulder Press',
+  'Smith Machine Overhead Shoulder Press': 'Machine Shoulder Press',
+
+  'Leverage Chest Press': 'Machine Chest Press',
+  'Leverage Decline Chest Press': 'Machine Chest Press',
+  'Leverage Incline Chest Press': 'Incline Machine Press',
+  'Cable Chest Press': 'Machine Chest Press',
+  'Standing Cable Chest Press': 'Machine Chest Press',
+  'Incline Cable Chest Press': 'Incline Machine Press',
+
+  'Hip Adduction': 'Machine Hip Adduction',
+  'Cable Hip Adduction': 'Machine Hip Adduction',
+
+  'Wide-Grip Lat Pulldown': 'Lat Pulldown Machine',
+  'Close-Grip Front Lat Pulldown': 'Lat Pulldown Machine',
+  'Full Range-Of-Motion Lat Pulldown': 'Lat Pulldown Machine',
+  'V-Bar Pulldown': 'Lat Pulldown Machine',
+  'Underhand Cable Pulldowns': 'Lat Pulldown Machine',
+  'Wide-Grip Pulldown Behind The Neck': 'Lat Pulldown Machine',
+  'One Arm Lat Pulldown': 'Single-Arm Lat Pulldown',
+  'Straight-Arm Pulldown': 'Machine Pullover',
+  'Rope Straight-Arm Pulldown': 'Machine Pullover',
+  'Cable Incline Pushdown': 'Machine Pullover',
+};
+
+/** The name the curated tables know this movement by. */
+export const canonical = (name) => ALIAS[name] || name;
 
 /**
  * Movements a load cannot be ranked on at all, whatever the equipment says.
@@ -523,12 +619,12 @@ export function boundsFor(liftName, profile, { machine = false, community = null
     return table ? ladder(table).map((v) => v * f) : null;
   }
 
-  if (UNRATEABLE.has(liftName)) return null;
+  if (UNRATEABLE.has(canonical(liftName))) return null;
 
-  const anchor = MACHINE_ANCHOR[liftName];
+  const anchor = MACHINE_ANCHOR[canonical(liftName)];
   let seed;
   if (anchor && BOUNDS[sex][anchor[0]]) seed = BOUNDS[sex][anchor[0]].map((v) => v * anchor[1]);
-  else seed = MACHINE_BOUNDS[sex][machineCategory(liftName)];
+  else seed = MACHINE_BOUNDS[sex][machineCategory(canonical(liftName))];
 
   // Same-model community percentiles, blended into the four anchors before the
   // ladder is built from them — the cloud stores four quantiles, which is
@@ -557,7 +653,7 @@ const EXTRAPOLATED_CONFIDENCE = 0.85;
 /** How much a machine's rank is trusted on the shared body map. */
 export function machineConfidence(liftName, community = null) {
   if (Number(community?.count) >= 10) return 1;
-  return MACHINE_ANCHOR[liftName] ? 1 : 0.9;
+  return MACHINE_ANCHOR[canonical(liftName)] ? 1 : 0.9;
 }
 
 export function scoreForMachine(liftName, oneRepMax, profile, community = null) {
@@ -732,12 +828,15 @@ const median = (values) => {
  * @param stackMax     name -> the heaviest the stack goes, when the user has
  *                     said. Turns "this looks high" into "this is 1.7 times a
  *                     full stack", which is evidence rather than a hunch.
+ * @param regionsByName name -> { region: weight }, from the exercises
+ *                     themselves. The fallback for anything the curated
+ *                     ANATOMY table has never heard of.
  */
 export function buildRating(bestByLift, profile,
   {
     machineNames = new Set(), community = {},
     extrapolated = bestByLift.extrapolated, achievedAt = bestByLift.achievedAt,
-    loadFactors = {}, stackMax = {},
+    loadFactors = {}, stackMax = {}, regionsByName = {},
   } = {}) {
   const regions = {};
   const lifts = [];
@@ -760,7 +859,7 @@ export function buildRating(bestByLift, profile,
       name, oneRepMax: orm, score, tier: tierOf(score), rank: rankOf(score),
       next: toNextTier(name, score, profile, opts),
       nextDivision: toNextDivision(name, score, profile, opts),
-      machine, derived: machine && !!MACHINE_ANCHOR[name],
+      machine, derived: machine && !!MACHINE_ANCHOR[canonical(name)],
       provisional: machine && sample < 10, sample,
       // Built from a set outside the range a 1RM estimate is valid over, because
       // this lift has never been trained inside it. See THRESHOLDS.e1rmWindow.
@@ -777,7 +876,13 @@ export function buildRating(bestByLift, profile,
         : null,
     });
 
-    for (const [region, weight] of Object.entries(ANATOMY[name] || {})) {
+    // Curated anatomy first, then the regions the exercise itself carries.
+    // Without the fallback, 52 machine and cable movements in the bundled
+    // catalogue produced a rank and contributed to no muscle at all: they had
+    // no curated entry, so the body map never saw them. Those regions come from
+    // the library record, not from guessing at the name.
+    const anatomy = ANATOMY[canonical(name)] || regionsByName[name] || {};
+    for (const [region, weight] of Object.entries(anatomy)) {
       const confidence = (machine ? machineConfidence(name, community[name]) : 1)
         * (outside.has(name) ? EXTRAPOLATED_CONFIDENCE : 1);
       const value = score * weight * confidence;
@@ -824,6 +929,26 @@ export function buildRating(bestByLift, profile,
     ratedRegions: rated.length,
     totalRegions: Object.keys(REGIONS).length,
   };
+}
+
+/**
+ * Fallback anatomy from the exercises themselves.
+ *
+ * Primary regions count fully, secondary at half, which is the same fractional
+ * convention the plan rating and the weekly volume already use
+ * (THRESHOLDS.indirectSetWeight). Only ever consulted for movements the curated
+ * table does not cover.
+ */
+export function regionsFromExercises(exercises = []) {
+  const out = {};
+  for (const ex of exercises) {
+    if (!ex?.name || ANATOMY[canonical(ex.name)]) continue;
+    const regions = {};
+    for (const region of ex.primary || []) regions[region] = 1;
+    for (const region of ex.secondary || []) if (!regions[region]) regions[region] = 0.5;
+    if (Object.keys(regions).length) out[ex.name] = regions;
+  }
+  return out;
 }
 
 export function hasProfile(profile) {

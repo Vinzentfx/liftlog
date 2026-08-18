@@ -11,7 +11,9 @@
 // the recompute is cheap at personal-log sizes.
 
 import { startOfWeek, isCounted, e1rm, entryStats, linearFit, withinE1rmWindow } from './models.js';
-import { buildRating, isBenchmark, hasProfile, ratedMachineNames, RATED_EQUIPMENT } from './standards.js';
+import {
+  buildRating, isBenchmark, hasProfile, ratedMachineNames, RATED_EQUIPMENT, regionsFromExercises,
+} from './standards.js';
 
 // Only for durations and lookback windows, never for a week boundary: a week
 // containing a clock change is not this long. Anything that decides which week
@@ -110,6 +112,7 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
   const best = new Map();          // lift name -> best e1RM so far, inside the window
   const outside = new Map();       // and the fallback for lifts never trained in it
   const machineNames = ratedMachineNames([...exerciseById.values()]);
+  const regionsByName = regionsFromExercises([...exerciseById.values()]);
   let cursor = 0;                  // how far through `finished` we have walked
 
   const out = [];
@@ -145,7 +148,7 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
     const rating = buildRating(merged, {
       ...profile,
       bodyweight: bodyweightAt(bw, cutoff) ?? profile.bodyweight,
-    }, { machineNames, ...corrections });
+    }, { machineNames, regionsByName, ...corrections });
     if (rating.overall === null) continue;
     out.push({ week, score: rating.overall, tier: rating.overallTier, lifts: rating.lifts.length });
   }
@@ -171,6 +174,7 @@ export function strengthAt(sessions, bodyweightLog, profile, exerciseById, at = 
   const best = new Map();
   const outside = new Map();
   const machineNames = ratedMachineNames([...exerciseById.values()]);
+  const regionsByName = regionsFromExercises([...exerciseById.values()]);
   const bw = [...(bodyweightLog || [])].sort((a, b) => a.date - b.date);
   for (const s of sessions) {
     if (!s.finishedAt || s.startedAt > at) continue;
@@ -191,7 +195,7 @@ export function strengthAt(sessions, bodyweightLog, profile, exerciseById, at = 
   const rating = buildRating(merged, {
     ...profile,
     bodyweight: bodyweightAt(bw, at) ?? profile.bodyweight,
-  }, { machineNames, ...corrections });
+  }, { machineNames, regionsByName, ...corrections });
   return rating.overall === null ? null : rating;
 }
 
