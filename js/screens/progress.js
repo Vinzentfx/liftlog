@@ -17,6 +17,22 @@ import { stallReport, describeStall } from '../fatigue.js';
 import { shareWeekSheet } from '../week-share.js';
 import { TIERS, DIVISIONS, BAND, tierIndex, rankOf, hasProfile } from '../standards.js';
 import { exerciseHistory, pooledOrderCost } from '../progression.js';
+
+/**
+ * The per-machine load corrections, same shape buildRating wants. Duplicated
+ * from Home rather than imported: importing a screen from a screen is how this
+ * app has previously ended up with two of them loading each other.
+ */
+function machineCorrections(settings, exerciseById) {
+  const loadFactors = {}, stackMax = {};
+  for (const [id, setup] of Object.entries(settings.machineSetups || {})) {
+    const ex = exerciseById.get(id);
+    if (!ex) continue;
+    if (Number(setup.loadFactor) > 0 && Number(setup.loadFactor) !== 1) loadFactors[ex.name] = Number(setup.loadFactor);
+    if (Number(setup.stackMax) > 0) stackMax[ex.name] = Number(setup.stackMax);
+  }
+  return { loadFactors, stackMax };
+}
 import { pickExercise } from '../pickers.js';
 import { profileForm } from './settings.js';
 import { navigate } from '../app.js';
@@ -291,7 +307,8 @@ function strengthSection(done) {
   }
 
   const history = strengthHistory(
-    store.state.sessions, store.state.bodyweight, settings, store.state.exerciseById, 20);
+    store.state.sessions, store.state.bodyweight, settings, store.state.exerciseById, 20,
+    Date.now(), machineCorrections(settings, store.state.exerciseById));
 
   if (history.length < 2) {
     wrap.append(el('div.card', {}, [

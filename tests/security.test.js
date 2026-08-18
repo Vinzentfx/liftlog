@@ -358,7 +358,7 @@ test('machine-only training reaches both combined strength and personal progress
   // Machines and cables both, now that a cable stack is ranked like any other:
   // ratedMachineNames is the single gate, so this checks the gate rather than a
   // string comparison that used to live inline here.
-  assert.match(home, /ratedMachineNames\(store\.state\.exercises\)[\s\S]*buildRating\(best, settings, \{ machineNames/);
+  assert.match(home, /ratedMachineNames\(store\.state\.exercises\)[\s\S]*buildRating\(best, settings, \{\s*machineNames/);
   assert.match(home, /regionProgress\(done[\s\S]*home\.map\.progressNote/);
   assert.match(home, /home\.rating\.machineEstimated[\s\S]*home\.rating\.machineCommunity/);
 });
@@ -470,6 +470,20 @@ test('private social groups and PR reactions stay behind narrow RPCs', async () 
   assert.match(sql, /show_workouts[\s\S]*show_sets[\s\S]*show_strength[\s\S]*show_presence[\s\S]*show_plan[\s\S]*show_prs/i);
   assert.match(sql, /case when p\.show_strength then s\.strength_score end/i);
   assert.match(sql, /RATE_LIMITED/i);
+});
+
+test('a load correction survives the other sheet that writes the same record', async () => {
+  const train = await read('js/screens/train.js');
+  const home = await read('js/screens/home.js');
+  // Two sheets write machineSetups[exId]: the machine setup on Train and the
+  // load correction on Home. Whichever saves second must not rebuild the record
+  // from its own fields, or it drops the other one's.
+  assert.match(train, /const next = \{ \.\.\.saved,/);
+  assert.match(home, /const next = \{ \.\.\.\(setups\[ex\.id\] \|\| \{\}\) \}/);
+
+  // And the correction changes how the number is read, never the log.
+  assert.match(home, /loadFactors\[ex\.name\] = Number\(setup\.loadFactor\)/);
+  assert.doesNotMatch(home, /set\.weight\s*[*/]=/);
 });
 
 test('the rank-up celebration fires on a real step and respects reduced motion', async () => {

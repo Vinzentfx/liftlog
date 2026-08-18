@@ -960,7 +960,12 @@ function machineSetupSheet(ex) {
     el('button.btn.primary.full', { onclick: async () => {
       const setups = { ...(store.state.settings.machineSetups || {}) };
       const step = parseNumber(stepInput.value);
-      const next = { seat: seat.value.trim(), backrest: backrest.value.trim(), pad: pad.value.trim(), note: note.value.trim(),
+      // Spread what is already there. This sheet does not own the whole record:
+      // the load correction on Home writes loadFactor and stackMax into the same
+      // object, and rebuilding it from these four fields silently threw them
+      // away the next time somebody adjusted their seat height.
+      const next = { ...saved,
+        seat: seat.value.trim(), backrest: backrest.value.trim(), pad: pad.value.trim(), note: note.value.trim(),
         step: step > 0 ? step : null };
       if (Object.values(next).some(Boolean)) setups[ex.id] = next;
       else delete setups[ex.id];

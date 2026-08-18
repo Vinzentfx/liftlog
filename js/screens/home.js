@@ -3,6 +3,7 @@
 import {
   el, fmtNum, fmtWeight, fmtDate, fmtDuration, emptyState, listItem,
   openSheet, closeSheet, toast, confirmSheet,
+  numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
 import * as cloud from '../cloud.js';
@@ -548,7 +549,9 @@ function ratingSection(done, settings) {
 
   const best = bestOneRepMaxByName(store.state.sessions, store.state.exerciseById, store.state.settings);
   const machineNames = ratedMachineNames(store.state.exercises);
-  const rating = buildRating(best, settings, { machineNames, community: machineCommunity });
+  const rating = buildRating(best, settings, {
+    machineNames, community: machineCommunity, ...machineCorrections(),
+  });
   refreshMachineStandards(best, settings).catch(() => {});
   refreshRankPercentiles(rating, settings).catch(() => {});
 
@@ -647,6 +650,7 @@ function ratingSection(done, settings) {
           ]),
           el('div.division-track', {},
             [el('i', { style: { width: `${Math.round(lift.rank.progress * 100)}%` } })]),
+          outlierNotice(lift, settings),
           lift.extrapolated
             ? el('div.small', { style: { marginTop: '6px', color: 'var(--warn)' },
                 text: t('home.rating.extrapolatedShort') })
@@ -735,6 +739,117 @@ function staleBestNote(lift) {
 }
 
 const relMonths = (days) => tn(Math.max(1, Math.round(days / 30.44)), 'unit.month');
+
+/**
+ * The per-machine corrections, keyed the way the rating wants them.
+ *
+ * Stored per exercise id on the machine setup, read out by name because the
+ * standards tables are keyed by name. Nothing here touches a logged set: it
+ * describes how a machine *reports* load, not what was lifted.
+ */
+function machineCorrections() {
+  const setups = store.state.settings.machineSetups || {};
+  const loadFactors = {}, stackMax = {};
+  for (const [id, setup] of Object.entries(setups)) {
+    const ex = store.state.exerciseById.get(id);
+    if (!ex) continue;
+    if (Number(setup.loadFactor) > 0 && Number(setup.loadFactor) !== 1) loadFactors[ex.name] = Number(setup.loadFactor);
+    if (Number(setup.stackMax) > 0) stackMax[ex.name] = Number(setup.stackMax);
+  }
+  return { loadFactors, stackMax };
+}
+
+/** The "this one does not belong" row, with the fix attached. */
+function outlierNotice(lift, settings) {
+  if (!lift.outlier && !lift.overStack) return null;
+  const ex = store.state.exercises.find((e) => e.name === lift.name);
+  if (!ex) return null;
+
+  const line = lift.overStack
+    ? t('home.rating.overStack', {
+        times: lift.overStack.times.toFixed(1),
+        max: fmtWeight(lift.overStack.max, store.units()),
+      })
+    : t('home.rating.outlier', { ranks: Math.floor(lift.outlier.ranks) });
+
+  return el('div.outlier', {}, [
+    el('div.small', { text: `!  ${line}` }),
+    el('button.btn.quiet.sm', { style: { padding: '4px 0', marginTop: '2px' },
+      onclick: () => loadCorrectionSheet(ex, lift) }, [t('home.rating.outlierFix')]),
+  ]);
+}
+
+/**
+ * Tell the app what the number on this machine means.
+ *
+ * Deliberately a correction to the *reading*, not to the log. Halving a
+ * recorded set would rewrite what somebody actually did and would make their
+ * own history disagree with their own memory; halving the interpretation
+ * changes only the comparison against a standard, which is the thing that was
+ * wrong.
+ */
+function loadCorrectionSheet(ex, lift) {
+  const setup = store.state.settings.machineSetups?.[ex.id] || {};
+  const stack = normaliseOnBlur(numberInput({
+    decimal: true, value: setup.stackMax ?? '', placeholder: t('home.rating.stackPlaceholder'),
+    'aria-label': t('home.rating.stackMax'),
+  }));
+  const factorInput = normaliseOnBlur(numberInput({
+    decimal: true, value: setup.loadFactor ?? '', placeholder: '1',
+    'aria-label': t('home.rating.loadFactor'),
+  }));
+
+  const save = async (factor) => {
+    const setups = { ...(store.state.settings.machineSetups || {}) };
+    const next = { ...(setups[ex.id] || {}) };
+    const chosen = factor ?? parseNumber(factorInput.value);
+    next.loadFactor = Number(chosen) > 0 && Number(chosen) !== 1 ? Number(chosen) : null;
+    const max = parseNumber(stack.value);
+    next.stackMax = Number(max) > 0 ? Number(max) : null;
+    if (Object.values(next).some(Boolean)) setups[ex.id] = next;
+    else delete setups[ex.id];
+    await store.setSetting('machineSetups', setups);
+    closeSheet();
+    toast(t('home.rating.outlierSaved'));
+  };
+
+  openSheet(ex.name, el('div', {}, [
+    el('div.small.muted', { text: t('home.rating.outlierBody') }),
+    el('div.card.tight', { style: { marginTop: '12px' } }, [
+      el('div.row.between.small', {}, [
+        el('span', { text: t('home.rating.outlierCurrent') }),
+        el('strong.num', { text: `e1RM ${fmtWeight(Math.round(lift.oneRepMax), store.units())}` }),
+      ]),
+      el('div.row.between.small', { style: { marginTop: '6px' } }, [
+        el('span', { text: t('home.rating.outlierRank') }),
+        el('strong', { text: rankName(lift.rank) }),
+      ]),
+    ]),
+    el('button.btn.primary.full', { style: { marginTop: '14px' }, onclick: () => save(0.5) },
+      [t('home.rating.outlierHalve')]),
+    el('div.small.faint', { style: { marginTop: '6px' }, text: t('home.rating.outlierHalveNote') }),
+
+    el('label.field', { style: { marginTop: '16px' } }, [
+      el('span', { text: t('home.rating.stackMax', { units: store.units() }) }), stack,
+      el('small', { text: t('home.rating.stackMaxNote') }),
+    ]),
+    el('label.field', {}, [
+      el('span', { text: t('home.rating.loadFactor') }), factorInput,
+      el('small', { text: t('home.rating.loadFactorNote') }),
+    ]),
+    el('button.btn.ghost.full', { onclick: () => save(null) }, [t('common.save')]),
+    setup.loadFactor || setup.stackMax
+      ? el('button.btn.quiet.full', { style: { marginTop: '6px' }, onclick: async () => {
+          const setups = { ...(store.state.settings.machineSetups || {}) };
+          if (setups[ex.id]) { setups[ex.id] = { ...setups[ex.id], loadFactor: null, stackMax: null }; }
+          if (!Object.values(setups[ex.id] || {}).some(Boolean)) delete setups[ex.id];
+          await store.setSetting('machineSetups', setups);
+          closeSheet();
+          toast(t('home.rating.outlierCleared'));
+        } }, [t('home.rating.outlierClear')])
+      : null,
+  ]));
+}
 
 /* ===================== the rank ladder on screen ===================== */
 
@@ -835,7 +950,7 @@ function nextStepScore(score) {
 function recentRankChange(currentScore) {
   const weeks = 8;
   const then = strengthAt(store.state.sessions, store.state.bodyweight, store.state.settings,
-    store.state.exerciseById, Date.now() - weeks * 7 * 86400000);
+    store.state.exerciseById, Date.now() - weeks * 7 * 86400000, machineCorrections());
   if (!then || then.overall === null) return null;
   const from = rankOf(then.overall), to = rankOf(currentScore);
   if (!from || !to || to.step === from.step) return null;

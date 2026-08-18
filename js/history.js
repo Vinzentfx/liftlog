@@ -98,7 +98,7 @@ export function tonnageHistory(sessions, weeks = 12, endTs = Date.now()) {
  * @returns [{ week, score, tier, lifts }] for weeks with enough data, or []
  */
 export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, weeks = 16,
-  endTs = Date.now()) {
+  endTs = Date.now(), corrections = {}) {
   if (!hasProfile(profile)) return [];
 
   const finished = sessions
@@ -145,7 +145,7 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
     const rating = buildRating(merged, {
       ...profile,
       bodyweight: bodyweightAt(bw, cutoff) ?? profile.bodyweight,
-    }, { machineNames });
+    }, { machineNames, ...corrections });
     if (rating.overall === null) continue;
     out.push({ week, score: rating.overall, tier: rating.overallTier, lifts: rating.lifts.length });
   }
@@ -164,7 +164,8 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
  * log once for sixteen weeks, and rewriting it to call this one would turn one
  * pass into sixteen for no gain.
  */
-export function strengthAt(sessions, bodyweightLog, profile, exerciseById, at = Date.now()) {
+export function strengthAt(sessions, bodyweightLog, profile, exerciseById, at = Date.now(),
+  corrections = {}) {
   if (!hasProfile(profile)) return null;
 
   const best = new Map();
@@ -190,7 +191,7 @@ export function strengthAt(sessions, bodyweightLog, profile, exerciseById, at = 
   const rating = buildRating(merged, {
     ...profile,
     bodyweight: bodyweightAt(bw, at) ?? profile.bodyweight,
-  }, { machineNames });
+  }, { machineNames, ...corrections });
   return rating.overall === null ? null : rating;
 }
 

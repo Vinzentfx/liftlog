@@ -1190,6 +1190,61 @@ test('every rank has a badge, and the badges only ever gain', () => {
   assert.equal(BADGE_PARTS[0].stud, true);
 });
 
+test('a lift standing ranks clear of the rest is questioned, not corrected', () => {
+  const profile = { sex: 'male', bodyweight: 82, age: 24 };
+  const machines = new Set(['Machine Lateral Raise']);
+  const best = new Map([
+    ['Barbell Bench Press', 144], ['Back Squat', 198], ['Deadlift', 232],
+    ['Overhead Press', 84], ['Machine Lateral Raise', 100],
+  ]);
+
+  const flagged = buildRating(best, profile, { machineNames: machines });
+  const raise = flagged.lifts.find((l) => l.name === 'Machine Lateral Raise');
+  assert.ok(raise.outlier, 'a machine several ranks clear of everything else is worth a question');
+  assert.ok(raise.outlier.ranks >= 2);
+  // And nothing else is: the comparison is against the median of the others, so
+  // a genuinely strong lifter does not get five warnings.
+  assert.equal(flagged.lifts.filter((l) => l.outlier).length, 1);
+
+  // The fix reads the number differently. It does not touch the log, and the
+  // caller still passes the same estimate in.
+  const halved = buildRating(best, profile, {
+    machineNames: machines, loadFactors: { 'Machine Lateral Raise': 0.5 },
+  });
+  const fixed = halved.lifts.find((l) => l.name === 'Machine Lateral Raise');
+  assert.equal(fixed.corrected, true);
+  assert.ok(fixed.score < raise.score - 20, 'and it actually moves the rank');
+  assert.equal(fixed.outlier, undefined, 'once corrected it is in line with the rest');
+  assert.equal(best.get('Machine Lateral Raise'), 100, 'the estimate itself is untouched');
+});
+
+test('an estimate beyond what the stack can produce says so', () => {
+  const profile = { sex: 'male', bodyweight: 82, age: 24 };
+  const best = new Map([['Machine Lateral Raise', 100]]);
+  const rating = buildRating(best, profile, {
+    machineNames: new Set(['Machine Lateral Raise']),
+    stackMax: { 'Machine Lateral Raise': 60 },
+  });
+  const lift = rating.lifts[0];
+  assert.ok(lift.overStack, '100 kg out of a 60 kg stack is not a thing that happened');
+  assert.ok(lift.overStack.times > 1.6);
+
+  // A number the machine can actually make raises nothing.
+  const fine = buildRating(new Map([['Machine Lateral Raise', 55]]), profile, {
+    machineNames: new Set(['Machine Lateral Raise']),
+    stackMax: { 'Machine Lateral Raise': 60 },
+  });
+  assert.equal(fine.lifts[0].overStack, null);
+});
+
+test('too few lifts to compare means no outlier at all', () => {
+  const profile = { sex: 'male', bodyweight: 82, age: 24 };
+  const rating = buildRating(new Map([['Machine Lateral Raise', 100], ['Back Squat', 100]]), profile,
+    { machineNames: new Set(['Machine Lateral Raise']) });
+  assert.equal(rating.lifts.filter((l) => l.outlier).length, 0,
+    'two lifts cannot tell an outlier from a preference');
+});
+
 test('a rank remembers when its best was actually set', () => {
   const exercises = new Map([[BENCH.id, BENCH]]);
   const long = at(2024, 3, 1), recent = at(2026, 7, 1);

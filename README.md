@@ -514,6 +514,33 @@ triceps band, which made it far easier to rank than a recognised one. Where a
 barbell lift and a machine land a region on the same number, **the published
 standard wins the tie**.
 
+**When one lift stands ranks clear of the rest, the app asks about it.** The
+symptom is always the same shape: a machine several ranks above everything else
+the same person trains. The causes are mundane — the display shows the total
+stack while each arm moves half of it, a plate-loaded frame logged as the sum of
+both sides, a stack marked in pounds typed in as kilograms — and all three
+produce a number that is right for the machine and wrong for the standard.
+
+`buildRating` compares each lift against the **median of the others** (so one
+genuinely strong movement cannot hide behind itself) and flags anything two
+whole ranks clear, provided there are at least three other rated lifts to
+compare with. Where the user has said what the machine's stack tops out at, it
+can be blunter: "that is 1.7 times a full stack" is evidence rather than a
+hunch.
+
+It is a question, never a correction. The app does not know which of those
+causes it is, or whether somebody simply has freakish side delts, so it offers
+the fix and lets the lifter apply it. The fix is a `loadFactor` on that
+exercise, and it changes **how the number is read, not the log**: halving a
+recorded set would rewrite what somebody actually did and make their own history
+disagree with their memory. Halving the interpretation changes only the
+comparison against a standard, which is the part that was wrong.
+
+Both the machine-setup sheet on Train and the correction sheet on Home write
+`machineSetups[exerciseId]`, so both spread the existing record rather than
+rebuilding it from their own fields. A test asserts that, because the first
+version of the second sheet silently deleted the first one's work.
+
 **A rank is only built from sets a 1RM estimate is valid for.** Prediction
 equations are validated to about ten repetitions and their error grows past it,
 worst of all on light isolation work (`SOURCES.ribeiro1rm2024` finds every

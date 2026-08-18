@@ -697,17 +697,57 @@ export function toNextDivision(liftName, score, profile, opts = {}) {
  *
  * @param bestByLift Map of lift name -> best estimated 1RM
  */
+/**
+ * How far above the rest of somebody's training a lift has to sit before the
+ * app says something. Two whole ranks.
+ *
+ * The case this exists for: a machine that shows the total stack while each arm
+ * moves half of it, or a plate-loaded frame logged as the sum of both sides, or
+ * a stack marked in pounds typed in as kilograms. All three produce a number
+ * that is right for the machine and wrong for the standard, and the symptom is
+ * always the same shape — one movement standing several ranks clear of
+ * everything else the same person does.
+ *
+ * It is a question, never a correction. The app does not know which of those
+ * three it is, or whether somebody simply has freakish side delts, so it says
+ * what it noticed and offers the fix rather than applying one.
+ */
+const OUTLIER_RANKS = 2;
+
+/** Lifts below this many rated movements cannot have an outlier: too short a list. */
+const OUTLIER_MIN_PEERS = 3;
+
+const median = (values) => {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+};
+
+/**
+ * @param loadFactors  name -> multiplier applied to the estimate before it is
+ *                     ranked. This corrects how a machine *reports* load; the
+ *                     log itself is never touched, because what you typed is
+ *                     what you did.
+ * @param stackMax     name -> the heaviest the stack goes, when the user has
+ *                     said. Turns "this looks high" into "this is 1.7 times a
+ *                     full stack", which is evidence rather than a hunch.
+ */
 export function buildRating(bestByLift, profile,
   {
     machineNames = new Set(), community = {},
     extrapolated = bestByLift.extrapolated, achievedAt = bestByLift.achievedAt,
+    loadFactors = {}, stackMax = {},
   } = {}) {
   const regions = {};
   const lifts = [];
   const outside = extrapolated instanceof Set ? extrapolated : new Set();
   const dates = achievedAt instanceof Map ? achievedAt : new Map();
 
-  for (const [name, orm] of bestByLift) {
+  for (const [rawName, rawOrm] of bestByLift) {
+    const name = rawName;
+    const factor = Number(loadFactors[name]) > 0 ? Number(loadFactors[name]) : 1;
+    const orm = rawOrm * factor;
     const machine = machineNames.has(name) && !isBenchmark(name);
     if (!isBenchmark(name) && !machine) continue;
     const score = machine
@@ -728,6 +768,13 @@ export function buildRating(bestByLift, profile,
       // When the best was set. A rank is an all-time record, and a record has a
       // date on it or it is being passed off as something it is not.
       achievedAt: dates.get(name) ?? null,
+      corrected: factor !== 1,
+      // Beyond what the stack can physically produce, once Epley's slack at one
+      // rep is allowed for. Only answerable when the user has said what the
+      // stack tops out at.
+      overStack: Number(stackMax[name]) > 0 && orm > Number(stackMax[name]) * 1.4
+        ? { max: Number(stackMax[name]), times: orm / Number(stackMax[name]) }
+        : null,
     });
 
     for (const [region, weight] of Object.entries(ANATOMY[name] || {})) {
@@ -747,6 +794,19 @@ export function buildRating(bestByLift, profile,
   }
 
   lifts.sort((a, b) => b.score - a.score);
+
+  // Now that every lift has a score, ask which of them does not belong. A lift
+  // is only its own outlier: the comparison is against the median of the
+  // others, so one very strong movement cannot hide behind itself.
+  for (const lift of lifts) {
+    const peers = lifts.filter((other) => other !== lift).map((other) => other.score);
+    if (peers.length < OUTLIER_MIN_PEERS) continue;
+    const middle = median(peers);
+    const gap = lift.score - middle;
+    if (gap >= OUTLIER_RANKS * BAND) {
+      lift.outlier = { gap, ranks: gap / BAND, median: middle };
+    }
+  }
 
   const rated = Object.values(regions);
   // Overall is the mean of rated regions — an unrated region isn't a zero,
