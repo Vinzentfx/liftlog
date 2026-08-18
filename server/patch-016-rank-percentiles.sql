@@ -60,6 +60,7 @@ declare
   keys text[] := '{}';
   k text;
   s numeric;
+  own numeric;
   stats record;
 begin
   if auth.uid() is null or not public.has_active_access() then raise exception 'ACCESS_REVOKED'; end if;
@@ -76,17 +77,23 @@ begin
     insert into public.rank_observations(user_id, metric_key, score)
     values(auth.uid(), k, s)
     on conflict(user_id, metric_key) do update set score = excluded.score, updated_at = now();
-    keys := keys || k;
+    -- A payload that repeats a key would otherwise run the aggregate twice for
+    -- the same answer.
+    if not (k = any(keys)) then keys := keys || k; end if;
   end loop;
 
   -- Everyone *else*, and only while their number is recent enough to describe
   -- them. A percentile against your own row included is a percentile that moves
   -- when you are the only one who trained.
   foreach k in array keys loop
+    -- Read once rather than per row: a correlated subquery inside the aggregate
+    -- would re-run it for every observation being counted.
+    select score into own from public.rank_observations
+     where user_id = auth.uid() and metric_key = k;
+
     select
       count(*) as n,
-      avg(case when o.score < (select score from public.rank_observations
-                               where user_id = auth.uid() and metric_key = k) then 1.0 else 0.0 end) as below,
+      avg(case when o.score < own then 1.0 else 0.0 end) as below,
       percentile_cont(0.20) within group(order by o.score) as q20,
       percentile_cont(0.40) within group(order by o.score) as q40,
       percentile_cont(0.60) within group(order by o.score) as q60,
@@ -121,5 +128,16 @@ end; $$;
 
 revoke all on function public.share_rank_scores(jsonb) from public;
 revoke all on function public.forget_rank_scores() from public;
+
+-- And from anon by name. Supabase's default privileges grant EXECUTE on every
+-- newly created function directly to anon, and a revoke from PUBLIC does not
+-- touch a grant made to a role: without these two lines both functions are
+-- reachable from an unauthenticated request. They refuse it on their first
+-- line, so this changes no behaviour, but a guard inside is not a reason to
+-- leave the door reachable. Verified against the live database, where patch
+-- 013's two functions still show the same gap.
+revoke execute on function public.share_rank_scores(jsonb) from anon;
+revoke execute on function public.forget_rank_scores() from anon;
+
 grant execute on function public.share_rank_scores(jsonb) to authenticated;
 grant execute on function public.forget_rank_scores() to authenticated;

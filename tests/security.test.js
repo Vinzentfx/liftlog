@@ -490,6 +490,11 @@ test('the rank comparison is an aggregate, opt-in, and withdrawable', async () =
   assert.doesNotMatch(sql, /order by score desc/i);
   assert.match(sql, /function public\.forget_rank_scores/);
   assert.match(sql, /delete from public\.rank_observations where user_id = auth\.uid\(\)/);
+  // Revoking from PUBLIC is not enough on Supabase: its default privileges
+  // grant EXECUTE on every new function directly to anon, and a revoke from
+  // PUBLIC does not remove a grant made to a role.
+  assert.match(sql, /revoke execute on function public\.share_rank_scores\(jsonb\) from anon/);
+  assert.match(sql, /revoke execute on function public\.forget_rank_scores\(\) from anon/);
 
   // Off unless switched on, and switching it off withdraws rather than pauses.
   assert.match(models, /shareRankComparison: false/);
