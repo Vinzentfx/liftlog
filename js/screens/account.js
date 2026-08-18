@@ -199,6 +199,16 @@ function statusLine(s) {
 
 /* ============================== setting up ============================== */
 
+/**
+ * The sign-in / sign-up fork, for callers outside this module.
+ *
+ * The Users tab needs it: it is the one screen that is useless without an
+ * account, and it used to say so and then offer no way to get one.
+ */
+export function openCloudSetup() {
+  startSheet();
+}
+
 function startSheet() {
   const body = el('div', {}, [
     el('div.small.muted', { text: t('cloud.startIntro') }),

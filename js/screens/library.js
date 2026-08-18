@@ -6,7 +6,7 @@ import {
 import * as store from '../store.js';
 import { MUSCLES } from '../models.js';
 import { t, tn, tMuscle, tEquipment, tRegion } from '../i18n.js';
-import { exerciseArt, hasArt } from '../exercise-art.js';
+import { exerciseArt, exerciseThumb, hasArt } from '../exercise-art.js';
 import { newExerciseForm } from '../pickers.js';
 import { rateExercise } from '../exercise-rating.js';
 import { exerciseSearchScore } from '../exercise-search.js';
@@ -102,6 +102,7 @@ function listView() {
     const row = (ex, sub) => listItem({
       title: (ex.favourite ? '★ ' : '') + ex.name,
       sub,
+      lead: exerciseThumb(ex),
       right: starsFor(ex),
       ariaLabel: store.starsShown()
         ? t('library.openRated', { name: ex.name, stars: rateExercise(ex).stars })

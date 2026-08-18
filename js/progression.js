@@ -363,11 +363,18 @@ export function parseReps(spec) {
  * `override` is the per-machine stack increment from the setup sheet, and it
  * wins where it exists: the equipment default is a guess about a frame nobody
  * has looked at, and the override is somebody who has.
+ *
+ * Five kilos, not 2.5. A pin stack goes up in fives almost everywhere, and on a
+ * bar five kilos is one 2.5 disc per side, which is the jump people actually
+ * make. Asking for 2.5 produced a stream of suggestions half a plate apart that
+ * were either unavailable on the machine or too small to be worth reloading
+ * for. Pounds were already at 5 and stay there. Dumbbells keep their small
+ * step in both units: five in one hand is not a step, it is a different bell.
  */
 export function loadStep(exercise, units, override = null) {
   if (Number(override) > 0) return Number(override);
   if (exercise?.equipment === 'Dumbbell') return units === 'lb' ? 5 : 2;
-  return units === 'lb' ? 5 : 2.5;
+  return 5;
 }
 
 /**

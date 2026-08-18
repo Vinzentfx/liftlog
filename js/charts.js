@@ -17,6 +17,25 @@ function svgEl(tag, attrs = {}) {
 }
 
 /** Re-render on width change; charts are measured, not scaled. */
+/**
+ * Gradient ids have to be unique per document, and a screen can hold four
+ * charts. A counter is enough and keeps the markup readable.
+ */
+let gradSeq = 0;
+
+/** Top-lit vertical fill, the same accent ramp the meter bars use. */
+function barGradient() {
+  const id = `bar-grad-${++gradSeq}`;
+  const defs = svgEl('defs');
+  const grad = svgEl('linearGradient', { id, x1: '0', y1: '0', x2: '0', y2: '1' });
+  grad.append(
+    svgEl('stop', { offset: '0', class: 'bar-stop-top' }),
+    svgEl('stop', { offset: '1', class: 'bar-stop-bottom' }),
+  );
+  defs.append(grad);
+  return { defs, fill: `url(#${id})` };
+}
+
 function responsive(build, height) {
   const wrap = el('div.figure');
   const host = el('div', { style: { position: 'relative' } });
@@ -262,6 +281,8 @@ export function barChart(bars, opts = {}) {
     const r = Math.min(4, bw / 2);
 
     const tip = el('div.chart-tip', { hidden: true });
+    const grad = barGradient();
+    svg.append(grad.defs);
 
     bars.forEach((b, i) => {
       const x = padL + i * slot + (slot - bw) / 2;
@@ -271,8 +292,18 @@ export function barChart(bars, opts = {}) {
       if (h > 0) {
         // Rounded top, square bottom — the bar stays anchored to the baseline.
         const d = `M${x},${y + h} L${x},${y + r} Q${x},${y} ${x + r},${y} L${x + bw - r},${y} Q${x + bw},${y} ${x + bw},${y + r} L${x + bw},${y + h} Z`;
-        const bar = svgEl('path', { class: `bar${b.dim ? ' dim' : ''}`, d });
+        const bar = svgEl('path', { class: `bar${b.dim ? ' dim' : ''}`, d, fill: grad.fill });
         svg.append(bar);
+      }
+
+      // The last bar is the one the caption is talking about ("this is the
+      // current week"), and it is the only value worth reading without a tap.
+      if (i === bars.length - 1 && b.value > 0) {
+        const value = svgEl('text', {
+          class: 'bar-value', x: x + bw / 2, y: Math.max(padT - 1, y - 5), 'text-anchor': 'middle',
+        });
+        value.textContent = format(b.value);
+        svg.append(value);
       }
 
       const hit = svgEl('rect', {

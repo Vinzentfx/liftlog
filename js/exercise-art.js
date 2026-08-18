@@ -16,6 +16,37 @@ export function hasArt(exercise) {
 }
 
 /**
+ * A 44px start-frame for a list row.
+ *
+ * Every row gets a slot whether or not there is art, because half a list with
+ * thumbnails and half without is worse to scan than either. Where the movement
+ * has no illustration the slot carries its initial, which still gives the eye
+ * something fixed to run down.
+ */
+export function exerciseThumb(exercise) {
+  const slug = exercise && EXERCISE_IMAGES[normName(exercise.name)];
+  if (!slug) {
+    return el('span.ex-thumb.is-letter', { 'aria-hidden': 'true' },
+      [String(exercise?.name || '?').trim().charAt(0).toUpperCase()]);
+  }
+  const img = el('img', {
+    src: `${BASE}${slug}_1.webp`,
+    alt: '',
+    loading: 'lazy',
+    decoding: 'async',
+    width: 40, height: 40,
+  });
+  const wrap = el('span.ex-thumb', { 'aria-hidden': 'true' }, [img]);
+  // The images are runtime-cached rather than precached, so a first view while
+  // offline has to degrade to the letter instead of a broken frame.
+  img.addEventListener('error', () => {
+    wrap.classList.add('is-letter');
+    wrap.replaceChildren(String(exercise?.name || '?').trim().charAt(0).toUpperCase());
+  });
+  return wrap;
+}
+
+/**
  * @param {object} exercise  library row
  * @param {object} opts      { eager } — eager only for the one on screen
  */

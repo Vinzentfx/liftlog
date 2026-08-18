@@ -11,6 +11,7 @@ import {
   buildRating, hasProfile, ratedMachineNames, regionsFromExercises, rankOf, tierIndex,
 } from '../standards.js';
 import { todaysDays } from '../schedule.js';
+import { openCloudSetup } from './account.js';
 import * as push from '../push.js';
 
 let hub = null;
@@ -30,7 +31,14 @@ const challengeMetricLabel = (key) => key === 'sets'
 export default function renderUsers({ actions, fresh }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
   const root = el('div');
-  if (!cloud.isSignedIn()) return emptyState(t('users.signInTitle'), t('users.signInBody'));
+  // With no account this screen has nothing to show, so the empty state carries
+  // the way out of it. Saying "sign in" and then offering no button was a dead
+  // end on one of the five tabs.
+  if (!cloud.isSignedIn()) {
+    return emptyState(t('users.signInTitle'), t('users.signInBody'),
+      el('button.btn.primary', { style: { marginTop: '16px' }, onclick: () => openCloudSetup() },
+        [t('cloud.setUp')]));
+  }
   if (fresh) { hub = null; extras = { groups: [], challenges: [], prs: [], visibility: {} }; problem = null; }
   // `!problem` is what makes the card below reachable. Without it the failed
   // load starts another one on the very render that was meant to report it, so

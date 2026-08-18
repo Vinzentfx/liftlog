@@ -33,6 +33,18 @@ const ANNOUNCE_GRACE_MS = 30 * 1000;
 
 const bar = () => $('#rest-bar');
 
+/**
+ * Show or hide the bar, and tell the layout it is there.
+ *
+ * The bar floats over the bottom of the screen, so without the class the last
+ * control on any screen sits underneath it: on the workout screen that is
+ * "end workout", which was unreachable for the whole of every rest.
+ */
+function showBar(visible) {
+  bar().hidden = !visible;
+  document.body.classList.toggle('resting', visible);
+}
+
 export function isRunning() { return endsAt > Date.now(); }
 
 /**
@@ -79,7 +91,7 @@ function restore() {
   keepAlive = false;
   chimed = false;
   onDone = null;
-  bar().hidden = false;
+  showBar(true);
   tick();
 }
 
@@ -93,7 +105,7 @@ export function start(seconds, { onComplete, sound: withSound = true, background
   // the battery is not spent.
   keepAlive = background && withSound;
   chimed = false;
-  bar().hidden = false;
+  showBar(true);
   persist();
   startKeeper();
   tick();
@@ -103,7 +115,7 @@ export function stop() {
   endsAt = 0;
   clearTimeout(timer);
   timer = null;
-  bar().hidden = true;
+  showBar(false);
   stopKeeper();
   persist();
 }

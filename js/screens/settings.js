@@ -8,6 +8,7 @@ import * as store from '../store.js';
 import * as db from '../db.js';
 import { hasProfile } from '../standards.js';
 import { DEFAULT_BAR } from '../plates.js';
+import { dayKey } from '../models.js';
 import { evidenceList } from '../rating-ui.js';
 import { t, tn, LANGUAGES } from '../i18n.js';
 import { cloudSection } from './account.js';
@@ -570,7 +571,7 @@ function notificationSection(settings) {
       ]),
       creatineEnabled ? el('div.row', {}, [
         el('button.btn.primary.grow', { onclick: async () => {
-          try { await cloud.answerCreatineReminder('taken'); await store.setSetting('creatineLastTakenDay', new Date().toISOString().slice(0, 10)); toast(t('settings.creatineTaken')); }
+          try { await cloud.answerCreatineReminder('taken'); await store.setSetting('creatineLastTakenDay', dayKey()); toast(t('settings.creatineTaken')); }
           catch { toast(t('settings.notificationsFailed')); }
         } }, [t('settings.alreadyTaken')]),
         el('button.btn.ghost.grow', { onclick: async () => {

@@ -8,6 +8,7 @@ import * as rest from './rest.js';
 import * as sync from './sync.js';
 import * as cloud from './cloud.js';
 import { loadGymLocation, saveGymLocation, currentPosition, nearbyPlannedWorkout } from './gym-location.js';
+import { dayKey } from './models.js';
 
 import renderHome from './screens/home.js';
 import renderTrain from './screens/train.js';
@@ -136,6 +137,13 @@ let locked = true;
 let cloudMaintenanceStarted = false;
 let cloudMaintenanceRunning = false;
 let cloudMaintenanceImmediatePending = false;
+// Whether going back lands anywhere useful. A screen reached by tapping through
+// the app has somewhere to return to; the same screen opened from a bookmark or
+// a shared link does not, and there "back" has to mean Home.
+let hashSteps = 0;
+/** The five routes with a tab. Everything else needs its own way back. */
+const TAB_ROUTES = new Set(['home', 'train', 'nutrition', 'plans', 'users']);
+
 let lastBackupWarningAt = 0;
 let cloudSetupPrompted = false;
 let gymLocationChecking = false;
@@ -159,6 +167,11 @@ export function render() {
     });
 
     $('#screen-title').textContent = t(route.title);
+    // Calendar, Progress, the exercise library and a shared plan have no tab to
+    // return to, and in an installed PWA there is no browser chrome either, so
+    // without this the only way out was a swipe nobody is told about.
+    const back = $('#topbar-back');
+    back.hidden = TAB_ROUTES.has(name);
     clear($('#topbar-actions'));
 
     const host = clear(screen);
@@ -205,7 +218,13 @@ function wireChrome() {
     });
   });
 
-  window.addEventListener('hashchange', () => { closeSheet(); render(); });
+  window.addEventListener('hashchange', () => { hashSteps += 1; closeSheet(); render(); });
+
+  $('#topbar-back').addEventListener('click', () => {
+    closeSheet();
+    if (hashSteps > 0) history.back();
+    else navigate('home');
+  });
 
   // Settings lives behind a gear rather than eating a fifth tab slot.
   $('#topbar').addEventListener('click', (e) => {
@@ -376,7 +395,7 @@ async function handleNotificationAction() {
   history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
   try {
     await cloud.answerCreatineReminder(action);
-    if (action === 'taken') await store.setSetting('creatineLastTakenDay', new Date().toISOString().slice(0, 10));
+    if (action === 'taken') await store.setSetting('creatineLastTakenDay', dayKey());
     toast(t(action === 'taken' ? 'settings.creatineTaken' : 'settings.creatineSnoozed'));
   } catch { toast(t('settings.notificationsFailed')); }
 }

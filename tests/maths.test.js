@@ -1100,7 +1100,8 @@ test('a ramp across the working sets is judged on the set it opened with', () =>
 
   const tip = openingSet(rows, { exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20 });
   assert.equal(tip.fromWeight, 100);
-  assert.ok(tip.weight <= 100 + 2.5 * 3, `${tip.weight} is more than three steps off the opening set`);
+  assert.ok(tip.weight <= 100 + loadStep(BENCH, 'kg') * 3,
+    `${tip.weight} is more than three steps off the opening set`);
 });
 
 test('a first set short of the target holds the weight', () => {
@@ -1229,7 +1230,7 @@ test('after one set today the advice comes from today', () => {
 
 test('a machine with a five-kilo stack is never asked for 102.5', () => {
   const machine = { id: 'ex_press', name: 'Machine Chest Press', equipment: 'Machine', primary: ['chest'] };
-  assert.equal(loadStep(machine, 'kg'), 2.5, 'the default is still the default');
+  assert.equal(loadStep(machine, 'kg'), 5, 'the default is still the default');
   assert.equal(loadStep(machine, 'kg', 5), 5);
   assert.equal(roundLoad(103, machine, { units: 'kg', step: 5 }), 105);
   assert.equal(roundLoad(101, machine, { units: 'kg', step: 5 }), 100);
@@ -1310,7 +1311,8 @@ test('the assumption cannot be turned into a lever', () => {
     exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20, assumedRir: 99,
   });
   // Capped at four in reserve, and the increase is still bounded to three steps.
-  assert.ok(wild.weight <= 100 + 2.5 * 3, `${wild.weight} is not a bounded suggestion`);
+  const step = loadStep(BENCH, 'kg');
+  assert.ok(wild.weight <= 100 + step * 3, `${wild.weight} is not a bounded suggestion`);
 });
 
 test('an unknown leg machine is not ranked against a triceps standard', () => {
@@ -1407,7 +1409,7 @@ test('a full stack lands where the two-tier rule says it should', () => {
   // one out is a strong rank and not the published elite standard.
   const isolation = {
     'Leg Extension': 135, 'Seated Leg Curl': 135, 'Machine Lateral Raise': 85,
-    'Triceps Pushdown': 85, 'Overhead Rope Triceps Extension': 135, 'Machine Preacher Curl': 100,
+    'Triceps Pushdown': 85, 'Overhead Rope Triceps Extension': 135, 'Machine Preacher Curl': 85,
   };
   for (const [name, stack] of Object.entries(isolation)) {
     const maxed = rankOf(scoreForMachine(name, e1rm(stack, 10), profile));

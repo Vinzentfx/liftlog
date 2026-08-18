@@ -1,7 +1,7 @@
 // Train — the active workout, or the launcher when nothing is running.
 
 import {
-  el, $, toast, haptic, fmtWeight, fmtDuration, fmtNum, setsSummary,
+  el, $, toast, haptic, fmtWeight, fmtDuration, fmtNum, fmtVolume, setsSummary,
   openSheet, closeSheet, confirmSheet, emptyState, debounce, listItem,
   numberInput, parseNumber, normaliseOnBlur, undoToast,
 } from '../ui.js';
@@ -29,6 +29,10 @@ import { SOURCES } from '../evidence.js';
 
 const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
 const openHistories = new Set();
+// Which exercises are showing the reasoning behind their suggestion. Closed by
+// default: in the gym the number is the answer, and the three-line explanation
+// of how it was reached pushed the first input field off the screen.
+const openReasons = new Set();
 
 export default function renderTrain({ actions }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings'), title: t('common.settings') }, ['⚙']));
@@ -132,7 +136,7 @@ function launcherView() {
     root.append(el('div.section-head', {}, [el('h2', { text: t('train.lastSession') })]));
     root.append(listItem({
       title: last.name,
-      sub: `${new Date(last.startedAt).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' })} · ${tn(st.sets, 'unit.set')} · ${fmtNum(st.volume)}${store.units()}`,
+      sub: `${new Date(last.startedAt).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' })} · ${tn(st.sets, 'unit.set')} · ${fmtVolume(st.volume, store.units())}`,
       onclick: () => navigate('calendar', last.id),
     }));
   }
@@ -151,17 +155,23 @@ function activeView(session) {
   const elapsed = el('span.stat-val', { text: fmtDuration(st.durationMs) });
   const header = el('div.card', {}, [
     el('div.row.between', { style: { marginBottom: '12px' } }, [
-      el('div.grow', {}, [
-        el('div', { style: { fontWeight: '680', fontSize: '17px' }, text: session.name }),
+      // Renaming is on the name, not on a second button beside it. Two German
+      // words ("Pausieren", "Umbenennen") took most of a 375px row, which left
+      // the title wrapping over two lines and the start time over two more.
+      el('button.session-name', {
+        onclick: () => renameSession(session),
+        'aria-label': `${session.name}, ${t('train.rename')}`,
+      }, [
+        el('div.row', { style: { gap: '6px', alignItems: 'baseline' } }, [
+          el('span.session-name-text', { text: session.name }),
+          el('span.session-name-pencil', { text: '✎', 'aria-hidden': 'true' }),
+        ]),
         el('div.small.faint', { text: t('train.startedAt', { time: new Date(session.startedAt).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit' }) }) }),
       ]),
-      el('div.row', {}, [
-        el('button.btn.sm.ghost', { onclick: async () => {
-          if (session.pausedAt) await store.resumeSession(session.id);
-          else { await store.pauseSession(session.id); rest.stop(); }
-        } }, [t(session.pausedAt ? 'train.resume' : 'train.pause')]),
-        el('button.btn.sm.ghost', { onclick: () => renameSession(session) }, [t('train.rename')]),
-      ]),
+      el('button.btn.sm.ghost', { style: { flex: 'none' }, onclick: async () => {
+        if (session.pausedAt) await store.resumeSession(session.id);
+        else { await store.pauseSession(session.id); rest.stop(); }
+      } }, [t(session.pausedAt ? 'train.resume' : 'train.pause')]),
     ]),
     el('div.stat-grid', {}, [
       el('div.stat', {}, [elapsed, el('span.stat-key', { text: t('train.elapsed') })]),
@@ -282,17 +292,13 @@ function exerciseBlock(session, entry, entryIndex) {
     );
     const tip = opening;
     if (tip) {
-      block.append(
-        el('div.suggest', {}, [
-          // A bodyweight movement has no weight to name, so the same engine
-          // answer is read out as a rep target instead of a load.
-          el('b', { text: (bodyweightLoadMode(ex) === 'bodyweight'
-            ? t('train.tip.bodyweight', { reps: tip.reps })
-            : t(`train.tip.${tip.change}`, { weight: fmtWeight(tip.weight, units), reps: tip.reps }))
-            + (entry.movementMode === 'unilateral' ? ` ${t('train.perSide')}` : '') }),
-          el('span', { text: `: ${describeReasons(tip.reasons, units)}` }),
-        ])
-      );
+      // A bodyweight movement has no weight to name, so the same engine answer
+      // is read out as a rep target instead of a load.
+      const headline = (bodyweightLoadMode(ex) === 'bodyweight'
+        ? t('train.tip.bodyweight', { reps: tip.reps })
+        : t(`train.tip.${tip.change}`, { weight: fmtWeight(tip.weight, units), reps: tip.reps }))
+        + (entry.movementMode === 'unilateral' ? ` ${t('train.perSide')}` : '');
+      block.append(reasonedSuggestion(entry.exerciseId, headline, describeReasons(tip.reasons, units)));
     }
     if (store.state.settings.setHistory !== false) {
       const history = store.state.sessions.filter((row) => row.finishedAt && row.id !== session.id)
@@ -617,12 +623,38 @@ function warmupOffer(session, entry, ex, units, context = {}) {
       },
     }, [t('train.warmupOffer', { sets: sets.map((w) => `${fmtWeight(w.weight, units)} × ${w.reps}`).join(', ') })])
   );
+  // The caveat is a whole sentence about what the trials found. It belongs to
+  // the sheet it opens, not above the first input field of a working set.
   wrap.append(el('button.small.faint', {
     style: { marginTop: '-6px', marginBottom: '8px', fontSize: '11px', background: 'none',
       border: 0, padding: 0, textAlign: 'left', color: 'var(--text-faint)' },
     onclick: () => warmupEvidenceSheet(),
-  }, [`${t('train.warmupCaveat')}  ›`]));
+  }, [`${t('train.warmupWhy')}  ›`]));
   return wrap;
+}
+
+/**
+ * The suggestion, with its reasoning one tap away.
+ *
+ * The verdict is three words and the reasoning is three lines, and both used to
+ * be printed together above the set rows. Collapsed, the whole exercise card
+ * fits on a phone screen with the first weight field visible.
+ */
+function reasonedSuggestion(exerciseId, headline, reason) {
+  const open = openReasons.has(exerciseId);
+  return el('button.suggest', {
+    'aria-expanded': String(open),
+    onclick: () => {
+      if (open) openReasons.delete(exerciseId); else openReasons.add(exerciseId);
+      render();
+    },
+  }, [
+    el('span.row.between', { style: { gap: '8px' } }, [
+      el('b', { text: headline }),
+      el('span.suggest-why', { text: open ? '⌄' : `${t('train.whyThis')} ›` }),
+    ]),
+    open ? el('span.suggest-reason', { text: reason }) : null,
+  ]);
 }
 
 /* ======================= effort and progression ======================= */
@@ -689,6 +721,9 @@ function orderLabel(rows, prior, session, entryIndex) {
 function warmupEvidenceSheet() {
   const sources = [SOURCES.ribeiro2020, SOURCES.warmup2025];
   openSheet(t('train.warmupEvidenceTitle'), el('div', {}, [
+    // The one-line version, which used to sit above the set rows on the workout
+    // screen. It is the answer to the question this sheet is opened by.
+    el('div', { style: { fontWeight: '650', marginBottom: '8px' }, text: t('train.warmupCaveat') }),
     el('div.small.muted', { text: t('train.warmupEvidenceBody') }),
     ...sources.map((source) => el('div', { style: { marginTop: '14px' } }, [
       el('a', {

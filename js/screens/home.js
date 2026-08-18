@@ -1,14 +1,14 @@
 // Home — overall strength rating, the muscle map, and training-at-a-glance.
 
 import {
-  el, fmtNum, fmtWeight, fmtDate, fmtDuration, emptyState, listItem,
+  el, fmtNum, fmtVolume, fmtWeight, fmtDate, fmtDuration, emptyState, listItem,
   openSheet, closeSheet, toast, confirmSheet,
   numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
 import * as cloud from '../cloud.js';
 import {
-  bestOneRepMaxByName, isCounted, startOfWeek, weeklyMuscleSets, sessionStats,
+  bestOneRepMaxByName, isCounted, startOfWeek, weeklyMuscleSets, sessionStats, dayKey,
 } from '../models.js';
 import {
   buildRating, hasProfile, TIERS, DIVISIONS, BAND, tierIndex, rankOf,
@@ -126,6 +126,12 @@ export default function renderHome({ actions }) {
     return root;
   }
 
+  // ---------- what's on today ----------
+  // First, because it is the only thing on this screen anybody opens the app in
+  // a gym to do. It used to sit fourth, roughly four screens down, behind the
+  // rank card, the muscle map and two tables of records.
+  root.append(todayCard(done));
+
   // ---------- rating ----------
   if (s.showRatings) {
     root.append(ratingSection(done, s));
@@ -151,9 +157,6 @@ export default function renderHome({ actions }) {
   );
 
   root.append(monthlyReportCard(done));
-
-  // ---------- what's on today ----------
-  root.append(todayCard(done));
 
   // ---------- done vs planned ----------
   root.append(weekVsPlan(done));
@@ -215,7 +218,7 @@ export default function renderHome({ actions }) {
     const st = sessionStats(x);
     root.append(listItem({
       title: x.name,
-      sub: `${fmtDate(x.startedAt)} · ${tn(st.sets, 'unit.set')} · ${fmtNum(st.volume)}${store.units()}`,
+      sub: `${fmtDate(x.startedAt)} · ${tn(st.sets, 'unit.set')} · ${fmtVolume(st.volume, store.units())}`,
       onclick: () => navigate('calendar', x.id),
     }));
   }
@@ -230,7 +233,9 @@ export default function renderHome({ actions }) {
     el('div.stat-grid.two', { style: { marginTop: '18px' } }, [
       wayIn(t('route.calendar'), t('home.wayIn.calendar'), () => navigate('calendar')),
       wayIn(t('route.progress'), t('home.wayIn.progress'), () => navigate('progress')),
-      wayIn(t('route.library'), t('home.wayIn.library'), () => navigate('library')),
+      // Three into two columns leaves one tile stranded at half width. The odd
+      // one out spans instead, which also reads as a row rather than a gap.
+      wayIn(t('route.library'), t('home.wayIn.library'), () => navigate('library'), 'span'),
     ])
   );
 
@@ -256,10 +261,17 @@ function monthlyReportCard(done) {
       if (best > (previousBest.get(entry.exerciseId) || 0)) previousBest.set(entry.exerciseId, best);
     }
   }
+  const month = now.toLocaleDateString(locale(), { month: 'long' });
+  const head = el('div.section-head', {}, [el('h2', { text: t('home.month.title', { month }) })]);
+  // Four tiles of zero say the same thing as one sentence and take five times
+  // the screen for it. Early in a month, or after a lay-off, that used to be
+  // eight zeroes in a row with the week above saying it too.
+  if (!sessions.length) {
+    return el('div', {}, [head, el('div.small.faint', { text: t('home.month.empty', { month }) })]);
+  }
+
   return el('div', {}, [
-    el('div.section-head', {}, [el('h2', { text: t('home.month.title', {
-      month: now.toLocaleDateString(locale(), { month: 'long' }),
-    }) })]),
+    head,
     el('div.stat-grid.two', {}, [
       el('div.stat', {}, [el('span.stat-val', { text: String(sessions.length) }), el('span.stat-key', { text: t('home.stat.workouts') })]),
       el('div.stat', {}, [el('span.stat-val', { text: String(totals.sets) }), el('span.stat-key', { text: t('home.stat.workingSets') })]),
@@ -272,7 +284,10 @@ function monthlyReportCard(done) {
 }
 
 function regenerationCard() {
-  const today = new Date().toISOString().slice(0, 10);
+  // dayKey, not toISOString: the rest of the app stamps days in local time,
+  // and an ISO stamp is still on yesterday until 02:00 in a summer CEST
+  // morning, so a late-night entry landed on the wrong day.
+  const today = dayKey();
   const log = store.state.settings.regenerationLog || [];
   const saved = log.find((x) => x.date === today);
   return el('div.card', {}, [
@@ -307,7 +322,7 @@ function regenerationSheet(saved = {}) {
     row(t('home.regeneration.stress'), stress, t('home.regeneration.scale')),
     row(t('home.regeneration.fatigue'), fatigue, t('home.regeneration.scale')),
     el('button.btn.primary.full', { onclick: async () => {
-      const date = new Date().toISOString().slice(0, 10);
+      const date = dayKey();
       const next = (store.state.settings.regenerationLog || []).filter((x) => x.date !== date);
       next.push({ date, sleep: Number(sleep.value) || null, quality: Number(quality.value) || null,
         soreness: Number(soreness.value) || null, motivation: Number(motivation.value) || null,
@@ -319,8 +334,8 @@ function regenerationSheet(saved = {}) {
   ]));
 }
 
-function wayIn(title, sub, onclick) {
-  return el('button.stat', {
+function wayIn(title, sub, onclick, span = null) {
+  return el(span ? 'button.stat.span-all' : 'button.stat', {
     onclick,
     'aria-label': `${title}, ${sub}`,
     style: { textAlign: 'left', cursor: 'pointer' },

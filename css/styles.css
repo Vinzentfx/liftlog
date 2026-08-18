@@ -12,7 +12,10 @@
   --line-soft: #1B2942;
   --text:      #EAF0FA;
   --text-dim:  #93A3BE;
-  --text-faint:#5E6E8C;
+  /* 5.1:1 on --bg-raised. It was #5E6E8C, which is 3.4:1, and it carries the
+     10.5px stat labels and every faint subline in the app: the smallest type
+     here had the weakest contrast, which is the wrong way round. */
+  --text-faint:#7C8BA7;
 
   --accent:     #3B82F6;
   --accent-hi:  #60A5FA;
@@ -101,7 +104,7 @@ body {
 html[data-theme="violet"] {
   --bg: #100D1D; --bg-raised: #1B1630; --bg-float: #261E40; --bg-sunken: #090711;
   --line: #4A3C69; --line-soft: #30264A;
-  --text: #F2EEFF; --text-dim: #ADA2C8; --text-faint: #756990;
+  --text: #F2EEFF; --text-dim: #ADA2C8; --text-faint: #9086A6;
   --accent: #8B5CF6; --accent-hi: #A78BFA; --accent-ink: #160632; --data: #A78BFA;
   --glow-accent: 0 0 24px -4px rgba(139, 92, 246, .58);
   --glow-soft: 0 0 18px -6px rgba(139, 92, 246, .42);
@@ -109,7 +112,7 @@ html[data-theme="violet"] {
 html[data-theme="emerald"] {
   --bg: #071713; --bg-raised: #102720; --bg-float: #17352C; --bg-sunken: #040E0B;
   --line: #285849; --line-soft: #193C31;
-  --text: #E9FFF7; --text-dim: #91BBAA; --text-faint: #5B8373;
+  --text: #E9FFF7; --text-dim: #91BBAA; --text-faint: #6E9B89;
   --accent: #10B981; --accent-hi: #34D399; --accent-ink: #022A1C; --data: #34D399;
   --glow-accent: 0 0 24px -4px rgba(16, 185, 129, .55);
   --glow-soft: 0 0 18px -6px rgba(16, 185, 129, .4);
@@ -117,7 +120,7 @@ html[data-theme="emerald"] {
 html[data-theme="sunset"] {
   --bg: #1B0D16; --bg-raised: #2A1522; --bg-float: #3A1D2C; --bg-sunken: #10070D;
   --line: #673248; --line-soft: #452133;
-  --text: #FFF0F4; --text-dim: #C6A0AD; --text-faint: #8E6876;
+  --text: #FFF0F4; --text-dim: #C6A0AD; --text-faint: #A4838F;
   --accent: #E84B68; --accent-hi: #FB7185; --accent-ink: #360611; --data: #FB7185;
   --glow-accent: 0 0 24px -4px rgba(232, 75, 104, .55);
   --glow-soft: 0 0 18px -6px rgba(232, 75, 104, .4);
@@ -173,12 +176,31 @@ input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
 }
 #topbar-actions { display: flex; gap: 8px; align-items: center; }
 
+#topbar-back {
+  flex: none; width: 36px; height: 36px; margin-left: -6px;
+  display: grid; place-items: center;
+  background: none; border: 0; padding: 0; border-radius: 50%;
+  color: var(--accent-hi); -webkit-tap-highlight-color: transparent;
+}
+#topbar-back[hidden] { display: none; }
+#topbar-back:active { background: rgba(96, 165, 250, .12); }
+#topbar-back svg {
+  width: 24px; height: 24px; fill: none; stroke: currentColor;
+  stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round;
+}
+
 #screen {
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   padding: 16px var(--gut) 30px;
   outline: none;
 }
+
+/* The rest bar floats over the bottom of the screen rather than pushing it up,
+   so while it is running the scroll has to reach past it. Without this the last
+   control on a screen sits under the bar, and on the workout screen that is
+   "end workout". */
+body.resting #screen { padding-bottom: 102px; }
 
 /* `hidden` alone loses to the display rule below, so the invite gate could not
    actually take the tab bar away. Specificity, not the attribute, decides. */
@@ -273,6 +295,7 @@ input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
   display: grid; place-items: center; font-size: 18px; line-height: 1;
   color: var(--text-dim);
 }
+.icon-btn:disabled { opacity: .35; pointer-events: none; }
 
 input[type="text"], input[type="number"], input[type="date"], select, textarea {
   width: 100%; background: var(--bg-sunken); color: var(--text);
@@ -584,8 +607,15 @@ label.field > span {
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px; margin: 26px 0 11px;
 }
+/* Who yields when a long title, a rule and two buttons want the same 343px.
+   Before this the answer was "everybody", which turned one German heading into
+   three wrapped lines with "+ New" broken across two of them. Now the rule
+   gives up its width first, the buttons never shrink, and only the title
+   wraps. */
+.section-head h2 { min-width: 0; }
+.section-head > :not(h2) { flex: none; }
 .section-head::after {
-  content: ''; height: 1px; flex: 1;
+  content: ''; height: 1px; flex: 1 1 0; min-width: 0;
   background: linear-gradient(90deg, rgba(96, 165, 250, .18), transparent);
 }
 .section-head > :not(h2) { order: 2; }
@@ -631,10 +661,10 @@ label.field > span {
 }
 
 .list-item {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 10px;
   background: linear-gradient(168deg, var(--bg-float), var(--bg-raised) 70%);
   border: 1px solid var(--line-soft);
-  border-radius: var(--r-md); padding: 13px 14px; margin-bottom: 8px;
+  border-radius: var(--r-md); padding: 13px 12px; margin-bottom: 8px;
   width: 100%; text-align: left;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
   transition: border-color .16s ease, transform .07s ease, background .18s ease;
@@ -938,6 +968,18 @@ label.field > span {
 .rating-sub { font-size: 13px; color: var(--text-dim); margin-top: 7px; }
 
 /* ============ exercise art ============ */
+/* Row thumbnail. A fixed slot on every row whether or not there is art, so the
+   titles still line up down a list of 898. */
+.ex-thumb {
+  flex: none; width: 40px; height: 40px; border-radius: 10px;
+  background: var(--bg-sunken); border: 1px solid var(--line-soft);
+  display: grid; place-items: center; overflow: hidden;
+}
+.ex-thumb img { width: 100%; height: 100%; object-fit: contain; opacity: .92; }
+.ex-thumb.is-letter {
+  color: var(--text-faint); font-size: 16px; font-weight: 750;
+}
+
 .exercise-art { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .exercise-art figure { margin: 0; }
 .exercise-art img {
@@ -1049,6 +1091,22 @@ label.field > span {
 }
 .unilateral-set.done .done-btn { background: var(--good); color: #04241A; border-color: transparent; }
 .unilateral-set.done input { opacity: .6; }
+/* The workout's name doubles as its rename control, so it has to look tappable
+   without looking like one more button competing with Pause. */
+.session-name {
+  flex: 1; min-width: 0; text-align: left;
+  background: none; border: 0; padding: 4px 6px; margin: -4px -6px;
+  border-radius: 10px; color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.session-name:active { background: rgba(255, 255, 255, .045); }
+.session-name-text {
+  font-weight: 680; font-size: 17px;
+  display: inline-block; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.session-name-pencil { color: var(--text-faint); font-size: 13px; flex: none; }
+
 .pause-banner {
   display: flex; justify-content: space-between; gap: 10px; margin: 10px 0;
   padding: 11px 13px; border-radius: 12px; color: var(--warn);
@@ -1064,6 +1122,15 @@ label.field > span {
   padding: 7px 11px; margin: -4px 0 10px;
 }
 .suggest b { color: var(--good); font-weight: 680; }
+/* As a button it still has to read as the same note it was as a div. */
+button.suggest {
+  display: block; width: 100%; text-align: left;
+  font: inherit; font-size: 12.5px; color: var(--text-dim);
+  -webkit-tap-highlight-color: transparent;
+}
+button.suggest .row { align-items: baseline; }
+.suggest-why { flex: none; color: var(--text-faint); font-size: 11px; font-weight: 650; }
+.suggest-reason { display: block; margin-top: 5px; }
 
 /* ============ rest timer ============ */
 #rest-bar {
@@ -1165,6 +1232,7 @@ label.field > span {
 /* ============ stats + charts ============ */
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
 .stat-grid.two { grid-template-columns: repeat(2, 1fr); }
+.stat-grid .span-all { grid-column: 1 / -1; }
 .stat {
   background:
     radial-gradient(180px 90px at 0 0, rgba(59, 130, 246, .09), transparent 70%),
@@ -1189,7 +1257,12 @@ svg.chart .trend { fill: none; stroke: var(--text-faint); stroke-width: 1.25; st
 svg.chart .area { fill: var(--data); opacity: .13; }
 svg.chart .dot { fill: var(--data); stroke: var(--bg-raised); stroke-width: 2; }
 svg.chart .bar { fill: var(--data); }
-svg.chart .bar.dim { fill: var(--data); opacity: .40; }
+svg.chart .bar.dim { opacity: .40; }
+/* Lit from the top, the same ramp as the meter fills elsewhere, so a bar chart
+   and a progress bar read as the same material. */
+svg.chart .bar-stop-top { stop-color: var(--accent-hi); }
+svg.chart .bar-stop-bottom { stop-color: var(--data); }
+svg.chart .bar-value { fill: var(--text-dim); font-size: 10.5px; font-weight: 700; }
 svg.chart .cross { stroke: var(--text-faint); stroke-width: 1; stroke-dasharray: 3 3; }
 svg.chart .hit { fill: transparent; }
 

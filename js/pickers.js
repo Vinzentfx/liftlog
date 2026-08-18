@@ -1,6 +1,7 @@
 // Exercise picker — shared by the active workout, the plan editor and the library.
 
 import { el, openSheet, closeSheet, toast, listItem } from './ui.js';
+import { exerciseThumb } from './exercise-art.js';
 import { t, tMuscle, tEquipment } from './i18n.js';
 import { MUSCLES } from './models.js';
 import { exerciseSearchScore } from './exercise-search.js';
@@ -69,6 +70,7 @@ export function pickExercise(onPick, exclude = []) {
       const already = excluded.has(ex.id);
       const row = listItem({
         title: (ex.favourite ? '★ ' : '') + ex.name,
+        lead: exerciseThumb(ex),
         sub: `${tMuscle(ex.muscle)} · ${tEquipment(ex.equipment)}`
           + (already ? ` · ${t('picker.alreadyAdded')}` : ''),
         chev: '+',

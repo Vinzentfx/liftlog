@@ -2,7 +2,7 @@
 // History lives here rather than in its own tab: tapping a date opens that session.
 
 import {
-  el, fmtNum, fmtWeight, fmtDuration, fmtDate, relDay, setsSummary,
+  el, fmtNum, fmtVolume, fmtWeight, fmtDuration, fmtDate, relDay, setsSummary,
   confirmSheet, toast, emptyState, listItem, debounce,
   numberInput, parseNumber, normaliseOnBlur, undoToast,
 } from '../ui.js';
@@ -92,30 +92,42 @@ function monthView() {
 
   for (let i = 0; i < startPad; i++) grid.append(el('div'));
 
+  // How hard each day was, so the grid says more than "trained / did not". The
+  // scale is the month's own hardest day: this is a shape to read at a glance,
+  // not a figure to compare between months, and an absolute scale would leave a
+  // deload month looking uniformly empty.
+  const setsOn = (sessions) => sessions.reduce((n, s) => n + sessionStats(s).sets, 0);
+  const busiest = Math.max(1, ...[...byDay.values()].map(setsOn));
+  /** Four steps. Fewer reads as on/off again, more is not visible on a 45px tile. */
+  const MIX = [46, 64, 82, 100];
+  const mixFor = (sets) => MIX[Math.min(MIX.length - 1, Math.floor((sets / busiest) * MIX.length - 1e-9))];
+
   for (let day = 1; day <= daysInMonth; day++) {
     const sessions = byDay.get(day) || [];
     const date = new Date(year, month, day);
     const isToday = date.getTime() === today.getTime();
     const trained = sessions.length > 0;
+    const sets = trained ? setsOn(sessions) : 0;
+    const mix = trained ? mixFor(sets) : 0;
 
     const cell = el(trained ? 'button' : 'div', {
       'aria-label': trained
         ? t('calendar.dayAria', {
             date: date.toLocaleDateString(locale(), { day: 'numeric', month: 'long' }),
             sessions: sessions.map((s) => s.name).join(', '),
-          })
+          }) + ` · ${tn(sets, 'unit.set')}`
         : undefined,
       onclick: trained ? () => navigate('calendar', sessions[0].id) : undefined,
       style: {
         aspectRatio: '1', display: 'grid', placeItems: 'center', position: 'relative',
         borderRadius: '10px', border: '1px solid ' + (isToday ? 'var(--accent)' : 'var(--line-soft)'),
         background: trained
-          ? 'linear-gradient(180deg, var(--accent-hi), var(--accent))'
+          ? `linear-gradient(180deg, color-mix(in srgb, var(--accent-hi) ${mix}%, var(--bg-raised)), color-mix(in srgb, var(--accent) ${mix}%, var(--bg-raised)))`
           : 'var(--bg-raised)',
         color: trained ? '#fff' : (isToday ? 'var(--accent-hi)' : 'var(--text-faint)'),
         fontWeight: trained || isToday ? '700' : '500',
         fontSize: '13px',
-        boxShadow: trained ? '0 0 14px -5px rgba(59,130,246,.9)' : 'none',
+        boxShadow: trained ? `0 0 14px -5px rgba(59,130,246,${(mix / 100 * 0.9).toFixed(2)})` : 'none',
         padding: '0',
       },
     }, [String(day)]);
@@ -172,7 +184,7 @@ function monthView() {
     const st = sessionStats(s);
     root.append(listItem({
       title: s.name,
-      sub: `${relDay(s.startedAt)} · ${tn(st.exercises, 'unit.exercise')} · ${tn(st.sets, 'unit.set')} · ${fmtNum(st.volume)}${store.units()}`,
+      sub: `${relDay(s.startedAt)} · ${tn(st.exercises, 'unit.exercise')} · ${tn(st.sets, 'unit.set')} · ${fmtVolume(st.volume, store.units())}`,
       onclick: () => navigate('calendar', s.id),
     }));
   }
@@ -295,7 +307,7 @@ function readEntry(entry, units) {
       : setsSummary(counted, units) }),
     el('div.row', { style: { gap: '14px' } }, [
       el('span.small.faint', { text: tn(stats.sets, 'unit.set') }),
-      el('span.small.faint', { text: t('calendar.volumeOf', { volume: `${fmtNum(stats.volume)}${units}` }) }),
+      el('span.small.faint', { text: t('calendar.volumeOf', { volume: fmtVolume(stats.volume, units) }) }),
       stats.e1rm ? el('span.small.faint', { text: `e1RM ${fmtNum(stats.e1rm)}${units}` }) : null,
     ]),
     entry.note ? el('div.small.muted', { style: { marginTop: '8px' }, text: entry.note }) : null,

@@ -318,16 +318,20 @@ function dayHeader(day, isToday) {
     navigate('nutrition');
   };
 
+  const noon = new Date(`${day}T12:00:00`).getTime();
   return el('div.row.between', { style: { marginBottom: '14px' } }, [
     el('button.icon-btn', { 'aria-label': t('food.prevDay'), onclick: () => step(-1) }, ['‹']),
     el('div', { style: { textAlign: 'center' } }, [
       el('div', { style: { fontWeight: '700', fontSize: '17px' },
-        text: isToday ? t('common.today') : fmtDate(new Date(`${day}T12:00:00`).getTime(), { weekday: 'short' }) }),
-      el('div.small.faint', { text: day }),
+        text: isToday ? t('common.today') : fmtDate(noon, { weekday: 'short' }) }),
+      // The day key is how the app stores a date, not how anyone reads one.
+      el('div.small.faint', { text: fmtDate(noon, { weekday: 'short', year: 'numeric' }) }),
     ]),
+    // Tomorrow cannot be logged, so the button says so to everything that asks,
+    // not only to a pair of eyes: dimmed alone still takes focus and a tap.
     el('button.icon-btn', {
       'aria-label': t('food.nextDay'),
-      style: isToday ? { opacity: '.3' } : {},
+      disabled: isToday || null,
       onclick: () => step(1),
     }, ['›']),
   ]);

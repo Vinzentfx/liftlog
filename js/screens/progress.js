@@ -1,14 +1,14 @@
 // Progress — training overview, plus a per-exercise drill-down.
 
 import {
-  el, fmtNum, fmtWeight, fmtDate, relDay, emptyState,
+  el, fmtNum, fmtVolume, fmtWeight, fmtDate, relDay, emptyState,
   openSheet, closeSheet, toast, confirmSheet, listItem,
   numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
 import {
   exerciseSeries, weeklyMuscleSets, personalRecords, entryStats,
-  isCounted, startOfWeek, MUSCLES,
+  isCounted, startOfWeek, MUSCLES, dayKey,
 } from '../models.js';
 import { lineChart, barChart, hBars, heatmap } from '../charts.js';
 import { strengthHistory, tonnageHistory, movers } from '../history.js';
@@ -80,7 +80,7 @@ function overview() {
   root.append(
     el('div.card.tight', { style: { marginTop: '10px', textAlign: 'center' } }, [
       el('div', { style: { fontSize: '22px', fontWeight: '740', letterSpacing: '-0.02em' },
-        text: `${fmtNum(Math.round(lifetime))} ${units}` }),
+        text: fmtVolume(lifetime, units) }),
       el('div.small.faint', { text: t('progress.movedAllTime') }),
     ])
   );
@@ -806,7 +806,7 @@ function exerciseView(exerciseId) {
   for (const p of [...series].reverse()) {
     root.append(listItem({
       title: relDay(p.t),
-      sub: `${tn(p.sets, 'unit.set')} · ${t('progress.topOf', { weight: fmtWeight(p.topWeight, units) })} · ${fmtNum(p.volume)}${units} · e1RM ${fmtNum(p.e1rm)}`,
+      sub: `${tn(p.sets, 'unit.set')} · ${t('progress.topOf', { weight: fmtWeight(p.topWeight, units) })} · ${fmtVolume(p.volume, units)} · e1RM ${fmtNum(p.e1rm)}`,
       onclick: () => navigate('calendar', p.sessionId),
     }));
   }
@@ -839,7 +839,7 @@ function bodyweightForm() {
     value: latest ? String(latest.weight) : '',
     placeholder: t('settings.weightIn', { units }),
   }));
-  const date = el('input', { type: 'date', value: new Date().toISOString().slice(0, 10) });
+  const date = el('input', { type: 'date', value: dayKey() });
 
   const history = el('div', {}, store.state.bodyweight.slice(0, 8).map((b) =>
     el('div.row.between', { style: { padding: '7px 0', borderBottom: '1px solid var(--line-soft)' } }, [

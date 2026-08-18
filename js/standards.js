@@ -372,8 +372,8 @@ const MACHINE_ANCHOR = {
   'Cross-Body Cable Lateral Raise': ['Overhead Press', 0.33],
   'Machine Rear Delt Fly':      ['Barbell Row', 0.91],
   'Machine Biceps Curl':        ['Barbell Row', 0.92],
-  'Machine Preacher Curl':      ['Barbell Row', 0.98],
-  'Preacher Curl Machine':      ['Barbell Row', 0.98],
+  'Machine Preacher Curl':      ['Barbell Row', 0.90],
+  'Preacher Curl Machine':      ['Barbell Row', 0.90],
   'Rope Hammer Curl':           ['Barbell Row', 0.86],
   // Forearms move a lot of weight through almost no range, so the number on the
   // stack is at its least honest here of anywhere in the gym.

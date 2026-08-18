@@ -188,6 +188,24 @@ export function fmtNum(v, digits = 0) {
   return n.toFixed(digits);
 }
 
+/**
+ * A volume total with its unit attached.
+ *
+ * `fmtNum` compacts anything over ten thousand to "12.9k", and every caller
+ * then appended the unit straight onto it, which is how a session came out as
+ * "12.9kkg". Volume is also the one figure in the app that reaches six digits,
+ * so it gets thousands separators, and in kilos it becomes tonnes at the point
+ * where the digits stop being readable as a weight.
+ */
+export function fmtVolume(v, units = 'kg') {
+  const n = Math.round(Number(v) || 0);
+  if (n >= 100000) {
+    const thousands = Math.round(n / 1000).toLocaleString(locale());
+    return units === 'kg' ? `${thousands} t` : `${thousands}k ${units}`;
+  }
+  return `${n.toLocaleString(locale())} ${units}`;
+}
+
 export function fmtDuration(ms) {
   const total = Math.max(0, Math.round(ms / 1000));
   const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60);
@@ -336,12 +354,13 @@ export function confirmSheet(title, message, { danger = true, confirmLabel = nul
  * Tappable row. Goes through one helper so every one of them carries an
  * accessible name — nested text alone leaves screen readers announcing "button".
  */
-export function listItem({ title, sub, onclick, chev = '›', ariaLabel, style, right }) {
+export function listItem({ title, sub, onclick, chev = '›', ariaLabel, style, right, lead }) {
   return el('button.list-item', {
     onclick,
     style,
     'aria-label': ariaLabel || (sub ? `${title}, ${sub}` : title),
   }, [
+    lead || null,
     el('div.grow', {}, [
       el('div.li-title', { text: title }),
       sub ? el('div.li-sub', { text: sub }) : null,
