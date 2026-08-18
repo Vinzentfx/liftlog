@@ -472,6 +472,35 @@ test('private social groups and PR reactions stay behind narrow RPCs', async () 
   assert.match(sql, /RATE_LIMITED/i);
 });
 
+test('the rank comparison is an aggregate, opt-in, and withdrawable', async () => {
+  const sql = await read('server/patch-016-rank-percentiles.sql');
+  const home = await read('js/screens/home.js');
+  const settings = await read('js/screens/settings.js');
+  const models = await read('js/models.js');
+
+  assert.match(sql, /rank_observations enable row level security/i);
+  assert.match(sql, /revoke all on table public\.rank_observations from anon,authenticated/i);
+  // Ten other people before a single number comes back, and never the asker's
+  // own row: a percentile of one is a description of a person.
+  assert.match(sql, /stats\.n >= 10/);
+  assert.match(sql, /o\.user_id <> auth\.uid\(\)/);
+  assert.match(sql, /has_active_access/);
+  // No path that hands back a row, an id, or an ordering.
+  assert.doesNotMatch(sql, /returns setof public\.rank_observations/i);
+  assert.doesNotMatch(sql, /order by score desc/i);
+  assert.match(sql, /function public\.forget_rank_scores/);
+  assert.match(sql, /delete from public\.rank_observations where user_id = auth\.uid\(\)/);
+
+  // Off unless switched on, and switching it off withdraws rather than pauses.
+  assert.match(models, /shareRankComparison: false/);
+  assert.match(home, /if \(rankSyncing \|\| !settings\.shareRankComparison/);
+  assert.match(settings, /forgetRankScores/);
+
+  // Only benchmark names leave the device. A custom exercise name would be a
+  // population of one, and the name would be the identifying part of it.
+  assert.match(home, /if \(!isBenchmark\(lift\.name\)/);
+});
+
 test('machine comparisons expose aggregates only and require explicit opt-in', async () => {
   const sql = await read('server/patch-013-machine-strength-standards.sql');
   const home = await read('js/screens/home.js');

@@ -11,7 +11,7 @@ import {
 } from '../models.js';
 import {
   buildRating, hasProfile, TIERS, DIVISIONS, RANK_STEPS, BAND, tierIndex, rankOf,
-  LOW_CONFIDENCE, strengthRatio, ageFactor, ratedMachineNames, RATED_EQUIPMENT,
+  LOW_CONFIDENCE, strengthRatio, ageFactor, ratedMachineNames, RATED_EQUIPMENT, isBenchmark,
 } from '../standards.js';
 import { strengthAt } from '../history.js';
 import { t, tn, tRegion, tTier, locale } from '../i18n.js';
@@ -33,6 +33,18 @@ let mapMode = 'strength';
 let machineCommunity = {};
 let machineSyncSignature = null;
 let machineSyncing = false;
+
+// Where each rank sits among everyone who logs the same thing. Keyed the way
+// the server keys it: 'overall', 'lift:<name>', 'region:<id>'.
+let rankPercentiles = {};
+let rankSyncSignature = null;
+let rankSyncing = false;
+
+/** Drop the cached distribution when the opt-in is withdrawn mid-session. */
+export function resetRankComparison() {
+  rankPercentiles = {};
+  rankSyncSignature = null;
+}
 
 export default function renderHome({ actions }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
@@ -537,6 +549,7 @@ function ratingSection(done, settings) {
   const machineNames = ratedMachineNames(store.state.exercises);
   const rating = buildRating(best, settings, { machineNames, community: machineCommunity });
   refreshMachineStandards(best, settings).catch(() => {});
+  refreshRankPercentiles(rating, settings).catch(() => {});
 
   if (rating.overall === null) {
     wrap.append(
@@ -575,6 +588,7 @@ function ratingSection(done, settings) {
     ]),
     el('div.division-track', {}, [el('i', { style: { width: `${Math.round(rank.progress * 100)}%` } })]),
     el('div.small.muted', { style: { marginTop: '10px' }, text: t(`tier.${rank.tier.key}.note`) }),
+    percentileBar('overall'),
   ]);
 
   const change = recentRankChange(rating.overall);
@@ -630,6 +644,7 @@ function ratingSection(done, settings) {
                 ? el('div.small', { style: { marginTop: '2px', color: 'var(--warn)' },
                     text: t('home.rating.extrapolatedShort') })
                 : null,
+              percentileLine(`lift:${lift.name}`),
               staleBestLabel(lift),
             ]),
             el('button.btn.quiet.sm', {
@@ -656,6 +671,8 @@ function ratingSection(done, settings) {
  * lie, so past this the record keeps its rank and gains a date.
  */
 const STALE_BEST_DAYS = 182;
+
+const round1 = (n) => Math.round(n * 10) / 10;
 
 const bestAgeDays = (lift) =>
   lift.achievedAt ? Math.floor((Date.now() - lift.achievedAt) / 86400000) : null;
@@ -826,6 +843,80 @@ function machineProfileSheet(ex) {
   ]));
 }
 
+/**
+ * Contribute the current ranks and pick up the distribution around them.
+ *
+ * What leaves the device is a list of 0-100 scores against fixed keys. No
+ * weight, no repetition count, no exercise you invented, no identity: a score
+ * has already been divided by bodyweight and adjusted for sex and age, so it
+ * says far less about a person than "142.5 kg" would. Nothing is sent at all
+ * without `shareRankComparison`, and `forgetRankScores` takes it all back.
+ *
+ * Same shape as refreshMachineStandards, including the signature guard, because
+ * this runs inside a render that can fire on any keystroke elsewhere in the app.
+ */
+async function refreshRankPercentiles(rating, settings) {
+  if (rankSyncing || !settings.shareRankComparison || !cloud.isSignedIn() || !navigator.onLine) return;
+  if (rating.overall === null) return;
+
+  const entries = [{ key: 'overall', score: round1(rating.overall) }];
+  // Only benchmark lifts by name. A custom exercise called "Chest Day Finisher"
+  // would be a population of one, and its name would be the identifying part.
+  for (const lift of rating.lifts) {
+    if (!isBenchmark(lift.name) || lift.extrapolated) continue;
+    entries.push({ key: `lift:${lift.name}`, score: round1(lift.score) });
+  }
+  for (const [region, info] of Object.entries(rating.regions)) {
+    entries.push({ key: `region:${region}`, score: round1(info.score) });
+  }
+  // The server takes 40 in one call; regions plus the benchmark lifts fit, but
+  // the cap is enforced here too rather than discovered as an exception.
+  const payload = entries.slice(0, 40);
+
+  const signature = JSON.stringify(payload);
+  if (signature === rankSyncSignature) return;
+  rankSyncing = true;
+  try {
+    const result = await cloud.shareRankScores(payload);
+    rankPercentiles = result && typeof result === 'object' ? result : {};
+    rankSyncSignature = signature;
+    if (location.hash.replace(/^#\/?/, '').split('/')[0] === 'home') (await import('../app.js')).render();
+  } catch {
+    // An older server without patch 016 must not be asked again on every
+    // render. A reload after installing it starts a fresh attempt.
+    rankSyncSignature = signature;
+  } finally { rankSyncing = false; }
+}
+
+/** "62% of the people who log this are below you", or null. */
+function percentileLine(key) {
+  const stats = rankPercentiles[key];
+  if (!stats || !Number.isFinite(Number(stats.below))) return null;
+  return el('div.small.faint', { style: { marginTop: '2px' },
+    text: t('home.rank.below', { pct: Math.round(Number(stats.below)), n: Number(stats.count) }) });
+}
+
+/**
+ * The same fact with a bar under it, for the two places that have the room.
+ *
+ * A bar rather than a bigger number because the point is *where in a spread*,
+ * and a spread is a shape. The marker is a position, not a score: nothing here
+ * is ordered against a named person, and there is nobody to be above.
+ */
+function percentileBar(key) {
+  const stats = rankPercentiles[key];
+  if (!stats || !Number.isFinite(Number(stats.below))) return null;
+  const pct = Math.max(0, Math.min(100, Math.round(Number(stats.below))));
+  return el('div', { style: { marginTop: '12px' } }, [
+    el('div.percentile', { 'aria-hidden': 'true' }, [
+      el('i', { style: { width: `${pct}%` } }),
+      el('b', { style: { left: `${pct}%` } }),
+    ]),
+    el('div.small.faint', { style: { marginTop: '6px' },
+      text: t('home.rank.below', { pct, n: Number(stats.count) }) }),
+  ]);
+}
+
 async function refreshMachineStandards(best, settings) {
   if (machineSyncing || !cloud.isSignedIn() || !navigator.onLine) return;
   const candidates = store.state.exercises.flatMap((ex) => {
@@ -951,6 +1042,7 @@ function regionSheet(region, rating) {
             ]),
           ]),
           el('div.small.muted', { style: { textAlign: 'center' }, text: t('home.region.via', { lift: info.via }) }),
+          percentileBar(`region:${region}`),
           info.machine ? el('div.small.faint', { style: { marginTop: '8px', textAlign: 'center' },
             text: t(info.provisional ? 'home.region.machineEstimated' : 'home.region.machineCommunity', { n: info.sample }) }) : null,
           info.extrapolated ? el('div.small', { style: { marginTop: '8px', textAlign: 'center', color: 'var(--warn)' },

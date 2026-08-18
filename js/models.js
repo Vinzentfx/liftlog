@@ -62,6 +62,12 @@ export const DEFAULT_SETTINGS = {
   // engine says when it leaned on it, and nothing else in the app reads it:
   // personal bests, ranks and charts stay on what was actually written down.
   assumedRir: 1,
+  // Contribute rank scores to the anonymous distribution, and see where you sit
+  // in it. Off by default: it is the only setting that sends anything about
+  // training to a server that is not the user's own encrypted backup, even
+  // though what it sends is a bodyweight-normalised 0-100 with no lift weight,
+  // no repetitions and no identity attached.
+  shareRankComparison: false,
   // What a newly added plan exercise starts at. 2 x 6-10 is the app's default
   // for reasons documented in plan-builder.js, but it is a preference, not a
   // finding — someone running 3 x 8-12 should not have to retype it every time.

@@ -520,6 +520,25 @@ rides along on the map's `achievedAt` property, and anything older than six
 months is labelled "best from N months ago" on the lift with the reasoning in
 its sheet.
 
+**Where a rank sits among everyone else** is the one number in this app that
+measures the population using it rather than consulting a table somebody else
+assembled. `server/patch-016` stores a 0-100 score per user per metric
+(`overall`, `lift:<name>`, `region:<id>`) and returns a count, four percentiles
+and a share-below. What that shape rules out is the point:
+
+- No leaderboard, no ordering, no identity. There is no call that returns a row,
+  a user id or a name, and the raw table is unreachable from the app role.
+- No weights and no repetitions. A score is already normalised for bodyweight,
+  sex and age, so it carries far less about a person than "142.5 kg" does. No
+  sex column either: splitting again would halve every sample for nothing.
+- Only benchmark lift names leave the device. A custom exercise would be a
+  population of one, and its name would be the identifying part of it.
+- Nothing comes back until **ten other people** have logged the same metric, and
+  the asker's own row is excluded from their own percentile.
+- Contributing is what buys the answer. There is no read-only path, so nobody is
+  measured against a population they declined to join, and switching the setting
+  off calls `forget_rank_scores`, which deletes rather than pauses.
+
 **The ladder reports a drop as plainly as a climb.** `recentRankChange` compares
 against where you stood eight weeks ago in both directions. A demotion is
 usually bodyweight moving rather than a verdict on the lifter, so it is stated in

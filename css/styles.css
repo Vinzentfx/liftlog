@@ -678,6 +678,26 @@ label.field > span {
   background: linear-gradient(90deg, color-mix(in srgb, var(--tier, var(--accent)) 45%, transparent), var(--tier, var(--accent)));
 }
 
+/* Where a rank sits in the distribution of everyone logging the same thing.
+   A track with a marker rather than a fill: the number is a position among
+   others, not an amount of anything. */
+.percentile {
+  position: relative; height: 6px; border-radius: 999px;
+  background: var(--bg-sunken); overflow: visible;
+}
+.percentile i {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--tier, var(--accent)) 25%, transparent),
+    color-mix(in srgb, var(--tier, var(--accent)) 60%, transparent));
+}
+.percentile b {
+  position: absolute; top: 50%; width: 3px; height: 14px; border-radius: 2px;
+  transform: translate(-50%, -50%);
+  background: var(--tier, var(--accent));
+  box-shadow: 0 0 8px 0 var(--tier, var(--accent));
+}
+
 /* Rank-up banner. Deliberately loud, and deliberately rare: 27 steps means it
    fires often enough to matter and seldom enough to still mean something. */
 .rank-up {

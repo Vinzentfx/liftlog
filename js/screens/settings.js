@@ -195,6 +195,23 @@ export function renderSettings() {
   ratingToggle.disabled = !hasProfile(s);
   ratingToggle.addEventListener('change', () => store.setSetting('showRatings', ratingToggle.checked));
 
+  // The anonymous rank comparison. Off unless it is switched on, and switching
+  // it off withdraws every contribution in the same action rather than merely
+  // stopping new ones, which is the difference between opting out and having
+  // opted out.
+  const rankShareToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
+  rankShareToggle.checked = s.shareRankComparison === true;
+  rankShareToggle.addEventListener('change', async () => {
+    const on = rankShareToggle.checked;
+    await store.setSetting('shareRankComparison', on);
+    const home = await import('./home.js');
+    home.resetRankComparison();
+    if (!on && cloud.isSignedIn()) {
+      try { await cloud.forgetRankScores(); toast(t('settings.rankShareWithdrawn')); }
+      catch { toast(t('settings.rankShareWithdrawFailed')); }
+    }
+  });
+
   const rirToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
   rirToggle.checked = s.logRir !== false;
   rirToggle.addEventListener('change', () => store.setSetting('logRir', rirToggle.checked));
@@ -368,7 +385,10 @@ export function renderSettings() {
       text: t('settings.barWeightNote', { bar: `${DEFAULT_BAR[s.units] ?? DEFAULT_BAR.kg}${s.units}` }) }),
 
     el('div.section-head', {}, [el('h2', { text: t('settings.whatToShow') })]),
-    el('div.settings-toggle-list', {}, [checkRow(starToggle, t('settings.stars'), t('settings.starsNote'))]),
+    el('div.settings-toggle-list', {}, [
+      checkRow(starToggle, t('settings.stars'), t('settings.starsNote')),
+      checkRow(rankShareToggle, t('settings.rankShare'), t('settings.rankShareNote')),
+    ]),
 
     notificationSection(s),
 

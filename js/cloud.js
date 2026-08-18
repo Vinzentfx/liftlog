@@ -434,6 +434,16 @@ export const shareMachineRecord = (machineHash, exercise, ratio, sex) =>
   });
 export const removeMachineRecord = (exercise) =>
   socialRpc('remove_machine_record', { p_exercise: exercise });
+
+/**
+ * Contribute this device's rank scores and get the distribution back.
+ *
+ * `entries` is [{ key, score }]. There is no read-only counterpart on purpose:
+ * contributing is what buys the answer, so nobody is measured against a
+ * population they declined to join. See server/patch-016.
+ */
+export const shareRankScores = (entries) => socialRpc('share_rank_scores', { p_scores: entries });
+export const forgetRankScores = () => socialRpc('forget_rank_scores');
 export const sendInvitePush = (inviteId) => authed(`${SUPABASE_URL}/functions/v1/send-training-invite`, {
   method: 'POST', body: { inviteId },
 });
