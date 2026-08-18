@@ -258,6 +258,12 @@ export const isBenchmark = (name) => Object.hasOwn(CONTRIB, name);
  * a published standard and a known stack already sat (a 105 kg pulldown stack
  * against a Legend of 138 kg), so the machines were fitted to agree with it.
  *
+ * Two independent checks that the rule is not circular: the chest press was
+ * derived from the bench standard long before any stack was measured, and the
+ * measured 135 kg stack put it within one percent of where it already was. The
+ * pulldown, which has a published standard of its own and never went through
+ * this table at all, lands in the same place.
+ *
  * The consequence is deliberate: on an isolation machine the three ranks above
  * Legend are effectively out of reach, because a commercial stack cannot
  * express national-record strength. That is the honest answer. It is also what
@@ -304,8 +310,8 @@ const MACHINE_ANCHOR = {
   'Lat Pulldown Machine':       ['Lat Pulldown', 1.00],
 
   // --- pressing ---
-  'Machine Chest Press':        ['Barbell Bench Press', 0.95],
-  'Iso-Lateral Chest Press':    ['Barbell Bench Press', 0.95],
+  'Machine Chest Press':        ['Barbell Bench Press', 0.96],
+  'Iso-Lateral Chest Press':    ['Barbell Bench Press', 0.96],
   'Smith Machine Bench Press':  ['Barbell Bench Press', 1.00],
   'Incline Machine Press':      ['Incline Barbell Bench Press', 0.95],
   'Iso-Lateral Incline Chest Press': ['Incline Barbell Bench Press', 0.95],

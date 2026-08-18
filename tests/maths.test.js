@@ -167,10 +167,14 @@ test('cables are ranked and assisted machines never are', () => {
 
 test('a free-weight lift keeps a region it ties a machine on', () => {
   const profile = { sex: 'male', bodyweight: 80, age: 25 };
-  // Chosen so both land on the same score: the machine standard for a chest
-  // press is the bench standard x 0.95, so 0.95 of the load scores the same.
+  // Chosen so both land on the same score. The machine standard is the bench
+  // standard times a factor, so the tie is at the bench load times that factor
+  // — derived rather than written down, because the factor moves whenever the
+  // machines are recalibrated and a hardcoded copy of it quietly rots.
+  const factor = boundsFor('Machine Chest Press', profile, { machine: true })[0]
+    / boundsFor('Barbell Bench Press', profile)[0];
   const bench = 140;
-  const rating = buildRating(new Map([['Machine Chest Press', bench * 0.95], ['Barbell Bench Press', bench]]),
+  const rating = buildRating(new Map([['Machine Chest Press', bench * factor], ['Barbell Bench Press', bench]]),
     profile, { machineNames: new Set(['Machine Chest Press']) });
   assert.ok(Math.abs(rating.lifts[0].score - rating.lifts[1].score) < 0.001, 'the two really do tie');
   assert.equal(rating.regions.chest.via, 'Barbell Bench Press');
@@ -1233,6 +1237,7 @@ test('a full stack taken for reps lands at Legend, not past the top', () => {
     'Standing Calf Raise': 187, 'Triceps Pushdown': 85, 'Machine Lateral Raise': 85,
     'Overhead Rope Triceps Extension': 135, 'Seated Cable Row': 135,
     'Machine Rear Delt Fly': 105, 'Machine Shoulder Press': 105,
+    'Machine Chest Press': 135, 'Machine Row': 135,
   };
   for (const [name, stack] of Object.entries(stacks)) {
     const maxed = e1rm(stack, 10);          // the whole stack, ten times
