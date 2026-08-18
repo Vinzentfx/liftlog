@@ -512,6 +512,24 @@ all — the region is reported as *touched* by name, painted slate grey, and the
 sheet says why. The map therefore has three states rather than two: ranked,
 reached-but-unmeasurable, and untouched.
 
+**The gate exposed a second problem: the weights themselves were describing the
+wrong exercise.** Every row read `lats: 1, traps: 0.65`, which describes a
+pulldown. A chest-supported T-bar row is an upper-back movement — the pad takes
+the torso out, which is exactly what lets the mid-back do the work — and the
+result was that 22 movements reached the trapezius and **not one could rank it**.
+Rows now drive the mid-back at 1.0, high rows drive the rear delts at 0.85, a
+squat drives the glutes at 0.85, and a cable Y-raise is a rear-delt movement
+rather than a front-delt one. Obliques had *nothing* that could rank them at
+all; the catalogue's rotation and side-flexion patterns now do. A test asserts
+every one of the sixteen regions has at least one movement that can rank it.
+
+**And a grey muscle now says what would open it.** `canRank` resolves through the
+alias so the suggestion is phrased in the names the user's own library uses:
+telling somebody to do a "Cable Oblique Twist" is useless advice about an
+exercise they cannot find, when their catalogue calls it Cable Russian Twists.
+Strongest driver first, shortest name to break ties, because leading with "Bosu
+Ball Cable Crunch With Side Bends" makes a good idea sound ridiculous.
+
 This took two passes to get right, which is worth recording. Removing these
 regions from the *average* fixed the overall (one real lifter went from Diamond
 back to Grandmaster, matching every one of their individual lift ranks) but left

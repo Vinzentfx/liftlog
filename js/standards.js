@@ -135,14 +135,22 @@ export const CONTRIB = {
   'Barbell Bench Press':      { chest: 1, 'delts-front': 0.55, triceps: 0.55 },
   'Incline Barbell Bench Press': { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
   'Close-Grip Bench Press':   { triceps: 1, chest: 0.7, 'delts-front': 0.5 },
-  'Back Squat':               { quads: 1, glutes: 0.75, 'lower-back': 0.4, hamstrings: 0.35 },
+  // The glutes are a prime hip extensor in a squat, which the old 0.75 denied,
+  // leaving them unrankable for anybody who squats and does not hip thrust.
+  'Back Squat':               { quads: 1, glutes: 0.85, 'lower-back': 0.4, hamstrings: 0.35 },
   'Front Squat':              { quads: 1, glutes: 0.6, abs: 0.45, 'lower-back': 0.35 },
   'Deadlift':                 { 'lower-back': 1, hamstrings: 0.85, glutes: 0.85, traps: 0.55, lats: 0.45, forearms: 0.5 },
   'Sumo Deadlift':            { glutes: 1, quads: 0.7, 'lower-back': 0.8, hamstrings: 0.6, forearms: 0.45 },
   'Romanian Deadlift':        { hamstrings: 1, glutes: 0.8, 'lower-back': 0.6 },
   'Overhead Press':           { 'delts-front': 1, triceps: 0.6, traps: 0.4, abs: 0.3 },
-  'Barbell Row':              { lats: 1, traps: 0.65, biceps: 0.55, 'delts-rear': 0.55 },
-  'Pendlay Row':              { lats: 1, traps: 0.7, biceps: 0.5, 'delts-rear': 0.55 },
+  // In a horizontal row the mid-back is a prime mover, not a bystander. These
+  // used to read lats 1.0 against traps 0.65, which described a pulldown: the
+  // consequence was that 22 movements touched the trapezius and not one could
+  // rank it, so an upper-back exercise left the upper back grey. `traps` here
+  // covers the mid and lower trapezius and the rhomboids, which the body map
+  // has no separate region for.
+  'Barbell Row':              { lats: 1, traps: 1, biceps: 0.55, 'delts-rear': 0.7 },
+  'Pendlay Row':              { lats: 1, traps: 1, biceps: 0.5, 'delts-rear': 0.7 },
   'Hip Thrust':               { glutes: 1, hamstrings: 0.55 },
   'Lat Pulldown':             { lats: 1, biceps: 0.55, 'delts-rear': 0.35 },
   'Leg Press':                { quads: 1, glutes: 0.6 },
@@ -171,14 +179,18 @@ export const CONTRIB = {
  */
 export const CONTRIB_EXTRA = {
   // --- rows and pulls ---
-  'Chest-Supported T-Bar Row': { lats: 1, traps: 0.7, 'delts-rear': 0.6, biceps: 0.5 },
-  'Chest-Supported Row':       { lats: 1, traps: 0.65, 'delts-rear': 0.6, biceps: 0.5 },
-  'Close-Grip Seated Row':     { lats: 1, biceps: 0.6, traps: 0.5, 'delts-rear': 0.35 },
-  'Machine Row':               { lats: 1, traps: 0.6, biceps: 0.5, 'delts-rear': 0.5 },
-  'Seated Cable Row':          { lats: 1, traps: 0.55, biceps: 0.55, 'delts-rear': 0.4 },
-  'T-Bar Row':                 { lats: 1, traps: 0.65, biceps: 0.5, 'delts-rear': 0.45, 'lower-back': 0.3 },
-  'Machine High Row':          { lats: 1, traps: 0.6, 'delts-rear': 0.5, biceps: 0.45 },
-  'Lying T-Bar Row':           { lats: 1, traps: 0.7, 'delts-rear': 0.6, biceps: 0.5 },
+  // Chest-supported work is the most upper-back of the lot: the pad takes the
+  // torso out, which is exactly what lets the mid-back do the work.
+  'Chest-Supported T-Bar Row': { traps: 1, lats: 0.9, 'delts-rear': 0.8, biceps: 0.5 },
+  'Chest-Supported Row':       { traps: 1, lats: 0.9, 'delts-rear': 0.8, biceps: 0.5 },
+  'Close-Grip Seated Row':     { lats: 1, traps: 0.9, biceps: 0.6, 'delts-rear': 0.45 },
+  'Machine Row':               { lats: 1, traps: 0.95, biceps: 0.5, 'delts-rear': 0.6 },
+  'Seated Cable Row':          { lats: 1, traps: 0.95, biceps: 0.55, 'delts-rear': 0.55 },
+  'T-Bar Row':                 { lats: 1, traps: 1, biceps: 0.5, 'delts-rear': 0.6, 'lower-back': 0.3 },
+  // A high row pulls the elbows out and up, which is a rear-delt movement that
+  // happens to be loaded like a row.
+  'Machine High Row':          { traps: 1, 'delts-rear': 0.85, lats: 0.9, biceps: 0.45 },
+  'Lying T-Bar Row':           { traps: 1, lats: 0.9, 'delts-rear': 0.8, biceps: 0.5 },
   'Machine Pullover':          { lats: 1, chest: 0.4, triceps: 0.3 },
   'Assisted Pull-Up Machine':  { lats: 1, biceps: 0.6, 'delts-rear': 0.3 },
 
@@ -212,6 +224,11 @@ export const CONTRIB_EXTRA = {
   'Machine Hip Abduction':     { glutes: 1 },
   'Machine Hip Adduction':     { adductors: 1 },
   'Machine Crunch':            { abs: 1, obliques: 0.35 },
+  // Obliques had nothing that could rank them at all: one movement touched them
+  // and none drove them. These are the rotation and side-flexion patterns the
+  // catalogue actually carries.
+  'Cable Oblique Twist':       { obliques: 1, abs: 0.8 },
+  'Cable Side Bend':           { obliques: 1, abs: 0.6 },
   'Machine Back Extension':    { 'lower-back': 1, glutes: 0.6, hamstrings: 0.5 },
   'Pendulum Squat':            { quads: 1, glutes: 0.65 },
   'Hack Squat':                { quads: 1, glutes: 0.65 },
@@ -228,12 +245,14 @@ export const CONTRIB_EXTRA = {
   'Lat Pulldown Machine':      { lats: 1, biceps: 0.55, 'delts-rear': 0.35 },
   'Reverse Nordic Curl':       { quads: 1, abs: 0.25 },
   'Glute-Biased 45-Degree Back Extension': { glutes: 1, hamstrings: 0.7, 'lower-back': 0.3 },
-  'Cable Y-Raise':             { 'delts-front': 1, traps: 0.45 },
+  // A Y-raise takes the arms up and back. That is the rear delt and the lower
+  // trapezius; calling it a front-delt movement was simply wrong.
+  'Cable Y-Raise':             { 'delts-rear': 1, traps: 0.85, 'delts-front': 0.5 },
   'Iso-Lateral Chest Press':   { chest: 1, 'delts-front': 0.55, triceps: 0.55 },
   'Iso-Lateral Incline Chest Press': { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
   'Iso-Lateral Shoulder Press': { 'delts-front': 1, triceps: 0.6, traps: 0.35 },
-  'Iso-Lateral High Row':      { lats: 1, traps: 0.65, 'delts-rear': 0.55, biceps: 0.45 },
-  'Iso-Lateral Low Row':       { lats: 1, biceps: 0.55, traps: 0.5, 'delts-rear': 0.4 },
+  'Iso-Lateral High Row':      { traps: 1, lats: 0.9, 'delts-rear': 0.85, biceps: 0.45 },
+  'Iso-Lateral Low Row':       { lats: 1, traps: 0.9, biceps: 0.55, 'delts-rear': 0.5 },
   'Plate-Loaded Pullover':     { lats: 1, chest: 0.35, triceps: 0.25 },
   'Glute Drive Machine':       { glutes: 1, hamstrings: 0.5 },
   'Standing Hip Abduction Machine': { glutes: 1 },
@@ -384,6 +403,8 @@ const MACHINE_ANCHOR = {
   'Glute-Biased 45-Degree Back Extension': ['Romanian Deadlift', 0.40],
   'Machine Back Extension':     ['Back Squat', 0.50],
   'Machine Crunch':             ['Back Squat', 0.56],
+  'Cable Oblique Twist':        ['Back Squat', 0.40],
+  'Cable Side Bend':            ['Back Squat', 0.45],
   'Glute Drive Machine':        ['Hip Thrust', 1.00],
   'Machine Hip Abduction':      ['Hip Thrust', 0.47],
   'Machine Hip Adduction':      ['Hip Thrust', 0.47],
@@ -411,7 +432,10 @@ const ALIAS = {
   'Cable Seated Crunch': 'Machine Crunch',
   'Rope Crunch': 'Machine Crunch',
   'Standing Rope Crunch': 'Machine Crunch',
-  'Kneeling Cable Crunch With Alternating Oblique Twists': 'Machine Crunch',
+  'Kneeling Cable Crunch With Alternating Oblique Twists': 'Cable Oblique Twist',
+  'Cable Russian Twists': 'Cable Oblique Twist',
+  'One-Arm High-Pulley Cable Side Bends': 'Cable Side Bend',
+  'Bosu Ball Cable Crunch With Side Bends': 'Cable Side Bend',
 
   'Leg Extensions': 'Leg Extension',
   'Single-Leg Leg Extension': 'Single-Leg Extension',
@@ -1124,6 +1148,35 @@ export function buildRating(bestByLift, profile,
  * (THRESHOLDS.indirectSetWeight). Only ever consulted for movements the curated
  * table does not cover.
  */
+/**
+ * Which movements can put a rank on this region.
+ *
+ * The answer to the fair complaint that a grey muscle is a dead end: it is not,
+ * and the app should say what would light it up rather than leaving somebody to
+ * guess. Ordered by how strongly each drives the region, so the first suggestion
+ * is the most direct one.
+ */
+export function liftsThatRank(region) {
+  return Object.entries(ANATOMY)
+    .filter(([, weights]) => (weights[region] || 0) >= DIRECT_CONTRIBUTION)
+    .sort((a, b) => (b[1][region] || 0) - (a[1][region] || 0))
+    .map(([name]) => name);
+}
+
+/**
+ * How strongly one named exercise drives a region, 0 when it does not.
+ *
+ * Resolves through the alias, which is the whole point: a suggestion has to be
+ * phrased in the names the user's own library uses, not in the curated ones.
+ * "Do a Cable Oblique Twist" is useless advice when their catalogue calls it
+ * Cable Russian Twists.
+ */
+export function drivesRegion(name, region) {
+  return (ANATOMY[canonical(name)] || {})[region] || 0;
+}
+
+export const canRank = (name, region) => drivesRegion(name, region) >= DIRECT_CONTRIBUTION;
+
 export function regionsFromExercises(exercises = []) {
   const out = {};
   for (const ex of exercises) {

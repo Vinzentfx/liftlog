@@ -29,7 +29,8 @@ const { e1rm, isCounted, startOfWeek, entryStats, sessionStats, newMeal, dayKey,
 const { scoreFor, scoreForMachine, buildRating, ANATOMY, TIERS, DIVISIONS, RANK_STEPS,
   rankOf, ladder, boundsFor, toNextDivision, ratedMachineNames, machineCategory,
   LOW_CONFIDENCE, EXTRAPOLATED_TIERS, isBenchmark, BAND, canonical,
-  weightForRatio, isPlateLoaded } = await import('../js/standards.js');
+  weightForRatio, isPlateLoaded, liftsThatRank, REGIONS, canRank,
+  drivesRegion } = await import('../js/standards.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
 const { rateExercise } = await import('../js/exercise-rating.js');
@@ -199,9 +200,11 @@ test('a muscle seen only through somebody else\'s lift gets no rank at all', () 
   // Taking those out of the average was the first half. This is the second: the
   // weight gates rather than scales, so below the threshold there is no number
   // to print anywhere.
+  // A pulldown drives the lats and merely involves the biceps and rear delts,
+  // which is the honest version of this: you cannot read biceps strength off a
+  // pulldown, and a row genuinely does drive the mid-back.
   const profile = { sex: 'male', bodyweight: 82, age: 24, units: 'kg' };
-  const rating = buildRating(new Map([['Chest-Supported T-Bar Row', 133]]), profile,
-    { machineNames: new Set(['Chest-Supported T-Bar Row']) });
+  const rating = buildRating(new Map([['Lat Pulldown', 111]]), profile, {});
 
   // Lats are what the lift drives (weight 1.0), so lats take its rank whole.
   assert.ok(rating.regions.lats);
@@ -209,21 +212,50 @@ test('a muscle seen only through somebody else\'s lift gets no rank at all', () 
   assert.ok(Math.abs(rating.regions.lats.score - lift.score) < 0.01,
     'a lift that drives a region gives it that rank, not a fraction of it');
 
-  // Traps, rear delts and biceps are touched at 0.7, 0.6 and 0.5. None of them
-  // gets a rank, and each is remembered by the lift that reaches it.
-  for (const region of ['traps', 'delts-rear', 'biceps']) {
+  // Biceps and rear delts are touched at 0.55 and 0.35. Neither gets a rank,
+  // and each is remembered by the lift that reaches it.
+  for (const region of ['biceps', 'delts-rear']) {
     assert.equal(rating.regions[region], undefined, `${region} must not carry a rank`);
-    assert.equal(rating.indirect[region].via, 'Chest-Supported T-Bar Row');
+    assert.equal(rating.indirect[region].via, 'Lat Pulldown');
     assert.equal(rating.indirect[region].score, undefined, 'and no number to print');
   }
-  assert.equal(rating.indirectRegions, 3);
   assert.equal(rating.ratedRegions, 1);
 
   // A region that something else ranks properly does not also carry a note.
-  const withDirect = buildRating(new Map([['Chest-Supported T-Bar Row', 133], ['Barbell Row', 130]]),
-    profile, { machineNames: new Set(['Chest-Supported T-Bar Row']) });
-  assert.ok(withDirect.regions.lats);
-  assert.equal(withDirect.indirect.lats, undefined);
+  const withDirect = buildRating(new Map([['Lat Pulldown', 111], ['Machine Rear Delt Fly', 90]]),
+    profile, { machineNames: new Set(['Machine Rear Delt Fly']) });
+  assert.ok(withDirect.regions['delts-rear'], 'a rear delt fly does rank rear delts');
+  assert.equal(withDirect.indirect['delts-rear'], undefined);
+});
+
+test('every muscle region can be ranked by something in the library', () => {
+  // The complaint this answers: a region only an isolation machine could rank is
+  // a region most people never unlock. Trapezius was the worst case, reached by
+  // 22 movements and rankable by exactly one, because every row described itself
+  // as a lat exercise. Obliques could not be ranked at all.
+  for (const region of Object.keys(REGIONS)) {
+    const drivers = liftsThatRank(region);
+    assert.ok(drivers.length >= 1, `${region} has nothing that can rank it`);
+  }
+  // And the mid-back is reachable from ordinary rowing, not only from a shrug.
+  const traps = liftsThatRank('traps');
+  assert.ok(traps.length >= 5, `only ${traps.length} movements can rank the trapezius`);
+  assert.ok(traps.includes('Chest-Supported T-Bar Row'),
+    'a chest-supported row is an upper-back movement and has to rank the upper back');
+  assert.ok(traps.includes('Barbell Row'));
+});
+
+test('a suggestion is phrased in the names the library actually uses', () => {
+  // The curated tables call it "Cable Oblique Twist"; the bundled catalogue
+  // calls it "Cable Russian Twists". Telling somebody to do the former is
+  // useless advice about an exercise they cannot find.
+  assert.equal(drivesRegion('Cable Russian Twists', 'obliques'), 1);
+  assert.ok(canRank('Cable Russian Twists', 'obliques'));
+  assert.ok(canRank('One-Arm High-Pulley Cable Side Bends', 'obliques'));
+  // And a row does not become a biceps exercise just because it involves them.
+  assert.equal(canRank('Lat Pulldown', 'biceps'), false);
+  assert.ok(canRank('Machine Biceps Curl', 'biceps'));
+  assert.equal(drivesRegion('Zzz Nothing At All', 'biceps'), 0);
 });
 
 test('a log with nothing trained directly still gets a number', () => {

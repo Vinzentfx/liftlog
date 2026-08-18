@@ -13,7 +13,7 @@ import {
 import {
   buildRating, hasProfile, TIERS, DIVISIONS, BAND, tierIndex, rankOf,
   LOW_CONFIDENCE, strengthRatio, ageFactor, ratedMachineNames, RATED_EQUIPMENT, isBenchmark,
-  regionsFromExercises,
+  regionsFromExercises, canRank, drivesRegion,
 } from '../standards.js';
 import { strengthAt } from '../history.js';
 import { rankBadge, celebrateRankUp } from '../rank-art.js';
@@ -768,6 +768,29 @@ function machineCorrections() {
   return { loadFactors, stackMax };
 }
 
+/**
+ * "Any of these would rank it", listing only movements this library actually has.
+ *
+ * Filtered against the user's own exercises rather than the whole curated table:
+ * naming a machine their gym does not own is worse than naming nothing.
+ */
+function unlockList(region) {
+  const names = store.state.exercises
+    .filter((ex) => canRank(ex.name, region))
+    // Strongest driver first, then the shortest name. The catalogue is full of
+    // entries like "Bosu Ball Cable Crunch With Side Bends", and leading a
+    // suggestion with one of those makes a good idea sound ridiculous.
+    .sort((a, b) => drivesRegion(b.name, region) - drivesRegion(a.name, region)
+      || a.name.length - b.name.length)
+    .map((ex) => ex.name)
+    .slice(0, 4);
+  if (!names.length) return null;
+  return el('div', { style: { marginTop: '14px' } }, [
+    el('div.small.faint', { text: t('home.region.unlock') }),
+    ...names.map((name) => el('div.small', { style: { marginTop: '4px', fontWeight: '620' }, text: `·  ${name}` })),
+  ]);
+}
+
 /** The "this one does not belong" row, with the fix attached. */
 function outlierNotice(lift, settings) {
   if (settings.outlierHints === false) return null;
@@ -1274,14 +1297,19 @@ function regionSheet(region, rating) {
                 text: `!  ${t(LOW_CONFIDENCE[info.via])}` })
             : null,
         ])
-      : rating.indirect[region]
-        ? el('div', {}, [
-            el('div.small.muted', { text: t('home.region.indirect', {
-              muscle: label, lift: rating.indirect[region].via,
-            }) }),
-            el('div.small.faint', { style: { marginTop: '8px' }, text: t('home.region.indirectWhy') }),
-          ])
-        : el('div.small.muted', { text: t('home.region.noBenchmark', { muscle: label }) }),
+      : el('div', {}, [
+          el('div.small.muted', {
+            text: rating.indirect[region]
+              ? t('home.region.indirect', { muscle: label, lift: rating.indirect[region].via })
+              : t('home.region.noBenchmark', { muscle: label }),
+          }),
+          rating.indirect[region]
+            ? el('div.small.faint', { style: { marginTop: '8px' }, text: t('home.region.indirectWhy') })
+            : null,
+          // A grey muscle is not a dead end, and the app should not make
+          // somebody guess which movement opens it.
+          unlockList(region),
+        ]),
     el('div.section-head', {}, [el('h2', { text: t('home.region.tierScale') })]),
     el('div', {}, TIERS.map((tier, i) =>
       el(`div.row.between.tier-${i}`, { style: { padding: '7px 0', borderBottom: '1px solid var(--line-soft)' } }, [
