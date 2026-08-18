@@ -915,10 +915,16 @@ export function toNextDivision(liftName, score, profile, opts = {}) {
  * app was not telling them their hamstrings were weak. It was telling them it
  * had never looked, in a voice that sounded like a verdict.
  *
- * So a secondary-only read is treated the way this app already treats a region
- * nobody trains: as an absence of data rather than a low number. It still
- * colours the map, because "we have an indirect read" is worth seeing, but it
- * does not enter the average.
+ * So the weight now **gates** rather than **scales**. At or above this, the lift
+ * is a primary or near-primary driver for that region and the region simply
+ * takes the lift's rank, undiscounted: if your incline press is Grandmaster,
+ * your chest is Grandmaster, not 95% of Grandmaster. Below it there is no rank
+ * at all. The region is reported as touched indirectly, by name, and left grey.
+ *
+ * That last part is the half it took two goes to get right. Taking these out of
+ * the *average* was not enough, because the discounted number was still printed
+ * on the map and in the region sheet. A trapezius reading of "Diamond II"
+ * computed as `row rank x 0.7` is not a weak trapezius, it is a row.
  */
 const DIRECT_CONTRIBUTION = 0.8;
 
@@ -983,6 +989,10 @@ export function buildRating(bestByLift, profile,
     loadFactors = {}, stackMax = {}, regionsByName = {},
   } = {}) {
   const regions = {};
+  // Regions no lift drives hard enough to rank, and the best lift that touches
+  // them. Deliberately not a score: a number here is what caused the bug this
+  // replaced.
+  const indirect = {};
   const lifts = [];
   const outside = extrapolated instanceof Set ? extrapolated : new Set();
   const dates = achievedAt instanceof Map ? achievedAt : new Map();
@@ -1028,9 +1038,19 @@ export function buildRating(bestByLift, profile,
     // the library record, not from guessing at the name.
     const anatomy = ANATOMY[canonical(name)] || regionsByName[name] || {};
     for (const [region, weight] of Object.entries(anatomy)) {
+      if (weight < DIRECT_CONTRIBUTION) {
+        // Touched, not measured. Remembered by name so the map can say which
+        // lift reaches it, and given no score at all.
+        const seen = indirect[region];
+        if (!seen || score > seen.score) indirect[region] = { via: name, score };
+        continue;
+      }
       const confidence = (machine ? machineConfidence(name, community[name]) : 1)
         * (outside.has(name) ? EXTRAPOLATED_CONFIDENCE : 1);
-      const value = score * weight * confidence;
+      // The weight has already done its job by getting this far. It does not
+      // also discount the number: a lift that drives a region gives that region
+      // its rank, not a fraction of it.
+      const value = score * confidence;
       const held = regions[region];
       // Ties go to the published standard: a machine only takes a region off a
       // barbell lift by being strictly better.
@@ -1043,9 +1063,6 @@ export function buildRating(bestByLift, profile,
         regions[region] = { score: value, via: name, machine, stack,
           provisional: machine && sample < 10, sample,
           extrapolated: outside.has(name),
-          // Whether this region was actually measured or merely glimpsed
-          // through a lift aimed somewhere else.
-          direct: weight >= DIRECT_CONTRIBUTION,
         };
       }
     }
@@ -1073,8 +1090,15 @@ export function buildRating(bestByLift, profile,
   // DIRECT_CONTRIBUTION. Falls back to everything rated when nothing at all was
   // trained directly, which is a brand-new log rather than a real training
   // history, and a number is better than a blank there.
-  const direct = rated.filter((r) => r.direct);
-  const counted = direct.length ? direct : rated;
+  // A region that ended up ranked does not also need an "only touched" note.
+  for (const region of Object.keys(regions)) delete indirect[region];
+  // And the score that picked the best touching lift does not leave this
+  // function. It exists to break a tie between two lifts, not to be printed,
+  // and a number reachable from the outside is a number that ends up on a
+  // screen: that is precisely the bug this whole rule replaced.
+  const touched = {};
+  for (const [region, seen] of Object.entries(indirect)) touched[region] = { via: seen.via };
+  const counted = rated;
   const overall = counted.length
     ? counted.reduce((n, r) => n + r.score, 0) / counted.length
     : null;
@@ -1085,8 +1109,9 @@ export function buildRating(bestByLift, profile,
     overall,
     overallTier: overall === null ? null : tierOf(overall),
     overallRank: overall === null ? null : rankOf(overall),
+    indirect: touched,
     ratedRegions: counted.length,
-    indirectRegions: rated.length - direct.length,
+    indirectRegions: Object.keys(touched).length,
     totalRegions: Object.keys(REGIONS).length,
   };
 }

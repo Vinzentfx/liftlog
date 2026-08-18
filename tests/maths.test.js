@@ -189,32 +189,41 @@ test('cables are ranked and assisted machines never are', () => {
   assert.equal(boundsFor('Assisted Pull-Up Machine', { sex: 'male', bodyweight: 80 }, { machine: true }), null);
 });
 
-test('a muscle seen only through somebody else\'s lift does not drag the average', () => {
-  // The bug this replaced: a region\'s score is `lift score x how strongly that
-  // lift trains it`, and that second number is a *contribution* weight. It was
-  // being read as a strength discount, so a lifter whose only hamstring
-  // evidence was a squat got hamstrings at 35% of their squat rank and that
-  // went straight into the average.
+test('a muscle seen only through somebody else\'s lift gets no rank at all', () => {
+  // The bug this replaced, in two halves. A region\'s score was `lift score x
+  // how strongly that lift trains it`, and that second number is a
+  // *contribution* weight, not a strength discount. Read as one, a lifter whose
+  // only trapezius evidence was a T-bar row saw "Diamond II" computed as
+  // `row rank x 0.7`. That is not a weak trapezius, it is a row.
+  //
+  // Taking those out of the average was the first half. This is the second: the
+  // weight gates rather than scales, so below the threshold there is no number
+  // to print anywhere.
   const profile = { sex: 'male', bodyweight: 82, age: 24, units: 'kg' };
-  const rating = buildRating(new Map([['Back Squat', 144], ['Barbell Bench Press', 139]]), profile, {});
+  const rating = buildRating(new Map([['Chest-Supported T-Bar Row', 133]]), profile,
+    { machineNames: new Set(['Chest-Supported T-Bar Row']) });
 
-  const quads = rating.regions.quads;        // squat trains quads at 1.0
-  const hamstrings = rating.regions.hamstrings;  // and hamstrings at 0.35
-  assert.equal(quads.direct, true);
-  assert.equal(hamstrings.direct, false, 'a 0.35 contribution is a glimpse, not a measurement');
-  assert.ok(hamstrings.score < quads.score * 0.5, 'and it does score far lower');
+  // Lats are what the lift drives (weight 1.0), so lats take its rank whole.
+  assert.ok(rating.regions.lats);
+  const lift = rating.lifts[0];
+  assert.ok(Math.abs(rating.regions.lats.score - lift.score) < 0.01,
+    'a lift that drives a region gives it that rank, not a fraction of it');
 
-  // The overall counts only what was measured, so it lands with the lifts
-  // rather than half a ladder below them.
-  const measured = Object.values(rating.regions).filter((r) => r.direct);
-  const mean = measured.reduce((n, r) => n + r.score, 0) / measured.length;
-  assert.ok(Math.abs(rating.overall - mean) < 0.01);
-  assert.equal(rating.ratedRegions, measured.length);
-  assert.ok(rating.indirectRegions > 0, 'and it still says how many it only glimpsed');
+  // Traps, rear delts and biceps are touched at 0.7, 0.6 and 0.5. None of them
+  // gets a rank, and each is remembered by the lift that reaches it.
+  for (const region of ['traps', 'delts-rear', 'biceps']) {
+    assert.equal(rating.regions[region], undefined, `${region} must not carry a rank`);
+    assert.equal(rating.indirect[region].via, 'Chest-Supported T-Bar Row');
+    assert.equal(rating.indirect[region].score, undefined, 'and no number to print');
+  }
+  assert.equal(rating.indirectRegions, 3);
+  assert.equal(rating.ratedRegions, 1);
 
-  // The indirect ones are still on the map: "we have an indirect read" is worth
-  // seeing, it just is not worth averaging.
-  assert.ok(rating.regions.hamstrings.score > 0);
+  // A region that something else ranks properly does not also carry a note.
+  const withDirect = buildRating(new Map([['Chest-Supported T-Bar Row', 133], ['Barbell Row', 130]]),
+    profile, { machineNames: new Set(['Chest-Supported T-Bar Row']) });
+  assert.ok(withDirect.regions.lats);
+  assert.equal(withDirect.indirect.lats, undefined);
 });
 
 test('a log with nothing trained directly still gets a number', () => {

@@ -239,6 +239,9 @@ function muscleMap(mapMode, { finished, exerciseById, rating, weekEnd }) {
   for (const [region, info] of Object.entries(rating.regions)) {
     colours[region] = C.tier[tierIndex(info.score)];
   }
+  // Touched but unranked regions get the panel line colour, the same as on
+  // screen. A rank colour here would say something the rating does not.
+  for (const region of Object.keys(rating.indirect || {})) colours[region] ||= C.faint;
   return {
     mapMode: 'strength',
     mapFills: colours,

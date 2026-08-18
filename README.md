@@ -499,17 +499,26 @@ it` across the lifts you actually perform — taking the max, so skipping one li
 doesn't drag a region down. A region you never train stays **unrated** rather
 than scoring zero.
 
-**And a region seen only through somebody else's lift does not count either.**
-That second number is a *contribution* weight — how much the squat stimulates
-hamstrings — and it was being read as a strength discount. A lifter whose only
-hamstring evidence was a squat got hamstrings at 35% of their squat rank, and
-that fed straight into the average. The effect was severe and one-directional:
-one real lifter's directly trained regions averaged 53 while the six read only
-through a secondary contribution came out at 14 to 30, dragging the overall from
-Grandmaster to Diamond. The app was not saying their hamstrings were weak. It
-was saying it had never looked, in a voice that sounded like a verdict. Past
-`DIRECT_CONTRIBUTION` a region counts; below it, it still colours the map,
-because an indirect read is worth seeing, but it stays out of the average.
+**And the contribution weight gates rather than scales.** That second number is
+how much a lift *stimulates* a region — a squat trains hamstrings at 0.35 — and
+it was being multiplied into the score as though it were a strength discount. A
+lifter whose only trapezius evidence was a T-bar row saw "Diamond II", computed
+as `row rank × 0.7`. That is not a weak trapezius, it is a row.
+
+At or above `DIRECT_CONTRIBUTION` the lift is a primary or near-primary driver
+and the region takes its rank **whole**: if your incline press is Grandmaster,
+your chest is Grandmaster, not 95% of Grandmaster. Below it there is no rank at
+all — the region is reported as *touched* by name, painted slate grey, and the
+sheet says why. The map therefore has three states rather than two: ranked,
+reached-but-unmeasurable, and untouched.
+
+This took two passes to get right, which is worth recording. Removing these
+regions from the *average* fixed the overall (one real lifter went from Diamond
+back to Grandmaster, matching every one of their individual lift ranks) but left
+the discounted number printed on the map and in the region sheet. The internal
+score that picks the best touching lift is now deleted before the rating is
+returned, because a number reachable from outside is a number that ends up on a
+screen.
 
 **The 0–100 score is no longer shown anywhere as a headline.** It read as a
 percentage, and a percentage whose top means "beyond a national record in every

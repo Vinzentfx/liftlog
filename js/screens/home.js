@@ -1193,9 +1193,20 @@ function mapSection(rating) {
 
   function paint() {
     if (mapMode === 'strength') {
+      // Ranked regions in their rank colour, touched-but-unranked ones in a
+      // muted grey. Painting an indirect region with a rank colour is what made
+      // "your trapezius is Diamond" out of "you did a row".
+      const fills = { ...rating.regions };
+      // Visibly grey, not invisible: the point is that the app reaches this
+      // muscle and cannot measure it, which is different from never touching it.
+      for (const region of Object.keys(rating.indirect)) fills[region] = 'var(--text-faint)';
       host.replaceChildren(
-        bodyMap(rating.regions, { onSelect: (region) => regionSheet(region, rating) }),
+        bodyMap(fills, { onSelect: (region) => regionSheet(region, rating) }),
         tierLegend(),
+        rating.indirectRegions
+          ? el('div.small.faint', { style: { marginTop: '8px' },
+              text: t('home.map.indirectNote', { n: rating.indirectRegions }) })
+          : null,
         el('div.small.faint', { style: { marginTop: '8px' }, text: t('home.map.strengthNote') })
       );
       return;
@@ -1263,7 +1274,14 @@ function regionSheet(region, rating) {
                 text: `!  ${t(LOW_CONFIDENCE[info.via])}` })
             : null,
         ])
-      : el('div.small.muted', { text: t('home.region.noBenchmark', { muscle: label }) }),
+      : rating.indirect[region]
+        ? el('div', {}, [
+            el('div.small.muted', { text: t('home.region.indirect', {
+              muscle: label, lift: rating.indirect[region].via,
+            }) }),
+            el('div.small.faint', { style: { marginTop: '8px' }, text: t('home.region.indirectWhy') }),
+          ])
+        : el('div.small.muted', { text: t('home.region.noBenchmark', { muscle: label }) }),
     el('div.section-head', {}, [el('h2', { text: t('home.region.tierScale') })]),
     el('div', {}, TIERS.map((tier, i) =>
       el(`div.row.between.tier-${i}`, { style: { padding: '7px 0', borderBottom: '1px solid var(--line-soft)' } }, [
