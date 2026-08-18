@@ -345,13 +345,27 @@ export const isBenchmark = (name) => Object.hasOwn(CONTRIB, name);
  */
 const MACHINE_ANCHOR = {
   // --- rows and pulls ---
-  'Chest-Supported T-Bar Row':  ['Barbell Row', 1.10],
-  'Chest-Supported Row':        ['Barbell Row', 1.10],
+  // The chest-supported rows carried a 10% premium over a barbell row, on the
+  // reasoning that taking the lower back and hips out of the movement lets you
+  // pull more. That part is true. What it missed is the other side of the
+  // comparison: a barbell row is logged as bar plus plates, and a plate-loaded
+  // T-bar is logged as plates alone. The lever's own weight never reaches the
+  // number, so the premium was being charged against a load that already
+  // understates itself by roughly the same amount. The two cancel, and 1.00 is
+  // what is left. The free T-bar row keeps its step below the supported one.
+  //
+  // This is a calibration against a logging convention, not a claim that the
+  // movements are equally hard. Anybody who knows what their frame actually
+  // resists at the handles should set a load correction and override it.
+  'Chest-Supported T-Bar Row':  ['Barbell Row', 1.00],
+  'Chest-Supported Row':        ['Barbell Row', 1.00],
   'Close-Grip Seated Row':      ['Barbell Row', 1.17],
   'Machine Row':                ['Barbell Row', 1.17],
   'Seated Cable Row':           ['Barbell Row', 1.17],
-  'T-Bar Row':                  ['Barbell Row', 1.05],
-  'Lying T-Bar Row':            ['Barbell Row', 1.10],
+  'T-Bar Row':                  ['Barbell Row', 0.95],
+  // Unreachable: ALIAS resolves this name to Chest-Supported T-Bar Row before
+  // the anchor is looked up. Kept in step so it cannot mislead a reader.
+  'Lying T-Bar Row':            ['Barbell Row', 1.00],
   'Machine High Row':           ['Barbell Row', 1.20],
   'Iso-Lateral High Row':       ['Barbell Row', 1.15],
   'Iso-Lateral Low Row':        ['Barbell Row', 1.15],
@@ -500,7 +514,11 @@ const ALIAS = {
   'One Arm Lat Pulldown': 'Single-Arm Lat Pulldown',
   'Straight-Arm Pulldown': 'Machine Pullover',
   'Lying T-Bar Row': 'Chest-Supported T-Bar Row',
+  'Chest-Supported T-Bar Rows': 'Chest-Supported T-Bar Row',
+  'Chest Supported T-Bar Row': 'Chest-Supported T-Bar Row',
+  'Chest Supported T-Bar Rows': 'Chest-Supported T-Bar Row',
   'T-Bar Row with Handle': 'T-Bar Row',
+  'T-Bar Rows': 'T-Bar Row',
   'Dumbbell Incline Row': 'Chest-Supported Row',
 
   // Variants that differ from an anchored name by a letter, a bracket or a word
