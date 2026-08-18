@@ -15,7 +15,7 @@ import { strengthHistory, tonnageHistory, movers } from '../history.js';
 import { weekStreak } from '../log-analysis.js';
 import { stallReport, describeStall } from '../fatigue.js';
 import { shareWeekSheet } from '../week-share.js';
-import { TIERS, DIVISIONS, BAND, tierIndex, rankOf, hasProfile } from '../standards.js';
+import { TIERS, DIVISIONS, BAND, tierIndex, tierOf, rankOf, hasProfile } from '../standards.js';
 import { exerciseHistory, pooledOrderCost } from '../progression.js';
 
 /**
@@ -327,13 +327,14 @@ function strengthSection(done) {
         history.map((h) => ({
           x: h.week,
           y: h.score,
-          tip: `${Math.round(h.score)} · ${tTier(h.tier.key)} ${rankOf(h.score).division}`,
+          tip: `${tTier(h.tier.key)} ${rankOf(h.score).division}`,
         })),
         {
           caption: t('progress.strengthCaption', { lifts: tn(last.lifts, 'unit.lift') }),
-          // A few months of training spans only a handful of points, and
-          // rounding those to whole numbers prints "30, 30, 31" up the axis.
-          format: axisFormat(history.map((h) => h.score)),
+          // Rank names up the axis, not the 0-100. The number is what the line
+          // is drawn from and it is no longer what anybody is shown: "Diamant"
+          // and "Meister" say what 44 and 56 never did.
+          format: (v) => tTier(tierOf(v).key, { short: true }),
           showTrend: true,
           height: 190,
         }
@@ -367,13 +368,6 @@ function strengthSection(done) {
   );
 
   return wrap;
-}
-
-/** Enough decimals that consecutive axis ticks never print the same label. */
-function axisFormat(values) {
-  const span = Math.max(...values) - Math.min(...values);
-  const decimals = span >= 8 ? 0 : span >= 2 ? 1 : 2;
-  return (v) => v.toFixed(decimals);
 }
 
 /**

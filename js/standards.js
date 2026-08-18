@@ -867,6 +867,29 @@ export function toNextDivision(liftName, score, profile, opts = {}) {
 }
 
 /**
+ * How much a lift has to train a region before that region counts as measured.
+ *
+ * This exists because of a category error that ran for a long time. A region's
+ * score is `lift score × how strongly that lift trains it`, and that second
+ * number is a *contribution* weight: how much the squat stimulates hamstrings.
+ * It was then being read as a *strength* discount, so somebody whose only
+ * hamstring evidence was a squat got hamstrings = 35% of their squat rank, and
+ * that fed straight into the average.
+ *
+ * The effect was severe and one-directional. A real lifter's directly trained
+ * regions averaged 53 while the six read only through a secondary contribution
+ * came out at 14 to 30, dragging the overall from Grandmaster to Diamond. The
+ * app was not telling them their hamstrings were weak. It was telling them it
+ * had never looked, in a voice that sounded like a verdict.
+ *
+ * So a secondary-only read is treated the way this app already treats a region
+ * nobody trains: as an absence of data rather than a low number. It still
+ * colours the map, because "we have an indirect read" is worth seeing, but it
+ * does not enter the average.
+ */
+const DIRECT_CONTRIBUTION = 0.8;
+
+/**
  * Per-region and overall rating.
  *
  * A region's score is the best (lift score × how strongly that lift trains it)
@@ -981,7 +1004,11 @@ export function buildRating(bestByLift, profile,
         || (!machine && held.machine && value >= held.score);
       if (better) {
         regions[region] = { score: value, via: name, machine, provisional: machine && sample < 10, sample,
-          extrapolated: outside.has(name) };
+          extrapolated: outside.has(name),
+          // Whether this region was actually measured or merely glimpsed
+          // through a lift aimed somewhere else.
+          direct: weight >= DIRECT_CONTRIBUTION,
+        };
       }
     }
   }
@@ -1002,10 +1029,16 @@ export function buildRating(bestByLift, profile,
   }
 
   const rated = Object.values(regions);
-  // Overall is the mean of rated regions — an unrated region isn't a zero,
-  // it's an absence of data, and averaging in zeros would be misleading.
-  const overall = rated.length
-    ? rated.reduce((n, r) => n + r.score, 0) / rated.length
+  // Overall is the mean of *directly measured* regions. An unrated region isn't
+  // a zero, it's an absence of data, and a region seen only through somebody
+  // else's lift is much closer to an absence than to a measurement — see
+  // DIRECT_CONTRIBUTION. Falls back to everything rated when nothing at all was
+  // trained directly, which is a brand-new log rather than a real training
+  // history, and a number is better than a blank there.
+  const direct = rated.filter((r) => r.direct);
+  const counted = direct.length ? direct : rated;
+  const overall = counted.length
+    ? counted.reduce((n, r) => n + r.score, 0) / counted.length
     : null;
 
   return {
@@ -1014,7 +1047,8 @@ export function buildRating(bestByLift, profile,
     overall,
     overallTier: overall === null ? null : tierOf(overall),
     overallRank: overall === null ? null : rankOf(overall),
-    ratedRegions: rated.length,
+    ratedRegions: counted.length,
+    indirectRegions: rated.length - direct.length,
     totalRegions: Object.keys(REGIONS).length,
   };
 }

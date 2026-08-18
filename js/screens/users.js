@@ -2,11 +2,14 @@
 // weekly totals the user chose to publish are sent to the social tables.
 
 import { el, emptyState, toast, openSheet, closeSheet, confirmSheet, authField } from '../ui.js';
-import { t, tn, locale } from '../i18n.js';
+import { rankBadge } from '../rank-art.js';
+import { t, tn, tTier, locale } from '../i18n.js';
 import * as cloud from '../cloud.js';
 import * as store from '../store.js';
 import { bestOneRepMaxByName, isCounted, startOfWeek } from '../models.js';
-import { buildRating, hasProfile, ratedMachineNames, regionsFromExercises } from '../standards.js';
+import {
+  buildRating, hasProfile, ratedMachineNames, regionsFromExercises, rankOf, tierIndex,
+} from '../standards.js';
 import { todaysDays } from '../schedule.js';
 import * as push from '../push.js';
 
@@ -506,6 +509,16 @@ function answerInvite(invite, accept) {
   ]));
 }
 
+/** The same rank chip Home uses, so a friend's rank reads identically to yours. */
+function rankChip(rank) {
+  if (!rank) return null;
+  return el('span.tier-chip.with-badge', {}, [
+    rankBadge(rank.tierIndex, { size: 17 }),
+    tTier(rank.tier.key),
+    el('span.div-mark', { text: rank.division }),
+  ]);
+}
+
 function leaderboardSection() {
   const wrap = el('div');
   wrap.append(el('div.section-head', {}, [el('h2', { text: t('users.leaderboard') })]));
@@ -525,10 +538,16 @@ function leaderboardSection() {
       el('span.leader-rank', { text: String(i + 1) }),
       el('div.avatar.small', { text: person.display_name.slice(0, 1).toUpperCase() }),
       el('div.grow', {}, [el('strong', { text: person.display_name }), el('div.small.faint', { text: `@${person.handle}` })]),
-      el('div.leader-value', {}, [
-        el('strong.num', { text: leaderboardMode === 'strength' ? String(Math.round(person.strength_score))
-          : leaderboardMode === 'sets' ? tn(person.working_sets, 'unit.set') : tn(person.workouts, 'unit.session') }),
-      ]),
+      // Strength is shown as a rank, not as the 0-100 it sorts by. Two friends
+      // reading "41" and "47" learn nothing except that one of them is behind;
+      // reading "Diamant II" and "Meister III" they learn where each of them
+      // actually stands. The number is still what orders the list.
+      leaderboardMode === 'strength'
+        ? el(`div.leader-value.tier-${tierIndex(person.strength_score)}`, {}, [rankChip(rankOf(person.strength_score))])
+        : el('div.leader-value', {}, [
+            el('strong.num', { text: leaderboardMode === 'sets'
+              ? tn(person.working_sets, 'unit.set') : tn(person.workouts, 'unit.session') }),
+          ]),
     ]),
     ])));
   }

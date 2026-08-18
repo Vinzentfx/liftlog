@@ -189,6 +189,44 @@ test('cables are ranked and assisted machines never are', () => {
   assert.equal(boundsFor('Assisted Pull-Up Machine', { sex: 'male', bodyweight: 80 }, { machine: true }), null);
 });
 
+test('a muscle seen only through somebody else\'s lift does not drag the average', () => {
+  // The bug this replaced: a region\'s score is `lift score x how strongly that
+  // lift trains it`, and that second number is a *contribution* weight. It was
+  // being read as a strength discount, so a lifter whose only hamstring
+  // evidence was a squat got hamstrings at 35% of their squat rank and that
+  // went straight into the average.
+  const profile = { sex: 'male', bodyweight: 82, age: 24, units: 'kg' };
+  const rating = buildRating(new Map([['Back Squat', 144], ['Barbell Bench Press', 139]]), profile, {});
+
+  const quads = rating.regions.quads;        // squat trains quads at 1.0
+  const hamstrings = rating.regions.hamstrings;  // and hamstrings at 0.35
+  assert.equal(quads.direct, true);
+  assert.equal(hamstrings.direct, false, 'a 0.35 contribution is a glimpse, not a measurement');
+  assert.ok(hamstrings.score < quads.score * 0.5, 'and it does score far lower');
+
+  // The overall counts only what was measured, so it lands with the lifts
+  // rather than half a ladder below them.
+  const measured = Object.values(rating.regions).filter((r) => r.direct);
+  const mean = measured.reduce((n, r) => n + r.score, 0) / measured.length;
+  assert.ok(Math.abs(rating.overall - mean) < 0.01);
+  assert.equal(rating.ratedRegions, measured.length);
+  assert.ok(rating.indirectRegions > 0, 'and it still says how many it only glimpsed');
+
+  // The indirect ones are still on the map: "we have an indirect read" is worth
+  // seeing, it just is not worth averaging.
+  assert.ok(rating.regions.hamstrings.score > 0);
+});
+
+test('a log with nothing trained directly still gets a number', () => {
+  // Falling back to everything rated, because a brand-new log with one indirect
+  // region is better served by a rough answer than by a blank.
+  const profile = { sex: 'male', bodyweight: 82, age: 24, units: 'kg' };
+  const rating = buildRating(new Map([['Barbell Row', 100]]), profile, {});
+  const anyDirect = Object.values(rating.regions).some((r) => r.direct);
+  if (!anyDirect) assert.ok(rating.overall > 0, 'no direct regions must not mean no rating');
+  assert.ok(rating.overall !== null);
+});
+
 test('a free-weight lift keeps a region it ties a machine on', () => {
   const profile = { sex: 'male', bodyweight: 80, age: 25 };
   // Chosen so both land on the same score. The machine standard is the bench

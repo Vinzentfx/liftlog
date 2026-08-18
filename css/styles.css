@@ -733,8 +733,16 @@ label.field > span {
 .tier-chip.with-badge { padding-left: 6px; gap: 5px; }
 .tier-chip .rank-badge { margin: -3px 0; }
 
-/* The hero badge sits above the score and carries the rank's colour. */
-.rank-hero-badge { display: flex; justify-content: center; margin-bottom: 2px; }
+/* The hero badge is the headline now, not a decoration above a number. */
+.rank-hero-badge { display: flex; justify-content: center; margin-bottom: 10px; }
+.rank-hero-name {
+  font-size: 34px; font-weight: 800; letter-spacing: -.025em; line-height: 1;
+  color: var(--tier, var(--accent));
+}
+.rank-hero-division {
+  font-size: 15px; font-weight: 750; letter-spacing: .16em; margin-top: 6px;
+  color: var(--tier, var(--accent)); opacity: .75;
+}
 
 /* ============ ranking up ============ */
 

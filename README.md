@@ -497,7 +497,28 @@ neighbourhood. Their rank notes say as much on screen.
 A muscle region's score is the best `lift score × how strongly that lift trains
 it` across the lifts you actually perform — taking the max, so skipping one lift
 doesn't drag a region down. A region you never train stays **unrated** rather
-than scoring zero, and the overall rating averages only rated regions.
+than scoring zero.
+
+**And a region seen only through somebody else's lift does not count either.**
+That second number is a *contribution* weight — how much the squat stimulates
+hamstrings — and it was being read as a strength discount. A lifter whose only
+hamstring evidence was a squat got hamstrings at 35% of their squat rank, and
+that fed straight into the average. The effect was severe and one-directional:
+one real lifter's directly trained regions averaged 53 while the six read only
+through a secondary contribution came out at 14 to 30, dragging the overall from
+Grandmaster to Diamond. The app was not saying their hamstrings were weak. It
+was saying it had never looked, in a voice that sounded like a verdict. Past
+`DIRECT_CONTRIBUTION` a region counts; below it, it still colours the map,
+because an indirect read is worth seeing, but it stays out of the average.
+
+**The 0–100 score is no longer shown anywhere as a headline.** It read as a
+percentage, and a percentage whose top means "beyond a national record in every
+muscle group" has an upper half nobody will ever see: it made a perfectly good
+Grandmaster feel like a fail mark. Home, the shared card and the friends
+leaderboard all show the rank instead, and the strength chart labels its axis
+with rank names. The number still exists, still sorts the leaderboard and is
+still what the chart is drawn from. It is simply not the thing shouted at
+somebody who opened the app to feel good about training.
 
 **Machines are ranked too, and count fully.** They used to be scored off seven
 very broad category bands and then discounted to 0.65 on the body map, which was

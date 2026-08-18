@@ -117,6 +117,8 @@ export function weekSummary({
           score: rating.overall,
           tier: tierOf(rating.overall),
           division: rankOf(rating.overall).division,
+          step: rankOf(rating.overall).step,
+          steps: rankOf(rating.overall).steps,
           rated: rating.ratedRegions,
           total: rating.totalRegions,
           // Difference of the *rounded* scores, not the rounded difference. The
@@ -342,10 +344,12 @@ function hero(ctx, d, y) {
 
   const x = PAD + 22;
   if (d.strength) {
-    const big = String(Math.round(d.strength.score));
-    drawText(ctx, big, x, y + 20, { size: 56, weight: 780, color: C.text, baseline: 'top' });
-    const w = textWidth(ctx, big, { size: 56, weight: 780 });
-    chip(ctx, x + w + 14, y + 44, `${tTier(d.strength.tier.key)} ${d.strength.division}`, accent);
+    // The rank is the headline here too. A shared card saying "41" invites the
+    // one comparison the ladder exists to replace.
+    const big = tTier(d.strength.tier.key);
+    drawText(ctx, big, x, y + 22, { size: 40, weight: 800, color: accent, baseline: 'top', max: INNER - 130 });
+    const w = Math.min(textWidth(ctx, big, { size: 40, weight: 800 }), INNER - 130);
+    chip(ctx, x + w + 14, y + 40, `${d.strength.division}  ·  ${d.strength.step}/${d.strength.steps}`, accent);
 
     drawText(ctx, t('home.rating.overall', { rated: d.strength.rated, total: d.strength.total }),
       x, y + 86, { size: 12.5, weight: 500, color: C.dim, baseline: 'top', max: INNER - 44 });

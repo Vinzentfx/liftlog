@@ -573,11 +573,18 @@ function ratingSection(done, settings) {
   const rank = rating.overallRank;
   const idx = rank.tierIndex;
 
+  // No 0-100 number here any more. It read as a percentage, and a percentage
+  // that tops out at "beyond a national record in every muscle group" is a
+  // number whose upper half nobody will ever see: it made a perfectly good
+  // Grandmaster feel like a fail mark. The rank says the same thing with a name
+  // on it, and the rail underneath says exactly how far along that is. The
+  // score still exists, and still sorts the leaderboard, it is just not the
+  // thing shouted at somebody who opened the app to feel good about training.
   const hero = el(`div.card.glow.tier-${idx}`, {}, [
     el('div.rating-hero', {}, [
-      el('div.rank-hero-badge', {}, [rankBadge(idx, { size: 76, glow: true })]),
-      el('div.rating-val', { text: String(Math.round(rating.overall)) }),
-      el('div', { style: { marginTop: '8px' } }, [rankChip(rank)]),
+      el('div.rank-hero-badge', {}, [rankBadge(idx, { size: 96, glow: true })]),
+      el('div.rank-hero-name', { text: tTier(rank.tier.key) }),
+      el('div.rank-hero-division', { text: rank.division }),
       el('div.rating-sub', {
         text: t('home.rating.overall', { rated: rating.ratedRegions, total: rating.totalRegions }),
       }),
@@ -902,13 +909,9 @@ function rankTrack(rank, score) {
   return el('div.rank-track', {}, [
     el('div.rank-track-head', {}, [
       el(`div.rank-track-now.tier-${rank.tierIndex}`, {}, [
-        rankBadge(rank.tierIndex, { size: 46, glow: true }),
         el('div', {}, [
-          el('div.rank-track-name', { text: tTier(rank.tier.key) }),
           el('div.rank-track-step', {
-            text: t('home.rating.stepOf', {
-              division: rank.division, step: rank.step, steps: rank.steps,
-            }),
+            text: t('home.rating.stepOnly', { step: rank.step, steps: rank.steps }),
           }),
         ]),
       ]),
