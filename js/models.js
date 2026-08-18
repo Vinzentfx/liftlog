@@ -55,6 +55,13 @@ export const DEFAULT_SETTINGS = {
   showRatings: true,      // strength tiers can be demotivating — let them be hidden
   showStars: true,        // exercise/plan quality stars, separate from the tiers
   logRir: true,           // reps-in-reserve column on the set row
+  // What a blank RIR means to the progression engine. Not zero: a blank has
+  // always meant "unknown", and quietly reading it as "taken to failure" made
+  // every suggestion for anyone who does not log RIR (or who has the column
+  // switched off entirely) systematically too light. It is an assumption, the
+  // engine says when it leaned on it, and nothing else in the app reads it:
+  // personal bests, ranks and charts stay on what was actually written down.
+  assumedRir: 1,
   // What a newly added plan exercise starts at. 2 x 6-10 is the app's default
   // for reasons documented in plan-builder.js, but it is a preference, not a
   // finding — someone running 3 x 8-12 should not have to retype it every time.
@@ -788,6 +795,15 @@ export function withinE1rmWindow(set) {
 export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
   const best = new Map();
   const outside = new Map();
+  // When each best was actually done.
+  //
+  // The rank is an all-time record and stays one: taking it away because it is
+  // old would delete something the lifter earned. But a record from three years
+  // ago described as "your strength" is not true either, so the date rides
+  // along on the map's `achievedAt` property and the screen can say how old it
+  // is. Kept as a property rather than changing the return type, which four
+  // call sites and the week card all read as a plain Map of numbers.
+  const achievedAt = new Map();
   const bodyweight = Number(profile?.bodyweight);
   for (const s of sessions) {
     if (!s.finishedAt) continue;
@@ -810,7 +826,10 @@ export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
         } else {
           est = e1rm(set.weight, set.reps);
         }
-        if (est > (target.get(ex.name) || 0)) target.set(ex.name, est);
+        if (est > (target.get(ex.name) || 0)) {
+          target.set(ex.name, est);
+          if (target === best) achievedAt.set(ex.name, s.startedAt);
+        }
       }
     }
   }
@@ -821,6 +840,7 @@ export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
     extrapolated.add(name);
   }
   best.extrapolated = extrapolated;
+  best.achievedAt = achievedAt;
   return best;
 }
 

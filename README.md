@@ -493,10 +493,14 @@ wrong twice over: the bands were far too soft, and the rank they produced was
 then treated as not worth counting. `MACHINE_ANCHOR` replaces them with a ratio
 to the barbell lift each machine mirrors — a seated chest press is bench × 0.95,
 a machine shoulder press is overhead press × 1.15, a leg extension is squat ×
-0.65 — so the standard is as strict as the one it derives from and can count at
+0.80 — so the standard is as strict as the one it derives from and can count at
 full weight. Cables are ranked on the same footing; a stack is a stack whichever
-side of the frame the pulley is bolted to. Where a barbell lift and a machine
-land a region on the same number, **the published standard wins the tie**.
+side of the frame the pulley is bolted to. A machine with no anchor falls back
+to a category band, and that fallback asks which half of the body the name
+belongs to before giving up: an unrecognised leg machine used to land on the
+triceps band, which made it far easier to rank than a recognised one. Where a
+barbell lift and a machine land a region on the same number, **the published
+standard wins the tie**.
 
 **A rank is only built from sets a 1RM estimate is valid for.** Prediction
 equations are validated to about ten repetitions and their error grows past it,
@@ -507,6 +511,14 @@ finds the conversion depends on the load, not only the reps). So
 A lift trained *only* above it still gets a rank — a blank would be worse than a
 caveat — but it is marked `extrapolated`, counts at 0.85 on the muscle map, and
 says so on the lift and in the region sheet.
+
+**A rank is an all-time record, and says how old it is.** Taking a record away
+because it is old would delete something that was earned, so
+`bestOneRepMaxByName` still takes the maximum over the whole log. But a set from
+three years ago printed as "your strength" is its own kind of lie, so the date
+rides along on the map's `achievedAt` property, and anything older than six
+months is labelled "best from N months ago" on the lift with the reasoning in
+its sheet.
 
 **The ladder reports a drop as plainly as a climb.** `recentRankChange` compares
 against where you stood eight weeks ago in both directions. A demotion is
@@ -596,13 +608,20 @@ benching after nine sets of chest work, got the same advice.
 
 What replaced it:
 
-- **The first working set decides.** Later sets fall off for reasons that say
-  nothing about whether the weight was right, so they inform the within-session
-  advice and never the between-session one.
+- **The first working set decides**, and it decides on its own weight. Later
+  sets fall off for reasons that say nothing about whether the weight was right,
+  so they inform the within-session advice and never the between-session one.
+  `openingWeight` is the load the exercise opened on, which is not the same as
+  `topWeight`: plenty of people ramp across their working sets, and judging the
+  reps of set one against the load of set three was wrong by two increments
+  every session.
 - **Effort counts toward clearing.** Seven reps with three in reserve is a set of
-  ten that stopped early. Without RIR a set is taken as written, which is what
-  the rest of the app does and errs downwards, so nothing built on it ever asks
-  for too much.
+  ten that stopped early. A blank RIR is *unknown*, not "taken to failure", so
+  the `assumedRir` setting says what an empty field is worth (default 1, capped
+  at 4). It matters most for people who switch the column off entirely: for them
+  every set is blank, and reading blank as failure made every suggestion too
+  light. The engine names which it used, and **only the suggestions read it**.
+  Records, ranks and charts stay on what was actually written down.
 - **Session order is corrected out.** `priorWork` counts the sets standing
   between the start of a session and this exercise, weighted by how much muscle
   they share; `readiness` turns that into the share of fresh strength left.
@@ -622,7 +641,8 @@ What replaced it:
 
 Whatever advice is current becomes the empty field's meaning: ticking a set
 without typing logs the number the screen just recommended, or the suggestion is
-decoration.
+decoration. On a movement logged one side at a time the number is labelled
+**per side**, because without those two words it reads as double the weight.
 
 **Every suggested weight can be made on the equipment it names.** A barbell goes
 through `platePlan`, so 101 kg is never printed. A machine goes through its own

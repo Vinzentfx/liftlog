@@ -662,9 +662,11 @@ function exerciseView(exerciseId) {
   // first to fifth in a session drops a few percent for reasons that have
   // nothing to do with getting weaker, and on a twelve-week chart that reads as
   // a plateau. See js/progression.js for what is being corrected and how much.
+  const assumedRir = Number(store.state.settings.assumedRir) || 0;
   const corrected = exerciseHistory(store.state.sessions, exerciseId, store.state.exerciseById, {
     limit: 500,
-    fallbackCost: pooledOrderCost(store.state.sessions, store.state.exerciseById),
+    assumedRir,
+    fallbackCost: pooledOrderCost(store.state.sessions, store.state.exerciseById, { assumedRir }),
   });
   const freshById = new Map(corrected.map((row) => [row.sessionId, row]));
 

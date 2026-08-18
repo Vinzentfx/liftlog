@@ -27,7 +27,8 @@ process.env.TZ = 'Europe/Berlin';
 
 const { e1rm, isCounted, startOfWeek, entryStats, sessionStats, newMeal, dayKey, slotFor, seedExercises, bestOneRepMaxByName, estimatePlanDuration, bodyweightLoadMode } = await import('../js/models.js');
 const { scoreFor, scoreForMachine, buildRating, ANATOMY, TIERS, DIVISIONS, RANK_STEPS,
-  rankOf, ladder, boundsFor, toNextDivision, ratedMachineNames } = await import('../js/standards.js');
+  rankOf, ladder, boundsFor, toNextDivision, ratedMachineNames, machineCategory,
+  LOW_CONFIDENCE } = await import('../js/standards.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
 const { rateExercise } = await import('../js/exercise-rating.js');
@@ -903,6 +904,20 @@ test('the first working set decides, not the ones that fatigue took', () => {
   assert.equal(tip.reasons[0].key, 'clearedFirstSet');
 });
 
+test('a ramp across the working sets is judged on the set it opened with', () => {
+  // 100 x 10, then 110 x 6, then 110 x 5, against a 6-10 target. The reps that
+  // cleared the target happened at 100, so the recommendation has to be built
+  // from 100 and not from the heaviest set of the day.
+  const ramp = [session(at(2026, 7, 1), [entry(BENCH.id, [set(100, 10), set(110, 6), set(110, 5)])])];
+  const rows = exerciseHistory(ramp, BENCH.id, byId);
+  assert.equal(rows[0].openingWeight, 100);
+  assert.equal(rows[0].topWeight, 110);
+
+  const tip = openingSet(rows, { exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20 });
+  assert.equal(tip.fromWeight, 100);
+  assert.ok(tip.weight <= 100 + 2.5 * 3, `${tip.weight} is more than three steps off the opening set`);
+});
+
 test('a first set short of the target holds the weight', () => {
   const rows = exerciseHistory(solo([100], { reps: 7 }).reverse(), BENCH.id, byId);
   const tip = openingSet(rows, { exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20 });
@@ -1080,6 +1095,68 @@ test('a lift only ever trained above the window is ranked, and marked', () => {
     'an extrapolated estimate counts for less on the shared map');
 });
 
+test('a blank RIR is unknown, not a set taken to failure', () => {
+  // 8 reps against a 6-10 target and nothing in the RIR column. Read as failure
+  // that is a hold; read with the reserve this lifter always keeps it is a
+  // weight increase, and the difference is every session for anyone who has the
+  // column switched off.
+  const rows = exerciseHistory(solo([100], { reps: 8 }).reverse(), BENCH.id, byId);
+  const strict = openingSet(rows, { exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20 });
+  assert.equal(strict.change, 'hold');
+
+  const assumed = exerciseHistory(solo([100], { reps: 8 }).reverse(), BENCH.id, byId, { assumedRir: 2 });
+  const tip = openingSet(assumed, {
+    exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20, assumedRir: 2,
+  });
+  assert.equal(tip.change, 'up');
+  // And it says the reserve was assumed rather than logged.
+  assert.equal(tip.reasons[0].key, 'assumedFirstSet');
+  assert.ok(tip.reasons.some((r) => r.key === 'noRir'));
+
+  // A logged reserve keeps the honest wording.
+  const logged = exerciseHistory(solo([100], { reps: 8, rir: 2 }).reverse(), BENCH.id, byId);
+  assert.equal(openingSet(logged, { exercise: BENCH, targetReps: '6-10', units: 'kg' }).reasons[0].key,
+    'easyFirstSet');
+});
+
+test('the assumption cannot be turned into a lever', () => {
+  const rows = exerciseHistory(solo([100], { reps: 8 }).reverse(), BENCH.id, byId, { assumedRir: 99 });
+  const wild = openingSet(rows, {
+    exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20, assumedRir: 99,
+  });
+  // Capped at four in reserve, and the increase is still bounded to three steps.
+  assert.ok(wild.weight <= 100 + 2.5 * 3, `${wild.weight} is not a bounded suggestion`);
+});
+
+test('an unknown leg machine is not ranked against a triceps standard', () => {
+  assert.equal(machineCategory('Ai Fitness Leg Blaster'), 'lowerIsolation');
+  assert.equal(machineCategory('Glute Machine 3000'), 'lowerIsolation');
+  assert.equal(machineCategory('Some Ab Crunch Thing'), 'core');
+  assert.equal(machineCategory('Unnamed Arm Contraption'), 'upperIsolation');
+  // The named categories still win over the fallback.
+  assert.equal(machineCategory('Leg Press'), 'lowerPress');
+});
+
+test('every caveat the rating shows is a translatable key', () => {
+  for (const value of Object.values(LOW_CONFIDENCE)) {
+    assert.match(value, /^[a-z][\w.]+$/, `${value} looks like prose, not a key`);
+  }
+});
+
+test('a rank remembers when its best was actually set', () => {
+  const exercises = new Map([[BENCH.id, BENCH]]);
+  const long = at(2024, 3, 1), recent = at(2026, 7, 1);
+  const best = bestOneRepMaxByName([
+    session(long, [entry(BENCH.id, [set(140, 5)])]),
+    session(recent, [entry(BENCH.id, [set(100, 5)])]),
+  ], exercises, { bodyweight: 80 });
+  assert.equal(best.achievedAt.get('Barbell Bench Press'), long, 'the record is the old set');
+
+  const rating = buildRating(best, { sex: 'male', bodyweight: 80, age: 25 });
+  assert.equal(rating.lifts[0].achievedAt, long,
+    'and the date travels with it, so the screen can say how old it is');
+});
+
 test('a manual exercise is never given a number it did not ask for', () => {
   const rows = exerciseHistory(solo([100]).reverse(), BENCH.id, byId);
   assert.equal(openingSet(rows, { exercise: BENCH, rule: 'manual' }), null);
@@ -1235,6 +1312,17 @@ test('latestWeight is the newest weigh-in, whatever order the log is in', () => 
 /* ================= eating next to training ================= */
 
 /** `n` days back from `at`, as the day key meals are stored under. */
+/**
+ * A fixed Sunday, so five consecutive days back from it land in one ISO week.
+ *
+ * These tests used to run off Date.now(), which meant they were green from
+ * Thursday to Sunday and red from Monday to Wednesday: five days back from a
+ * Tuesday put two of them in one week and three in the previous one, and
+ * MIN_LOGGED_DAYS is four. Exactly the date bug this file exists to catch, in
+ * this file.
+ */
+const TIMELINE_NOW = at(2026, 8, 16);
+
 function dayBack(n, at = Date.now()) {
   const d = new Date(at);
   d.setDate(d.getDate() - n);
@@ -1264,13 +1352,13 @@ test('an intake average counts only the days that carry the value', () => {
   // Five logged days, two of them with no calorie figure at all. Averaging
   // those in as zero would report 1200 kcal for a 2000 kcal week.
   const meals = [
-    dayMeal(dayBack(0), 2000, 150),
-    dayMeal(dayBack(1), 2000, 150),
-    dayMeal(dayBack(2), 2000, 150),
-    dayMeal(dayBack(3), 0, 150),
-    dayMeal(dayBack(4), 0, 150),
+    dayMeal(dayBack(0, TIMELINE_NOW), 2000, 150),
+    dayMeal(dayBack(1, TIMELINE_NOW), 2000, 150),
+    dayMeal(dayBack(2, TIMELINE_NOW), 2000, 150),
+    dayMeal(dayBack(3, TIMELINE_NOW), 0, 150),
+    dayMeal(dayBack(4, TIMELINE_NOW), 0, 150),
   ];
-  const { weeks } = timeline({ meals }, { weeks: 3 });
+  const { weeks } = timeline({ meals }, { weeks: 3, now: TIMELINE_NOW });
   const withIntake = weeks.filter((w) => w.intake);
   const total = withIntake.reduce((n, w) => n + w.intake.kcal, 0) / withIntake.length;
 
@@ -1297,14 +1385,14 @@ test('bodyweight is only reported for weeks you actually weighed', () => {
 });
 
 test('training and eating land in the same week buckets', () => {
-  const now = Date.now();
-  const meals = [0, 1, 2, 3, 4].map((i) => dayMeal(dayBack(i), 2200, 160));
+  const now = TIMELINE_NOW;
+  const meals = [0, 1, 2, 3, 4].map((i) => dayMeal(dayBack(i, now), 2200, 160));
   const sessions = [{
     id: 's1', startedAt: now - 86400000, finishedAt: now - 86400000 + 3600000,
     entries: [{ exerciseId: 'ex', sets: [{ weight: 100, reps: 5, done: true, type: 'working' }] }],
   }];
 
-  const { weeks } = timeline({ sessions, meals }, { weeks: 4 });
+  const { weeks } = timeline({ sessions, meals }, { weeks: 4, now });
   const trained = weeks.filter((w) => w.sets > 0);
   const ate = weeks.filter((w) => w.intake);
 
@@ -1315,11 +1403,11 @@ test('training and eating land in the same week buckets', () => {
 });
 
 test('the timeline waits for a second week rather than drawing one point', () => {
-  const oneWeek = [0, 1, 2, 3, 4].map((i) => dayMeal(dayBack(i), 2200, 160));
-  assert.equal(timelineReady(timeline({ meals: oneWeek }, { weeks: 4 })), false);
+  const oneWeek = [0, 1, 2, 3, 4].map((i) => dayMeal(dayBack(i, TIMELINE_NOW), 2200, 160));
+  assert.equal(timelineReady(timeline({ meals: oneWeek }, { weeks: 4, now: TIMELINE_NOW })), false);
 
-  const twoWeeks = [...oneWeek, ...[7, 8, 9, 10, 11].map((i) => dayMeal(dayBack(i), 2200, 160))];
-  assert.equal(timelineReady(timeline({ meals: twoWeeks }, { weeks: 4 })), true);
+  const twoWeeks = [...oneWeek, ...[7, 8, 9, 10, 11].map((i) => dayMeal(dayBack(i, TIMELINE_NOW), 2200, 160))];
+  assert.equal(timelineReady(timeline({ meals: twoWeeks }, { weeks: 4, now: TIMELINE_NOW })), true);
 });
 
 /* ======================= sharing a plan ======================= */

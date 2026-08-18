@@ -199,6 +199,20 @@ export function renderSettings() {
   rirToggle.checked = s.logRir !== false;
   rirToggle.addEventListener('change', () => store.setSetting('logRir', rirToggle.checked));
 
+  // What a set with no RIR on it is worth to the progression engine. It matters
+  // most for people who have the column switched off entirely: for them every
+  // set is blank, and reading blank as "to failure" made every suggestion too
+  // light for as long as the app has existed.
+  const assumedRir = normaliseOnBlur(numberInput({
+    value: s.assumedRir ?? 1,
+    placeholder: '1',
+    'aria-label': t('settings.assumedRir'),
+  }), { integer: true });
+  assumedRir.addEventListener('change', () => {
+    const value = parseNumber(assumedRir.value);
+    store.setSetting('assumedRir', value === null ? 0 : Math.max(0, Math.min(4, Math.round(value))));
+  });
+
   const soundToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
   soundToggle.checked = s.soundOnRestEnd !== false;
   soundToggle.addEventListener('change', () => store.setSetting('soundOnRestEnd', soundToggle.checked));
@@ -325,6 +339,10 @@ export function renderSettings() {
       checkRow(soundToggle, t('settings.chime')),
       checkRow(bgAudioToggle, t('settings.restBackgroundAudio'), t('settings.restBackgroundAudioNote')),
       checkRow(rirToggle, t('settings.logRir'), t('settings.logRirNote')),
+      el('label.field', { style: { marginTop: '4px' } }, [
+        el('span', { text: t('settings.assumedRir') }), assumedRir,
+        el('small', { text: t('settings.assumedRirNote') }),
+      ]),
       checkRow(progressionToggle, t('settings.progressionSuggestions'), t('settings.progressionSuggestionsNote')),
       checkRow(warmupToggle, t('settings.warmupSuggestions'), t('settings.warmupSuggestionsNote')),
       checkRow(plateauToggle, t('settings.plateauHints')),

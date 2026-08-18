@@ -232,11 +232,16 @@ function exerciseBlock(session, entry, entryIndex) {
   // Everything the advice is built from: the whole log for this exercise, each
   // session corrected for where in that session it happened, plus where in
   // *this* session we are standing right now.
+  // What a blank RIR is worth. Zero while the column is on and the user simply
+  // left it empty would be a guess about that one set; the setting is a
+  // standing answer, and it is the only place the app is allowed to fill one in.
+  const assumedRir = Number(store.state.settings.assumedRir) || 0;
   const rows = exerciseHistory(store.state.sessions, entry.exerciseId, store.state.exerciseById, {
     excludeSessionId: session.id,
+    assumedRir,
     // Pooled across the whole log, so an exercise that has only ever been
     // trained from one position still gets a measured cost rather than a prior.
-    fallbackCost: pooledOrderCost(store.state.sessions, store.state.exerciseById),
+    fallbackCost: pooledOrderCost(store.state.sessions, store.state.exerciseById, { assumedRir }),
   });
   const prior = priorWork(session.entries, entryIndex, store.state.exerciseById);
   const doneToday = entry.sets.filter(isCounted);
@@ -249,7 +254,7 @@ function exerciseBlock(session, entry, entryIndex) {
   const opening = suggesting && !doneToday.length
     ? openingSet(rows, {
         exercise: ex, targetReps: entry.targetReps, rule: entry.progressionRule,
-        units, barWeight: store.barWeight(), prior, step,
+        units, barWeight: store.barWeight(), prior, step, assumedRir,
       })
     : null;
 
@@ -259,7 +264,7 @@ function exerciseBlock(session, entry, entryIndex) {
   // range.
   const live = suggesting && doneToday.length
     ? nextSet(doneToday, rows, {
-        exercise: ex, targetReps: entry.targetReps, units, barWeight: store.barWeight(), step,
+        exercise: ex, targetReps: entry.targetReps, units, barWeight: store.barWeight(), step, assumedRir,
       })
     : null;
 
@@ -280,9 +285,10 @@ function exerciseBlock(session, entry, entryIndex) {
         el('div.suggest', {}, [
           // A bodyweight movement has no weight to name, so the same engine
           // answer is read out as a rep target instead of a load.
-          el('b', { text: bodyweightLoadMode(ex) === 'bodyweight'
+          el('b', { text: (bodyweightLoadMode(ex) === 'bodyweight'
             ? t('train.tip.bodyweight', { reps: tip.reps })
-            : t(`train.tip.${tip.change}`, { weight: fmtWeight(tip.weight, units), reps: tip.reps }) }),
+            : t(`train.tip.${tip.change}`, { weight: fmtWeight(tip.weight, units), reps: tip.reps }))
+            + (entry.movementMode === 'unilateral' ? ` ${t('train.perSide')}` : '') }),
           el('span', { text: `: ${describeReasons(tip.reasons, units)}` }),
         ])
       );
@@ -350,12 +356,15 @@ function exerciseBlock(session, entry, entryIndex) {
   // set is ticked without typing, or the suggestion is decoration.
   const pendingIndex = entry.sets.findIndex((s) => s.type === 'working' && !s.done);
   const usable = bodyweightLoadMode(ex) !== 'bodyweight' && (live || opening);
+  // Logged one side at a time means the number on screen is one side's load.
+  // Two words, and without them the suggestion reads as double the weight.
+  const perSide = entry.movementMode === 'unilateral';
 
   entry.sets.forEach((set, i) => {
     const forThis = usable && i === pendingIndex ? usable : null;
     // The line only accompanies the live advice. The opening suggestion has
     // already said its piece in full at the top of the block.
-    if (forThis && live) block.append(nextSetLine(live, units));
+    if (forThis && live) block.append(nextSetLine(live, units, perSide));
     block.append(setRow(session, entry, set, i, last, ex, forThis));
   });
 
@@ -626,11 +635,11 @@ function lastRirLabel(sets) {
 }
 
 /** "Set 2: 100 kg × ~7" — the live suggestion, sitting on the set it is about. */
-function nextSetLine(advice, units) {
+function nextSetLine(advice, units, perSide = false) {
   return el('div.suggest.next-set', {}, [
     el('b', { text: t('train.next.headline', {
       n: advice.setNumber, weight: fmtWeight(advice.weight, units), reps: advice.reps,
-    }) }),
+    }) + (perSide ? ` ${t('train.perSide')}` : '') }),
     el('span', { text: `: ${t(`train.next.${advice.reason.key}`, advice.reason.params)}` }),
     el('div.small.faint', { style: { marginTop: '2px' }, text: t(
       advice.decayMeasured ? 'train.next.decayYours' : 'train.next.decayTypical',

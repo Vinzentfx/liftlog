@@ -371,6 +371,12 @@ export function machineCategory(name) {
   if (/(crunch|back extension)/.test(n)) return 'core';
   if (/(row|pulldown|pull-up|pullover)/.test(n)) return 'upperPull';
   if (/(chest press|bench press|incline press|shoulder press|machine dip|seated dip)/.test(n)) return 'upperPress';
+  // Before falling through, ask which half of the body it is. An unrecognised
+  // leg machine used to land on the triceps band, which is the wrong direction
+  // to be wrong in: it made an unknown lower-body movement far easier to rank
+  // than a known one.
+  if (/(leg|glute|hamstring|quad|thigh|calf|hip|adduct|abduct)/.test(n)) return 'lowerIsolation';
+  if (/(abs|core|oblique|crunch|sit-up|plank)/.test(n)) return 'core';
   return 'upperIsolation';
 }
 
@@ -555,7 +561,11 @@ export function scoreFor(liftName, oneRepMax, profile) {
  * travels with it wherever it is shown.
  */
 export const LOW_CONFIDENCE = {
-  'Leg Press': 'Machine leverage and sled weight vary enormously between manufacturers, so the same number means different things in different gyms. Treat this rank as a rough placement, and trust your own progression on the machine you actually use.',
+  // A key, not a sentence. This used to hold finished English prose and was
+  // rendered straight onto the screen, which made it the one line of the German
+  // interface that was not in German — and invisible to the i18n test, which
+  // only reads strings.js.
+  'Leg Press': 'standards.lowConfidence.legPress',
 };
 
 /**
@@ -664,10 +674,14 @@ export function toNextDivision(liftName, score, profile, opts = {}) {
  * @param bestByLift Map of lift name -> best estimated 1RM
  */
 export function buildRating(bestByLift, profile,
-  { machineNames = new Set(), community = {}, extrapolated = bestByLift.extrapolated } = {}) {
+  {
+    machineNames = new Set(), community = {},
+    extrapolated = bestByLift.extrapolated, achievedAt = bestByLift.achievedAt,
+  } = {}) {
   const regions = {};
   const lifts = [];
   const outside = extrapolated instanceof Set ? extrapolated : new Set();
+  const dates = achievedAt instanceof Map ? achievedAt : new Map();
 
   for (const [name, orm] of bestByLift) {
     const machine = machineNames.has(name) && !isBenchmark(name);
@@ -687,6 +701,9 @@ export function buildRating(bestByLift, profile,
       // Built from a set outside the range a 1RM estimate is valid over, because
       // this lift has never been trained inside it. See THRESHOLDS.e1rmWindow.
       extrapolated: outside.has(name),
+      // When the best was set. A rank is an all-time record, and a record has a
+      // date on it or it is being passed off as something it is not.
+      achievedAt: dates.get(name) ?? null,
     });
 
     for (const [region, weight] of Object.entries(ANATOMY[name] || {})) {

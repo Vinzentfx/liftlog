@@ -630,6 +630,7 @@ function ratingSection(done, settings) {
                 ? el('div.small', { style: { marginTop: '2px', color: 'var(--warn)' },
                     text: t('home.rating.extrapolatedShort') })
                 : null,
+              staleBestLabel(lift),
             ]),
             el('button.btn.quiet.sm', {
               onclick: () => strengthDetailSheet(lift, settings),
@@ -645,6 +646,37 @@ function ratingSection(done, settings) {
 
   return wrap;
 }
+
+/**
+ * How old a personal best has to be before the app admits it is history.
+ *
+ * Six months. The rank is an all-time record by design and stays one, because
+ * taking away something that was earned is worse than showing it late. But a
+ * number from three years ago printed as "your strength" is its own kind of
+ * lie, so past this the record keeps its rank and gains a date.
+ */
+const STALE_BEST_DAYS = 182;
+
+const bestAgeDays = (lift) =>
+  lift.achievedAt ? Math.floor((Date.now() - lift.achievedAt) / 86400000) : null;
+
+/** The short tail on a lift row: "best from 14 months ago". */
+function staleBestLabel(lift) {
+  const days = bestAgeDays(lift);
+  if (days === null || days < STALE_BEST_DAYS) return null;
+  return el('div.small.faint', { style: { marginTop: '2px' },
+    text: t('home.rating.bestAge', { when: relMonths(days) }) });
+}
+
+/** The same fact with the reasoning, on the detail sheet. */
+function staleBestNote(lift) {
+  const days = bestAgeDays(lift);
+  if (days === null || days < STALE_BEST_DAYS) return null;
+  return el('div.small', { style: { marginTop: '10px', color: 'var(--text-dim)' },
+    text: t('home.rating.bestAgeNote', { when: relMonths(days) }) });
+}
+
+const relMonths = (days) => tn(Math.max(1, Math.round(days / 30.44)), 'unit.month');
 
 /* ===================== the rank ladder on screen ===================== */
 
@@ -752,6 +784,7 @@ function strengthDetailSheet(lift, profile) {
       el('div.row.between', { style: { marginTop: '8px' } }, [el('span', { text: t('home.bodyweight.title') }), el('strong.num', { text: bodyweight })]),
     ]),
     el('div.small.muted', { style: { marginTop: '12px' }, text: t('home.rating.calculationNote') }),
+    staleBestNote(lift),
     lift.extrapolated
       ? el('div.small', { style: { marginTop: '10px', color: 'var(--warn)' },
           text: `!  ${t('home.rating.extrapolated', { reps: THRESHOLDS.e1rmWindow.high })}` })
@@ -924,7 +957,7 @@ function regionSheet(region, rating) {
             text: t('home.rating.extrapolated', { reps: THRESHOLDS.e1rmWindow.high }) }) : null,
           LOW_CONFIDENCE[info.via]
             ? el('div.small', { style: { marginTop: '10px', color: 'var(--warn)' },
-                text: `!  ${LOW_CONFIDENCE[info.via]}` })
+                text: `!  ${t(LOW_CONFIDENCE[info.via])}` })
             : null,
         ])
       : el('div.small.muted', { text: t('home.region.noBenchmark', { muscle: label }) }),

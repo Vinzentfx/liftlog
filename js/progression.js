@@ -44,16 +44,25 @@ import { platePlan } from './plates.js';
  * PR check, the charts and the strength ranks do, and it underestimates rather
  * than over, so nothing built on it ever suggests too much weight.
  */
-export function effortE1rm(set) {
+export function effortE1rm(set, assumedRir = 0) {
   const weight = effectiveSetWeight(set);
   const reps = Number(set.reps) || 0;
   if (!weight || !reps) return 0;
-  const reserve = set.rir === null || set.rir === undefined ? 0 : Math.max(0, Number(set.rir));
-  return e1rm(weight, reps + reserve);
+  return e1rm(weight, reps + reserveOf(set, assumedRir));
 }
 
-/** Was effort actually recorded, or is the estimate resting on the default? */
+/** Was effort actually recorded, or is the estimate resting on the assumption? */
 const hasEffort = (set) => set.rir !== null && set.rir !== undefined;
+
+/**
+ * Reps left in reserve, logged or assumed.
+ *
+ * The assumption is capped at 4 whatever the setting says: past that the number
+ * stops being "how I train" and starts being a lever for making the app
+ * recommend heavier weights, which is not what it is for.
+ */
+const reserveOf = (set, assumedRir = 0) =>
+  hasEffort(set) ? Math.max(0, Number(set.rir)) : Math.max(0, Math.min(4, Number(assumedRir) || 0));
 
 /* ===================== where in the session ===================== */
 
@@ -183,9 +192,9 @@ export function observedOrderCost(rows) {
  */
 let pooledCache = { key: null, value: null };
 
-export function pooledOrderCost(sessions, byId, { minExercises = 3, minRows = 12 } = {}) {
+export function pooledOrderCost(sessions, byId, { minExercises = 3, minRows = 12, assumedRir = 0 } = {}) {
   const finished = (sessions || []).filter((s) => s.finishedAt);
-  const key = `${finished.length}:${Math.max(0, ...finished.map((s) => s.startedAt || 0))}`;
+  const key = `${finished.length}:${assumedRir}:${Math.max(0, ...finished.map((s) => s.startedAt || 0))}`;
   if (pooledCache.key === key) return pooledCache.value;
 
   const byExercise = new Map();
@@ -193,7 +202,7 @@ export function pooledOrderCost(sessions, byId, { minExercises = 3, minRows = 12
     (session.entries || []).forEach((entry, index) => {
       const sets = (entry.sets || []).filter(isCounted);
       if (!sets.length) return;
-      const best = Math.max(...sets.map(effortE1rm));
+      const best = Math.max(...sets.map((set) => effortE1rm(set, assumedRir)));
       if (!best) return;
       const list = byExercise.get(entry.exerciseId) || [];
       list.push({ same: priorWork(session.entries, index, byId).same, value: best });
@@ -234,7 +243,7 @@ export function pooledOrderCost(sessions, byId, { minExercises = 3, minRows = 12
  * `{ rows, orderCost }` pair for a value only two of them read.
  */
 export function exerciseHistory(sessions, exerciseId, byId,
-  { excludeSessionId = null, limit = 8, fallbackCost = null } = {}) {
+  { excludeSessionId = null, limit = 8, fallbackCost = null, assumedRir = 0 } = {}) {
   const rows = [];
   for (const session of sessions) {
     if (!session.finishedAt || session.id === excludeSessionId) continue;
@@ -245,17 +254,24 @@ export function exerciseHistory(sessions, exerciseId, byId,
     if (!sets.length) continue;
 
     const prior = priorWork(session.entries, index, byId);
-    const best = Math.max(...sets.map(effortE1rm));
+    const best = Math.max(...sets.map((set) => effortE1rm(set, assumedRir)));
     rows.push({
       at: session.startedAt,
       sessionId: session.id,
       position: index,
       sets,
       firstSet: sets[0],
+      // The weight the exercise *opened* on, which is the one a recommendation
+      // for the opening set has to be built from. Not the same thing as the
+      // heaviest set: plenty of people ramp across their working sets, and
+      // judging the reps of set one against the load of set three produced
+      // advice that was wrong by two increments every session.
+      openingWeight: effectiveSetWeight(sets[0]),
       topWeight: Math.max(...sets.map(effectiveSetWeight)),
       prior,
       rawE1rm: best,
       effortLogged: sets.some(hasEffort),
+      assumedRir,
     });
     if (rows.length >= limit) break;
   }
@@ -309,13 +325,13 @@ export function projectFresh(rows, now = Date.now()) {
  * some people lose two reps a set, some lose none. The 4% fallback is a prior
  * and is only used until three sessions exist.
  */
-export function setDecay(rows) {
+export function setDecay(rows, assumedRir = 0) {
   const samples = [];
   for (const row of rows) {
-    const first = effortE1rm(row.sets[0]);
+    const first = effortE1rm(row.sets[0], assumedRir);
     if (!first) continue;
     row.sets.slice(1).forEach((set, i) => {
-      const value = effortE1rm(set);
+      const value = effortE1rm(set, assumedRir);
       if (value) samples.push((1 - value / first) / (i + 1));
     });
   }
@@ -395,13 +411,13 @@ const LATER_RESERVE = 0;
  */
 export function openingSet(rows, {
   exercise = null, targetReps = null, rule = 'double', units = 'kg', barWeight = 20,
-  prior = null, now = Date.now(), step: stackStep = null,
+  prior = null, now = Date.now(), step: stackStep = null, assumedRir = 0,
 } = {}) {
   if (!rows.length) return null;
   const range = parseReps(targetReps) || { low: 6, high: 10 };
   const last = rows[rows.length - 1];
   const step = loadStep(exercise, units, stackStep);
-  if (!last.topWeight) return null;
+  if (!last.openingWeight) return null;
   if (rule === 'manual') return null;
 
   const projected = projectFresh(rows, now);
@@ -410,7 +426,8 @@ export function openingSet(rows, {
 
   const reasons = [];
   const firstReps = Number(last.firstSet.reps) || 0;
-  const firstReserve = hasEffort(last.firstSet) ? Number(last.firstSet.rir) : null;
+  const firstReserve = reserveOf(last.firstSet, assumedRir);
+  const reserveLogged = hasEffort(last.firstSet);
 
   // The rule the user actually asked for: the *first* working set clearing the
   // target is enough. Sets three and four falling off is fatigue, not a verdict
@@ -420,7 +437,7 @@ export function openingSet(rows, {
   // "Clearing" counts what was left in reserve. Seven reps with three in the
   // tank is a set of ten that stopped early, and a lifter who stops early does
   // not need the weight kept where it is — they need it moved.
-  const firstCapable = firstReps + (firstReserve === null ? 0 : firstReserve);
+  const firstCapable = firstReps + firstReserve;
   const clearedTarget = firstCapable >= range.high;
   const falling = projected.slope !== null && projected.slope < -0.5;
 
@@ -432,14 +449,14 @@ export function openingSet(rows, {
       key: orderShift < 0 ? 'later' : 'earlier',
       params: {
         pct: Math.abs(Math.round(orderShift * 100)),
-        weight: Math.abs(last.topWeight * orderShift),
+        weight: Math.abs(last.openingWeight * orderShift),
       },
     });
   }
 
   let weight, reps, change;
   if (rule === 'reps') {
-    weight = roundLoad(last.topWeight * (1 + orderShift), exercise, { units, barWeight, step: stackStep });
+    weight = roundLoad(last.openingWeight * (1 + orderShift), exercise, { units, barWeight, step: stackStep });
     reps = Math.max(range.low, Math.min(range.high, repsAt(capacity, weight, TARGET_RESERVE)));
     change = 'hold';
     reasons.push({ key: 'repRule', params: { high: range.high } });
@@ -449,28 +466,35 @@ export function openingSet(rows, {
     // fling the weight somewhere the lifter has never been.
     const wanted = loadFor(capacity, range.low, TARGET_RESERVE);
     weight = roundLoad(
-      Math.max(last.topWeight + step, Math.min(last.topWeight + step * 3, wanted)),
+      Math.max(last.openingWeight + step, Math.min(last.openingWeight + step * 3, wanted)),
       exercise, { units, barWeight, step: stackStep }
     );
-    if (weight <= last.topWeight) weight = roundLoad(last.topWeight + step, exercise, { units, barWeight, step: stackStep });
+    if (weight <= last.openingWeight) {
+      weight = roundLoad(last.openingWeight + step, exercise, { units, barWeight, step: stackStep });
+    }
     reps = Math.max(range.low, Math.min(range.high, repsAt(capacity, weight, TARGET_RESERVE)));
     change = 'up';
     reasons.unshift(rule === 'weight'
       ? { key: 'weightRule', params: {} }
       : firstReps >= range.high
         ? { key: 'clearedFirstSet', params: { reps: firstReps, high: range.high } }
-        : { key: 'easyFirstSet', params: { reps: firstReps, rir: firstReserve, capable: firstCapable } });
+        : {
+            // Say which it was. A weight increase built on an assumption the
+            // user never made should announce itself as one.
+            key: reserveLogged ? 'easyFirstSet' : 'assumedFirstSet',
+            params: { reps: firstReps, rir: firstReserve, capable: firstCapable },
+          });
   } else {
     // Hold, or step back when the trend and today's fatigue agree that the old
     // weight is not there. Stepping back is rare and deliberate: it needs the
     // projection to say so, not a single bad set.
-    const holdReps = repsAt(capacity, last.topWeight, TARGET_RESERVE);
+    const holdReps = repsAt(capacity, last.openingWeight, TARGET_RESERVE);
     if (holdReps < range.low) {
-      weight = roundLoad(Math.max(step, last.topWeight - step), exercise, { units, barWeight, step: stackStep });
+      weight = roundLoad(Math.max(step, last.openingWeight - step), exercise, { units, barWeight, step: stackStep });
       change = 'down';
       reasons.unshift({ key: falling ? 'trendDown' : 'tooHeavyToday', params: { low: range.low } });
     } else {
-      weight = roundLoad(last.topWeight, exercise, { units, barWeight, step: stackStep });
+      weight = roundLoad(last.openingWeight, exercise, { units, barWeight, step: stackStep });
       change = 'hold';
       reasons.unshift({ key: 'buildReps', params: { reps: firstReps, high: range.high } });
     }
@@ -483,13 +507,13 @@ export function openingSet(rows, {
       params: { perWeek: Math.abs(projected.slope).toFixed(1), sessions: projected.sessions },
     });
   }
-  if (!rows.some((r) => r.effortLogged)) reasons.push({ key: 'noRir', params: {} });
+  if (!rows.some((r) => r.effortLogged)) reasons.push({ key: 'noRir', params: { rir: assumedRir } });
 
   return {
     weight, reps, change, reasons,
     range,
     capacity,
-    fromWeight: last.topWeight,
+    fromWeight: last.openingWeight,
     sessions: rows.length,
     orderAware: Math.abs(orderShift) >= 0.01,
   };
@@ -510,15 +534,16 @@ export function openingSet(rows, {
  */
 export function nextSet(doneSets, rows, {
   exercise = null, targetReps = null, units = 'kg', barWeight = 20, step: stackStep = null,
+  assumedRir = 0,
 } = {}) {
   const done = (doneSets || []).filter(isCounted);
   if (!done.length) return null;
   const range = parseReps(targetReps) || { low: 6, high: 10 };
   const step = loadStep(exercise, units, stackStep);
 
-  const opener = effortE1rm(done[0]);
+  const opener = effortE1rm(done[0], assumedRir);
   if (!opener) return null;
-  const decay = setDecay(rows || []);
+  const decay = setDecay(rows || [], assumedRir);
   const lastWeight = effectiveSetWeight(done[done.length - 1]);
   if (!lastWeight) return null;
 
@@ -527,11 +552,10 @@ export function nextSet(doneSets, rows, {
 
   const holdReps = repsAt(capacity, lastWeight, LATER_RESERVE);
   const first = done[0];
-  const firstReserve = hasEffort(first) ? Number(first.rir) : null;
   // Same reading as between sessions: reps plus reserve is what the set was
   // actually worth. Two clear of the top of the range means the opener was
   // light, and the set about to be done should not repeat that.
-  const blewPast = Number(first.reps) + (firstReserve === null ? 0 : firstReserve) >= range.high + 2;
+  const blewPast = Number(first.reps) + reserveOf(first, assumedRir) >= range.high + 2;
 
   // The weight that would land the next set on the bottom of the range.
   const wanted = loadFor(capacity, range.low, LATER_RESERVE);
