@@ -15,7 +15,10 @@ import { diagnose } from '../plan-doctor.js';
 import { suggestSwaps } from '../swaps.js';
 import { WEEK_ORDER, weekdayName, weekRows, isScheduled, scheduleConflict } from '../schedule.js';
 import { planLink } from '../plan-share.js';
-import { scoreFor, tierIndex, tierOf, isBenchmark, hasProfile, toNextTier } from '../standards.js';
+import {
+  scoreFor, scoreForMachine, tierIndex, tierOf, rankOf, isBenchmark, hasProfile,
+  toNextDivision, ratedMachineNames,
+} from '../standards.js';
 import { t, tn, tMuscle, tRegion, tTier } from '../i18n.js';
 import { pickExercise } from '../pickers.js';
 import { navigate } from '../app.js';
@@ -606,19 +609,25 @@ function exerciseRow(plan, day, item) {
   const settings = store.state.settings;
   let chip = null;
 
-  if (settings.showRatings !== false && hasProfile(settings) && isBenchmark(ex.name)) {
+  // Machines earn a chip here too now that they have a standard behind them —
+  // a plan built entirely of machine work used to show no ranks at all.
+  const machine = !isBenchmark(ex.name) && ratedMachineNames([ex]).has(ex.name);
+  if (settings.showRatings !== false && hasProfile(settings) && (isBenchmark(ex.name) || machine)) {
     const best = bestOneRepMaxByName(store.state.sessions, store.state.exerciseById, settings);
     const orm = best.get(ex.name);
     if (orm) {
-      const score = scoreFor(ex.name, orm, settings);
+      const score = machine ? scoreForMachine(ex.name, orm, settings) : scoreFor(ex.name, orm, settings);
       if (score !== null) {
         const idx = tierIndex(score);
-        const next = toNextTier(ex.name, score, settings);
+        const next = toNextDivision(ex.name, score, settings, { machine });
         chip = el(`div.tier-${idx}`, { style: { textAlign: 'right' } }, [
-          el('span.tier-chip', { text: tTier(tierOf(score).key) }),
+          el('span.tier-chip', {}, [
+            tTier(tierOf(score).key),
+            el('span.div-mark', { text: rankOf(score).division }),
+          ]),
           next
             ? el('div.small.faint', { style: { marginTop: '3px' },
-                text: `${fmtWeight(Math.round(next.weight), settings.units)} → ${tTier(next.tier.key)}` })
+                text: `${fmtWeight(Math.round(next.weight), settings.units)} → ${tTier(next.tier.key)} ${next.division}` })
             : null,
         ]);
       }

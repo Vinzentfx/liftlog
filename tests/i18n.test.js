@@ -107,6 +107,11 @@ test('every literal t() key exists in the tables', () => {
 test('no unused keys', () => {
   const COMPUTED = [
     'weekday.', 'region.', 'muscle.', 'equipment.', 'tier.', 'route.',
+    // The progression engine returns a reason as a key fragment rather than a
+    // sentence, so the advice on the training screen is `t('train.why.' + key)`.
+    // That is deliberate: the engine is DOM-free and has no business holding
+    // German in it.
+    'train.tip.', 'train.why.', 'train.next.',
     // Error and status keys are looked up from a code the server or the sync
     // layer produced: `t('cloud.err.' + err.code)`. Listing the prefixes is the
     // price of that, and the parity test above still guarantees both languages

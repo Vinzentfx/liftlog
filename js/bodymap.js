@@ -58,7 +58,7 @@ export function bodyMap(byRegion = {}, opts = {}) {
     else if (rating.tier !== undefined && rating.tier !== null) idx = rating.tier;
     else if (rating.score !== undefined) idx = tierIndex(rating.score);
     if (idx === null || idx === undefined) continue;
-    fills[region] = `var(--t${Math.max(0, Math.min(4, idx))})`;
+    fills[region] = `var(--t${Math.max(0, Math.min(TIERS.length - 1, idx))})`;
   }
 
   const host = el('div.bodymap', { 'aria-label': t('bodymap.aria') });
@@ -92,17 +92,24 @@ export function bodyMap(byRegion = {}, opts = {}) {
 /** Highlight-only map for the exercise library: primary vs secondary muscles. */
 export function muscleHighlight(primary = [], secondary = []) {
   const byRegion = {};
-  for (const r of secondary) byRegion[r] = 1;   // dimmer step
-  for (const r of primary) byRegion[r] = 4;     // brightest step
+  // Two ends of the ramp, not two ranks: this map says "primary or secondary",
+  // and reusing the ladder's colours keeps one visual language.
+  for (const r of secondary) byRegion[r] = 1;                // dimmer step
+  for (const r of primary) byRegion[r] = TIERS.length - 1;   // brightest step
   return bodyMap(byRegion, { lit: true });
 }
 
-/** Legend row — tiers are never communicated by colour alone. */
+/**
+ * Legend row — ranks are never communicated by colour alone.
+ *
+ * Short names, because nine of them written out fills half the screen and the
+ * long name is one tap away on any region anyway.
+ */
 export function tierLegend() {
   return el('div.legend', {}, TIERS.map((tier, i) =>
-    el('span', {}, [
+    el('span', { title: tTier(tier.key) }, [
       el('b', { style: { background: `var(--t${i})` } }),
-      tTier(tier.key),
+      tTier(tier.key, { short: true }),
     ])
   ));
 }

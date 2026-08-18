@@ -28,11 +28,15 @@
   /* Rating tiers — ordinal ramp, validated for adjacent-pair separation under
      colourblind simulation (worst pair ΔE 15.1 deutan / 16.1 normal).
      Always paired with a text label, never colour alone. */
-  --t0: #5F6B80;   /* Beginner  */
-  --t1: #3B82F6;   /* Novice    */
-  --t2: #06B6D4;   /* Intermediate */
-  --t3: #A855F7;   /* Advanced  */
-  --t4: #FFB020;   /* Elite     */
+  --t0: #8A6A4A;   /* Bronze      */
+  --t1: #9AA7B8;   /* Silver      */
+  --t2: #D9A93B;   /* Gold        */
+  --t3: #3B82F6;   /* Platinum    */
+  --t4: #22D3EE;   /* Diamond     */
+  --t5: #34D399;   /* Master      */
+  --t6: #A855F7;   /* Grandmaster */
+  --t7: #F472B6;   /* Elite       */
+  --t8: #FFB020;   /* Legend      */
 
   --glow-accent: 0 0 24px -4px rgba(59, 130, 246, .55);
   --glow-soft:   0 0 18px -6px rgba(59, 130, 246, .40);
@@ -638,6 +642,63 @@ label.field > span {
 .tier-2 { --tier: var(--t2); }
 .tier-3 { --tier: var(--t3); }
 .tier-4 { --tier: var(--t4); }
+.tier-5 { --tier: var(--t5); }
+.tier-6 { --tier: var(--t6); }
+.tier-7 { --tier: var(--t7); }
+.tier-8 { --tier: var(--t8); }
+
+/* Roman numeral after the rank name. Its own element so the rank reads as one
+   word at a glance and the division only registers on a second look — which is
+   the order they matter in. */
+.div-mark {
+  font-variant-numeric: tabular-nums; font-weight: 800;
+  opacity: .8; margin-left: 5px; letter-spacing: .08em;
+}
+
+/* The 27-step ladder, drawn as one segmented bar. Nine ranks, three notches
+   each, filled up to where the lifter currently stands. */
+.ladder { display: flex; gap: 3px; margin-top: 12px; }
+.ladder i {
+  flex: 1; height: 6px; border-radius: 2px;
+  background: var(--bg-sunken); transition: background .25s ease;
+}
+.ladder i.on { background: color-mix(in srgb, var(--tier, var(--accent)) 55%, transparent); }
+.ladder i.now {
+  background: var(--tier, var(--accent));
+  box-shadow: 0 0 10px -1px var(--tier, var(--accent));
+}
+
+/* Progress inside the current division: the small, frequent win. */
+.division-track {
+  height: 5px; border-radius: 999px; background: var(--bg-sunken);
+  overflow: hidden; margin-top: 8px;
+}
+.division-track i {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tier, var(--accent)) 45%, transparent), var(--tier, var(--accent)));
+}
+
+/* Rank-up banner. Deliberately loud, and deliberately rare: 27 steps means it
+   fires often enough to matter and seldom enough to still mean something. */
+.rank-up {
+  display: flex; align-items: flex-start; gap: 10px; text-align: left;
+  margin-top: 12px; padding: 9px 12px; border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--tier, var(--accent)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tier, var(--accent)) 40%, transparent);
+  font-size: 13px; font-weight: 650;
+}
+
+/* The "why" line under a drop is context, not headline: the box sets 650 for
+   the sentence that matters and this steps back out of it. */
+.rank-up .small { font-weight: 500; }
+
+/* A drop is stated, not scolded: the same box in neutral ink rather than the
+   red the rest of the app keeps for things that went wrong. */
+.rank-up.down {
+  background: var(--bg-sunken);
+  border-color: var(--line);
+  color: var(--text-dim);
+}
 
 .tier-chip {
   display: inline-flex; align-items: center; gap: 6px;

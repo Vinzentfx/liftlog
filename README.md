@@ -11,7 +11,7 @@ so the whole thing works with the network off.
 ## What's in it
 
 **Home**
-- Overall strength rating (0–100) and tier, from Beginner to Elite
+- Overall strength rating (0–100) and rank, nine ranks from Bronze to Legend with three divisions each
 - Muscle map — front and back, each region coloured by its rating; tap for detail
 - Weekly workload, bodyweight trend, streak and recent sessions
 
@@ -21,7 +21,7 @@ so the whole thing works with the network off.
 - **Last session's numbers shown inline** and pre-filled, so repeating a workout is three taps
 - Rest timer (3 min default) with a chime, auto-started when you complete a set
 - Warmup vs working sets, per-exercise notes collected on the exercise's own screen
-- A one-tap warm-up ramp — two sets on a barbell lift, one on everything else
+- A one-tap warm-up ramp, short and close to the working weight, following the two trials that tested it
 - PR toasts mid-workout
 
 **Plans**
@@ -386,7 +386,8 @@ warnings that do matter.
 | `js/schedule.js` | Which plan day belongs to which weekday |
 | `js/plan-share.js` | Encode/decode a plan into a link — no server involved |
 | `js/plates.js` | What to load per side, and when a weight cannot be reached |
-| `js/warmup.js` | A warm-up ramp — gym practice, labelled as such |
+| `js/warmup.js` | A warm-up ramp, from the two trials that tested one |
+| `js/progression.js` | What to put on the bar next, and what to put on for the next set |
 | `js/fatigue.js` | Whether lifts are still gaining — facts only, no prescription |
 | `js/canvas-kit.js` | Canvas text/shape helpers and an SVG-path-to-Path2D loader |
 | `js/week-card.js` | One week assembled and drawn as a shareable PNG |
@@ -457,29 +458,74 @@ or from date arithmetic that only breaks twice a year.
 
 ### How the rating works
 
-Your best estimated 1RM per benchmark lift is compared against published strength
+Your best estimated 1RM per lift is compared against published strength
 standards, normalised by **bodyweight, sex and age**. Each lift lands on a 0–100
-score; tier bands are 20 points wide (Beginner / Novice / Intermediate / Advanced /
-Elite).
+score, and the score maps onto a ladder of **nine ranks with three divisions
+each** — 27 steps from Bronze III to Legend I.
 
-A muscle region's score is the best `lift score × how strongly that lift trains it`
-across the benchmark lifts you actually perform — taking the max, so skipping one
-lift doesn't drag a region down. A region you never train stays **unrated** rather
+The ranks are named like a game and calibrated like a standard. `BOUNDS` still
+holds the same four published bodyweight multiples it always did, and `ladder()`
+turns them into the eight rank boundaries by inserting geometric midpoints:
+
+| Rank | Anchor |
+| --- | --- |
+| Silver | just over half the novice standard |
+| Gold | published **Novice** |
+| Platinum | between novice and intermediate |
+| Diamond | published **Intermediate** |
+| Master | between intermediate and advanced |
+| Grandmaster | published **Advanced** |
+| Elite | between advanced and elite |
+| Legend | published **Elite** |
+
+That shape exists because the old five-tier version put Elite at the fourth of
+four boundaries: a reasonably strong lifter arrived at the top name in the app
+and had nowhere left to go for the rest of their training life.
+
+A muscle region's score is the best `lift score × how strongly that lift trains
+it` across the lifts you actually perform — taking the max, so skipping one lift
+doesn't drag a region down. A region you never train stays **unrated** rather
 than scoring zero, and the overall rating averages only rated regions.
 
-Two deliberate limits:
+**Machines are ranked too, and count fully.** They used to be scored off seven
+very broad category bands and then discounted to 0.65 on the body map, which was
+wrong twice over: the bands were far too soft, and the rank they produced was
+then treated as not worth counting. `MACHINE_ANCHOR` replaces them with a ratio
+to the barbell lift each machine mirrors — a seated chest press is bench × 0.95,
+a machine shoulder press is overhead press × 1.15, a leg extension is squat ×
+0.65 — so the standard is as strict as the one it derives from and can count at
+full weight. Cables are ranked on the same footing; a stack is a stack whichever
+side of the frame the pulley is bolted to. Where a barbell lift and a machine
+land a region on the same number, **the published standard wins the tie**.
+
+**A rank is only built from sets a 1RM estimate is valid for.** Prediction
+equations are validated to about ten repetitions and their error grows past it,
+worst of all on light isolation work (`SOURCES.ribeiro1rm2024` finds every
+equation missing significantly on the arm curl; the 2026 fit over 303,494 sets
+finds the conversion depends on the load, not only the reps). So
+`bestOneRepMaxByName` prefers sets inside `THRESHOLDS.e1rmWindow` (1–12 reps).
+A lift trained *only* above it still gets a rank — a blank would be worse than a
+caveat — but it is marked `extrapolated`, counts at 0.85 on the muscle map, and
+says so on the lift and in the region sheet.
+
+**The ladder reports a drop as plainly as a climb.** `recentRankChange` compares
+against where you stood eight weeks ago in both directions. A demotion is
+usually bodyweight moving rather than a verdict on the lifter, so it is stated in
+neutral ink with that sentence attached, never in the red the app keeps for
+things that went wrong.
+
+Two deliberate limits, and two caveats:
 
 - **Height is not an input.** No published standard normalises by it. It affects
   leverages, but including it would be invented precision.
-- **Only benchmark lifts are rated.** There's no meaningful standard for a cable
-  lateral raise, and machine loads vary too much between manufacturers to compare.
-  A "100 kg" chest press on one frame is not 100 kg on another — different lever
-  arms, different sled weight, plate-loaded versus pin-loaded. So machines get
-  accurate *anatomy* (`CONTRIB_EXTRA`) and deliberately no tier. `CONTRIB` used
-  to answer both questions at once, which meant the only way to give a movement
-  proper regions was to invent a standard for it; they're separate tables now.
-  `LOW_CONFIDENCE` flags the one benchmark that is shakier than the rest — leg
-  press — and the caveat travels with the tier wherever it's shown.
+- **Assisted machines are never ranked.** The number on the stack is how much of
+  you the machine is carrying, so ranking it would invert the ladder for anyone
+  who uses one. `UNRATEABLE` holds those.
+- The machine factors are gym-floor consensus, not measurements, and they cannot
+  be: lever arms and stack ratios differ between manufacturers. That is exactly
+  what the same-model community percentiles are blended into once any exist.
+- `LOW_CONFIDENCE` flags the one benchmark shakier than the rest — leg press —
+  and the caveat travels with the rank wherever it's shown.
 
 The numbers are an approximate consensus of commonly published standards — a
 yardstick, not a measurement. Ratings can be switched off entirely in Settings.
@@ -536,9 +582,70 @@ silence — the whole 2026 evidence base is effort-based rather than load-based,
 so a fabricated RIR would corrupt the one input that matters most.
 
 RIR feeds two things: the effort line on Home ("38 of 44 sets have an RIR, 61% of
-those at 0–2"), and the progression suggestion on the logging screen. That
-suggestion is plain double progression — clear the top of the rep range on every
-set, then add weight — with RIR as an override in both directions. It is a way to
+those at 0–2"), and the progression engine below.
+
+### What to put on the bar next
+
+`js/progression.js`. The old version of this was one function on the training
+screen asking a single question: did *every* set last time clear the top of the
+rep range? That rule is wrong in both directions at once. It refuses a weight
+increase because set four dropped to seven reps — which is what set four is for
+— and it has no idea whether the last session was your first exercise of the day
+or your fifth. Two lifters with identical logs, one benching fresh and one
+benching after nine sets of chest work, got the same advice.
+
+What replaced it:
+
+- **The first working set decides.** Later sets fall off for reasons that say
+  nothing about whether the weight was right, so they inform the within-session
+  advice and never the between-session one.
+- **Effort counts toward clearing.** Seven reps with three in reserve is a set of
+  ten that stopped early. Without RIR a set is taken as written, which is what
+  the rest of the app does and errs downwards, so nothing built on it ever asks
+  for too much.
+- **Session order is corrected out.** `priorWork` counts the sets standing
+  between the start of a session and this exercise, weighted by how much muscle
+  they share; `readiness` turns that into the share of fresh strength left.
+  Every past session is divided by its own readiness, so a lift that moved from
+  first to fifth is compared on the same footing rather than read as a
+  regression. The training screen names the shift on the last-time line, because
+  a correction nobody can see looks like a bug.
+- **A trend, not a verdict on one session.** Three sessions minimum, fitted on
+  the order-corrected estimates, projected forward and capped at 5% above what
+  was actually done.
+- **A live number once the session starts.** After the first set is ticked, the
+  advice for the next one comes from today's own effort and the lifter's *own*
+  measured set-to-set drop-off, and it lands on the set it is about. It only
+  suggests a weight drop when a drop actually buys reps back — demanding that
+  every set stay inside the range is the exact mistake described above, and
+  repeating it four inches lower down the screen would be no better.
+
+Whatever advice is current becomes the empty field's meaning: ticking a set
+without typing logs the number the screen just recommended, or the suggestion is
+decoration.
+
+**Every suggested weight can be made on the equipment it names.** A barbell goes
+through `platePlan`, so 101 kg is never printed. A machine goes through its own
+increment: the setup sheet takes a **stack increment** per exercise, saved with
+the seat and pad numbers because it is a fact about one frame in one gym rather
+than a preference. Without it the app assumed 2.5 kg everywhere and asked stacks
+that move in fives for 102.5.
+
+**The order cost is pooled when one exercise cannot measure its own.**
+`observedOrderCost` needs a lift to have been trained from genuinely different
+positions, which for a bench that is always first never happens however long the
+log gets. `pooledOrderCost` divides each exercise's estimates by that exercise's
+own mean — so a 140 kg squat and a 20 kg lateral raise contribute the same shape
+rather than the squat drowning out the raise — and runs the same split across
+everything at once. Own measurement first, pooled second, prior last.
+
+Two constants are priors rather than findings and are marked as such in the
+source: the per-set fatigue cost of preceding work, and the set-to-set decay.
+Both are replaced by the lifter's own numbers as soon as the log carries enough
+of them — `observedOrderCost` needs real spread across sessions before it will
+answer, `setDecay` needs three.
+
+The between-session rule is still double progression at heart. That is a way to
 turn "train close to failure" into a decision on the gym floor, not a research
 finding, and it says so.
 
@@ -706,19 +813,38 @@ The whole chain rests on the maintenance estimate, so it refuses as a unit: with
 too little logging there are no calorie, carb or fat targets, and the card says
 which piece is missing. Protein still appears, because it only needs bodyweight.
 
-### The warm-up ramp says what it is
+### The warm-up ramp, and what the trials actually say
 
-Two sets on a barbell lift, one on everything else, at roughly half and
-three-quarters of the working weight. Every one of those numbers is gym
-practice: no trial establishes an optimal ramp, a set count, or a percentage.
-The button says so underneath itself, in the same voice the deload card uses.
+This section used to open by saying there is no evidence base for a warm-up
+ramp. That is still mostly true of the *number* of sets, and it was never true
+of the shape — and the shape the app suggested (roughly half for five, then
+three-quarters for three) turns out to be the arm of the comparison that loses.
 
-Being unable to know the right answer is a reason to take up little room, not a
-reason to say nothing — so the offer is one line, appears only when there is a
-working weight to ramp towards, and disappears once taken.
+- **Ribeiro 2020** put forty trained men through squat and bench at 80% of
+  maximum after three warm-ups: light only, heavy only, and light-then-heavy.
+  Light only came last on both lifts. The heavy set won the squat, the
+  progressive pair won the bench.
+- **A 2025 crossover** in 29 trained lifters compared no specific warm-up, one
+  set of 3–4 at 75%, and two sets at 55% then 75%, at roughly 10RM loads. Every
+  difference was negligible, including between one set and two.
 
-Barbell warm-ups are rounded through `platePlan`, so a suggestion is never a
-weight the rack cannot make.
+So: fewer sets, fewer reps, closer to the working weight. One set on a machine
+or a cable, a progressive pair on a bar at normal loads, and **nothing at all**
+when the muscle has already worked earlier in the session — the app says that
+out loud rather than falling silent. The caveat line is a button now, opening
+both papers.
+
+What is still practice rather than finding: the three-step ramp for heavy
+low-rep work. Neither trial tested a triple at 90%, and the sheet says which
+half of the advice that is.
+
+The offer belongs to the moment before an exercise starts: it appears only when
+there is a working weight to ramp towards, and it disappears the moment it is
+taken **or the first working set is logged**. A warm-up offered for work you
+have already done is worse than no offer at all.
+
+Barbell warm-ups are rounded through `platePlan` and machine warm-ups through the
+stack increment, so a suggestion is never a weight the equipment cannot make.
 
 ### Why there is no deload feature
 
@@ -879,7 +1005,7 @@ share sheet is used. The training half of the app still works in flight mode.
 **What it will not claim.** The card shows nothing the app itself would hide.
 With `showRatings` off, or without a profile, or before a benchmark lift is
 logged, there is no score and no tier map — it says which of those it is, and
-falls back to the progress map, because an unlit body under a Beginner-to-Elite
+falls back to the progress map, because an unlit body under a Bronze-to-Legend
 legend says nothing. The score delta is the difference of the *rounded* scores,
 so "+1" always matches the two numbers a reader could compare; when bodyweight
 moved during the week the card says so, because the score is relative to it. A

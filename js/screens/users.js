@@ -6,7 +6,7 @@ import { t, tn, locale } from '../i18n.js';
 import * as cloud from '../cloud.js';
 import * as store from '../store.js';
 import { bestOneRepMaxByName, isCounted, startOfWeek } from '../models.js';
-import { buildRating, hasProfile } from '../standards.js';
+import { buildRating, hasProfile, ratedMachineNames } from '../standards.js';
 import { todaysDays } from '../schedule.js';
 import * as push from '../push.js';
 
@@ -314,7 +314,7 @@ function weeklyStats(trainingToday, message) {
   const sets = sessions.reduce((n, s) => n + (s.entries || []).reduce(
     (sum, entry) => sum + (entry.sets || []).filter(isCounted).length, 0), 0);
   const best = bestOneRepMaxByName(store.state.sessions, store.state.exerciseById, store.state.settings);
-  const machineNames = new Set(store.state.exercises.filter((ex) => ex.equipment === 'Machine').map((ex) => ex.name));
+  const machineNames = ratedMachineNames(store.state.exercises);
   const rating = hasProfile(store.state.settings) ? buildRating(best, store.state.settings, { machineNames }) : null;
   const planned = plannedToday();
   return { workouts: sessions.length, sets, strengthScore: rating?.overall ?? null,

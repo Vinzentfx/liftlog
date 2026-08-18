@@ -17,9 +17,14 @@ import { todaysDays, weekdayName, weekdayShort } from '../schedule.js';
 import { exerciseArt } from '../exercise-art.js';
 import { platePlan, describePlates, PLATES } from '../plates.js';
 import { warmupSets } from '../warmup.js';
+import {
+  exerciseHistory, priorWork, openingSet, nextSet, pooledOrderCost, loadStep as defaultStep,
+} from '../progression.js';
+import { alreadyWarm } from '../warmup.js';
 import { navigate, render, flushBackup, startWorkout } from '../app.js';
 import { requestWorkoutStart } from '../workout-start.js';
 import { t, tn, tMuscle, tEquipment, locale } from '../i18n.js';
+import { SOURCES } from '../evidence.js';
 
 const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
 const openHistories = new Set();
@@ -224,6 +229,40 @@ function exerciseBlock(session, entry, entryIndex) {
     ])
   );
 
+  // Everything the advice is built from: the whole log for this exercise, each
+  // session corrected for where in that session it happened, plus where in
+  // *this* session we are standing right now.
+  const rows = exerciseHistory(store.state.sessions, entry.exerciseId, store.state.exerciseById, {
+    excludeSessionId: session.id,
+    // Pooled across the whole log, so an exercise that has only ever been
+    // trained from one position still gets a measured cost rather than a prior.
+    fallbackCost: pooledOrderCost(store.state.sessions, store.state.exerciseById),
+  });
+  const prior = priorWork(session.entries, entryIndex, store.state.exerciseById);
+  const doneToday = entry.sets.filter(isCounted);
+  const suggesting = store.state.settings.progressionSuggestions !== false;
+
+  // Once a set is on the board today, the live advice is the better number and
+  // the opening one is history. Two suggestions disagreeing on the same screen
+  // is worse than one, so only ever one of these is non-null.
+  const step = store.machineStep(ex);
+  const opening = suggesting && !doneToday.length
+    ? openingSet(rows, {
+        exercise: ex, targetReps: entry.targetReps, rule: entry.progressionRule,
+        units, barWeight: store.barWeight(), prior, step,
+      })
+    : null;
+
+  // The live number. One completed set today outweighs four sessions of
+  // history, so from the moment set one is ticked off the advice comes from
+  // today's own effort, this lifter's own set-to-set drop-off, and the rep
+  // range.
+  const live = suggesting && doneToday.length
+    ? nextSet(doneToday, rows, {
+        exercise: ex, targetReps: entry.targetReps, units, barWeight: store.barWeight(), step,
+      })
+    : null;
+
   // The single most useful line on the screen: what you did last time.
   const last = lastPerformance(store.state.sessions, entry.exerciseId, session.id);
   if (last) {
@@ -232,16 +271,19 @@ function exerciseBlock(session, entry, entryIndex) {
         el('span', { text: `${relLabel(last.session.startedAt)}: ` }),
         el('b', { text: setsSummary(last.sets, units) }),
         lastRirLabel(last.sets),
+        orderLabel(rows, prior, session, entryIndex),
       ])
     );
-    const tip = store.state.settings.progressionSuggestions !== false
-      ? suggestNext(last, entry.targetReps, ex, units, entry.progressionRule)
-      : null;
+    const tip = opening;
     if (tip) {
       block.append(
         el('div.suggest', {}, [
-          el('b', { text: tip.headline }),
-          el('span', { text: `: ${tip.why}` }),
+          // A bodyweight movement has no weight to name, so the same engine
+          // answer is read out as a rep target instead of a load.
+          el('b', { text: bodyweightLoadMode(ex) === 'bodyweight'
+            ? t('train.tip.bodyweight', { reps: tip.reps })
+            : t(`train.tip.${tip.change}`, { weight: fmtWeight(tip.weight, units), reps: tip.reps }) }),
+          el('span', { text: `: ${describeReasons(tip.reasons, units)}` }),
         ])
       );
     }
@@ -265,7 +307,11 @@ function exerciseBlock(session, entry, entryIndex) {
     block.append(el('div.small.faint', { style: { marginBottom: '10px' }, text: t('train.firstTime') }));
   }
 
-  if (store.state.settings.warmupSuggestions !== false) block.append(warmupOffer(session, entry, ex, units));
+  if (store.state.settings.warmupSuggestions !== false) {
+    block.append(warmupOffer(session, entry, ex, units, {
+      targetReps: entry.targetReps, warmedRegions: prior.warmedRegions, step,
+    }));
+  }
 
   if (entry.note) {
     block.append(el('div.small.muted', { style: { marginBottom: '8px' }, text: entry.note }));
@@ -277,6 +323,7 @@ function exerciseBlock(session, entry, entryIndex) {
       setup.seat && `${t('train.machine.seat')}: ${setup.seat}`,
       setup.backrest && `${t('train.machine.backrest')}: ${setup.backrest}`,
       setup.pad && `${t('train.machine.pad')}: ${setup.pad}`,
+      setup.step > 0 && t('train.machine.stepSummary', { step: fmtWeight(setup.step, units) }),
       setup.note,
     ].filter(Boolean).join(' · ');
     block.append(el('button.btn.ghost.full.sm', {
@@ -298,8 +345,18 @@ function exerciseBlock(session, entry, entryIndex) {
     el('span', { text: '✓' }),
   ]));
 
+  // Whichever advice is current becomes the empty field's meaning: the number
+  // the screen just recommended has to be the number that gets logged when the
+  // set is ticked without typing, or the suggestion is decoration.
+  const pendingIndex = entry.sets.findIndex((s) => s.type === 'working' && !s.done);
+  const usable = bodyweightLoadMode(ex) !== 'bodyweight' && (live || opening);
+
   entry.sets.forEach((set, i) => {
-    block.append(setRow(session, entry, set, i, last, ex));
+    const forThis = usable && i === pendingIndex ? usable : null;
+    // The line only accompanies the live advice. The opening suggestion has
+    // already said its piece in full at the top of the block.
+    if (forThis && live) block.append(nextSetLine(live, units));
+    block.append(setRow(session, entry, set, i, last, ex, forThis));
   });
 
   block.append(
@@ -315,9 +372,9 @@ function exerciseBlock(session, entry, entryIndex) {
   return block;
 }
 
-function setRow(session, entry, set, index, last, ex) {
+function setRow(session, entry, set, index, last, ex, advice = null) {
   if (entry.movementMode === 'unilateral') {
-    return unilateralSetRow(session, entry, set, index, last, ex);
+    return unilateralSetRow(session, entry, set, index, last, ex, advice);
   }
   const workingNo = entry.sets.slice(0, index + 1).filter((s) => s.type === 'working').length;
   const rirOn = store.state.settings.logRir !== false;
@@ -341,9 +398,13 @@ function setRow(session, entry, set, index, last, ex) {
   // indexed by working-set number, not by row. Indexing by row meant that two
   // warm-up sets shifted every placeholder two sets down the list — set 1 would
   // suggest what you did on set 3.
+  // What an empty field means when it is ticked. The live advice wins where
+  // there is one: after a completed set it is a better answer than last week,
+  // and it has to be the same number the line above the row just printed or
+  // ticking would quietly log something else.
   const hint = set.type === 'warmup' || !last
-    ? null
-    : last.sets[workingNo - 1] || last.sets[last.sets.length - 1];
+    ? (advice ? { weight: advice.weight, reps: advice.reps } : null)
+    : advice || last.sets[workingNo - 1] || last.sets[last.sets.length - 1];
 
   const weight = normaliseOnBlur(numberInput({
     decimal: true,
@@ -414,12 +475,13 @@ function setRow(session, entry, set, index, last, ex) {
   return row;
 }
 
-function unilateralSetRow(session, entry, set, index, last, ex) {
+function unilateralSetRow(session, entry, set, index, last, ex, advice = null) {
   const workingNo = entry.sets.slice(0, index + 1).filter((row) => row.type === 'working').length;
   const row = el('div.unilateral-set' + (set.done ? '.done' : '')
     + (set.type === 'warmup' ? '.warmup' : ''));
-  const hint = set.type === 'warmup' || !last ? null
-    : last.sets[workingNo - 1] || last.sets[last.sets.length - 1];
+  const hint = set.type === 'warmup' || !last
+    ? (advice ? { weight: advice.weight, reps: advice.reps } : null)
+    : advice || last.sets[workingNo - 1] || last.sets[last.sets.length - 1];
   const makeSide = (side, short) => {
     const weightKey = `${side}Weight`, repsKey = `${side}Reps`;
     const weight = normaliseOnBlur(numberInput({ decimal: true, value: set[weightKey] ?? '',
@@ -498,10 +560,14 @@ function setMenu(session, entry, set, index) {
  * establishes an optimal ramp, and this app does not print numbers whose origin
  * it cannot name. Two sets on a barbell lift, one on everything else.
  */
-function warmupOffer(session, entry, ex, units) {
+function warmupOffer(session, entry, ex, units, context = {}) {
   const wrap = el('div');
   if (ex?.equipment === 'Bodyweight') return wrap;
   if (entry.sets.some((s) => s.type === 'warmup')) return wrap;
+  // A warm-up you are offered after the first working set is already logged is
+  // an offer to warm up for work you have finished. The offer belongs to the
+  // moment before the exercise starts and nowhere else.
+  if (entry.sets.some(isCounted)) return wrap;
 
   // What the working sets are aiming at: whatever is already typed in, else
   // what the suggestion is built from.
@@ -513,8 +579,18 @@ function warmupOffer(session, entry, ex, units) {
     return prev ? prev.stats.topWeight : 0;
   })();
 
-  const sets = warmupSets(ex, last, { units, barWeight: store.barWeight() });
-  if (!sets.length) return wrap;
+  const sets = warmupSets(ex, last, {
+    units, barWeight: store.barWeight(), step: context.step,
+    targetReps: context.targetReps, warmedRegions: context.warmedRegions,
+  });
+  // Nothing to offer is now a real answer rather than a gap: a muscle already
+  // trained this session does not need a second introduction, and the 2025
+  // crossover found no cost to skipping. Say so instead of falling silent.
+  if (!sets.length) {
+    return alreadyWarm(ex, context.warmedRegions)
+      ? el('div.small.faint', { style: { marginBottom: '8px' }, text: t('train.warmupNotNeeded') })
+      : wrap;
+  }
 
   wrap.append(
     el('button.btn.quiet.sm', {
@@ -531,8 +607,11 @@ function warmupOffer(session, entry, ex, units) {
       },
     }, [t('train.warmupOffer', { sets: sets.map((w) => `${fmtWeight(w.weight, units)} × ${w.reps}`).join(', ') })])
   );
-  wrap.append(el('div.small.faint', { style: { marginTop: '-6px', marginBottom: '8px', fontSize: '11px' },
-    text: t('train.warmupCaveat') }));
+  wrap.append(el('button.small.faint', {
+    style: { marginTop: '-6px', marginBottom: '8px', fontSize: '11px', background: 'none',
+      border: 0, padding: 0, textAlign: 'left', color: 'var(--text-faint)' },
+    onclick: () => warmupEvidenceSheet(),
+  }, [`${t('train.warmupCaveat')}  ›`]));
   return wrap;
 }
 
@@ -546,80 +625,72 @@ function lastRirLabel(sets) {
   return el('span.small.faint', { text: `  ·  ${lo === hi ? lo : `${lo}–${hi}`} RIR` });
 }
 
-/**
- * Double progression: clear the top of the rep range on every set, then add
- * weight. Not a research finding — it is the standard way to make "train close
- * to failure" into a decision you can take on the gym floor. Where RIR was
- * logged it is used, because a set finished with 4 in reserve did not earn a
- * weight jump no matter how many reps it was.
- */
-function suggestNext(last, targetReps, ex, units, rule = 'double') {
-  const sets = last.sets;
-  if (!sets.length) return null;
-
-  const range = parseReps(targetReps) || { low: 6, high: 10 };
-  const reps = sets.map((s) => Number(s.reps) || 0);
-  const rirs = sets.map((s) => s.rir).filter((v) => v !== null && v !== undefined);
-  const topWeight = Math.max(...sets.map((s) => Number(s.weight) || 0));
-  if (!topWeight) return null;
-
-  if (bodyweightLoadMode(ex) === 'bodyweight') return {
-    headline: t('train.tip.bodyweight'),
-    why: t('train.tip.addReps', { high: range.high }),
-  };
-
-  const step = ex && ex.equipment === 'Dumbbell' ? (units === 'lb' ? 5 : 2) : (units === 'lb' ? 5 : 2.5);
-  const next = `${fmtWeight(topWeight + step, units)}`;
-
-  if (rule === 'manual') return null;
-  if (rule === 'reps') return {
-    headline: t('train.tip.stay', { weight: fmtWeight(topWeight, units) }),
-    why: t('train.tip.addReps', { high: range.high }),
-  };
-  if (rule === 'weight') return {
-    headline: t('train.tip.try', { weight: next }),
-    why: t('train.tip.weightRule'),
-  };
-
-  // Effort first: it overrides the rep count in both directions.
-  if (rirs.length && Math.min(...rirs) >= 3) {
-    return {
-      headline: t('train.tip.try', { weight: next }),
-      why: t('train.tip.easy', { rir: Math.min(...rirs) }),
-    };
-  }
-  if (rirs.length && Math.max(...rirs) === 0 && reps.some((r) => r < range.low)) {
-    return {
-      headline: t('train.tip.stay', { weight: fmtWeight(topWeight, units) }),
-      why: t('train.tip.failedLow'),
-    };
-  }
-
-  if (reps.every((r) => r >= range.high)) {
-    return {
-      headline: t('train.tip.try', { weight: next }),
-      why: t('train.tip.cleared', { high: range.high })
-        + (rirs.length ? '' : ` ${t('train.tip.logRir')}`),
-    };
-  }
-  if (reps.some((r) => r < range.low)) {
-    return {
-      headline: t('train.tip.stay', { weight: fmtWeight(topWeight, units) }),
-      why: t('train.tip.buildBack', { low: range.low }),
-    };
-  }
-  return {
-    headline: t('train.tip.stay', { weight: fmtWeight(topWeight, units) }),
-    why: t('train.tip.addReps', { high: range.high }),
-  };
+/** "Set 2: 100 kg × ~7" — the live suggestion, sitting on the set it is about. */
+function nextSetLine(advice, units) {
+  return el('div.suggest.next-set', {}, [
+    el('b', { text: t('train.next.headline', {
+      n: advice.setNumber, weight: fmtWeight(advice.weight, units), reps: advice.reps,
+    }) }),
+    el('span', { text: `: ${t(`train.next.${advice.reason.key}`, advice.reason.params)}` }),
+    el('div.small.faint', { style: { marginTop: '2px' }, text: t(
+      advice.decayMeasured ? 'train.next.decayYours' : 'train.next.decayTypical',
+      { pct: advice.decayPct }
+    ) }),
+  ]);
 }
 
-function parseReps(spec) {
-  if (!spec) return null;
-  const nums = String(spec).match(/\d+/g);
-  if (!nums || !nums.length) return null;
-  const ns = nums.map(Number);
-  return { low: Math.min(...ns), high: Math.max(...ns) };
+/**
+ * The reasons behind a suggestion, in the order they matter.
+ *
+ * Two at most. The engine can produce four, and a paragraph under a number is
+ * a paragraph nobody reads on a gym floor between sets.
+ */
+function describeReasons(reasons, units) {
+  return reasons.slice(0, 2).map((r) => t(`train.why.${r.key}`, {
+    ...r.params,
+    weight: r.params.weight === undefined ? undefined : fmtWeight(round1(r.params.weight), units),
+  })).join(' ');
+}
+
+const round1 = (n) => Math.round(n * 10) / 10;
+
+/**
+ * "2 sets of chest work before this one" on the last-time line.
+ *
+ * The whole reason the correction exists is that it is invisible otherwise: the
+ * lifter sees 100 × 8 last week and 95 × 8 today and reads a regression, when
+ * what actually changed is that the bench was not free and the butterfly went
+ * first. Naming it is half the value of measuring it.
+ */
+function orderLabel(rows, prior, session, entryIndex) {
+  if (!rows.length) return null;
+  const before = rows[rows.length - 1].prior.same;
+  const now = prior.same;
+  if (Math.abs(now - before) < 1) return null;
+  return el('span.small', {
+    style: { color: 'var(--warn)', display: 'block', marginTop: '2px' },
+    text: t(now > before ? 'train.order.laterNow' : 'train.order.earlierNow', {
+      now: fmtNum(round1(now)), before: fmtNum(round1(before)),
+    }),
+  });
+}
+
+/** Where the warm-up numbers come from, and where they stop. */
+function warmupEvidenceSheet() {
+  const sources = [SOURCES.ribeiro2020, SOURCES.warmup2025];
+  openSheet(t('train.warmupEvidenceTitle'), el('div', {}, [
+    el('div.small.muted', { text: t('train.warmupEvidenceBody') }),
+    ...sources.map((source) => el('div', { style: { marginTop: '14px' } }, [
+      el('a', {
+        href: source.url, target: '_blank', rel: 'noopener',
+        style: { color: 'var(--accent-hi)', fontWeight: '620', fontSize: '14px' },
+        text: `${t(source.short)} ↗`,
+      }),
+      el('div.small.faint', { style: { marginTop: '2px' }, text: t(source.note) }),
+      el('div.small.muted', { style: { marginTop: '4px' }, text: t(source.says) }),
+    ])),
+    el('div.small.faint', { style: { marginTop: '16px' }, text: t('train.warmupEvidenceLimit') }),
+  ]));
 }
 
 /**
@@ -859,15 +930,29 @@ function machineSetupSheet(ex) {
   const backrest = field('backrest', t('train.machine.backrestPlaceholder'));
   const pad = field('pad', t('train.machine.padPlaceholder'));
   const note = field('note', t('train.machine.notePlaceholder'));
+  // The one number on this sheet, and the reason it is here: every weight
+  // suggestion the app makes moves in increments, and it used to assume 2.5 kg
+  // everywhere. A stack that goes up in fives cannot be asked for 102.5, so
+  // half the suggestions were weights the machine does not have.
+  const stepInput = normaliseOnBlur(numberInput({
+    decimal: true,
+    value: saved.step ?? '',
+    placeholder: String(defaultStep(ex, store.units())),
+    'aria-label': t('train.machine.step'),
+  }));
   openSheet(t('train.machine.title', { name: ex.name }), el('div', {}, [
     el('div.small.muted', { style: { marginBottom: '12px' }, text: t('train.machine.intro') }),
     el('label.field', {}, [el('span', { text: t('train.machine.seat') }), seat]),
     el('label.field', {}, [el('span', { text: t('train.machine.backrest') }), backrest]),
     el('label.field', {}, [el('span', { text: t('train.machine.pad') }), pad]),
     el('label.field', {}, [el('span', { text: t('train.machine.note') }), note]),
+    el('label.field', {}, [el('span', { text: t('train.machine.stepLabel', { units: store.units() }) }), stepInput]),
+    el('div.small.faint', { style: { marginTop: '-6px', marginBottom: '12px' }, text: t('train.machine.stepNote') }),
     el('button.btn.primary.full', { onclick: async () => {
       const setups = { ...(store.state.settings.machineSetups || {}) };
-      const next = { seat: seat.value.trim(), backrest: backrest.value.trim(), pad: pad.value.trim(), note: note.value.trim() };
+      const step = parseNumber(stepInput.value);
+      const next = { seat: seat.value.trim(), backrest: backrest.value.trim(), pad: pad.value.trim(), note: note.value.trim(),
+        step: step > 0 ? step : null };
       if (Object.values(next).some(Boolean)) setups[ex.id] = next;
       else delete setups[ex.id];
       await store.setSetting('machineSetups', setups);

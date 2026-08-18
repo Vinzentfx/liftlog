@@ -11,12 +11,12 @@
 
 import { fmtNum, fmtWeight, fmtDate } from './ui.js';
 import { startOfWeek, isCounted, e1rm, entryStats } from './models.js';
-import { tierIndex, tierOf, hasProfile } from './standards.js';
+import { TIERS, tierIndex, tierOf, rankOf, hasProfile } from './standards.js';
 import { t, tRegion, tTier } from './i18n.js';
 import { strengthAt, bodyweightAt } from './history.js';
 import { analyseWeek, compareToPlan, weekVerdict, weekStreak } from './log-analysis.js';
 import { analysePlan } from './plan-rating.js';
-import { regionProgress, progressFills, PROGRESS_LABEL } from './region-progress.js';
+import { regionProgress, progressFills, PROGRESS_LABEL, PROGRESS_TIER } from './region-progress.js';
 import {
   fillRound, strokeRound, drawText, textWidth, wrapLines, loadPaths, drawPaths,
 } from './canvas-kit.js';
@@ -43,7 +43,10 @@ const C = {
   accentHi: '#60A5FA',
   good: '#34D399',
   warn: '#FBBF24',
-  tier: ['#5F6B80', '#3B82F6', '#06B6D4', '#A855F7', '#FFB020'],
+  // Nine ranks, matching --t0..--t8 in css/styles.css. The canvas cannot read
+  // custom properties, so the ramp is duplicated here and must be kept in step.
+  tier: ['#8A6A4A', '#9AA7B8', '#D9A93B', '#3B82F6', '#22D3EE',
+    '#34D399', '#A855F7', '#F472B6', '#FFB020'],
 };
 
 const rgba = (hex, a) => {
@@ -113,6 +116,7 @@ export function weekSummary({
       : {
           score: rating.overall,
           tier: tierOf(rating.overall),
+          division: rankOf(rating.overall).division,
           rated: rating.ratedRegions,
           total: rating.totalRegions,
           // Difference of the *rounded* scores, not the rounded difference. The
@@ -205,7 +209,7 @@ function newBests(finished, exerciseById, weekStart, weekEnd) {
  * needs only your own past and so counts every exercise, machines included.
  *
  * Without a rating there is no tier map worth drawing — an unlit body under a
- * Beginner-to-Elite legend says nothing, and printing one when the user has
+ * Bronze-to-Legend legend says nothing, and printing one when the user has
  * switched ratings off would put back exactly what they hid. It falls back to
  * the map that works from your own numbers alone.
  */
@@ -220,9 +224,9 @@ function muscleMap(mapMode, { finished, exerciseById, rating, weekEnd }) {
       mapMode: 'progress',
       mapFills: colours,
       mapLegend: [
-        { colour: C.tier[4], label: t(PROGRESS_LABEL.climbing) },
-        { colour: C.tier[1], label: t('home.map.flat') },
-        { colour: C.tier[0], label: t(PROGRESS_LABEL.falling) },
+        { colour: C.tier[PROGRESS_TIER.climbing], label: t(PROGRESS_LABEL.climbing) },
+        { colour: C.tier[PROGRESS_TIER.flat], label: t('home.map.flat') },
+        { colour: C.tier[PROGRESS_TIER.falling], label: t(PROGRESS_LABEL.falling) },
       ],
       mapTitle: t('home.map.progress'),
       mapNote: t(Object.keys(colours).length ? 'weekCard.progressNote' : 'home.map.progressEmpty'),
@@ -236,7 +240,9 @@ function muscleMap(mapMode, { finished, exerciseById, rating, weekEnd }) {
   return {
     mapMode: 'strength',
     mapFills: colours,
-    mapLegend: [0, 1, 2, 3, 4].map((i) => ({ colour: C.tier[i], label: tTier(tierOf(i * 20 + 10).key) })),
+    // Nine short names wrap onto two rows rather than five onto one. Worth it:
+    // a legend that omits ranks is a legend you cannot place yourself in.
+    mapLegend: TIERS.map((tier, i) => ({ colour: C.tier[i], label: tTier(tier.key, { short: true }) })),
     mapTitle: t('home.map.strength'),
     mapNote: t('weekCard.strengthNote'),
   };
@@ -335,7 +341,7 @@ function hero(ctx, d, y) {
     const big = String(Math.round(d.strength.score));
     drawText(ctx, big, x, y + 20, { size: 56, weight: 780, color: C.text, baseline: 'top' });
     const w = textWidth(ctx, big, { size: 56, weight: 780 });
-    chip(ctx, x + w + 14, y + 44, tTier(d.strength.tier.key), accent);
+    chip(ctx, x + w + 14, y + 44, `${tTier(d.strength.tier.key)} ${d.strength.division}`, accent);
 
     drawText(ctx, t('home.rating.overall', { rated: d.strength.rated, total: d.strength.total }),
       x, y + 86, { size: 12.5, weight: 500, color: C.dim, baseline: 'top', max: INNER - 44 });
@@ -543,7 +549,9 @@ function volume(ctx, d, y) {
       fill = ctx.createLinearGradient(trackX, 0, trackX + w, 0);
       fill.addColorStop(0, C.accent); fill.addColorStop(1, C.accentHi);
     } else {
-      fill = C.tier[0];
+      // Not a rank colour: this bar means "behind, or no target", and borrowing
+      // the bottom of the ladder for it would read as a Bronze rating.
+      fill = C.faint;
     }
     fillRound(ctx, trackX, ry + 4, w, 9, 4.5, fill);
 

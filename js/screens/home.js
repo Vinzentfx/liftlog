@@ -10,8 +10,10 @@ import {
   bestOneRepMaxByName, isCounted, startOfWeek, weeklyMuscleSets, sessionStats,
 } from '../models.js';
 import {
-  buildRating, hasProfile, TIERS, tierIndex, tierOf, LOW_CONFIDENCE, strengthRatio, ageFactor,
+  buildRating, hasProfile, TIERS, DIVISIONS, RANK_STEPS, BAND, tierIndex, rankOf,
+  LOW_CONFIDENCE, strengthRatio, ageFactor, ratedMachineNames, RATED_EQUIPMENT,
 } from '../standards.js';
+import { strengthAt } from '../history.js';
 import { t, tn, tRegion, tTier, locale } from '../i18n.js';
 import { bodyMap, tierLegend } from '../bodymap.js';
 import { barChart, lineChart } from '../charts.js';
@@ -532,7 +534,7 @@ function ratingSection(done, settings) {
   }
 
   const best = bestOneRepMaxByName(store.state.sessions, store.state.exerciseById, store.state.settings);
-  const machineNames = new Set(store.state.exercises.filter((ex) => ex.equipment === 'Machine').map((ex) => ex.name));
+  const machineNames = ratedMachineNames(store.state.exercises);
   const rating = buildRating(best, settings, { machineNames, community: machineCommunity });
   refreshMachineStandards(best, settings).catch(() => {});
 
@@ -549,22 +551,48 @@ function ratingSection(done, settings) {
     return wrap;
   }
 
-  const idx = tierIndex(rating.overall);
-  const tier = tierOf(rating.overall);
+  const rank = rating.overallRank;
+  const idx = rank.tierIndex;
 
-  wrap.append(
-    el(`div.card.glow.tier-${idx}`, {}, [
-      el('div.rating-hero', {}, [
-        el('div.rating-val', { text: String(Math.round(rating.overall)) }),
-        el('div', { style: { marginTop: '8px' } }, [
-          el('span.tier-chip', { text: tTier(tier.key) }),
-        ]),
-        el('div.rating-sub', {
-          text: t('home.rating.overall', { rated: rating.ratedRegions, total: rating.totalRegions }),
-        }),
+  const hero = el(`div.card.glow.tier-${idx}`, {}, [
+    el('div.rating-hero', {}, [
+      el('div.rating-val', { text: String(Math.round(rating.overall)) }),
+      el('div', { style: { marginTop: '8px' } }, [rankChip(rank)]),
+      el('div.rating-sub', {
+        text: t('home.rating.overall', { rated: rating.ratedRegions, total: rating.totalRegions }),
+      }),
+    ]),
+    // Two bars, because they answer two different questions: the ladder says
+    // where this sits among all 27 steps, the division track says how close the
+    // next one is. The second is the one that moves week to week.
+    ladderBar(rank),
+    el('div.row.between.small.faint', { style: { marginTop: '8px' } }, [
+      el('span', { text: t('home.rating.step', { step: rank.step, steps: rank.steps }) }),
+      el('span', { text: rank.top ? t('home.rating.ladderTop') : t('home.rating.toNextStep', {
+        points: (nextStepScore(rating.overall) - rating.overall).toFixed(1),
+        rank: rankName(rankOf(nextStepScore(rating.overall) + 0.0001)),
+      }) }),
+    ]),
+    el('div.division-track', {}, [el('i', { style: { width: `${Math.round(rank.progress * 100)}%` } })]),
+    el('div.small.muted', { style: { marginTop: '10px' }, text: t(`tier.${rank.tier.key}.note`) }),
+  ]);
+
+  const change = recentRankChange(rating.overall);
+  if (change) {
+    hero.append(el(`div.rank-up${change.up ? '' : '.down'}`, {}, [
+      el('span', { text: change.up ? '▲' : '▼', 'aria-hidden': 'true' }),
+      el('div', {}, [
+        el('div', { text: t(change.up ? 'home.rating.rankUp' : 'home.rating.rankDown', {
+          from: rankName(change.from), to: rankName(change.to),
+          weeks: tn(change.weeks, 'unit.week'),
+        }) }),
+        change.up ? null : el('div.small.faint', { style: { marginTop: '2px' },
+          text: t('home.rating.rankDownWhy') }),
       ]),
-    ])
-  );
+    ]));
+  }
+
+  wrap.append(hero);
 
   // body map
   wrap.append(mapSection(rating));
@@ -580,19 +608,28 @@ function ratingSection(done, settings) {
           el('div.row.between', {}, [
             el('div.grow', {}, [
               el('div', { style: { fontWeight: '640' }, text: lift.name }),
+              // The next *division* is the number worth printing: at 27 steps
+              // the next rank can be forty kilos away, and a target nobody can
+              // picture reaching is not a target.
               el('div.small.faint', {
-                text: lift.next
+                text: lift.nextDivision
                   ? t('home.rating.forTier', {
-                      weight: fmtWeight(Math.round(lift.next.weight), store.units()),
-                      tier: tTier(lift.next.tier.key),
+                      weight: fmtWeight(Math.round(lift.nextDivision.weight), store.units()),
+                      tier: rankName({ tier: lift.nextDivision.tier, division: lift.nextDivision.division }),
                     })
                   : t('home.rating.topTier'),
               }),
+              el('div.division-track', { style: { maxWidth: '150px' } },
+                [el('i', { style: { width: `${Math.round(lift.rank.progress * 100)}%` } })]),
             ]),
             el('div', { style: { textAlign: 'right' } }, [
-              el('span.tier-chip', { text: tTier(lift.tier.key) }),
+              rankChip(lift.rank),
               el('div.small.faint', { style: { marginTop: '4px' },
                 text: `e1RM ${fmtWeight(Math.round(lift.oneRepMax), store.units())}` }),
+              lift.extrapolated
+                ? el('div.small', { style: { marginTop: '2px', color: 'var(--warn)' },
+                    text: t('home.rating.extrapolatedShort') })
+                : null,
             ]),
             el('button.btn.quiet.sm', {
               onclick: () => strengthDetailSheet(lift, settings),
@@ -607,6 +644,68 @@ function ratingSection(done, settings) {
   wrap.append(machineRecords(rating.lifts));
 
   return wrap;
+}
+
+/* ===================== the rank ladder on screen ===================== */
+
+/** "Diamond II" as one chip, coloured by rank. */
+function rankChip(rank) {
+  if (!rank) return null;
+  return el(`span.tier-chip.tier-${rank.tierIndex}`, {}, [
+    tTier(rank.tier.key),
+    el('span.div-mark', { text: rank.division }),
+  ]);
+}
+
+/** The same thing as plain text, for lines that already have a chip on them. */
+function rankName(rank) {
+  return rank ? `${tTier(rank.tier.key)} ${rank.division}` : '';
+}
+
+/**
+ * The whole ladder as 27 notches, with the current step lit.
+ *
+ * Worth the space precisely because it is not a percentage: it shows how much
+ * is behind you and how much is still there, which a single number cannot.
+ */
+function ladderBar(rank) {
+  const bar = el('div.ladder', { 'aria-hidden': 'true' });
+  for (let i = 0; i < RANK_STEPS; i++) {
+    const cls = i + 1 === rank.step ? '.now' : i + 1 < rank.step ? '.on' : '';
+    bar.append(el(`i${cls}`, { class: `tier-${Math.floor(i / DIVISIONS.length)}` }));
+  }
+  return bar;
+}
+
+/** The score at which the next division starts. */
+function nextStepScore(score) {
+  const step = Math.floor(score / (BAND / DIVISIONS.length)) + 1;
+  return Math.min(100, step * (BAND / DIVISIONS.length));
+}
+
+/**
+ * A step gained or lost in the last eight weeks, or null.
+ *
+ * Deliberately backward-looking rather than a live celebration: the rating is
+ * rebuilt from the whole log on every render, so "you just ranked up" would fire
+ * again every time the screen redrew. Comparing against where the ladder stood
+ * eight weeks ago says the same thing once, calmly, and keeps saying it for as
+ * long as it is true.
+ *
+ * It reports a drop as well as a climb, and this is the part worth being
+ * careful about. A ladder that only ever announces good news is a scoreboard
+ * nobody believes — but a demotion is usually bodyweight moving, or eight weeks
+ * of illness, not a verdict on the lifter. So it is stated flatly, in the same
+ * words, without a colour that reads as a telling-off.
+ */
+function recentRankChange(currentScore) {
+  const weeks = 8;
+  const then = strengthAt(store.state.sessions, store.state.bodyweight, store.state.settings,
+    store.state.exerciseById, Date.now() - weeks * 7 * 86400000);
+  if (!then || then.overall === null) return null;
+  const from = rankOf(then.overall), to = rankOf(currentScore);
+  if (!from || !to || to.step === from.step) return null;
+  return { from, to, weeks, up: to.step > from.step, steps: Math.abs(to.step - from.step) };
 }
 
 function machineRecords(lifts) {
@@ -627,7 +726,7 @@ function machineRecords(lifts) {
           profile?.label ? el('div.small', { text: profile.label }) : null,
         ]),
         el('div', { style: { textAlign: 'right' } }, [
-          el('span.tier-chip', { text: tTier(row.tier.key) }),
+          rankChip(row.rank),
           el('div.small.faint', { text: `e1RM ${fmtWeight(Math.round(row.oneRepMax), store.units())}` }),
           el('button.btn.quiet.sm', {
             onclick: () => machineProfileSheet(row.ex),
@@ -653,6 +752,10 @@ function strengthDetailSheet(lift, profile) {
       el('div.row.between', { style: { marginTop: '8px' } }, [el('span', { text: t('home.bodyweight.title') }), el('strong.num', { text: bodyweight })]),
     ]),
     el('div.small.muted', { style: { marginTop: '12px' }, text: t('home.rating.calculationNote') }),
+    lift.extrapolated
+      ? el('div.small', { style: { marginTop: '10px', color: 'var(--warn)' },
+          text: `!  ${t('home.rating.extrapolated', { reps: THRESHOLDS.e1rmWindow.high })}` })
+      : null,
     el('div.small.faint', { style: { marginTop: '8px' }, text: t('home.rating.heightNote') }),
   ]);
   openSheet(lift.name, body);
@@ -695,7 +798,7 @@ async function refreshMachineStandards(best, settings) {
   const candidates = store.state.exercises.flatMap((ex) => {
     const profile = settings.machineProfiles?.[ex.id];
     const oneRepMax = best.get(ex.name);
-    return ex.equipment === 'Machine' && profile?.shareComparison && profile.model && oneRepMax
+    return RATED_EQUIPMENT.has(ex.equipment) && profile?.shareComparison && profile.model && oneRepMax
       ? [{ ex, profile, oneRepMax }] : [];
   });
   const signature = JSON.stringify(candidates.map(({ ex, profile, oneRepMax }) => [ex.name, profile.model, oneRepMax]));
@@ -811,12 +914,14 @@ function regionSheet(region, rating) {
           el('div.rating-hero', { style: { paddingBottom: '10px' } }, [
             el('div.rating-val', { style: { fontSize: '40px' }, text: String(Math.round(info.score)) }),
             el('div', { style: { marginTop: '8px' } }, [
-              el('span.tier-chip', { text: tTier(tierOf(info.score).key) }),
+              rankChip(rankOf(info.score)),
             ]),
           ]),
           el('div.small.muted', { style: { textAlign: 'center' }, text: t('home.region.via', { lift: info.via }) }),
           info.machine ? el('div.small.faint', { style: { marginTop: '8px', textAlign: 'center' },
             text: t(info.provisional ? 'home.region.machineEstimated' : 'home.region.machineCommunity', { n: info.sample }) }) : null,
+          info.extrapolated ? el('div.small', { style: { marginTop: '8px', textAlign: 'center', color: 'var(--warn)' },
+            text: t('home.rating.extrapolated', { reps: THRESHOLDS.e1rmWindow.high }) }) : null,
           LOW_CONFIDENCE[info.via]
             ? el('div.small', { style: { marginTop: '10px', color: 'var(--warn)' },
                 text: `!  ${LOW_CONFIDENCE[info.via]}` })
@@ -827,7 +932,7 @@ function regionSheet(region, rating) {
     el('div', {}, TIERS.map((tier, i) =>
       el(`div.row.between.tier-${i}`, { style: { padding: '7px 0', borderBottom: '1px solid var(--line-soft)' } }, [
         el('span.tier-chip', { text: tTier(tier.key) }),
-        el('span.small.faint', { text: `${i * 20}–${(i + 1) * 20}` }),
+        el('span.small.faint', { text: `${Math.round(i * BAND)}–${Math.round((i + 1) * BAND)}` }),
       ])
     )),
   ]);

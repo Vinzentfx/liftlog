@@ -26,7 +26,8 @@ import assert from 'node:assert/strict';
 process.env.TZ = 'Europe/Berlin';
 
 const { e1rm, isCounted, startOfWeek, entryStats, sessionStats, newMeal, dayKey, slotFor, seedExercises, bestOneRepMaxByName, estimatePlanDuration, bodyweightLoadMode } = await import('../js/models.js');
-const { scoreFor, scoreForMachine, buildRating, ANATOMY } = await import('../js/standards.js');
+const { scoreFor, scoreForMachine, buildRating, ANATOMY, TIERS, DIVISIONS, RANK_STEPS,
+  rankOf, ladder, boundsFor, toNextDivision, ratedMachineNames } = await import('../js/standards.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
 const { rateExercise } = await import('../js/exercise-rating.js');
@@ -36,13 +37,15 @@ const { decodeLink, planLink, resolveAgainstLibrary } = await import('../js/plan
 const { weekSummary } = await import('../js/week-card.js');
 const { THRESHOLDS } = await import('../js/evidence.js');
 const { dayTotals, energySplit, maintenanceEstimate, NUTRIENTS, macroTargets } = await import('../js/nutrition.js');
-const { latestWeight } = await import('../js/models.js');
+const { latestWeight, withinE1rmWindow } = await import('../js/models.js');
 const { STORES } = await import('../js/db.js');
 const { searchLibrary, searchFoods, toFoodFields } = await import('../js/foodsearch.js');
 const { normaliseBarcode, nutritionLooksPlausible } = await import('../js/foodlookup.js');
 const { parseNumber, plural } = await import('../js/ui.js');
 const { platePlan, describePlates } = await import('../js/plates.js');
-const { warmupSets, warmupCount } = await import('../js/warmup.js');
+const { warmupSets, warmupCount, alreadyWarm } = await import('../js/warmup.js');
+const { exerciseHistory, priorWork, readiness, openingSet, nextSet, projectFresh, setDecay,
+  effortE1rm, pooledOrderCost, loadStep, roundLoad } = await import('../js/progression.js');
 const { stallReport, describeStall } = await import('../js/fatigue.js');
 const { setLanguage } = await import('../js/i18n.js');
 const { timeline, timelineReady, MIN_LOGGED_DAYS } = await import('../js/timeline.js');
@@ -123,16 +126,111 @@ test('common machines contribute to the muscle map without fake strength tiers',
   }
 });
 
-test('machine records get provisional tiers and contribute cautiously to strength regions', () => {
+test('a machine with a derived standard counts fully on the body map', () => {
   const profile = { sex: 'male', bodyweight: 80, age: 25 };
   const score = scoreForMachine('Machine Chest Press', 90, profile);
   assert.ok(score > 0 && score < 100);
   const rating = buildRating(new Map([['Machine Chest Press', 90]]), profile,
     { machineNames: new Set(['Machine Chest Press']) });
   assert.equal(rating.lifts[0].machine, true);
-  assert.equal(rating.lifts[0].provisional, true);
-  assert.ok(rating.regions.chest.score > 0);
-  assert.ok(rating.regions.chest.score < score, 'uncertain machine data is discounted on the combined map');
+  assert.equal(rating.lifts[0].derived, true, 'anchored to the bench press standard');
+  // Used to be discounted to 0.65 here, which meant machine work inflated the
+  // rank and then contributed almost nothing to the map it inflated.
+  assert.equal(Math.round(rating.regions.chest.score), Math.round(score));
+});
+
+test('a machine with no anchor is still ranked, just less confidently', () => {
+  const profile = { sex: 'male', bodyweight: 80, age: 25 };
+  const rating = buildRating(new Map([['Some Gym Brand Chest Press', 90]]), profile,
+    { machineNames: new Set(['Some Gym Brand Chest Press']) });
+  assert.equal(rating.lifts.length, 1);
+  assert.equal(rating.lifts[0].derived, false);
+});
+
+test('cables are ranked and assisted machines never are', () => {
+  const names = ratedMachineNames([
+    { name: 'Triceps Pushdown', equipment: 'Cable' },
+    { name: 'Machine Chest Press', equipment: 'Machine' },
+    { name: 'Assisted Pull-Up Machine', equipment: 'Machine' },
+    { name: 'Barbell Bench Press', equipment: 'Barbell' },
+  ]);
+  assert.ok(names.has('Triceps Pushdown'), 'a stack is a stack whichever side the pulley is on');
+  assert.ok(names.has('Machine Chest Press'));
+  // The number on an assisted machine is how much of you it is carrying, so
+  // ranking it would put the strongest lifters at the bottom.
+  assert.equal(names.has('Assisted Pull-Up Machine'), false);
+  assert.equal(names.has('Barbell Bench Press'), false, 'that one has a published standard');
+  assert.equal(boundsFor('Assisted Pull-Up Machine', { sex: 'male', bodyweight: 80 }, { machine: true }), null);
+});
+
+test('a free-weight lift keeps a region it ties a machine on', () => {
+  const profile = { sex: 'male', bodyweight: 80, age: 25 };
+  // Chosen so both land on the same score: the machine standard for a chest
+  // press is the bench standard x 0.95, so 0.95 of the load scores the same.
+  const bench = 140;
+  const rating = buildRating(new Map([['Machine Chest Press', bench * 0.95], ['Barbell Bench Press', bench]]),
+    profile, { machineNames: new Set(['Machine Chest Press']) });
+  assert.ok(Math.abs(rating.lifts[0].score - rating.lifts[1].score) < 0.001, 'the two really do tie');
+  assert.equal(rating.regions.chest.via, 'Barbell Bench Press');
+  assert.equal(rating.regions.chest.machine, false);
+});
+
+/* ===================== the rank ladder ===================== */
+
+test('the ladder keeps every published anchor where it was', () => {
+  // The five-tier version put Novice / Intermediate / Advanced / Elite at these
+  // four bodyweight multiples. Nine ranks must not quietly move them.
+  const anchors = [0.75, 1.25, 1.75, 2.25];
+  const eight = ladder(anchors);
+  assert.equal(eight.length, TIERS.length - 1);
+  assert.equal(eight[1], anchors[0], 'Gold is the published novice standard');
+  assert.equal(eight[3], anchors[1], 'Diamond is the published intermediate standard');
+  assert.equal(eight[5], anchors[2], 'Grandmaster is the published advanced standard');
+  assert.equal(eight[7], anchors[3], 'Legend is the published elite standard');
+  for (let i = 1; i < eight.length; i++) assert.ok(eight[i] > eight[i - 1], 'and it only goes up');
+});
+
+test('elite is no longer the fourth of four boundaries', () => {
+  const profile = { sex: 'male', bodyweight: 80, age: 25 };
+  // 1.75 x bodyweight bench: the old table called this Advanced and the old
+  // ladder had exactly one rank left above it. Now there are three.
+  const rank = rankOf(scoreFor('Barbell Bench Press', 140, profile));
+  assert.equal(rank.tier.key, 'grandmaster');
+  assert.ok(rank.step < RANK_STEPS - 3, 'there is still somewhere to go');
+  assert.equal(rankOf(scoreFor('Barbell Bench Press', 180, profile)).tier.key, 'legend');
+  assert.equal(rankOf(scoreFor('Barbell Bench Press', 60, profile)).tier.key, 'gold');
+});
+
+test('rank divisions cover the band without gaps or overlap', () => {
+  const seen = new Set();
+  for (let score = 0; score <= 100; score += 0.25) {
+    const rank = rankOf(score);
+    assert.ok(rank.divisionIndex >= 0 && rank.divisionIndex < DIVISIONS.length);
+    assert.ok(rank.progress >= 0 && rank.progress < 1.0001);
+    assert.equal(rank.step, rank.tierIndex * DIVISIONS.length + rank.divisionIndex + 1);
+    seen.add(rank.step);
+  }
+  assert.equal(seen.size, RANK_STEPS, 'every one of the 27 steps is reachable');
+  assert.equal(rankOf(0).step, 1);
+  assert.equal(rankOf(100).step, RANK_STEPS);
+  assert.equal(rankOf(null), null);
+});
+
+test('the next division is a weight you can picture reaching', () => {
+  const profile = { sex: 'male', bodyweight: 80, age: 25 };
+  const score = scoreFor('Barbell Bench Press', 100, profile);
+  const next = toNextDivision('Barbell Bench Press', score, profile);
+  assert.ok(next.weight > 100 && next.weight < 112, `one division is ${next.weight} kg away`);
+  // And landing on it really does promote you.
+  assert.equal(rankOf(scoreFor('Barbell Bench Press', next.weight + 0.01, profile)).step,
+    rankOf(score).step + 1);
+});
+
+test('a pull-up standard still asks for added weight, not total load', () => {
+  const profile = { sex: 'male', bodyweight: 80, age: 25 };
+  const score = scoreFor('Pull-Up', 110, profile);
+  const next = toNextDivision('Pull-Up', score, profile);
+  assert.ok(next.weight < 80, 'the belt carries the difference, not the whole system');
 });
 
 test('same-model observations gradually adjust rather than replace the seed standard', () => {
@@ -737,26 +835,41 @@ test('platePlan uses the pound rack for pounds', () => {
 
 /* ========================== warming up ========================== */
 
-test('warm-up sets: two on a barbell lift, one on everything else', () => {
-  assert.equal(warmupCount(BENCH), 2);
-  assert.equal(warmupCount(exercise('m', 'Machine Chest Press', ['chest'])), 2,
-    'a benchmark name counts even without barbell equipment');
-  assert.equal(warmupCount({ name: 'Cable Fly', equipment: 'Cable' }), 1);
-  assert.equal(warmupCount({ name: 'Lateral Raise', equipment: 'Dumbbell' }), 1);
+test('the ramp tops out near the working weight, not well below it', () => {
+  // Ribeiro 2020: a warm-up of light sets only lost to both alternatives. The
+  // last set has to be close enough to the work to be worth doing.
+  const sets = warmupSets(BENCH, 100, { units: 'kg', barWeight: 20, targetReps: 8 });
+  assert.equal(sets.length, 2);
+  assert.ok(sets[1].weight >= 75, `last warm-up set was only ${sets[1].weight} kg`);
+  assert.ok(sets[1].weight < 100, 'a warm-up heavier than the work is not a warm-up');
+  assert.ok(sets[1].reps <= 3, 'and it costs almost nothing in reps');
+  assert.ok(sets[0].weight < sets[1].weight, 'they ramp upwards');
+  assert.ok(sets[0].reps > sets[1].reps, 'with reps coming down as weight goes up');
+  for (const s of sets) {
+    assert.equal(platePlan(s.weight, 20, 'kg').exact, true, `${s.weight} kg cannot be loaded`);
+  }
 });
 
-test('warm-up weights stay under the working set and land on real plates', () => {
-  const sets = warmupSets(BENCH, 100, { units: 'kg', barWeight: 20 });
-  assert.equal(sets.length, 2);
-  for (const s of sets) {
-    assert.ok(s.weight < 100, 'a warm-up heavier than the work is not a warm-up');
-    assert.ok(s.weight >= 20, 'and never lighter than the empty bar');
-    // Loadable: (weight - bar) / 2 must come out of the plate set.
-    const plan = platePlan(s.weight, 20, 'kg');
-    assert.equal(plan.exact, true, `${s.weight} kg cannot be loaded`);
-  }
-  assert.ok(sets[0].weight < sets[1].weight, 'and they ramp upwards');
-  assert.ok(sets[0].reps > sets[1].reps, 'with reps coming down as weight goes up');
+test('one set on a machine, three only for heavy low-rep barbell work', () => {
+  const machine = { name: 'Machine Chest Press', equipment: 'Machine', primary: ['chest'] };
+  assert.equal(warmupCount(machine, { targetReps: 10 }), 1);
+  assert.equal(warmupCount(BENCH, { targetReps: 10 }), 2);
+  // Neither trial covered heavy singles, so this arm stays conventional and the
+  // UI says which half of the advice it is.
+  assert.equal(warmupCount(BENCH, { targetReps: 3 }), 3);
+});
+
+test('a muscle that has already worked today needs less introduction, or none', () => {
+  const machine = { name: 'Butterfly', equipment: 'Machine', primary: ['chest'] };
+  const warmed = new Set(['chest']);
+  assert.deepEqual(warmupSets(machine, 60, { units: 'kg', targetReps: 12, warmedRegions: warmed }), [],
+    'a pec deck after chest work does not need its own ramp');
+  assert.equal(warmupSets(machine, 60, { units: 'kg', targetReps: 12 }).length, 1);
+  // The bar keeps one set, because the load is what it is.
+  assert.equal(warmupSets(BENCH, 100, { units: 'kg', barWeight: 20, targetReps: 8, warmedRegions: warmed }).length, 1);
+  assert.equal(alreadyWarm(machine, warmed), true);
+  assert.equal(alreadyWarm(machine, new Set(['quads'])), false);
+  assert.equal(alreadyWarm(machine, null), false);
 });
 
 test('warm-up sets refuse when there is nothing to ramp towards', () => {
@@ -768,9 +881,209 @@ test('warm-up sets refuse when there is nothing to ramp towards', () => {
 
 test('warm-up sets do not repeat the same weight twice', () => {
   // Light dumbbell work rounds both steps onto the same number.
-  const sets = warmupSets({ name: 'Lateral Raise', equipment: 'Dumbbell' }, 8, { units: 'kg' });
+  const sets = warmupSets({ name: 'Lateral Raise', equipment: 'Dumbbell' }, 8, { units: 'kg', targetReps: 4 });
   const weights = sets.map((s) => s.weight);
   assert.equal(new Set(weights).size, weights.length);
+});
+
+/* ===================== what to put on next ===================== */
+
+/** A run of sessions where this exercise came first and nothing preceded it. */
+const solo = (weights, { reps = 8, rir = null, from = at(2026, 6, 1) } = {}) =>
+  weights.map((w, i) => session(from + i * 7 * 86400000,
+    [entry(BENCH.id, [set(w, reps, { rir }), set(w, reps - 1, { rir }), set(w, reps - 2, { rir })])]));
+
+test('the first working set decides, not the ones that fatigue took', () => {
+  // Eight, seven, six at the same weight against a 6-10 target. The old rule
+  // demanded every set clear ten and so recommended this weight forever.
+  const rows = exerciseHistory(solo([100], { reps: 10 }).reverse(), BENCH.id, byId);
+  const tip = openingSet(rows, { exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20 });
+  assert.equal(tip.change, 'up');
+  assert.ok(tip.weight > 100);
+  assert.equal(tip.reasons[0].key, 'clearedFirstSet');
+});
+
+test('a first set short of the target holds the weight', () => {
+  const rows = exerciseHistory(solo([100], { reps: 7 }).reverse(), BENCH.id, byId);
+  const tip = openingSet(rows, { exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20 });
+  assert.equal(tip.change, 'hold');
+  assert.equal(tip.weight, 100);
+});
+
+test('reps left in reserve are counted before a weight is refused', () => {
+  // Seven reps with three in reserve is a set of ten that stopped early.
+  const rows = exerciseHistory(solo([100], { reps: 7, rir: 3 }).reverse(), BENCH.id, byId);
+  const tip = openingSet(rows, { exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20 });
+  assert.ok(tip.weight > 100, 'a set with three in reserve did not earn a repeat');
+});
+
+test('an exercise moved later in the session is not read as a regression', () => {
+  const fly = exercise('ex_fly', 'Butterfly', ['chest']);
+  const both = new Map([[BENCH.id, BENCH], [fly.id, fly]]);
+
+  // Last time: bench first. Today: three sets of flyes came first.
+  const past = [session(at(2026, 7, 1), [entry(BENCH.id, [set(100, 8), set(100, 7)])])];
+  const rows = exerciseHistory(past, BENCH.id, both);
+  assert.equal(rows[0].readiness, 1, 'nothing came before it, so nothing is taken off');
+
+  const fresh = openingSet(rows, { exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20 });
+  const tired = openingSet(rows, {
+    exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20,
+    prior: priorWork(
+      [entry(fly.id, [set(50, 12), set(50, 12), set(50, 12)]), entry(BENCH.id, [])], 1, both
+    ),
+  });
+  assert.ok(tired.weight <= fresh.weight, 'the tired version never asks for more');
+  assert.equal(tired.orderAware, true);
+  assert.ok(tired.reasons.some((r) => r.key === 'later'), 'and it says why');
+});
+
+test('priorWork separates same-muscle work from everything else', () => {
+  const fly = exercise('ex_fly', 'Butterfly', ['chest']);
+  const curl = exercise('ex_curl', 'Machine Biceps Curl', ['biceps']);
+  const all = new Map([[BENCH.id, BENCH], [fly.id, fly], [curl.id, curl]]);
+  const entries = [
+    entry(fly.id, [set(50, 12), set(50, 12)]),
+    entry(curl.id, [set(30, 12), set(30, 12), set(30, 12)]),
+    entry(BENCH.id, []),
+  ];
+  const prior = priorWork(entries, 2, all);
+  assert.equal(prior.same, 2, 'the flyes hit the same muscle');
+  assert.equal(prior.other, 3, 'the curls did not');
+  assert.ok(prior.warmedRegions.has('chest'));
+  assert.ok(readiness(prior) < 1 && readiness(prior) > 0.9);
+  assert.equal(readiness({ same: 0, other: 0 }), 1);
+});
+
+test('the order cost is pooled across exercises when one cannot answer alone', () => {
+  // Three chest movements, rotated through first / second / third place, and
+  // each one a little lighter the later it lands. No single exercise here has
+  // enough sessions in each position to answer, together they do.
+  const a = exercise('ex_a', 'Barbell Bench Press', ['chest']);
+  const b = exercise('ex_b', 'Incline Barbell Bench Press', ['chest']);
+  const c = exercise('ex_c', 'Machine Chest Press', ['chest']);
+  const all = new Map([[a.id, a], [b.id, b], [c.id, c]]);
+  const four = (w) => [set(w, 8), set(w, 8), set(w, 8), set(w, 8)];
+
+  const sessions = [];
+  for (let i = 0; i < 6; i++) {
+    const order = [[a, b, c], [b, c, a], [c, a, b]][i % 3];
+    sessions.push(session(at(2026, 6, 1) + i * 7 * 86400000,
+      order.map((ex, place) => entry(ex.id, four(100 - place * 6)))));
+  }
+
+  const pooled = pooledOrderCost(sessions, all);
+  assert.ok(pooled, 'six sessions across three exercises is enough to measure something');
+  assert.ok(pooled.same > 0 && pooled.same <= 0.04, `cost per set was ${pooled?.same}`);
+  assert.equal(pooled.measured, true);
+
+  // And it reaches an exercise that cannot measure its own.
+  const flat = [session(at(2026, 7, 1), [entry(a.id, [set(100, 8)])])];
+  assert.equal(exerciseHistory(flat, a.id, all).orderCost, null);
+  assert.equal(exerciseHistory(flat, a.id, all, { fallbackCost: pooled }).orderCost, pooled);
+
+  assert.equal(pooledOrderCost([], all), null);
+});
+
+test('a climbing trend is projected forward, and never off a cliff', () => {
+  const rows = exerciseHistory(solo([90, 95, 100, 105]).reverse(), BENCH.id, byId);
+  const projected = projectFresh(rows, at(2026, 6, 29));
+  assert.ok(projected.slope > 0);
+  const last = rows[rows.length - 1].freshE1rm;
+  assert.ok(projected.value > last, 'the trend counts for something');
+  assert.ok(projected.value <= last * 1.05, 'but never for more than 5%');
+});
+
+test('the set-to-set drop-off is measured from the lifter, not assumed', () => {
+  const assumed = setDecay([]);
+  assert.equal(assumed.measured, false);
+  const rows = exerciseHistory(solo([100, 100, 100]).reverse(), BENCH.id, byId);
+  const measured = setDecay(rows);
+  assert.equal(measured.measured, true);
+  assert.ok(measured.value > 0 && measured.value < 0.12);
+});
+
+test('after one set today the advice comes from today', () => {
+  const rows = exerciseHistory(solo([100, 100, 100]).reverse(), BENCH.id, byId);
+  const opener = [set(100, 10, { rir: 3 })];
+  const advice = nextSet(opener, rows, { exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20 });
+  assert.equal(advice.setNumber, 2);
+  assert.equal(advice.change, 'up', 'ten reps with three in reserve is not the right weight');
+  assert.ok(advice.weight > 100);
+
+  // Reps falling away set by set is what sets do. A second set predicted just
+  // under the range holds the weight rather than dropping it, which is the
+  // whole complaint about the old between-session rule, moved indoors.
+  const fading = nextSet([set(100, 8, { rir: 0 })], rows,
+    { exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20 });
+  assert.equal(fading.change, 'hold');
+  assert.equal(fading.weight, 100);
+
+  // A drop is only offered when it actually buys reps back.
+  const wall = nextSet([set(100, 3, { rir: 0 })], rows,
+    { exercise: BENCH, targetReps: '8-12', units: 'kg', barWeight: 20 });
+  assert.equal(wall.change, 'down');
+  assert.ok(wall.weight <= 95);
+  assert.equal(nextSet([], rows, { exercise: BENCH }), null);
+});
+
+test('a machine with a five-kilo stack is never asked for 102.5', () => {
+  const machine = { id: 'ex_press', name: 'Machine Chest Press', equipment: 'Machine', primary: ['chest'] };
+  assert.equal(loadStep(machine, 'kg'), 2.5, 'the default is still the default');
+  assert.equal(loadStep(machine, 'kg', 5), 5);
+  assert.equal(roundLoad(103, machine, { units: 'kg', step: 5 }), 105);
+  assert.equal(roundLoad(101, machine, { units: 'kg', step: 5 }), 100);
+
+  const sessions = [session(at(2026, 7, 1), [entry(machine.id, [set(80, 10), set(80, 9)])])];
+  const rows = exerciseHistory(sessions, machine.id, new Map([[machine.id, machine]]));
+  const tip = openingSet(rows, { exercise: machine, targetReps: '6-10', units: 'kg', step: 5 });
+  assert.equal(tip.weight % 5, 0, `${tip.weight} is not on the stack`);
+
+  // And the warm-up lands on the same pins.
+  for (const w of warmupSets(machine, 100, { units: 'kg', targetReps: 8, step: 5 })) {
+    assert.equal(w.weight % 5, 0, `${w.weight} is not on the stack`);
+  }
+});
+
+test('a barbell still gets real plates, not a rounded increment', () => {
+  assert.equal(roundLoad(101, BENCH, { units: 'kg', barWeight: 20 }), 100);
+});
+
+/* ===================== what an estimate may be built from ===================== */
+
+test('the rank prefers sets a 1RM estimate is valid for', () => {
+  const machine = { id: 'ex_ext', name: 'Leg Extension' };
+  const byName = new Map([[machine.id, machine]]);
+  const sessions = [session(at(2026, 7, 1), [entry(machine.id, [set(60, 20), set(90, 8)])])];
+  const best = bestOneRepMaxByName(sessions, byName, { bodyweight: 80 });
+  // The twenty-rep set estimates higher (60 x 20 = 100 vs 90 x 8 = 114)... it does
+  // not, and that is the point: the window decides, not the bigger number.
+  assert.equal(Math.round(best.get('Leg Extension')), Math.round(e1rm(90, 8)));
+  assert.equal(best.extrapolated.size, 0);
+  assert.equal(withinE1rmWindow({ reps: 20 }), false);
+  assert.equal(withinE1rmWindow({ reps: 12 }), true);
+});
+
+test('a lift only ever trained above the window is ranked, and marked', () => {
+  const machine = { id: 'ex_ext', name: 'Leg Extension' };
+  const byName = new Map([[machine.id, machine]]);
+  const sessions = [session(at(2026, 7, 1), [entry(machine.id, [set(60, 20)])])];
+  const best = bestOneRepMaxByName(sessions, byName, { bodyweight: 80 });
+  assert.ok(best.get('Leg Extension') > 0, 'a blank would be worse than a caveat');
+  assert.ok(best.extrapolated.has('Leg Extension'));
+
+  const profile = { sex: 'male', bodyweight: 80, age: 25 };
+  const rating = buildRating(best, profile, { machineNames: new Set(['Leg Extension']) });
+  assert.equal(rating.lifts[0].extrapolated, true);
+  assert.equal(rating.regions.quads.extrapolated, true);
+  assert.ok(rating.regions.quads.score < rating.lifts[0].score,
+    'an extrapolated estimate counts for less on the shared map');
+});
+
+test('a manual exercise is never given a number it did not ask for', () => {
+  const rows = exerciseHistory(solo([100]).reverse(), BENCH.id, byId);
+  assert.equal(openingSet(rows, { exercise: BENCH, rule: 'manual' }), null);
+  assert.equal(openingSet([], { exercise: BENCH }), null);
 });
 
 /* ===================== is it still moving ===================== */

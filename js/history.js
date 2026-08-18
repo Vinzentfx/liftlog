@@ -10,14 +10,30 @@
 // a cached trend would go stale the moment a session is edited or deleted, and
 // the recompute is cheap at personal-log sizes.
 
-import { startOfWeek, isCounted, e1rm, entryStats, linearFit } from './models.js';
-import { buildRating, isBenchmark, hasProfile } from './standards.js';
+import { startOfWeek, isCounted, e1rm, entryStats, linearFit, withinE1rmWindow } from './models.js';
+import { buildRating, isBenchmark, hasProfile, ratedMachineNames, RATED_EQUIPMENT } from './standards.js';
 
 // Only for durations and lookback windows, never for a week boundary: a week
 // containing a clock change is not this long. Anything that decides which week
 // a timestamp belongs to steps by calendar days instead.
 const WEEK = 7 * 86400000;
 const BODYWEIGHT_LIFTS = new Set(['Pull-Up', 'Chin-Up', 'Dip']);
+
+/**
+ * The in-window bests, topped up with out-of-window ones for lifts that have
+ * nothing else, carrying the same `extrapolated` marker buildRating expects.
+ */
+function withFallbacks(best, outside) {
+  const merged = new Map(best);
+  const extrapolated = new Set();
+  for (const [name, est] of outside) {
+    if (merged.has(name)) continue;
+    merged.set(name, est);
+    extrapolated.add(name);
+  }
+  merged.extrapolated = extrapolated;
+  return merged;
+}
 
 function historicalE1rm(name, set, bodyweight) {
   if (!BODYWEIGHT_LIFTS.has(name)) return e1rm(set.weight, set.reps);
@@ -91,8 +107,9 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
   if (!finished.length) return [];
 
   const bw = [...(bodyweightLog || [])].sort((a, b) => a.date - b.date);
-  const best = new Map();          // lift name -> best e1RM so far
-  const machineNames = new Set([...exerciseById.values()].filter((ex) => ex.equipment === 'Machine').map((ex) => ex.name));
+  const best = new Map();          // lift name -> best e1RM so far, inside the window
+  const outside = new Map();       // and the fallback for lifts never trained in it
+  const machineNames = ratedMachineNames([...exerciseById.values()]);
   let cursor = 0;                  // how far through `finished` we have walked
 
   const out = [];
@@ -112,16 +129,20 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
       for (const entry of s.entries || []) {
         const ex = exerciseById.get(entry.exerciseId);
         const name = ex ? ex.name : null;
-        if (!name || (!isBenchmark(name) && ex.equipment !== 'Machine')) continue;
+        if (!name || (!isBenchmark(name) && !RATED_EQUIPMENT.has(ex.equipment))) continue;
         for (const set of (entry.sets || []).filter(isCounted)) {
           const est = historicalE1rm(name, set, sessionBodyweight);
-          if (est > (best.get(name) || 0)) best.set(name, est);
+          // Same window rule as bestOneRepMaxByName, so the line on Progress and
+          // the number on Home cannot be built from different sets.
+          const target = withinE1rmWindow(set) ? best : outside;
+          if (est > (target.get(name) || 0)) target.set(name, est);
         }
       }
     }
 
-    if (!best.size) continue;
-    const rating = buildRating(new Map(best), {
+    const merged = withFallbacks(best, outside);
+    if (!merged.size) continue;
+    const rating = buildRating(merged, {
       ...profile,
       bodyweight: bodyweightAt(bw, cutoff) ?? profile.bodyweight,
     }, { machineNames });
@@ -147,23 +168,26 @@ export function strengthAt(sessions, bodyweightLog, profile, exerciseById, at = 
   if (!hasProfile(profile)) return null;
 
   const best = new Map();
-  const machineNames = new Set([...exerciseById.values()].filter((ex) => ex.equipment === 'Machine').map((ex) => ex.name));
+  const outside = new Map();
+  const machineNames = ratedMachineNames([...exerciseById.values()]);
   const bw = [...(bodyweightLog || [])].sort((a, b) => a.date - b.date);
   for (const s of sessions) {
     if (!s.finishedAt || s.startedAt > at) continue;
     for (const entry of s.entries || []) {
       const ex = exerciseById.get(entry.exerciseId);
-      if (!ex || (!isBenchmark(ex.name) && ex.equipment !== 'Machine')) continue;
+      if (!ex || (!isBenchmark(ex.name) && !RATED_EQUIPMENT.has(ex.equipment))) continue;
       for (const set of (entry.sets || []).filter(isCounted)) {
         const sessionBodyweight = bodyweightAt(bw, s.startedAt) ?? profile.bodyweight;
         const est = historicalE1rm(ex.name, set, sessionBodyweight);
-        if (est > (best.get(ex.name) || 0)) best.set(ex.name, est);
+        const target = withinE1rmWindow(set) ? best : outside;
+        if (est > (target.get(ex.name) || 0)) target.set(ex.name, est);
       }
     }
   }
-  if (!best.size) return null;
+  const merged = withFallbacks(best, outside);
+  if (!merged.size) return null;
 
-  const rating = buildRating(best, {
+  const rating = buildRating(merged, {
     ...profile,
     bodyweight: bodyweightAt(bw, at) ?? profile.bodyweight,
   }, { machineNames });

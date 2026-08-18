@@ -297,6 +297,20 @@ export const barWeight = () => {
   return set > 0 ? set : DEFAULT_BAR[units()] ?? DEFAULT_BAR.kg;
 };
 
+/**
+ * The smallest change this machine can actually make, if the user has said.
+ *
+ * Saved per exercise on the machine-setup sheet, because it is a fact about one
+ * frame in one gym rather than a preference: a stack that goes up in fives
+ * cannot be asked for 102.5, and every weight suggestion in the app is a
+ * multiple of something. Returns null when nothing was set, and the caller
+ * falls back to the equipment default.
+ */
+export const machineStep = (exercise) => {
+  const step = Number(state.settings.machineSetups?.[exercise?.id]?.step);
+  return step > 0 ? step : null;
+};
+
 // ---------- settings ----------
 
 export async function setSetting(key, value) {

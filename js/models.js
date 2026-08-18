@@ -1,5 +1,6 @@
 // Data model, seed library, and the derived-stat maths.
 
+import { THRESHOLDS } from './evidence.js';
 import { LIBRARY as LIBRARY_MAIN } from './exercise-library.js';
 import { LIBRARY_EXTRA } from './exercise-extra.js';
 import { CONTRIB, ANATOMY } from './standards.js';
@@ -586,6 +587,8 @@ export function newSet(prev = null) {
 
 // ---------- maths ----------
 
+const E1RM_WINDOW = THRESHOLDS.e1rmWindow;
+
 /** Epley estimated one-rep max. A single rep is just the weight itself. */
 export function e1rm(weight, reps) {
   const w = Number(weight), r = Number(reps);
@@ -760,8 +763,31 @@ const BODYWEIGHT_STRENGTH_LIFTS = new Set([
   'Pull-Up', 'Chin-Up', 'Dip', 'Weighted Pull-Up', 'Weighted Chin-Up', 'Weighted Dip',
 ]);
 
+/**
+ * Is this set inside the range an estimated 1RM may be built from?
+ *
+ * See THRESHOLDS.e1rmWindow. The short version: prediction equations are
+ * validated to about ten repetitions, and a set of twenty is an extrapolation
+ * whatever formula is applied to it. Ranking somebody's quads on a twenty-rep
+ * leg extension is the case this exists to stop.
+ */
+export function withinE1rmWindow(set) {
+  const reps = Number(set?.reps) || 0;
+  return reps >= E1RM_WINDOW.low && reps <= E1RM_WINDOW.high;
+}
+
+/**
+ * Best estimated 1RM per lift name, preferring sets the estimate is valid for.
+ *
+ * A set outside the window is used only when the lift has nothing else — losing
+ * a rank entirely because somebody trains a machine at fifteen reps would be
+ * worse than an honest estimate with a caveat on it. The names that needed the
+ * fallback come back on the returned map's `extrapolated` property, so the
+ * rating can carry the caveat through to the screen rather than dropping it.
+ */
 export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
   const best = new Map();
+  const outside = new Map();
   const bodyweight = Number(profile?.bodyweight);
   for (const s of sessions) {
     if (!s.finishedAt) continue;
@@ -769,6 +795,7 @@ export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
       const ex = exerciseById.get(entry.exerciseId);
       if (!ex) continue;
       for (const set of entry.sets.filter(isCounted)) {
+        const target = withinE1rmWindow(set) ? best : outside;
         let est;
         if (BODYWEIGHT_STRENGTH_LIFTS.has(ex.name) && bodyweight > 0) {
           const added = Number(set.weight) || 0;
@@ -783,10 +810,17 @@ export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
         } else {
           est = e1rm(set.weight, set.reps);
         }
-        if (est > (best.get(ex.name) || 0)) best.set(ex.name, est);
+        if (est > (target.get(ex.name) || 0)) target.set(ex.name, est);
       }
     }
   }
+  const extrapolated = new Set();
+  for (const [name, est] of outside) {
+    if (best.has(name)) continue;
+    best.set(name, est);
+    extrapolated.add(name);
+  }
+  best.extrapolated = extrapolated;
   return best;
 }
 

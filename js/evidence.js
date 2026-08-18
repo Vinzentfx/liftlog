@@ -104,6 +104,38 @@ export const SOURCES = {
     url: 'https://www.efsa.europa.eu/en/efsajournal/pub/1459',
     says: 'evidence.efsaWater.says',
   },
+  ribeiro2020: {
+    key: 'ribeiro2020',
+    short: 'evidence.ribeiro2020.short',
+    cite: 'Ribeiro B, Pereira A, Neves PP, et al. The Role of Specific Warm-up during Bench Press and Squat Exercises: A Novel Approach. International Journal of Environmental Research and Public Health, 2020. Forty resistance-trained men, squat and bench at 80% of maximal dynamic strength.',
+    note: 'evidence.ribeiro2020.note',
+    url: 'https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7558980/',
+    says: 'evidence.ribeiro2020.says',
+  },
+  warmup2025: {
+    key: 'warmup2025',
+    short: 'evidence.warmup2025.short',
+    cite: 'Warming up to improved performance? Effects of different specific warm-up protocols on neuromuscular performance in trained individuals. Crossover trial in 29 trained lifters comparing no specific warm-up, one set at 75%, and two sets at 55% then 75%.',
+    note: 'evidence.warmup2025.note',
+    url: 'https://sportrxiv.org/index.php/server/preprint/view/559',
+    says: 'evidence.warmup2025.says',
+  },
+  ribeiro1rm2024: {
+    key: 'ribeiro1rm2024',
+    short: 'evidence.ribeiro1rm2024.short',
+    cite: 'Ribeiro AS, da Silva JA, Nascimento M, Martinho D, dos Santos L, de Salles B, Mayhew J, Cyrino ES. Accuracy of 1RM Prediction Equations Before and After Resistance Training in Three Different Lifts. International Journal of Strength and Conditioning, 4(1), 2024. 119 participants, bench press, squat and arm curl.',
+    note: 'evidence.ribeiro1rm2024.note',
+    url: 'https://journal.iusca.org/index.php/Journal/article/view/327',
+    says: 'evidence.ribeiro1rm2024.says',
+  },
+  oneRepMax2026: {
+    key: 'oneRepMax2026',
+    short: 'evidence.oneRepMax2026.short',
+    cite: 'A Weight-Dependent 1RM Prediction Equation Optimized on 303,494 Near-Failure Sets Across 388 Exercises. Preprint, 2026. 14,966 users of a consumer training app.',
+    note: 'evidence.oneRepMax2026.note',
+    url: 'https://arxiv.org/abs/2603.17495',
+    says: 'evidence.oneRepMax2026.says',
+  },
   variation2024: {
     key: 'variation2024',
     short: 'evidence.variation2024.short',
@@ -137,6 +169,38 @@ export const THRESHOLDS = {
   repWindow: { low: 5, high: 30, source: 'acsm2026' },
   /** Different movements per muscle before regional coverage stops improving. */
   exercisesPerMuscle: { value: 2, source: 'variation2024' },
+
+  /**
+   * Where the last warm-up set sits, as a share of the working weight.
+   *
+   * The old ramp topped out at 75% for three reps, which is the number every
+   * gym uses and no trial supports. Ribeiro 2020 compared a light-only warm-up
+   * against a heavy one and a progressive one, and the light-only version came
+   * last on both lifts: the set that does the work is the one near the load.
+   */
+  warmupTopShare: { value: 0.80, source: 'ribeiro2020' },
+
+  /**
+   * The repetition range an estimated 1RM may be built from.
+   *
+   * Prediction equations are validated to about ten repetitions and their error
+   * grows past it (SOURCES.ribeiro1rm2024 also finds the error is worst on the
+   * arm curl, which is to say on exactly the light isolation work a machine
+   * rank is otherwise built from). Twelve rather than ten is one repetition of
+   * grace, so ordinary 8–12 hypertrophy work is not permanently flagged as
+   * extrapolation; past that it *is* extrapolation and the app says so instead
+   * of quietly ranking somebody on a set of twenty.
+   */
+  e1rmWindow: { low: 1, high: 12, source: 'ribeiro1rm2024' },
+
+  /**
+   * Warm-up sets at a normal training load, before it stops buying anything.
+   *
+   * One. A 2025 crossover found no meaningful difference between two sets, one
+   * set and none at all around 10RM — so the app offers the one that is at
+   * least defensible and never stacks more on top.
+   */
+  warmupSetsModerate: { value: 1, source: 'warmup2025' },
   /**
    * Daily protein, grams per kg of bodyweight. Deliberately a band: 1.6 is the
    * headline breakpoint, 2.2 is the top of its own confidence interval, and the

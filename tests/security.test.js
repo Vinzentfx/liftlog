@@ -327,9 +327,38 @@ test('the social hub is opt-in and exposes no social tables directly', async () 
   assert.doesNotMatch(screen, /store\.state\.bodyweight.*publishSocialWeek/);
 });
 
+test('the rank ladder reports a drop as plainly as a climb', async () => {
+  const home = await read('js/screens/home.js');
+  // A scoreboard that only ever announces good news is a scoreboard nobody
+  // believes, so both directions have to survive a refactor.
+  assert.match(home, /recentRankChange[\s\S]*home\.rating\.rankUp[\s\S]*home\.rating\.rankDown/);
+  assert.match(home, /rankDownWhy/, 'and a demotion says it may just be bodyweight');
+});
+
+test('the warm-up offer disappears once the exercise has started', async () => {
+  const train = await read('js/screens/train.js');
+  const start = train.indexOf('function warmupOffer');
+  assert.notEqual(start, -1);
+  assert.match(train.slice(start, start + 700), /entry\.sets\.some\(isCounted\)[\s\S]*return wrap/,
+    'offering a warm-up for work already done is worse than offering none');
+});
+
+test('every weight the app suggests can be made on the equipment it names', async () => {
+  const progression = await read('js/progression.js');
+  const warmup = await read('js/warmup.js');
+  // A pin stack has no 102.5, and a bar has no 0.5 kg disc. Both routes have to
+  // stay in roundLoad / loadable rather than drifting back to bare arithmetic.
+  assert.match(progression, /export function roundLoad[\s\S]*platePlan/);
+  assert.match(progression, /loadStep\(exercise, units, override = null\)/);
+  assert.match(warmup, /step: stackStep/);
+});
+
 test('machine-only training reaches both combined strength and personal progress maps', async () => {
   const home = await read('js/screens/home.js');
-  assert.match(home, /equipment === 'Machine'[\s\S]*buildRating\(best, settings, \{ machineNames/);
+  // Machines and cables both, now that a cable stack is ranked like any other:
+  // ratedMachineNames is the single gate, so this checks the gate rather than a
+  // string comparison that used to live inline here.
+  assert.match(home, /ratedMachineNames\(store\.state\.exercises\)[\s\S]*buildRating\(best, settings, \{ machineNames/);
   assert.match(home, /regionProgress\(done[\s\S]*home\.map\.progressNote/);
   assert.match(home, /home\.rating\.machineEstimated[\s\S]*home\.rating\.machineCommunity/);
 });

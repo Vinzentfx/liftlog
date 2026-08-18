@@ -123,12 +123,15 @@ export function regionProgress(sessions, exerciseById, { weeks = 12, now = Date.
 }
 
 /**
- * Map the progression states onto the body map's five colour steps.
+ * Map the progression states onto steps of the body map's colour ramp.
  *
- * Reusing the tier ramp keeps one visual language, but the meaning is different
- * and the legend says so — this is rate of change, not rank against anyone.
+ * Reusing the ramp keeps one visual language, but the meaning is different and
+ * the legend says so — this is rate of change, not rank against anyone. The
+ * three steps are picked for what they read as rather than for where they sit
+ * on the ladder: green for climbing, a flat grey for flat, and the dimmest
+ * step for falling.
  */
-export const PROGRESS_TIER = { falling: 0, flat: 1, thin: 1, climbing: 4 };
+export const PROGRESS_TIER = { falling: 0, flat: 1, thin: 1, climbing: 5 };
 
 export function progressFills(byRegion) {
   const out = {};

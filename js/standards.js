@@ -6,21 +6,47 @@
 //  1. Height is NOT an input. No published standard uses it — it affects
 //     leverages but isn't part of any normalisation. Including it would be
 //     invented precision.
-//  2. Only benchmark lifts are rated. There is no meaningful standard for a
-//     cable lateral raise, and machine lifts vary too much between
-//     manufacturers to compare. Everything else falls back to personal
-//     progress instead of a tier.
+//  2. A movement is only rated when there is something to rate it against:
+//     a published standard for the barbell lifts, or a documented ratio to one
+//     of them for the machines. Everything else falls back to personal progress
+//     instead of a rank.
 //
 // The numbers below are an approximate consensus of commonly published
 // standards. They are a useful yardstick, not a precise measurement.
 
+/**
+ * The rank ladder.
+ *
+ * Nine ranks with three divisions each, so there are 27 steps between the
+ * first session and the top of the ladder rather than five. That is the point
+ * of the shape: the old five-tier version put Elite at the fourth of four
+ * boundaries, which meant a reasonably strong lifter arrived at the top name in
+ * the app and then had nowhere left to go for the rest of their training life.
+ *
+ * The names are deliberately game-like. What they mean is not: every boundary
+ * below is anchored to the same published bodyweight multiples the five-tier
+ * version used — see LADDER for exactly which rank inherits which anchor.
+ */
 export const TIERS = [
-  { key: 'beginner',     label: 'Beginner',     short: 'Beg' },
-  { key: 'novice',       label: 'Novice',       short: 'Nov' },
-  { key: 'intermediate', label: 'Intermediate', short: 'Int' },
-  { key: 'advanced',     label: 'Advanced',     short: 'Adv' },
-  { key: 'elite',        label: 'Elite',        short: 'Eli' },
+  { key: 'bronze',      label: 'Bronze',      short: 'Brz' },
+  { key: 'silver',      label: 'Silver',      short: 'Slv' },
+  { key: 'gold',        label: 'Gold',        short: 'Gld' },
+  { key: 'platinum',    label: 'Platinum',    short: 'Plt' },
+  { key: 'diamond',     label: 'Diamond',     short: 'Dia' },
+  { key: 'master',      label: 'Master',      short: 'Mst' },
+  { key: 'grandmaster', label: 'Grandmaster', short: 'GM' },
+  { key: 'elite',       label: 'Elite',       short: 'Eli' },
+  { key: 'legend',      label: 'Legend',      short: 'Lgd' },
 ];
+
+/** Divisions inside a rank, weakest first. Displayed as "Diamond II". */
+export const DIVISIONS = ['III', 'II', 'I'];
+
+/** Score width of one rank. Nine ranks across 0–100. */
+export const BAND = 100 / TIERS.length;
+
+/** Total steps on the ladder — the denominator of every "step 14 of 27". */
+export const RANK_STEPS = TIERS.length * DIVISIONS.length;
 
 /** Body-map regions. Finer than the coarse `muscle` field on an exercise. */
 export const REGIONS = {
@@ -43,8 +69,10 @@ export const REGIONS = {
 };
 
 /**
- * Bodyweight multiples marking entry into Novice / Intermediate / Advanced /
- * Elite. Below the first value is Beginner.
+ * The four published anchor points per lift, as bodyweight multiples: entry to
+ * Novice, Intermediate, Advanced and Elite in the standards these came from.
+ * `ladder()` turns them into the nine-rank boundaries the app displays, so the
+ * published numbers stay visible and editable in one place.
  */
 const BOUNDS = {
   male: {
@@ -209,22 +237,129 @@ export const ANATOMY = { ...CONTRIB_EXTRA, ...CONTRIB };
 export const BENCHMARKS = Object.keys(CONTRIB);
 export const isBenchmark = (name) => Object.hasOwn(CONTRIB, name);
 
-// Provisional machine standards. These broad groups intentionally start
-// conservative: the printed stack is not the force at the handle. They are a
-// useful first estimate only, and can be blended with same-model community
-// percentiles by scoreForMachine as observations accumulate.
+/* ===================== machines get a real standard ===================== */
+
+/**
+ * What a machine lift is measured against.
+ *
+ * The old version rated machines off seven very broad category bands, and both
+ * halves of that were wrong at once: the bands were far too soft (Elite on a
+ * chest press was 1.40 × bodyweight, a number a great many lifters reach in
+ * their second year), and the resulting rank was then discounted to 0.65 on the
+ * body map because nobody trusted it. Machine work therefore inflated the rank
+ * and contributed almost nothing to the map.
+ *
+ * This is the honest version of the same idea. A machine has no published
+ * standard of its own, but the *ratio* between a machine and the barbell lift it
+ * mirrors is stable enough to write down: a seated chest press is a little
+ * easier than a bench press, a machine shoulder press a little heavier than a
+ * standing overhead press because the seat takes the trunk out of it, a leg
+ * extension is roughly half a squat. So the standard is derived — the barbell
+ * ladder for that movement, scaled — which makes it as strict as the barbell
+ * standard it comes from and lets it count fully.
+ *
+ * The factors are gym-floor consensus, not measurements, and they cannot be:
+ * lever arms and stack ratios differ between manufacturers, which is exactly
+ * what `scoreForMachine` blends same-model community data into once there is
+ * any. LOW_CONFIDENCE carries that caveat to the screen.
+ *
+ * @type {Object<string, [string, number]>}  name -> [barbell lift, factor]
+ */
+const MACHINE_ANCHOR = {
+  // --- rows and pulls ---
+  'Chest-Supported T-Bar Row':  ['Barbell Row', 1.10],
+  'Chest-Supported Row':        ['Barbell Row', 1.10],
+  'Close-Grip Seated Row':      ['Barbell Row', 1.15],
+  'Machine Row':                ['Barbell Row', 1.15],
+  'Seated Cable Row':           ['Barbell Row', 1.15],
+  'T-Bar Row':                  ['Barbell Row', 1.05],
+  'Machine High Row':           ['Barbell Row', 1.20],
+  'Iso-Lateral High Row':       ['Barbell Row', 1.15],
+  'Iso-Lateral Low Row':        ['Barbell Row', 1.15],
+  'Machine Pullover':           ['Lat Pulldown', 0.70],
+  'Plate-Loaded Pullover':      ['Lat Pulldown', 0.70],
+  'Single-Arm Lat Pulldown':    ['Lat Pulldown', 0.50],
+
+  // --- pressing ---
+  'Machine Chest Press':        ['Barbell Bench Press', 0.95],
+  'Iso-Lateral Chest Press':    ['Barbell Bench Press', 0.95],
+  'Smith Machine Bench Press':  ['Barbell Bench Press', 1.00],
+  'Incline Machine Press':      ['Incline Barbell Bench Press', 0.95],
+  'Iso-Lateral Incline Chest Press': ['Incline Barbell Bench Press', 0.95],
+  'Smith Machine Incline Bench Press': ['Incline Barbell Bench Press', 1.00],
+  'Machine Chest Fly':          ['Barbell Bench Press', 0.60],
+  'Pec Deck':                   ['Barbell Bench Press', 0.60],
+  'Butterfly':                  ['Barbell Bench Press', 0.60],
+  'Machine Shoulder Press':     ['Overhead Press', 1.15],
+  'Iso-Lateral Shoulder Press': ['Overhead Press', 1.15],
+  'Machine Dip':                ['Close-Grip Bench Press', 0.90],
+  'Seated Dip Machine':         ['Close-Grip Bench Press', 0.90],
+
+  // --- arms and delts ---
+  'Machine Lateral Raise':      ['Overhead Press', 0.55],
+  'Lateral Raise Machine':      ['Overhead Press', 0.55],
+  'Cable Y-Raise':              ['Overhead Press', 0.35],
+  'Cross-Body Cable Lateral Raise': ['Overhead Press', 0.22],
+  'Machine Rear Delt Fly':      ['Barbell Row', 0.55],
+  'Machine Biceps Curl':        ['Barbell Row', 0.55],
+  'Machine Preacher Curl':      ['Barbell Row', 0.50],
+  'Preacher Curl Machine':      ['Barbell Row', 0.50],
+  'Rope Hammer Curl':           ['Barbell Row', 0.50],
+  'Bayesian Cable Curl':        ['Barbell Row', 0.22],
+  'Machine Triceps Extension':  ['Close-Grip Bench Press', 0.60],
+  'Triceps Pushdown':           ['Close-Grip Bench Press', 0.70],
+  'Rope Triceps Pushdown':      ['Close-Grip Bench Press', 0.65],
+  'Overhead Rope Triceps Extension': ['Close-Grip Bench Press', 0.45],
+
+  // --- lower body and core ---
+  'Hack Squat':                 ['Back Squat', 1.15],
+  'Pendulum Squat':             ['Back Squat', 0.95],
+  'Belt Squat':                 ['Back Squat', 0.95],
+  'Smith Machine Squat':        ['Back Squat', 1.00],
+  'Leg Extension':              ['Back Squat', 0.80],
+  'Lying Leg Curl':             ['Romanian Deadlift', 0.62],
+  'Seated Leg Curl':            ['Romanian Deadlift', 0.64],
+  'Kneeling Leg Curl Machine':  ['Romanian Deadlift', 0.35],
+  'Standing Calf Raise':        ['Back Squat', 1.10],
+  'Seated Calf Raise':          ['Back Squat', 0.60],
+  'Smith Machine Romanian Deadlift': ['Romanian Deadlift', 1.00],
+  'Glute-Biased 45-Degree Back Extension': ['Romanian Deadlift', 0.40],
+  'Machine Back Extension':     ['Back Squat', 0.50],
+  'Machine Crunch':             ['Back Squat', 0.45],
+  'Glute Drive Machine':        ['Hip Thrust', 1.00],
+  'Machine Hip Abduction':      ['Hip Thrust', 0.40],
+  'Machine Hip Adduction':      ['Hip Thrust', 0.40],
+  'Standing Hip Abduction Machine': ['Hip Thrust', 0.20],
+};
+
+/**
+ * Movements a load cannot be ranked on at all, whatever the equipment says.
+ *
+ * An assisted pull-up machine counts *downwards* — the number on the stack is
+ * how much of you the machine is carrying, so a higher number is a weaker
+ * lifter. Ranking it would invert the entire ladder for anyone who uses it.
+ */
+const UNRATEABLE = new Set(['Assisted Pull-Up Machine', 'Reverse Nordic Curl']);
+
+/**
+ * Fallback bands for a machine with no anchor — a custom exercise, or one of the
+ * long tail of the library. Same four published anchor points as a barbell lift
+ * (novice / intermediate / advanced / elite entry) so they run through the same
+ * ladder, and deliberately strict: an unrecognised machine should not be an
+ * easier route to a rank than a recognised one.
+ */
 const MACHINE_BOUNDS = {
   male: {
-    upperPress: [0.40, 0.70, 1.05, 1.40], upperPull: [0.45, 0.75, 1.10, 1.45],
-    upperIsolation: [0.15, 0.28, 0.45, 0.65], lowerPress: [1.20, 2.00, 3.00, 4.20],
-    lowerIsolation: [0.35, 0.60, 0.90, 1.30], hip: [0.80, 1.40, 2.10, 3.00],
-    core: [0.35, 0.60, 0.90, 1.30],
+    upperPress: [0.55, 0.95, 1.45, 1.95], upperPull: [0.60, 1.00, 1.45, 1.90],
+    upperIsolation: [0.30, 0.50, 0.75, 1.05], lowerPress: [2.00, 3.20, 4.50, 6.00],
+    lowerIsolation: [0.50, 0.85, 1.25, 1.70], hip: [1.25, 2.00, 2.75, 3.60],
+    core: [0.45, 0.75, 1.10, 1.50],
   },
   female: {
-    upperPress: [0.25, 0.45, 0.70, 1.00], upperPull: [0.30, 0.50, 0.75, 1.05],
-    upperIsolation: [0.10, 0.18, 0.30, 0.45], lowerPress: [0.90, 1.50, 2.30, 3.20],
-    lowerIsolation: [0.25, 0.42, 0.65, 0.95], hip: [0.65, 1.10, 1.70, 2.50],
-    core: [0.25, 0.42, 0.65, 0.95],
+    upperPress: [0.35, 0.62, 0.95, 1.30], upperPull: [0.40, 0.68, 1.00, 1.32],
+    upperIsolation: [0.20, 0.34, 0.52, 0.72], lowerPress: [1.50, 2.45, 3.45, 4.60],
+    lowerIsolation: [0.35, 0.60, 0.88, 1.20], hip: [1.00, 1.65, 2.35, 3.10],
+    core: [0.32, 0.53, 0.78, 1.06],
   },
 };
 
@@ -239,6 +374,55 @@ export function machineCategory(name) {
   return 'upperIsolation';
 }
 
+/** Equipment whose loads this engine is willing to rank. */
+export const RATED_EQUIPMENT = new Set(['Machine', 'Cable']);
+
+/**
+ * Every exercise name whose load gets a rank without a published standard.
+ *
+ * Cables used to be excluded outright, which quietly meant a pushdown, a cable
+ * row and a Bayesian curl were worth nothing at all — the same stack, the same
+ * pin, ranked or unranked depending on which side of the frame the pulley was
+ * bolted to.
+ */
+export function ratedMachineNames(exercises = []) {
+  return new Set(exercises
+    .filter((ex) => RATED_EQUIPMENT.has(ex.equipment) && !isBenchmark(ex.name) && !UNRATEABLE.has(ex.name))
+    .map((ex) => ex.name));
+}
+
+/* ===================== the ladder ===================== */
+
+const geo = (a, b) => Math.sqrt(a * b);
+
+/**
+ * Four published anchors → the eight boundaries of the nine-rank ladder.
+ *
+ * Every published number keeps its meaning; the new ranks are inserted between
+ * them rather than replacing them:
+ *
+ *   Silver      = a little over half the novice standard
+ *   Gold        = published Novice
+ *   Platinum    = between novice and intermediate
+ *   Diamond     = published Intermediate
+ *   Master      = between intermediate and advanced
+ *   Grandmaster = published Advanced
+ *   Elite       = between advanced and elite
+ *   Legend      = published Elite
+ *
+ * Geometric rather than arithmetic midpoints, because strength standards are
+ * multiplicative: the gap from 1.25 to 1.75 × bodyweight is a bigger job than
+ * the same 0.5 lower down, and the halfway point people actually experience is
+ * the ratio, not the difference.
+ */
+export function ladder(anchors) {
+  const [novice, intermediate, advanced, elite] = anchors;
+  return [
+    novice * 0.55, novice, geo(novice, intermediate), intermediate,
+    geo(intermediate, advanced), advanced, geo(advanced, elite), elite,
+  ];
+}
+
 export function strengthRatio(oneRepMax, profile) {
   const sex = profile.sex === 'female' ? 'female' : 'male';
   const bw = Number(profile.bodyweight);
@@ -247,46 +431,14 @@ export function strengthRatio(oneRepMax, profile) {
   return oneRepMax / (Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33));
 }
 
-function scoreFromBounds(ratio, bounds) {
-  let score;
-  if (ratio < bounds[0]) score = 20 * ratio / bounds[0];
-  else if (ratio < bounds[1]) score = 20 + 20 * (ratio - bounds[0]) / (bounds[1] - bounds[0]);
-  else if (ratio < bounds[2]) score = 40 + 20 * (ratio - bounds[1]) / (bounds[2] - bounds[1]);
-  else if (ratio < bounds[3]) score = 60 + 20 * (ratio - bounds[2]) / (bounds[3] - bounds[2]);
-  else score = 80 + 20 * Math.min(1, (ratio - bounds[3]) / (bounds[3] * 0.3));
-  return Math.max(0, Math.min(100, score));
-}
-
-export function scoreForMachine(liftName, oneRepMax, profile, community = null) {
+/** The inverse of strengthRatio: what a ratio is worth in kilograms. */
+export function weightForRatio(ratio, profile) {
   const sex = profile.sex === 'female' ? 'female' : 'male';
-  const ratio = strengthRatio(oneRepMax, profile);
-  if (ratio === null) return null;
-  const seed = MACHINE_BOUNDS[sex][machineCategory(liftName)].map((v) => v * ageFactor(profile.age));
-  let bounds = seed;
-  const observed = community && [community.q20, community.q40, community.q60, community.q80]
-    .map((value) => Number(value) * ageFactor(profile.age));
-  if (Number(community?.count) >= 10 && observed?.every((v, i) => v > 0 && (!i || v > observed[i - 1]))) {
-    // Seed data never disappears entirely; even a popular model can have a
-    // biased user base. At 100 observations the community contributes 80%.
-    const blend = Math.min(0.8, 0.15 + (Number(community.count) - 10) / 90 * 0.65);
-    bounds = seed.map((v, i) => v * (1 - blend) + observed[i] * blend);
-  }
-  return scoreFromBounds(ratio, bounds);
+  const bw = Number(profile.bodyweight);
+  if (!bw || bw <= 0) return null;
+  const referenceBw = sex === 'female' ? 60 : 80;
+  return ratio * Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33);
 }
-
-/**
- * Benchmarks whose standard is shakier than the rest, and why.
- *
- * Leg press is the honest problem case in this table: published standards for
- * it exist and circulate widely, but the load depends entirely on the machine's
- * leverage and sled weight, which vary hugely. Two lifters pressing the same
- * number on different machines are not doing the same work. The tier is kept
- * because leaving quads unrated for a machine trainee is worse, but the caveat
- * travels with it wherever it is shown.
- */
-export const LOW_CONFIDENCE = {
-  'Leg Press': 'Machine leverage and sled weight vary enormously between manufacturers, so the same number means different things in different gyms. Treat this tier as a rough placement, and trust your own progression on the machine you actually use.',
-};
 
 /**
  * Strength peaks roughly 20–35. Older lifters get a proportionally easier
@@ -301,87 +453,254 @@ export function ageFactor(age) {
 }
 
 /**
- * Continuous 0–100 score. Tier bands are 20 points wide, so the score encodes
- * both the tier and how far through it you are.
+ * Continuous 0–100 score across the eight boundaries.
+ *
+ * Bands are equal width, so the score encodes both the rank and how far through
+ * it you are. Above the last boundary the score climbs to 100 over a further
+ * 25% of the top standard, which is what stops Legend from being a wall the
+ * moment it is reached.
  */
-export function scoreFor(liftName, oneRepMax, profile) {
-  const sex = profile.sex === 'female' ? 'female' : 'male';
-  const bw = Number(profile.bodyweight);
-  if (!bw || bw <= 0 || !oneRepMax) return null;
-
-  const table = BOUNDS[sex][BENCHMARK_BASE[liftName] || liftName];
-  if (!table) return null;
-
-  // 1RM for bodyweight movements is already the estimated total system load.
-  // Allometric scaling avoids the strong bias of dividing linearly by BW.
-  const ratio = strengthRatio(oneRepMax, profile);
-
-  // Easier standard for masters / juniors => divide the bar, not the lifter.
-  const f = ageFactor(profile.age);
-  const b = table.map((v) => v * f);
-
-  let score;
-  if (ratio < b[0]) score = 20 * (ratio / b[0]);
-  else if (ratio < b[1]) score = 20 + 20 * (ratio - b[0]) / (b[1] - b[0]);
-  else if (ratio < b[2]) score = 40 + 20 * (ratio - b[1]) / (b[2] - b[1]);
-  else if (ratio < b[3]) score = 60 + 20 * (ratio - b[2]) / (b[3] - b[2]);
-  else score = 80 + 20 * Math.min(1, (ratio - b[3]) / (b[3] * 0.3));
-
-  return Math.max(0, Math.min(100, score));
+function scoreFromBounds(ratio, bounds) {
+  const band = 100 / (bounds.length + 1);
+  if (ratio < bounds[0]) return Math.max(0, band * (ratio / bounds[0]));
+  for (let i = 1; i < bounds.length; i++) {
+    if (ratio < bounds[i]) return band * (i + (ratio - bounds[i - 1]) / (bounds[i] - bounds[i - 1]));
+  }
+  const top = bounds[bounds.length - 1];
+  return Math.min(100, band * bounds.length + band * Math.min(1, (ratio - top) / (top * 0.25)));
 }
 
+/** scoreFromBounds turned inside out: the ratio a target score asks for. */
+function ratioFromScore(score, bounds) {
+  const band = 100 / (bounds.length + 1);
+  const i = Math.floor(score / band);
+  const frac = score / band - i;
+  if (i <= 0) return bounds[0] * frac;
+  if (i >= bounds.length) return bounds[bounds.length - 1] * (1 + 0.25 * Math.min(1, frac));
+  return bounds[i - 1] + (bounds[i] - bounds[i - 1]) * frac;
+}
+
+/**
+ * The eight boundaries for one lift, age-adjusted, or null when the lift has no
+ * standard at all. `machine` decides which table is consulted.
+ */
+export function boundsFor(liftName, profile, { machine = false, community = null } = {}) {
+  const sex = profile.sex === 'female' ? 'female' : 'male';
+  const f = ageFactor(profile.age);
+
+  if (!machine) {
+    const table = BOUNDS[sex][BENCHMARK_BASE[liftName] || liftName];
+    return table ? ladder(table).map((v) => v * f) : null;
+  }
+
+  if (UNRATEABLE.has(liftName)) return null;
+
+  const anchor = MACHINE_ANCHOR[liftName];
+  let seed;
+  if (anchor && BOUNDS[sex][anchor[0]]) seed = BOUNDS[sex][anchor[0]].map((v) => v * anchor[1]);
+  else seed = MACHINE_BOUNDS[sex][machineCategory(liftName)];
+
+  // Same-model community percentiles, blended into the four anchors before the
+  // ladder is built from them — the cloud stores four quantiles, which is
+  // exactly the shape the published tables come in.
+  const observed = community && [community.q20, community.q40, community.q60, community.q80].map(Number);
+  if (Number(community?.count) >= 10 && observed?.every((v, i) => v > 0 && (!i || v > observed[i - 1]))) {
+    // Seed data never disappears entirely; even a popular model can have a
+    // biased user base. At 100 observations the community contributes 80%.
+    const blend = Math.min(0.8, 0.15 + (Number(community.count) - 10) / 90 * 0.65);
+    seed = seed.map((v, i) => v * (1 - blend) + observed[i] * blend);
+  }
+  return ladder(seed).map((v) => v * f);
+}
+
+/**
+ * How much a rank built outside the valid repetition window is trusted.
+ *
+ * Not zero: a lifter who only ever trains a machine at fifteen reps should get
+ * a rank rather than a blank. Not one either, and the number is deliberately
+ * the same size as the machine discount it replaced, because the uncertainty is
+ * the same kind: a real measurement read through a formula that was not fitted
+ * for it.
+ */
+const EXTRAPOLATED_CONFIDENCE = 0.85;
+
+/** How much a machine's rank is trusted on the shared body map. */
+export function machineConfidence(liftName, community = null) {
+  if (Number(community?.count) >= 10) return 1;
+  return MACHINE_ANCHOR[liftName] ? 1 : 0.9;
+}
+
+export function scoreForMachine(liftName, oneRepMax, profile, community = null) {
+  const ratio = strengthRatio(oneRepMax, profile);
+  if (ratio === null) return null;
+  const bounds = boundsFor(liftName, profile, { machine: true, community });
+  return bounds ? scoreFromBounds(ratio, bounds) : null;
+}
+
+export function scoreFor(liftName, oneRepMax, profile) {
+  const ratio = strengthRatio(oneRepMax, profile);
+  if (ratio === null) return null;
+  const bounds = boundsFor(liftName, profile, { machine: false });
+  return bounds ? scoreFromBounds(ratio, bounds) : null;
+}
+
+/**
+ * Benchmarks whose standard is shakier than the rest, and why.
+ *
+ * Leg press is the honest problem case in this table: published standards for
+ * it exist and circulate widely, but the load depends entirely on the machine's
+ * leverage and sled weight, which vary hugely. Two lifters pressing the same
+ * number on different machines are not doing the same work. The rank is kept
+ * because leaving quads unranked for a machine trainee is worse, but the caveat
+ * travels with it wherever it is shown.
+ */
+export const LOW_CONFIDENCE = {
+  'Leg Press': 'Machine leverage and sled weight vary enormously between manufacturers, so the same number means different things in different gyms. Treat this rank as a rough placement, and trust your own progression on the machine you actually use.',
+};
+
+/**
+ * The epsilon exists because 100/9 does not divide 100.
+ *
+ * A lift landing exactly on a published anchor scores exactly `n × BAND`, and
+ * without this that division comes back as 5.999999 and prints the rank below
+ * the one the standard says. It is not a rounding preference, it is the
+ * difference between "you have reached Grandmaster" and "you have not".
+ */
+const EPS = 1e-9;
+
 export const tierIndex = (score) =>
-  score === null || score === undefined ? null : Math.min(4, Math.floor(score / 20));
+  score === null || score === undefined
+    ? null
+    : Math.max(0, Math.min(TIERS.length - 1, Math.floor(score / BAND + EPS)));
 
 export const tierOf = (score) => {
   const i = tierIndex(score);
   return i === null ? null : TIERS[i];
 };
 
-/** kg still needed on the bar to reach the next tier, or null at Elite. */
-export function toNextTier(liftName, score, profile) {
+/**
+ * Rank, division, and how far through the division you are.
+ *
+ * `step` is the absolute position on the 27-step ladder, which is the number to
+ * compare across time: it is the one value that goes up by exactly one every
+ * time there is something to celebrate.
+ */
+export function rankOf(score) {
+  if (score === null || score === undefined || Number.isNaN(score)) return null;
   const i = tierIndex(score);
-  if (i === null || i >= 4) return null;
-  const sex = profile.sex === 'female' ? 'female' : 'male';
-  const table = BOUNDS[sex][BENCHMARK_BASE[liftName] || liftName];
-  if (!table) return null;
-  const bw = Number(profile.bodyweight);
-  const f = ageFactor(profile.age);
-  const needRatio = table[i] * f;
-  const referenceBw = sex === 'female' ? 60 : 80;
-  let need = needRatio * Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33);
-  if (BODYWEIGHT_INCLUSIVE.has(liftName)) need -= bw;
-  return { tier: TIERS[i + 1], weight: need };
+  const into = Math.max(0, Math.min(0.999999, (score - i * BAND) / BAND));
+  const d = Math.min(DIVISIONS.length - 1, Math.floor(into * DIVISIONS.length + EPS));
+  return {
+    tier: TIERS[i],
+    tierIndex: i,
+    division: DIVISIONS[d],
+    divisionIndex: d,
+    /** 0–1 through the current division. */
+    progress: into * DIVISIONS.length - d,
+    step: i * DIVISIONS.length + d + 1,
+    steps: RANK_STEPS,
+    top: i === TIERS.length - 1 && d === DIVISIONS.length - 1,
+  };
+}
+
+/** The score at which the next division, and the next rank, begin. */
+export function nextThresholds(score) {
+  const rank = rankOf(score);
+  if (!rank) return null;
+  const divisionScore = (rank.tierIndex * DIVISIONS.length + rank.divisionIndex + 1) * (BAND / DIVISIONS.length);
+  const tierScore = (rank.tierIndex + 1) * BAND;
+  return {
+    division: rank.top ? null : divisionScore,
+    tier: rank.tierIndex >= TIERS.length - 1 ? null : tierScore,
+  };
+}
+
+/**
+ * The lift that a target score asks for, in kilograms on the bar.
+ *
+ * For a bodyweight-inclusive movement the standard is written against the whole
+ * system, so the answer is what to *add*, which is what a pull-up belt takes.
+ */
+export function weightForScore(liftName, targetScore, profile, { machine = false, community = null } = {}) {
+  const bounds = boundsFor(liftName, profile, { machine, community });
+  if (!bounds) return null;
+  let need = weightForRatio(ratioFromScore(targetScore, bounds), profile);
+  if (need === null) return null;
+  if (BODYWEIGHT_INCLUSIVE.has(liftName)) need -= Number(profile.bodyweight);
+  return need;
+}
+
+/** kg still needed to reach the next rank, or null at the top. */
+export function toNextTier(liftName, score, profile, opts = {}) {
+  const next = nextThresholds(score);
+  if (!next || next.tier === null) return null;
+  const weight = weightForScore(liftName, next.tier, profile, opts);
+  return weight === null ? null : { tier: TIERS[tierIndex(score) + 1], weight };
+}
+
+/** kg still needed to reach the next division — the small, frequent win. */
+export function toNextDivision(liftName, score, profile, opts = {}) {
+  const next = nextThresholds(score);
+  if (!next || next.division === null) return null;
+  const weight = weightForScore(liftName, next.division, profile, opts);
+  if (weight === null) return null;
+  const rank = rankOf(next.division + 0.0001);
+  return { tier: rank.tier, division: rank.division, weight };
 }
 
 /**
  * Per-region and overall rating.
  *
  * A region's score is the best (lift score × how strongly that lift trains it)
- * across the benchmark lifts the user actually performs. Taking the max rather
- * than an average means skipping one lift doesn't drag a region down — but a
- * region you never train stays unrated rather than scoring zero.
+ * across the lifts the user actually performs. Taking the max rather than an
+ * average means skipping one lift doesn't drag a region down — but a region you
+ * never train stays unrated rather than scoring zero.
+ *
+ * Machines now count fully, because they finally have a standard worth counting
+ * (see MACHINE_ANCHOR). Free weights still win a tie: where a barbell lift and a
+ * machine land a region on the same number, the one measured against a published
+ * standard is the one named as the source.
  *
  * @param bestByLift Map of lift name -> best estimated 1RM
  */
-export function buildRating(bestByLift, profile, { machineNames = new Set(), community = {} } = {}) {
+export function buildRating(bestByLift, profile,
+  { machineNames = new Set(), community = {}, extrapolated = bestByLift.extrapolated } = {}) {
   const regions = {};
   const lifts = [];
+  const outside = extrapolated instanceof Set ? extrapolated : new Set();
 
   for (const [name, orm] of bestByLift) {
     const machine = machineNames.has(name) && !isBenchmark(name);
     if (!isBenchmark(name) && !machine) continue;
-    const score = machine ? scoreForMachine(name, orm, profile, community[name]) : scoreFor(name, orm, profile);
+    const score = machine
+      ? scoreForMachine(name, orm, profile, community[name])
+      : scoreFor(name, orm, profile);
     if (score === null) continue;
     const sample = Number(community[name]?.count) || 0;
-    lifts.push({ name, oneRepMax: orm, score, tier: tierOf(score), next: machine ? null : toNextTier(name, score, profile),
-      machine, provisional: machine && sample < 10, sample });
+    const opts = { machine, community: community[name] || null };
+    lifts.push({
+      name, oneRepMax: orm, score, tier: tierOf(score), rank: rankOf(score),
+      next: toNextTier(name, score, profile, opts),
+      nextDivision: toNextDivision(name, score, profile, opts),
+      machine, derived: machine && !!MACHINE_ANCHOR[name],
+      provisional: machine && sample < 10, sample,
+      // Built from a set outside the range a 1RM estimate is valid over, because
+      // this lift has never been trained inside it. See THRESHOLDS.e1rmWindow.
+      extrapolated: outside.has(name),
+    });
 
     for (const [region, weight] of Object.entries(ANATOMY[name] || {})) {
-      const confidence = machine ? (sample >= 10 ? Math.min(0.95, 0.7 + sample / 400) : 0.65) : 1;
+      const confidence = (machine ? machineConfidence(name, community[name]) : 1)
+        * (outside.has(name) ? EXTRAPOLATED_CONFIDENCE : 1);
       const value = score * weight * confidence;
-      if (!regions[region] || value > regions[region].score) {
-        regions[region] = { score: value, via: name, machine, provisional: machine && sample < 10, sample };
+      const held = regions[region];
+      // Ties go to the published standard: a machine only takes a region off a
+      // barbell lift by being strictly better.
+      const better = !held || value > held.score
+        || (!machine && held.machine && value >= held.score);
+      if (better) {
+        regions[region] = { score: value, via: name, machine, provisional: machine && sample < 10, sample,
+          extrapolated: outside.has(name) };
       }
     }
   }
@@ -400,6 +719,7 @@ export function buildRating(bestByLift, profile, { machineNames = new Set(), com
     lifts,
     overall,
     overallTier: overall === null ? null : tierOf(overall),
+    overallRank: overall === null ? null : rankOf(overall),
     ratedRegions: rated.length,
     totalRegions: Object.keys(REGIONS).length,
   };

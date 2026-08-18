@@ -326,7 +326,7 @@ export function renderSettings() {
       checkRow(bgAudioToggle, t('settings.restBackgroundAudio'), t('settings.restBackgroundAudioNote')),
       checkRow(rirToggle, t('settings.logRir'), t('settings.logRirNote')),
       checkRow(progressionToggle, t('settings.progressionSuggestions'), t('settings.progressionSuggestionsNote')),
-      checkRow(warmupToggle, t('settings.warmupSuggestions')),
+      checkRow(warmupToggle, t('settings.warmupSuggestions'), t('settings.warmupSuggestionsNote')),
       checkRow(plateauToggle, t('settings.plateauHints')),
       checkRow(deloadToggle, t('settings.deloadHints'), t('settings.deloadHintsNote')),
       checkRow(techniqueToggle, t('settings.techniqueHints'), t('settings.techniqueHintsNote')),

@@ -15,7 +15,8 @@ import { strengthHistory, tonnageHistory, movers } from '../history.js';
 import { weekStreak } from '../log-analysis.js';
 import { stallReport, describeStall } from '../fatigue.js';
 import { shareWeekSheet } from '../week-share.js';
-import { TIERS, tierIndex, hasProfile } from '../standards.js';
+import { TIERS, DIVISIONS, BAND, tierIndex, rankOf, hasProfile } from '../standards.js';
+import { exerciseHistory, pooledOrderCost } from '../progression.js';
 import { pickExercise } from '../pickers.js';
 import { profileForm } from './settings.js';
 import { navigate } from '../app.js';
@@ -309,7 +310,7 @@ function strengthSection(done) {
         history.map((h) => ({
           x: h.week,
           y: h.score,
-          tip: `${Math.round(h.score)} · ${tTier(h.tier.key)}`,
+          tip: `${Math.round(h.score)} · ${tTier(h.tier.key)} ${rankOf(h.score).division}`,
         })),
         {
           caption: t('progress.strengthCaption', { lifts: tn(last.lifts, 'unit.lift') }),
@@ -322,7 +323,10 @@ function strengthSection(done) {
       ),
       el('div.row.between', { style: { marginTop: '10px', alignItems: 'center' } }, [
         el(`div.tier-${tierIndex(last.score)}`, {}, [
-          el('span.tier-chip', { text: tTier(last.tier.key) }),
+          el('span.tier-chip', {}, [
+            tTier(last.tier.key),
+            el('span.div-mark', { text: rankOf(last.score).division }),
+          ]),
         ]),
         el('div.small', {
           style: { color: delta >= 0 ? 'var(--good)' : 'var(--text-dim)', fontWeight: '650' },
@@ -334,10 +338,10 @@ function strengthSection(done) {
       ]),
       // The tier thresholds are the thing people actually want to know their
       // distance from, and reading them off an unlabelled y-axis is guesswork.
-      // Bands are 20 points wide — see tierIndex() in standards.js.
+      // Bands are 100/9 points wide — see BAND and tierIndex() in standards.js.
       el('div.small.faint', { style: { marginTop: '6px' },
         text: t('progress.tierBands', {
-          bands: TIERS.map((tier, i) => `${tTier(tier.key, { short: true })} ${i * 20}`).join(' · '),
+          bands: TIERS.map((tier, i) => `${tTier(tier.key, { short: true })} ${Math.round(i * BAND)}`).join(' · '),
         }) + ` ${nextTierNote(last.score)}` }),
     ])
   );
@@ -352,12 +356,23 @@ function axisFormat(values) {
   return (v) => v.toFixed(decimals);
 }
 
-/** How far to the next tier, in the units the chart is drawn in. */
+/**
+ * How far to the next step, in the units the chart is drawn in.
+ *
+ * The next *division* rather than the next rank: on a 27-step ladder the rank
+ * above can be ten points away, and a distance that far off does not read as a
+ * thing you are close to.
+ */
 function nextTierNote(score) {
-  const i = tierIndex(score);
-  if (i >= TIERS.length - 1) return t('progress.topBand');
-  const gap = (i + 1) * 20 - score;
-  return t('progress.pointsTo', { points: gap.toFixed(1), tier: tTier(TIERS[i + 1].key) });
+  const rank = rankOf(score);
+  if (!rank || rank.top) return t('progress.topBand');
+  const step = BAND / DIVISIONS.length;
+  const next = Math.min(100, (Math.floor(score / step) + 1) * step);
+  const target = rankOf(next + 0.0001);
+  return t('progress.pointsTo', {
+    points: (next - score).toFixed(1),
+    tier: `${tTier(target.tier.key)} ${target.division}`,
+  });
 }
 
 /* ===================== movers ===================== */
@@ -643,6 +658,16 @@ function exerciseView(exerciseId) {
 
   const series = exerciseSeries(store.state.sessions, exerciseId);
 
+  // The same sessions with the order effect taken out. A lift that moved from
+  // first to fifth in a session drops a few percent for reasons that have
+  // nothing to do with getting weaker, and on a twelve-week chart that reads as
+  // a plateau. See js/progression.js for what is being corrected and how much.
+  const corrected = exerciseHistory(store.state.sessions, exerciseId, store.state.exerciseById, {
+    limit: 500,
+    fallbackCost: pooledOrderCost(store.state.sessions, store.state.exerciseById),
+  });
+  const freshById = new Map(corrected.map((row) => [row.sessionId, row]));
+
   root.append(
     el('div', { style: { marginBottom: '14px' } }, [
       el('div', { style: { fontSize: '21px', fontWeight: '710', letterSpacing: '-0.02em' }, text: ex.name }),
@@ -678,6 +703,10 @@ function exerciseView(exerciseId) {
   const METRICS = {
     e1rm:   { label: t('progress.metric.e1rm'), noun: t('progress.metric.e1rmNoun'), pick: (p) => p.e1rm,
               caption: t('progress.metric.e1rmCaption') },
+    fresh:  { label: t('progress.metric.fresh'), noun: t('progress.metric.freshNoun'),
+              pick: (p) => freshById.get(p.sessionId)?.freshE1rm || 0,
+              caption: t(corrected.orderCost?.measured
+                ? 'progress.metric.freshCaptionMeasured' : 'progress.metric.freshCaption') },
     top:    { label: t('progress.metric.top'), noun: t('progress.metric.topNoun'), pick: (p) => p.topWeight,
               caption: t('progress.metric.topCaption') },
     volume: { label: t('plans.part.volume'), noun: t('progress.metric.volumeNoun'), pick: (p) => p.volume,
@@ -695,6 +724,7 @@ function exerciseView(exerciseId) {
           [...e.target.parentElement.children].forEach((b, i) =>
             b.setAttribute('aria-pressed', String(Object.keys(METRICS)[i] === key)));
           paintChart();
+          paintTail();
         },
       }, [m.label])
     )
@@ -724,27 +754,34 @@ function exerciseView(exerciseId) {
     );
   }
 
-  paintChart();
-  root.append(seg, chartHost);
-
   // Trend readout — plain language beats making the user squint at a slope.
-  if (series.length >= 3) {
+  // Repainted with the chart rather than built once: it names the metric it is
+  // talking about, and switching to a different one used to leave the old name
+  // sitting under the new line.
+  const tailHost = el('div');
+
+  function paintTail() {
+    tailHost.replaceChildren();
+    if (series.length < 3) return;
     const first = series[0], last = series[series.length - 1];
     const m = METRICS[metric];
     const a = m.pick(first), b = m.pick(last);
-    if (a > 0) {
-      const pct = ((b - a) / a) * 100;
-      const weeks = Math.max(1, Math.round((last.t - first.t) / (7 * 86400000)));
-      root.append(
-        el('div.card.tight', {}, [
-          el('div.small', {}, [
-            el('b', { text: `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% `, class: pct >= 0 ? 'mono-accent' : '' }),
-            t('progress.trendTail', { weeks: tn(weeks, 'unit.week'), metric: m.noun }),
-          ]),
-        ])
-      );
-    }
+    if (!(a > 0)) return;
+    const pct = ((b - a) / a) * 100;
+    const weeks = Math.max(1, Math.round((last.t - first.t) / (7 * 86400000)));
+    tailHost.append(
+      el('div.card.tight', {}, [
+        el('div.small', {}, [
+          el('b', { text: `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% `, class: pct >= 0 ? 'mono-accent' : '' }),
+          t('progress.trendTail', { weeks: tn(weeks, 'unit.week'), metric: m.noun }),
+        ]),
+      ])
+    );
   }
+
+  paintChart();
+  paintTail();
+  root.append(seg, chartHost, tailHost);
 
   root.append(noteHistory(exerciseId));
 
