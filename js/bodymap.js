@@ -5,6 +5,7 @@
 import { el } from './ui.js';
 import { t, tRegion, tTier } from './i18n.js';
 import { TIERS, tierIndex } from './standards.js';
+import { rankBadge } from './rank-art.js';
 
 const SRC = { front: 'assets/body-front.svg', back: 'assets/body-back.svg' };
 const cache = {};
@@ -100,16 +101,32 @@ export function muscleHighlight(primary = [], secondary = []) {
 }
 
 /**
- * Legend row — ranks are never communicated by colour alone.
+ * Legend for the strength map: a scale, not a list.
  *
- * Short names, because nine of them written out fills half the screen and the
- * long name is one tap away on any region anyway.
+ * This used to be one chip per rank. At nine that already wrapped onto two rows
+ * of abbreviations, and German truncated several of them into nonsense; at
+ * twelve it is unreadable in any language. The abbreviations were the wrong
+ * answer to the wrong question anyway — nobody reads a legend to learn that
+ * "GM" means Grandmaster, they read it to learn *which end is which*.
+ *
+ * So it is drawn as what it actually is: an ordinal ramp, with the two ends
+ * named and badged and the middle left to speak for itself. The full scale with
+ * every rank and its point range is one tap away on any muscle, which is where
+ * somebody who wants the detail is already going.
  */
 export function tierLegend() {
-  return el('div.legend', {}, TIERS.map((tier, i) =>
-    el('span', { title: tTier(tier.key) }, [
-      el('b', { style: { background: `var(--t${i})` } }),
-      tTier(tier.key, { short: true }),
-    ])
-  ));
+  const end = (i, align) => el(`div.legend-end.tier-${i}`, { style: { textAlign: align } }, [
+    rankBadge(i, { size: 22 }),
+    el('span', { text: tTier(TIERS[i].key) }),
+  ]);
+
+  return el('div.legend-scale', {}, [
+    el('div.legend-ramp', { role: 'img', 'aria-label': t('bodymap.scaleAria', { n: TIERS.length }) },
+      TIERS.map((tier, i) => el('i', { style: { background: `var(--t${i})` } }))),
+    el('div.row.between', { style: { marginTop: '7px' } }, [
+      end(0, 'left'),
+      el('span.small.faint', { text: t('bodymap.scaleHint', { n: TIERS.length }) }),
+      end(TIERS.length - 1, 'right'),
+    ]),
+  ]);
 }

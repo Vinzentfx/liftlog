@@ -37,6 +37,14 @@
   --t6: #A855F7;   /* Grandmaster */
   --t7: #F472B6;   /* Elite       */
   --t8: #FFB020;   /* Legend      */
+  /* Above the published standards. Challenger is deliberately much darker than
+     the amber below it rather than merely a different hue: amber and red
+     converge under deuteranopia, and lightness is the channel that survives.
+     Radiant is near-white because it is the end of the ladder and because the
+     name means light. */
+  --t9:  #DC2626;  /* Challenger  */
+  --t10: #D946EF;  /* Immortal    */
+  --t11: #F1F5F9;  /* Radiant     */
 
   --glow-accent: 0 0 24px -4px rgba(59, 130, 246, .55);
   --glow-soft:   0 0 18px -6px rgba(59, 130, 246, .40);
@@ -646,6 +654,9 @@ label.field > span {
 .tier-6 { --tier: var(--t6); }
 .tier-7 { --tier: var(--t7); }
 .tier-8 { --tier: var(--t8); }
+.tier-9 { --tier: var(--t9); }
+.tier-10 { --tier: var(--t10); }
+.tier-11 { --tier: var(--t11); }
 
 /* Roman numeral after the rank name. Its own element so the rank reads as one
    word at a glance and the division only registers on a second look — which is
@@ -655,20 +666,41 @@ label.field > span {
   opacity: .8; margin-left: 5px; letter-spacing: .08em;
 }
 
-/* The 27-step ladder, drawn as one segmented bar. Nine ranks, three notches
-   each, filled up to where the lifter currently stands. */
-.ladder { display: flex; gap: 3px; margin-top: 12px; }
-.ladder i {
-  flex: 1; height: 6px; border-radius: 2px;
-  background: var(--bg-sunken); transition: background .25s ease;
+/* Where you stand and what is next. One segment per rank rather than one per
+   step: twelve ranks times three divisions would be 36 slivers three pixels
+   wide, which is a texture and not a scale. The division lives in the partial
+   fill of the current segment instead. */
+.rank-track { margin-top: 16px; }
+.rank-track-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rank-track-now { display: flex; align-items: center; gap: 11px; text-align: left; min-width: 0; }
+.rank-track-name {
+  font-size: 17px; font-weight: 760; letter-spacing: -.01em; line-height: 1.15;
+  color: var(--tier, var(--text)); white-space: nowrap;
 }
-.ladder i.on { background: color-mix(in srgb, var(--tier, var(--accent)) 55%, transparent); }
-.ladder i.now {
-  background: var(--tier, var(--accent));
-  box-shadow: 0 0 10px -1px var(--tier, var(--accent));
-}
+/* Both of these must never wrap: "I · Stufe 15/36" broken over three lines was
+   what the old head did, and it pushed the goal badge into the score above. */
+.rank-track-step { font-size: 12px; color: var(--text-faint); margin-top: 2px; white-space: nowrap; }
 
-/* Progress inside the current division: the small, frequent win. */
+/* The goal, dimmed: present enough to aim at, quiet enough not to compete with
+   the rank actually held. */
+.rank-track-next { display: flex; align-items: center; gap: 6px; flex: none; white-space: nowrap; opacity: .68; }
+.rank-track-next .rank-badge { flex: none; }
+.rank-track-arrow { color: var(--text-faint); font-size: 13px; }
+.rank-track-goal-name { font-size: 12.5px; font-weight: 650; color: var(--tier, var(--text-dim)); }
+
+.rank-rail { display: flex; gap: 3px; margin-top: 14px; }
+.rank-rail-seg {
+  flex: 1; height: 7px; border-radius: 2px; overflow: hidden;
+  background: var(--bg-sunken);
+}
+.rank-rail-seg i {
+  display: block; height: 100%;
+  background: var(--tier, var(--accent));
+  transition: width .35s ease;
+}
+.rank-rail-seg.now { box-shadow: 0 0 10px -2px var(--tier, var(--accent)); }
+
+/* Progress inside the current division, still used on the per-lift rows. */
 .division-track {
   height: 5px; border-radius: 999px; background: var(--bg-sunken);
   overflow: hidden; margin-top: 8px;
@@ -1160,6 +1192,19 @@ svg.chart .hit { fill: transparent; }
 .heatmap i[data-v="1"] { background: color-mix(in srgb, var(--accent) 34%, var(--line-soft)); }
 .heatmap i[data-v="2"] { background: color-mix(in srgb, var(--accent) 66%, var(--line-soft)); }
 .heatmap i[data-v="3"] { background: var(--accent); box-shadow: 0 0 7px -1px rgba(59, 130, 246, .8); }
+
+/* The strength map's legend: an ordinal ramp with its two ends named, rather
+   than a wrapped row of abbreviations nobody can decode. */
+.legend-scale { margin-top: 12px; }
+.legend-ramp { display: flex; gap: 2px; height: 8px; }
+.legend-ramp i { flex: 1; border-radius: 1px; }
+.legend-ramp i:first-child { border-radius: 3px 1px 1px 3px; }
+.legend-ramp i:last-child { border-radius: 1px 3px 3px 1px; }
+.legend-end {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 640; color: var(--tier, var(--text-dim));
+}
+.legend-end:last-child { flex-direction: row-reverse; }
 
 .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--text-dim); margin-top: 10px; }
 .legend span { display: inline-flex; align-items: center; gap: 5px; }

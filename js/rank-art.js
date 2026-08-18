@@ -40,6 +40,12 @@ export const PARTS = [
   { stud: false, chevrons: 3, gem: true,  stars: 2, wings: false, crown: false }, // Grandmaster
   { stud: false, chevrons: 3, gem: true,  stars: 1, wings: true,  crown: false }, // Elite
   { stud: false, chevrons: 3, gem: true,  stars: 1, wings: true,  crown: true },  // Legend
+  // Past the published standards the badge stops adding new kinds of thing and
+  // starts adding light, which is the only escalation left that does not turn
+  // the shield into a collage.
+  { stud: false, chevrons: 3, gem: true, stars: 2, wings: true, crown: true, halo: true },
+  { stud: false, chevrons: 3, gem: true, stars: 3, wings: true, crown: true, halo: true, flare: true },
+  { stud: false, chevrons: 3, gem: true, stars: 3, wings: true, crown: true, halo: true, flare: true, aura: true },
 ];
 
 // The shield is drawn in a 0..64 box, and the viewBox is wider than that on
@@ -99,8 +105,32 @@ export function rankBadge(tierIndex, { size = 34, glow = false } = {}) {
   defs.append(grad, sheen);
   svg.append(defs);
 
-  // Behind the shield, so the shield reads as the object and these as what it
-  // sits in front of.
+  // Furthest back first. Aura, then flare, then halo, then wings, then the
+  // shield: everything the top ranks add is light behind the object rather than
+  // another object on top of it.
+  if (parts.aura) {
+    const aura = node('radialGradient', { id: `${id}-aura` });
+    aura.append(
+      node('stop', { offset: '0.25', 'stop-color': 'var(--tier)', 'stop-opacity': '0.55' }),
+      node('stop', { offset: '1', 'stop-color': 'var(--tier)', 'stop-opacity': '0' })
+    );
+    defs.append(aura);
+    svg.append(node('circle', { cx: 32, cy: 32, r: 44, fill: `url(#${id}-aura)` }));
+  }
+  if (parts.flare) {
+    for (let n = 0; n < 8; n++) {
+      svg.append(node('path', {
+        d: 'M32 -13 L34.4 -3 L32 1 L29.6 -3 Z', fill: 'var(--tier)', opacity: '0.7',
+        transform: `rotate(${n * 45} 32 32)`,
+      }));
+    }
+  }
+  if (parts.halo) {
+    svg.append(node('circle', {
+      cx: 32, cy: 32, r: 35, fill: 'none', stroke: 'var(--tier)',
+      'stroke-width': '2', opacity: '0.55',
+    }));
+  }
   if (parts.wings) {
     for (const flip of [false, true]) {
       svg.append(node('path', {
@@ -137,10 +167,13 @@ export function rankBadge(tierIndex, { size = 34, glow = false } = {}) {
       fill: '#fff', opacity: '0.22' }));
   }
 
-  for (let n = 0; n < parts.stars; n++) {
-    const x = parts.stars === 1 ? 32 : 32 + (n === 0 ? -9 : 9);
+  // One star centred, two flanking, three in a row: the spacing has to come out
+  // of the count or the middle star of three sits on top of one of the two.
+  const starX = { 1: [32], 2: [23, 41], 3: [21, 32, 43] }[parts.stars] || [];
+  const starScale = { 1: 1, 2: 0.72, 3: 0.58 }[parts.stars] || 1;
+  for (const x of starX) {
     svg.append(node('path', { d: STAR, fill: 'var(--tier)',
-      transform: `translate(${x} ${parts.gem ? 15 : 26}) scale(${parts.stars === 1 ? 1 : 0.72})` }));
+      transform: `translate(${x} ${parts.gem ? 15 : 26}) scale(${starScale})` }));
   }
 
   if (parts.stud) {

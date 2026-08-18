@@ -28,7 +28,7 @@ process.env.TZ = 'Europe/Berlin';
 const { e1rm, isCounted, startOfWeek, entryStats, sessionStats, newMeal, dayKey, slotFor, seedExercises, bestOneRepMaxByName, estimatePlanDuration, bodyweightLoadMode } = await import('../js/models.js');
 const { scoreFor, scoreForMachine, buildRating, ANATOMY, TIERS, DIVISIONS, RANK_STEPS,
   rankOf, ladder, boundsFor, toNextDivision, ratedMachineNames, machineCategory,
-  LOW_CONFIDENCE } = await import('../js/standards.js');
+  LOW_CONFIDENCE, EXTRAPOLATED_TIERS } = await import('../js/standards.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
 const { rateExercise } = await import('../js/exercise-rating.js');
@@ -190,6 +190,28 @@ test('the ladder keeps every published anchor where it was', () => {
   assert.equal(eight[5], anchors[2], 'Grandmaster is the published advanced standard');
   assert.equal(eight[7], anchors[3], 'Legend is the published elite standard');
   for (let i = 1; i < eight.length; i++) assert.ok(eight[i] > eight[i - 1], 'and it only goes up');
+});
+
+test('the ranks above the published standards are extrapolation, and say so', () => {
+  // Everything up to Legend is anchored to a published number. The three above
+  // it are not, and the app has to keep knowing which is which.
+  assert.equal(EXTRAPOLATED_TIERS.size, 3);
+  for (const key of EXTRAPOLATED_TIERS) {
+    assert.ok(TIERS.some((tier) => tier.key === key), `${key} is a real rank`);
+  }
+  const anchored = TIERS.filter((tier) => !EXTRAPOLATED_TIERS.has(tier.key));
+  assert.equal(anchored[anchored.length - 1].key, 'legend',
+    'Legend is the last rank with a table behind it');
+
+  // And they are genuinely hard: at 80 kg bodyweight the top of the ladder is a
+  // bench nobody reaches by accident.
+  const profile = { sex: 'male', bodyweight: 80, age: 25 };
+  const bounds = boundsFor('Barbell Bench Press', profile);
+  assert.equal(bounds.length, TIERS.length - 1);
+  assert.ok(bounds[bounds.length - 1] * 80 > 230, 'Radiant asks for more than 230 kg');
+  for (let i = 1; i < bounds.length; i++) {
+    assert.ok(bounds[i] > bounds[i - 1], 'and the ladder never goes backwards');
+  }
 });
 
 test('elite is no longer the fourth of four boundaries', () => {
@@ -1160,9 +1182,10 @@ test('every rank has a badge, and the badges only ever gain', () => {
       assert.ok(!prev[key] || here[key], `rank ${i} lost its ${key}`);
     }
   }
-  // And the top rank has everything there is.
+  // And the top rank has everything there is, light included.
   const top = BADGE_PARTS[BADGE_PARTS.length - 1];
   assert.ok(top.gem && top.wings && top.crown && top.chevrons === 3);
+  assert.ok(top.halo && top.flare && top.aura, 'the end of the ladder looks like it');
   // The bottom is plain but not empty.
   assert.equal(BADGE_PARTS[0].stud, true);
 });

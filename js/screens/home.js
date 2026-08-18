@@ -10,7 +10,7 @@ import {
   bestOneRepMaxByName, isCounted, startOfWeek, weeklyMuscleSets, sessionStats,
 } from '../models.js';
 import {
-  buildRating, hasProfile, TIERS, DIVISIONS, RANK_STEPS, BAND, tierIndex, rankOf,
+  buildRating, hasProfile, TIERS, DIVISIONS, BAND, tierIndex, rankOf,
   LOW_CONFIDENCE, strengthRatio, ageFactor, ratedMachineNames, RATED_EQUIPMENT, isBenchmark,
 } from '../standards.js';
 import { strengthAt } from '../history.js';
@@ -577,19 +577,8 @@ function ratingSection(done, settings) {
         text: t('home.rating.overall', { rated: rating.ratedRegions, total: rating.totalRegions }),
       }),
     ]),
-    // Two bars, because they answer two different questions: the ladder says
-    // where this sits among all 27 steps, the division track says how close the
-    // next one is. The second is the one that moves week to week.
-    ladderBar(rank),
-    el('div.row.between.small.faint', { style: { marginTop: '8px' } }, [
-      el('span', { text: t('home.rating.step', { step: rank.step, steps: rank.steps }) }),
-      el('span', { text: rank.top ? t('home.rating.ladderTop') : t('home.rating.toNextStep', {
-        points: (nextStepScore(rating.overall) - rating.overall).toFixed(1),
-        rank: rankName(rankOf(nextStepScore(rating.overall) + 0.0001)),
-      }) }),
-    ]),
-    el('div.division-track', {}, [el('i', { style: { width: `${Math.round(rank.progress * 100)}%` } })]),
-    el('div.small.muted', { style: { marginTop: '10px' }, text: t(`tier.${rank.tier.key}.note`) }),
+    rankTrack(rank, rating.overall),
+    el('div.small.muted', { style: { marginTop: '12px' }, text: t(`tier.${rank.tier.key}.note`) }),
     percentileBar('overall'),
   ]);
 
@@ -624,40 +613,46 @@ function ratingSection(done, settings) {
     for (const lift of shown) {
       const li = tierIndex(lift.score);
       wrap.append(
+        // Stacked, not a single row. Three columns had to share 375 pixels with
+        // a badge chip and a word like GROSSMEISTER in it, and the exercise name
+        // came out at two words per line with the target broken over three. The
+        // name gets the full width, everything else lines up underneath it.
         el(`div.card.tight.tier-${li}`, {}, [
-          el('div.row.between', {}, [
-            el('div.grow', {}, [
-              el('div', { style: { fontWeight: '640' }, text: lift.name }),
-              // The next *division* is the number worth printing: at 27 steps
-              // the next rank can be forty kilos away, and a target nobody can
-              // picture reaching is not a target.
-              el('div.small.faint', {
-                text: lift.nextDivision
-                  ? t('home.rating.forTier', {
-                      weight: fmtWeight(Math.round(lift.nextDivision.weight), store.units()),
-                      tier: rankName({ tier: lift.nextDivision.tier, division: lift.nextDivision.division }),
-                    })
-                  : t('home.rating.topTier'),
-              }),
-              el('div.division-track', { style: { maxWidth: '150px' } },
-                [el('i', { style: { width: `${Math.round(lift.rank.progress * 100)}%` } })]),
-            ]),
-            el('div', { style: { textAlign: 'right' } }, [
-              rankChip(lift.rank),
-              el('div.small.faint', { style: { marginTop: '4px' },
-                text: `e1RM ${fmtWeight(Math.round(lift.oneRepMax), store.units())}` }),
-              lift.extrapolated
-                ? el('div.small', { style: { marginTop: '2px', color: 'var(--warn)' },
-                    text: t('home.rating.extrapolatedShort') })
-                : null,
-              percentileLine(`lift:${lift.name}`),
-              staleBestLabel(lift),
-            ]),
+          el('div.row.between', { style: { gap: '10px', alignItems: 'flex-start' } }, [
+            el('div.grow', { style: { fontWeight: '640', minWidth: '0' }, text: lift.name }),
             el('button.btn.quiet.sm', {
+              style: { flex: 'none', marginTop: '-2px' },
               onclick: () => strengthDetailSheet(lift, settings),
               'aria-label': t('home.rating.explainLift', { name: lift.name }),
             }, [t('plans.details')]),
           ]),
+          // The chip gets a line to itself. GROSSMEISTER II with a badge on it
+          // is 320 of the 343 pixels available, so anything sharing the row
+          // with it ends up printed on top of it.
+          el('div', { style: { marginTop: '7px' } }, [rankChip(lift.rank)]),
+          // The next *division* is the number worth printing: at 36 steps the
+          // next rank can be forty kilos away, and a target nobody can picture
+          // reaching is not a target.
+          el('div.row.between', { style: { gap: '10px', marginTop: '7px' } }, [
+            el('span.small.faint', {
+              text: lift.nextDivision
+                ? t('home.rating.forTier', {
+                    weight: fmtWeight(Math.round(lift.nextDivision.weight), store.units()),
+                    tier: rankName({ tier: lift.nextDivision.tier, division: lift.nextDivision.division }),
+                  })
+                : t('home.rating.topTier'),
+            }),
+            el('span.small.faint', { style: { flex: 'none' },
+              text: `e1RM ${fmtWeight(Math.round(lift.oneRepMax), store.units())}` }),
+          ]),
+          el('div.division-track', {},
+            [el('i', { style: { width: `${Math.round(lift.rank.progress * 100)}%` } })]),
+          lift.extrapolated
+            ? el('div.small', { style: { marginTop: '6px', color: 'var(--warn)' },
+                text: t('home.rating.extrapolatedShort') })
+            : null,
+          percentileLine(`lift:${lift.name}`),
+          staleBestLabel(lift),
         ])
       );
     }
@@ -759,18 +754,61 @@ function rankName(rank) {
 }
 
 /**
- * The whole ladder as 27 notches, with the current step lit.
+ * Where you stand, what is next, and how far it is.
  *
- * Worth the space precisely because it is not a percentage: it shows how much
- * is behind you and how much is still there, which a single number cannot.
+ * This replaced a strip of one notch per step. At nine ranks that was 27
+ * notches and already thin; at twelve it would be 36 slivers three pixels wide,
+ * which is a texture rather than a scale. One segment per *rank* is legible,
+ * and the partial fill of the current segment carries the division, so nothing
+ * is lost by dropping the finer strip.
+ *
+ * The badges are what make it a ladder rather than a progress bar: the one you
+ * hold, and the one you are working towards, side by side.
  */
-function ladderBar(rank) {
-  const bar = el('div.ladder', { 'aria-hidden': 'true' });
-  for (let i = 0; i < RANK_STEPS; i++) {
-    const cls = i + 1 === rank.step ? '.now' : i + 1 < rank.step ? '.on' : '';
-    bar.append(el(`i${cls}`, { class: `tier-${Math.floor(i / DIVISIONS.length)}` }));
+function rankTrack(rank, score) {
+  const nextRank = rank.tierIndex < TIERS.length - 1 ? rank.tierIndex + 1 : null;
+  const nextStep = nextStepScore(score);
+  const target = rankOf(nextStep + 0.0001);
+
+  const bar = el('div.rank-rail', { 'aria-hidden': 'true' });
+  for (let i = 0; i < TIERS.length; i++) {
+    const fill = i < rank.tierIndex ? 1 : i === rank.tierIndex ? divisionFill(rank) : 0;
+    bar.append(el(`div.rank-rail-seg.tier-${i}${i === rank.tierIndex ? '.now' : ''}`, {},
+      [el('i', { style: { width: `${Math.round(fill * 100)}%` } })]));
   }
-  return bar;
+
+  return el('div.rank-track', {}, [
+    el('div.rank-track-head', {}, [
+      el(`div.rank-track-now.tier-${rank.tierIndex}`, {}, [
+        rankBadge(rank.tierIndex, { size: 46, glow: true }),
+        el('div', {}, [
+          el('div.rank-track-name', { text: tTier(rank.tier.key) }),
+          el('div.rank-track-step', {
+            text: t('home.rating.stepOf', {
+              division: rank.division, step: rank.step, steps: rank.steps,
+            }),
+          }),
+        ]),
+      ]),
+      // No "next:" label. It cost two wrapped lines and said nothing the arrow
+      // and the position do not already say.
+      rank.top ? null : el(`div.rank-track-next.tier-${target.tierIndex}`, {}, [
+        el('span.rank-track-arrow', { text: '→', 'aria-hidden': 'true' }),
+        rankBadge(nextRank === null ? rank.tierIndex : target.tierIndex, { size: 26 }),
+        el('span.rank-track-goal-name', { text: rankName(target) }),
+      ]),
+    ]),
+    bar,
+    el('div.small.faint', { style: { marginTop: '7px', textAlign: 'right' },
+      text: rank.top ? t('home.rating.ladderTop') : t('home.rating.toNextStep', {
+        points: (nextStep - score).toFixed(1), rank: rankName(target),
+      }) }),
+  ]);
+}
+
+/** How much of the current rank's segment is coloured in: the division. */
+function divisionFill(rank) {
+  return (rank.divisionIndex + rank.progress) / DIVISIONS.length;
 }
 
 /** The score at which the next division starts. */

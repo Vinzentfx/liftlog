@@ -37,6 +37,13 @@ export const TIERS = [
   { key: 'grandmaster', label: 'Grandmaster', short: 'GM' },
   { key: 'elite',       label: 'Elite',       short: 'Eli' },
   { key: 'legend',      label: 'Legend',      short: 'Lgd' },
+  // Above the published elite standard, where the tables run out and the only
+  // honest reference left is competition. These three are extrapolation and are
+  // labelled as such in their notes, but the territory is real: a lifter at the
+  // elite standard is a strong regional competitor, not the top of the sport.
+  { key: 'challenger',  label: 'Challenger',  short: 'Chl' },
+  { key: 'immortal',    label: 'Immortal',    short: 'Imm' },
+  { key: 'radiant',     label: 'Radiant',     short: 'Rad' },
 ];
 
 /** Divisions inside a rank, weakest first. Displayed as "Diamond II". */
@@ -402,7 +409,19 @@ export function ratedMachineNames(exercises = []) {
 const geo = (a, b) => Math.sqrt(a * b);
 
 /**
- * Four published anchors → the eight boundaries of the nine-rank ladder.
+ * Multipliers on the published elite standard for the three ranks above it.
+ *
+ * There is nothing to interpolate up here, so these are the one genuinely
+ * extrapolated part of the ladder and they are kept in their own table where
+ * that is visible. They are calibrated against competition rather than against
+ * a training standard: at 80 kg bodyweight, Radiant is a 248 kg bench, a 331 kg
+ * squat and a 375 kg deadlift, which is the neighbourhood of a national record
+ * and not a number anybody reaches by accident.
+ */
+const BEYOND_ELITE = [1.10, 1.22, 1.38];
+
+/**
+ * Four published anchors → the eleven boundaries of the twelve-rank ladder.
  *
  * Every published number keeps its meaning; the new ranks are inserted between
  * them rather than replacing them:
@@ -415,6 +434,7 @@ const geo = (a, b) => Math.sqrt(a * b);
  *   Grandmaster = published Advanced
  *   Elite       = between advanced and elite
  *   Legend      = published Elite
+ *   Challenger / Immortal / Radiant = BEYOND_ELITE, above every table
  *
  * Geometric rather than arithmetic midpoints, because strength standards are
  * multiplicative: the gap from 1.25 to 1.75 × bodyweight is a bigger job than
@@ -426,8 +446,12 @@ export function ladder(anchors) {
   return [
     novice * 0.55, novice, geo(novice, intermediate), intermediate,
     geo(intermediate, advanced), advanced, geo(advanced, elite), elite,
+    ...BEYOND_ELITE.map((factor) => elite * factor),
   ];
 }
+
+/** Ranks with no published standard behind them at all. */
+export const EXTRAPOLATED_TIERS = new Set(['challenger', 'immortal', 'radiant']);
 
 export function strengthRatio(oneRepMax, profile) {
   const sex = profile.sex === 'female' ? 'female' : 'male';

@@ -461,8 +461,8 @@ or from date arithmetic that only breaks twice a year.
 
 Your best estimated 1RM per lift is compared against published strength
 standards, normalised by **bodyweight, sex and age**. Each lift lands on a 0–100
-score, and the score maps onto a ladder of **nine ranks with three divisions
-each** — 27 steps from Bronze III to Legend I.
+score, and the score maps onto a ladder of **twelve ranks with three divisions
+each** — 36 steps from Bronze III to Radiant I.
 
 The ranks are named like a game and calibrated like a standard. `BOUNDS` still
 holds the same four published bodyweight multiples it always did, and `ladder()`
@@ -478,10 +478,21 @@ turns them into the eight rank boundaries by inserting geometric midpoints:
 | Grandmaster | published **Advanced** |
 | Elite | between advanced and elite |
 | Legend | published **Elite** |
+| Challenger | elite × 1.10 |
+| Immortal | elite × 1.22 |
+| Radiant | elite × 1.38 |
 
 That shape exists because the old five-tier version put Elite at the fourth of
 four boundaries: a reasonably strong lifter arrived at the top name in the app
 and had nowhere left to go for the rest of their training life.
+
+The last three are the one genuinely **extrapolated** part of the ladder, and
+they live in their own table (`BEYOND_ELITE`, `EXTRAPOLATED_TIERS`) so that
+stays visible. Above the elite standard there is no table left, only
+competition, and the territory is real: the elite standard is a strong regional
+competitor, not the top of the sport. At 80 kg bodyweight, Radiant is a 248 kg
+bench, a 331 kg squat and a 375 kg deadlift, which is national-record
+neighbourhood. Their rank notes say as much on screen.
 
 A muscle region's score is the best `lift score × how strongly that lift trains
 it` across the lifts you actually perform — taking the max, so skipping one lift
@@ -556,6 +567,22 @@ it draws at any size from a chip to a full-screen celebration, it costs nothing
 over the wire, and there is no third party to credit or to outlive. A test
 asserts the ladder only ever gains: no rank may lose an embellishment the rank
 below it had.
+
+**The bar under the score is one segment per rank**, not one per step. At nine
+ranks the old strip was 27 notches and already thin; at twelve it would be 36
+slivers three pixels wide, which is a texture and not a scale. The division
+lives in the partial fill of the current segment instead, and the two badges on
+either side — the rank held and the rank being worked towards — are what make it
+read as a ladder rather than a progress bar.
+
+**The muscle-map legend is a scale, not a list.** It used to be one chip per
+rank, which at nine already wrapped onto two rows of abbreviations and truncated
+several of them into nonsense in German. Twelve is unreadable in any language,
+and the abbreviations answered the wrong question anyway: nobody reads a legend
+to learn that "GM" means Grandmaster, they read it to learn which end is which.
+So it is drawn as what it is — an ordinal ramp with its two ends named and
+badged. The full scale with every rank and its point range is one tap away on
+any muscle. The shared week card does the same thing on canvas.
 
 **Ranking up is a moment, and it happens once.** The rating is rebuilt from the
 whole log on every render, so there is no event to hang a celebration on. The

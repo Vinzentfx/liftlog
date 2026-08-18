@@ -339,9 +339,12 @@ function strengthSection(done) {
       // The tier thresholds are the thing people actually want to know their
       // distance from, and reading them off an unlabelled y-axis is guesswork.
       // Bands are 100/9 points wide — see BAND and tierIndex() in standards.js.
+      // Not every band: twelve of them printed as "Chl 75 · Imm 83 · Rad 92" is
+      // a line nobody reads. The two ends and the one that matters, which is
+      // the next one.
       el('div.small.faint', { style: { marginTop: '6px' },
         text: t('progress.tierBands', {
-          bands: TIERS.map((tier, i) => `${tTier(tier.key, { short: true })} ${Math.round(i * BAND)}`).join(' · '),
+          bands: `${tTier(TIERS[0].key)} 0 … ${tTier(TIERS[TIERS.length - 1].key)} ${Math.round((TIERS.length - 1) * BAND)}`,
         }) + ` ${nextTierNote(last.score)}` }),
     ])
   );

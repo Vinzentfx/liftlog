@@ -46,7 +46,7 @@ const C = {
   // Nine ranks, matching --t0..--t8 in css/styles.css. The canvas cannot read
   // custom properties, so the ramp is duplicated here and must be kept in step.
   tier: ['#8A6A4A', '#9AA7B8', '#D9A93B', '#3B82F6', '#22D3EE',
-    '#34D399', '#A855F7', '#F472B6', '#FFB020'],
+    '#34D399', '#A855F7', '#F472B6', '#FFB020', '#DC2626', '#D946EF', '#F1F5F9'],
 };
 
 const rgba = (hex, a) => {
@@ -240,9 +240,13 @@ function muscleMap(mapMode, { finished, exerciseById, rating, weekEnd }) {
   return {
     mapMode: 'strength',
     mapFills: colours,
-    // Nine short names wrap onto two rows rather than five onto one. Worth it:
-    // a legend that omits ranks is a legend you cannot place yourself in.
-    mapLegend: TIERS.map((tier, i) => ({ colour: C.tier[i], label: tTier(tier.key, { short: true }) })),
+    // Two entries, not twelve. The card has 540 pixels and a dozen abbreviated
+    // rank names is a wall of three-letter stumps; naming the two ends says the
+    // one thing a reader needs from an ordinal ramp, which is which way it runs.
+    mapLegend: [
+      { colour: C.tier[0], label: tTier(TIERS[0].key) },
+      { colour: C.tier[TIERS.length - 1], label: tTier(TIERS[TIERS.length - 1].key), ramp: true },
+    ],
     mapTitle: t('home.map.strength'),
     mapNote: t('weekCard.strengthNote'),
   };
@@ -420,7 +424,8 @@ function map(ctx, d, art, y, measure = false) {
   const legendRows = layoutLegend(ctx, d.mapLegend, INNER - 32);
   const figureW = 124;
   const figureH = (art[0].height / art[0].width) * figureW;
-  const h = 16 + figureH + 16 + 14 + legendRows.length * 17 + 6 + noteLines.length * 15 + 14;
+  const legendH = d.mapLegend.some((item) => item.ramp) ? 32 : legendRows.length * 17;
+  const h = 16 + figureH + 16 + 14 + legendH + 6 + noteLines.length * 15 + 14;
 
   panel(ctx, PAD, top, INNER, h);
 
@@ -436,14 +441,33 @@ function map(ctx, d, art, y, measure = false) {
   });
 
   let ly = top + 16 + figureH + 16 + 14;
-  for (const row of legendRows) {
-    let lx = PAD + 16;
-    for (const item of row) {
-      fillRound(ctx, lx, ly + 3, 9, 9, 2, item.colour);
-      drawText(ctx, item.label, lx + 14, ly, { size: 11.5, weight: 500, color: C.dim, baseline: 'top' });
-      lx += item.width + 20;
-    }
+  if (d.mapLegend.some((item) => item.ramp)) {
+    // The strength map is an ordinal ramp, so it gets drawn as one: the whole
+    // scale as a bar with its two ends named. Twelve abbreviated rank names
+    // across 540 pixels was a wall of three-letter stumps.
+    const rampW = INNER - 32;
+    const cell = rampW / C.tier.length;
+    C.tier.forEach((colour, i) => {
+      fillRound(ctx, PAD + 16 + i * cell, ly + 2, cell - 2, 8, 2, colour);
+    });
+    ly += 15;
+    drawText(ctx, d.mapLegend[0].label, PAD + 16, ly,
+      { size: 11.5, weight: 640, color: d.mapLegend[0].colour, baseline: 'top' });
+    drawText(ctx, d.mapLegend[d.mapLegend.length - 1].label, PAD + 16 + rampW, ly, {
+      size: 11.5, weight: 640, color: d.mapLegend[d.mapLegend.length - 1].colour,
+      align: 'right', baseline: 'top',
+    });
     ly += 17;
+  } else {
+    for (const row of legendRows) {
+      let lx = PAD + 16;
+      for (const item of row) {
+        fillRound(ctx, lx, ly + 3, 9, 9, 2, item.colour);
+        drawText(ctx, item.label, lx + 14, ly, { size: 11.5, weight: 500, color: C.dim, baseline: 'top' });
+        lx += item.width + 20;
+      }
+      ly += 17;
+    }
   }
 
   ly += 6;
