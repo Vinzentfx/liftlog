@@ -538,6 +538,13 @@ test('the rank comparison is an aggregate, opt-in, and withdrawable', async () =
 
   // Off unless switched on, and switching it off withdraws rather than pauses.
   assert.match(models, /shareRankComparison: false/);
+  // The outlier notice can be silenced, and silencing it hides the notice
+  // rather than stopping the detection: the rank must not change because
+  // somebody switched off a hint.
+  assert.match(models, /outlierHints: true/);
+  assert.match(home, /if \(settings\.outlierHints === false\) return null;/);
+  const standards = await read('js/standards.js');
+  assert.doesNotMatch(standards, /outlierHints/);
   assert.match(home, /if \(rankSyncing \|\| !settings\.shareRankComparison/);
   assert.match(settings, /forgetRankScores/);
 

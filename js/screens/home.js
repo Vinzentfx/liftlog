@@ -763,6 +763,7 @@ function machineCorrections() {
 
 /** The "this one does not belong" row, with the fix attached. */
 function outlierNotice(lift, settings) {
+  if (settings.outlierHints === false) return null;
   if (!lift.outlier && !lift.overStack) return null;
   const ex = store.state.exercises.find((e) => e.name === lift.name);
   if (!ex) return null;

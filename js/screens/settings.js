@@ -252,6 +252,7 @@ export function renderSettings() {
   const progressionToggle = preferenceToggle('progressionSuggestions');
   const warmupToggle = preferenceToggle('warmupSuggestions');
   const plateauToggle = preferenceToggle('plateauHints');
+  const outlierToggle = preferenceToggle('outlierHints');
   const deloadToggle = preferenceToggle('deloadHints');
   const techniqueToggle = preferenceToggle('techniqueHints');
   const durationToggle = preferenceToggle('plannedDuration');
@@ -363,6 +364,7 @@ export function renderSettings() {
       checkRow(progressionToggle, t('settings.progressionSuggestions'), t('settings.progressionSuggestionsNote')),
       checkRow(warmupToggle, t('settings.warmupSuggestions'), t('settings.warmupSuggestionsNote')),
       checkRow(plateauToggle, t('settings.plateauHints')),
+      checkRow(outlierToggle, t('settings.outlierHints'), t('settings.outlierHintsNote')),
       checkRow(deloadToggle, t('settings.deloadHints'), t('settings.deloadHintsNote')),
       checkRow(techniqueToggle, t('settings.techniqueHints'), t('settings.techniqueHintsNote')),
       checkRow(durationToggle, t('settings.plannedDuration')),

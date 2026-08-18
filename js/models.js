@@ -67,6 +67,12 @@ export const DEFAULT_SETTINGS = {
   // training to a server that is not the user's own encrypted backup, even
   // though what it sends is a bodyweight-normalised 0-100 with no lift weight,
   // no repetitions and no identity attached.
+  // The "this lift does not belong" notice on a rank. On by default, because a
+  // machine several ranks clear of everything else is nearly always a counting
+  // problem and finding out silently costs somebody a wrong rank for months.
+  // Off is for the lifter who has already looked, decided the number is right,
+  // and does not want to be asked again.
+  outlierHints: true,
   shareRankComparison: false,
   // The last rank step this device celebrated. The rating is rebuilt from the
   // whole log on every render, so there is no event to hang a celebration on

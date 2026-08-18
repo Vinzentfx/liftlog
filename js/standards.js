@@ -264,6 +264,21 @@ export const isBenchmark = (name) => Object.hasOwn(CONTRIB, name);
  * pulldown, which has a published standard of its own and never went through
  * this table at all, lands in the same place.
  *
+ * A second pass, against one lifter's actual working weights, split the rule in
+ * two. Comparing a machine rank with that person's *barbell* rank for the same
+ * muscle showed chest agreeing to half a rank and back to a third of one, so
+ * those were left exactly as they were. Legs were 2.8 ranks apart — a leg
+ * extension outranking the squat of the same person, which is not a thing legs
+ * do — and the single-joint arm and shoulder machines sat consistently high.
+ *
+ * So compound machines keep **Legend ≈ a full stack for ten reps**, and
+ * single-joint machines need roughly 1.6 times a full stack instead. The
+ * structural reason, which is why this is not simply fitted to one person: an
+ * isolation stack is generous relative to the force actually produced, because
+ * the same 135 kg frame has to serve a leg press and a leg extension. Where the
+ * data and that argument disagreed, as on chest, the data won and nothing
+ * moved.
+ *
  * The consequence is deliberate: on an isolation machine the three ranks above
  * Legend are effectively out of reach, because a commercial stack cannot
  * express national-record strength. That is the honest answer. It is also what
@@ -325,30 +340,30 @@ const MACHINE_ANCHOR = {
   'Seated Dip Machine':         ['Close-Grip Bench Press', 0.90],
 
   // --- arms and delts ---
-  'Machine Lateral Raise':      ['Overhead Press', 1.01],
-  'Lateral Raise Machine':      ['Overhead Press', 1.01],
-  'Cable Y-Raise':              ['Overhead Press', 0.50],
-  'Cross-Body Cable Lateral Raise': ['Overhead Press', 0.29],
+  'Machine Lateral Raise':      ['Overhead Press', 1.13],
+  'Lateral Raise Machine':      ['Overhead Press', 1.13],
+  'Cable Y-Raise':              ['Overhead Press', 0.56],
+  'Cross-Body Cable Lateral Raise': ['Overhead Press', 0.33],
   'Machine Rear Delt Fly':      ['Barbell Row', 0.91],
-  'Machine Biceps Curl':        ['Barbell Row', 0.80],
-  'Machine Preacher Curl':      ['Barbell Row', 0.86],
-  'Preacher Curl Machine':      ['Barbell Row', 0.86],
-  'Rope Hammer Curl':           ['Barbell Row', 0.73],
+  'Machine Biceps Curl':        ['Barbell Row', 0.92],
+  'Machine Preacher Curl':      ['Barbell Row', 0.98],
+  'Preacher Curl Machine':      ['Barbell Row', 0.98],
+  'Rope Hammer Curl':           ['Barbell Row', 0.86],
   'Bayesian Cable Curl':        ['Barbell Row', 0.22],
-  'Machine Triceps Extension':  ['Close-Grip Bench Press', 0.73],
-  'Triceps Pushdown':           ['Close-Grip Bench Press', 0.73],
-  'Rope Triceps Pushdown':      ['Close-Grip Bench Press', 0.70],
-  'Overhead Rope Triceps Extension': ['Close-Grip Bench Press', 1.17],
+  'Machine Triceps Extension':  ['Close-Grip Bench Press', 0.89],
+  'Triceps Pushdown':           ['Close-Grip Bench Press', 0.89],
+  'Rope Triceps Pushdown':      ['Close-Grip Bench Press', 0.86],
+  'Overhead Rope Triceps Extension': ['Close-Grip Bench Press', 1.43],
 
   // --- lower body and core ---
   'Hack Squat':                 ['Back Squat', 1.15],
   'Pendulum Squat':             ['Back Squat', 0.95],
   'Belt Squat':                 ['Back Squat', 0.95],
   'Smith Machine Squat':        ['Back Squat', 1.00],
-  'Leg Extension':              ['Back Squat', 0.72],
-  'Lying Leg Curl':             ['Romanian Deadlift', 0.75],
-  'Seated Leg Curl':            ['Romanian Deadlift', 0.78],
-  'Kneeling Leg Curl Machine':  ['Romanian Deadlift', 0.35],
+  'Leg Extension':              ['Back Squat', 0.90],
+  'Lying Leg Curl':             ['Romanian Deadlift', 0.92],
+  'Seated Leg Curl':            ['Romanian Deadlift', 0.95],
+  'Kneeling Leg Curl Machine':  ['Romanian Deadlift', 0.45],
   'Standing Calf Raise':        ['Back Squat', 1.00],
   'Seated Calf Raise':          ['Back Squat', 0.65],
   'Smith Machine Romanian Deadlift': ['Romanian Deadlift', 1.00],

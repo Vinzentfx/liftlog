@@ -528,9 +528,13 @@ compare with. Where the user has said what the machine's stack tops out at, it
 can be blunter: "that is 1.7 times a full stack" is evidence rather than a
 hunch.
 
-It is a question, never a correction. The app does not know which of those
-causes it is, or whether somebody simply has freakish side delts, so it offers
-the fix and lets the lifter apply it. The fix is a `loadFactor` on that
+It is a question, never a correction, and it can be switched off entirely
+(`outlierHints`). Switching it off hides the notice and nothing else: the
+detection still runs and the rank does not move, because a rank that changed
+because somebody silenced a hint would be a worse lie than the one the hint was
+about. The app does not know which of those causes it is looking at, or whether
+somebody simply has freakish side delts, so it offers the fix and lets the
+lifter apply it. The fix is a `loadFactor` on that
 exercise, and it changes **how the number is read, not the log**: halving a
 recorded set would rewrite what somebody actually did and make their own history
 disagree with their memory. Halving the interpretation changes only the

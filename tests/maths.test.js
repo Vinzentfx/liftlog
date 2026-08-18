@@ -28,7 +28,7 @@ process.env.TZ = 'Europe/Berlin';
 const { e1rm, isCounted, startOfWeek, entryStats, sessionStats, newMeal, dayKey, slotFor, seedExercises, bestOneRepMaxByName, estimatePlanDuration, bodyweightLoadMode } = await import('../js/models.js');
 const { scoreFor, scoreForMachine, buildRating, ANATOMY, TIERS, DIVISIONS, RANK_STEPS,
   rankOf, ladder, boundsFor, toNextDivision, ratedMachineNames, machineCategory,
-  LOW_CONFIDENCE, EXTRAPOLATED_TIERS } = await import('../js/standards.js');
+  LOW_CONFIDENCE, EXTRAPOLATED_TIERS, isBenchmark, BAND } = await import('../js/standards.js');
 const { analyseWeek, compareToPlan, weekVerdict, weekStreak } = await import('../js/log-analysis.js');
 const { analysePlan } = await import('../js/plan-rating.js');
 const { rateExercise } = await import('../js/exercise-rating.js');
@@ -1226,23 +1226,60 @@ test('a lift standing ranks clear of the rest is questioned, not corrected', () 
   assert.equal(best.get('Machine Lateral Raise'), 187, 'the estimate itself is untouched');
 });
 
-test('a full stack taken for reps lands at Legend, not past the top', () => {
+test('a full stack lands where the two-tier rule says it should', () => {
   // The rule the machine anchors were fitted to, checked against the gym they
-  // were fitted from. A full stack for about ten reps should be Legend, and the
-  // three ranks above it should be out of reach on a commercial stack.
+  // were fitted from. It has two tiers, and both halves are asserted because
+  // the split is the whole point: an isolation stack is generous relative to
+  // the force it actually asks for, since the same 135 kg frame has to serve a
+  // leg press and a leg extension.
   const profile = { sex: 'male', bodyweight: 82, age: 24 };
-  const stacks = {
-    'Butterfly': 105, 'Leg Extension': 135, 'Machine Preacher Curl': 100,
-    'Seated Leg Curl': 135, 'Machine Crunch': 105, 'Machine Hip Adduction': 105,
-    'Standing Calf Raise': 187, 'Triceps Pushdown': 85, 'Machine Lateral Raise': 85,
-    'Overhead Rope Triceps Extension': 135, 'Seated Cable Row': 135,
-    'Machine Rear Delt Fly': 105, 'Machine Shoulder Press': 105,
-    'Machine Chest Press': 135, 'Machine Row': 135,
+
+  // Compound machines: a full stack for about ten reps is Legend.
+  const compound = {
+    'Machine Chest Press': 135, 'Machine Row': 135, 'Seated Cable Row': 135,
+    'Machine Shoulder Press': 105, 'Butterfly': 105, 'Machine Rear Delt Fly': 105,
+    'Standing Calf Raise': 187, 'Machine Hip Adduction': 105, 'Machine Crunch': 105,
   };
-  for (const [name, stack] of Object.entries(stacks)) {
-    const maxed = e1rm(stack, 10);          // the whole stack, ten times
-    const rank = rankOf(scoreForMachine(name, maxed, profile));
+  for (const [name, stack] of Object.entries(compound)) {
+    const rank = rankOf(scoreForMachine(name, e1rm(stack, 10), profile));
     assert.equal(rank.tier.key, 'legend', `${name}: a full stack came out ${rank.tier.key}`);
+  }
+
+  // Single-joint machines need roughly 1.6 stacks for the same rank, so maxing
+  // one out is a strong rank and not the published elite standard.
+  const isolation = {
+    'Leg Extension': 135, 'Seated Leg Curl': 135, 'Machine Lateral Raise': 85,
+    'Triceps Pushdown': 85, 'Overhead Rope Triceps Extension': 135, 'Machine Preacher Curl': 100,
+  };
+  for (const [name, stack] of Object.entries(isolation)) {
+    const maxed = rankOf(scoreForMachine(name, e1rm(stack, 10), profile));
+    assert.ok(maxed.tierIndex < TIERS.findIndex((t) => t.key === 'legend'),
+      `${name}: maxing an isolation stack should not reach Legend, got ${maxed.tier.key}`);
+    assert.ok(maxed.tierIndex >= TIERS.findIndex((t) => t.key === 'grandmaster'),
+      `${name}: but it is still a hard thing to do, got ${maxed.tier.key}`);
+  }
+});
+
+test('one lifter\'s machines agree with their own barbell lifts', () => {
+  // The second calibration pass, kept as a test because it is the only check
+  // that the machine table describes a person rather than a spreadsheet. These
+  // are one real lifter's working sets. Within a muscle, a machine must not
+  // land more than about a rank and a half from what they do with a bar.
+  const profile = { sex: 'male', bodyweight: 82, age: 24 };
+  const score = (name, weight, reps) => {
+    const est = e1rm(weight, reps);
+    return isBenchmark(name) ? scoreFor(name, est, profile) : scoreForMachine(name, est, profile);
+  };
+  const groups = {
+    chest: [score('Smith Machine Incline Bench Press', 110, 8), score('Machine Chest Press', 125, 8),
+      score('Butterfly', 90, 9)],
+    back: [score('Lat Pulldown', 85, 9), score('Seated Cable Row', 105, 8)],
+    shoulders: [score('Machine Shoulder Press', 85, 8), score('Machine Lateral Raise', 80, 7)],
+    legs: [score('Back Squat', 120, 6), score('Leg Extension', 135, 7)],
+  };
+  for (const [group, scores] of Object.entries(groups)) {
+    const spread = (Math.max(...scores) - Math.min(...scores)) / BAND;
+    assert.ok(spread <= 1.5, `${group}: ${spread.toFixed(1)} ranks apart within one muscle`);
   }
 });
 
