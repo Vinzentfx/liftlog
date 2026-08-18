@@ -1443,6 +1443,23 @@ test('one lifter\'s machines agree with their own barbell lifts', () => {
   }
 });
 
+test('a Legend curl is not the same weight as a Legend pushdown', () => {
+  // The stack rule on its own treats every machine on an 85 kg stack as the
+  // same achievement. It is not: the same stack carried a triceps pushdown and
+  // a preacher curl, so the table claimed a Legend curl and a Legend pushdown
+  // were both 134 kg, which is a weight essentially nobody curls.
+  const profile = { sex: 'male', bodyweight: 82, age: 24, units: 'kg' };
+  const legend = (name) => weightForRatio(boundsFor(name, profile, { machine: true })[7], profile);
+  const push = legend('Triceps Pushdown');
+  const curl = legend('Machine Preacher Curl');
+  assert.ok(curl < push * 0.95, `curl asks ${Math.round(curl)} against a pushdown's ${Math.round(push)}`);
+  assert.ok(curl > push * 0.7, 'but not so much less that curling becomes the easy route to a rank');
+
+  // Hammer grip sits between the two, which is where the hands actually are.
+  const hammer = legend('Rope Hammer Curl');
+  assert.ok(hammer > curl && hammer <= push);
+});
+
 test('an unrecognised machine lands in a category that fits the movement', () => {
   // machineCategory used to send anything it did not recognise to
   // upperIsolation, so a Smith machine deadlift was ranked against a triceps

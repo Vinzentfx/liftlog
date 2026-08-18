@@ -297,7 +297,17 @@ export const isBenchmark = (name) => Object.hasOwn(CONTRIB, name);
  * do — and the single-joint arm and shoulder machines sat consistently high.
  *
  * So compound machines keep **Legend ≈ a full stack for ten reps**, and
- * single-joint machines need roughly 1.6 times a full stack instead. The
+ * single-joint machines need roughly 1.6 times a full stack instead.
+ *
+ * A third pass caught what that rule alone cannot see: it treats every machine
+ * on an 85 kg stack as the same achievement, and they are not. The same stack
+ * carried a triceps pushdown and a preacher curl, so the table ended up
+ * claiming that a Legend pushdown and a Legend curl are the same 134 kg —
+ * a weight essentially nobody curls and plenty of people push down. The curl
+ * factors therefore carry an explicit movement ratio on top of the stack rule:
+ * a preacher curl handles roughly 85% of what a pushdown does on a comparable
+ * stack, a hammer curl a little more. Confirmed by the lifter it was found
+ * through, who maxes the pushdown stack and reaches 88% of the curl one. The
  * structural reason, which is why this is not simply fitted to one person: an
  * isolation stack is generous relative to the force actually produced, because
  * the same 135 kg frame has to serve a leg press and a leg extension. Where the
@@ -371,14 +381,14 @@ const MACHINE_ANCHOR = {
   'Cable Y-Raise':              ['Overhead Press', 0.56],
   'Cross-Body Cable Lateral Raise': ['Overhead Press', 0.33],
   'Machine Rear Delt Fly':      ['Barbell Row', 0.91],
-  'Machine Biceps Curl':        ['Barbell Row', 0.92],
-  'Machine Preacher Curl':      ['Barbell Row', 0.90],
-  'Preacher Curl Machine':      ['Barbell Row', 0.90],
-  'Rope Hammer Curl':           ['Barbell Row', 0.86],
+  'Machine Biceps Curl':        ['Barbell Row', 0.78],
+  'Machine Preacher Curl':      ['Barbell Row', 0.76],
+  'Preacher Curl Machine':      ['Barbell Row', 0.76],
+  'Rope Hammer Curl':           ['Barbell Row', 0.80],
   // Forearms move a lot of weight through almost no range, so the number on the
   // stack is at its least honest here of anywhere in the gym.
   'Cable Wrist Curl':           ['Barbell Row', 0.90],
-  'Bayesian Cable Curl':        ['Barbell Row', 0.22],
+  'Bayesian Cable Curl':        ['Barbell Row', 0.19],
   'Machine Triceps Extension':  ['Close-Grip Bench Press', 0.89],
   'Triceps Pushdown':           ['Close-Grip Bench Press', 0.89],
   'Rope Triceps Pushdown':      ['Close-Grip Bench Press', 0.86],
