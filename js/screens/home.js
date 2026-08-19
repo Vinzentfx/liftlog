@@ -33,6 +33,37 @@ import { profileForm, doExport } from './settings.js';
 // Which map the user last looked at. Module-level so switching tabs and coming
 // back does not silently reset it.
 let mapMode = 'strength';
+
+/**
+ * How many lifts each of the two record lists shows before it is expanded.
+ *
+ * Five is a preview, not a limit: somebody who trains twenty movements had no
+ * way to see the other fifteen from this screen at all. Expanded state is
+ * module-level for the same reason `mapMode` is — a logged set re-renders Home,
+ * and collapsing the list under the user every time would be worse than never
+ * expanding it.
+ */
+const RECORD_PREVIEW = 5;
+let showAllLifts = false;
+let showAllMachines = false;
+
+/**
+ * The button under a truncated record list, or nothing when it all fits.
+ *
+ * @param total  how many there are
+ * @param open   whether the list is currently expanded
+ * @param toggle called with the new state
+ */
+function showAllToggle(total, open, toggle) {
+  if (total <= RECORD_PREVIEW) return null;
+  return el('button.btn.quiet.full.sm', {
+    style: { marginTop: '2px' },
+    'aria-expanded': String(open),
+    // navigate rather than render: this module imports the former, and on the
+    // route it is already on navigate re-renders in place and keeps the scroll.
+    onclick: () => { toggle(!open); navigate('home'); },
+  }, [open ? t('home.rating.showTop', { n: RECORD_PREVIEW }) : t('home.rating.showAll', { n: total })]);
+}
 let machineCommunity = {};
 let machineSyncSignature = null;
 let machineSyncing = false;
@@ -635,7 +666,7 @@ function ratingSection(done, settings) {
 
   // strongest / weakest lifts
   if (rating.lifts.length) {
-    const shown = rating.lifts.slice(0, 5);
+    const shown = showAllLifts ? rating.lifts : rating.lifts.slice(0, RECORD_PREVIEW);
     wrap.append(el('div.section-head', {}, [el('h2', { text: t('home.rating.yourLifts') })]));
     for (const lift of shown) {
       const li = tierIndex(lift.score);
@@ -684,6 +715,7 @@ function ratingSection(done, settings) {
         ])
       );
     }
+    wrap.append(showAllToggle(rating.lifts.length, showAllLifts, (v) => { showAllLifts = v; }));
   }
 
   wrap.append(machineRecords(rating.lifts));
@@ -1028,15 +1060,20 @@ function recentRankChange(currentScore) {
 }
 
 function machineRecords(lifts) {
-  const records = lifts.filter((lift) => lift.machine)
+  // The exercise behind the name can be missing: the rank survives a rename or
+  // a deleted custom movement, and this list is matched by name rather than by
+  // id. Before the list could be expanded that was hard to reach; over twenty
+  // machines it is not, and an undefined `ex` here takes the whole Home screen
+  // down with it.
+  const all = lifts.filter((lift) => lift.machine)
     .map((lift) => ({ ...lift, ex: store.state.exercises.find((e) => e.name === lift.name) }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+    .sort((a, b) => b.score - a.score);
+  const records = showAllMachines ? all : all.slice(0, RECORD_PREVIEW);
   const wrap = el('div');
-  if (!records.length) return wrap;
+  if (!all.length) return wrap;
   wrap.append(el('div.section-head', {}, [el('h2', { text: t('home.rating.machineRecords') })]));
   for (const row of records) {
-    const profile = store.state.settings.machineProfiles?.[row.ex.id];
+    const profile = row.ex ? store.state.settings.machineProfiles?.[row.ex.id] : null;
     wrap.append(el('div.card.tight', {}, [
       el('div.row.between', {}, [
         el('div', {}, [
@@ -1047,17 +1084,18 @@ function machineRecords(lifts) {
         el('div', { style: { textAlign: 'right' } }, [
           rankChip(row.rank),
           el('div.small.faint', { text: `e1RM ${fmtWeight(Math.round(row.oneRepMax), store.units())}` }),
-          el('button.btn.quiet.sm', {
+          row.ex ? el('button.btn.quiet.sm', {
             onclick: () => machineProfileSheet(row.ex),
             'aria-label': profile?.model
               ? t('home.rating.machineDetails')
               : t('home.rating.machineDetailsMissing'),
             style: profile?.model ? {} : { color: 'var(--warn)', fontWeight: '750' },
-          }, [`${t('plans.details')}${profile?.model ? '' : '  !'}`]),
+          }, [`${t('plans.details')}${profile?.model ? '' : '  !'}`]) : null,
         ]),
       ]),
     ]));
   }
+  wrap.append(showAllToggle(all.length, showAllMachines, (v) => { showAllMachines = v; }));
   return wrap;
 }
 
