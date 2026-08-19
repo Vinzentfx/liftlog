@@ -3,7 +3,7 @@
 import { THRESHOLDS } from './evidence.js';
 import { LIBRARY as LIBRARY_MAIN } from './exercise-library.js';
 import { LIBRARY_EXTRA } from './exercise-extra.js';
-import { CONTRIB, ANATOMY } from './standards.js';
+import { CONTRIB, ANATOMY, benchmarkName } from './standards.js';
 
 // free-exercise-db catalogue plus the everkinetic exercises adopted for their art
 const LIBRARY = [...LIBRARY_MAIN, ...LIBRARY_EXTRA];
@@ -632,7 +632,13 @@ const WEIGHTED_BODYWEIGHT = new Set([
 
 /** How the training screen should collect load for a movement. */
 export function bodyweightLoadMode(exercise) {
-  if (exercise?.equipment !== 'Bodyweight') return 'external';
+  // The catalogue's equipment field is not always right about this: it files
+  // "Dips - Chest Version" under "Other". The rating already treats that lift
+  // as bodyweight plus anything added, and the screen has to collect the load
+  // the same way or the two disagree about what a set meant.
+  const bodyweightLift = exercise?.equipment === 'Bodyweight'
+    || BODYWEIGHT_STRENGTH_LIFTS.has(benchmarkName(exercise?.name));
+  if (!bodyweightLift) return 'external';
   return WEIGHTED_BODYWEIGHT.has(exercise.name) ? 'added' : 'bodyweight';
 }
 
@@ -831,7 +837,7 @@ export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
       for (const set of entry.sets.filter(isCounted)) {
         const target = withinE1rmWindow(set) ? best : outside;
         let est;
-        if (BODYWEIGHT_STRENGTH_LIFTS.has(ex.name) && bodyweight > 0) {
+        if (BODYWEIGHT_STRENGTH_LIFTS.has(benchmarkName(ex.name)) && bodyweight > 0) {
           const added = Number(set.weight) || 0;
           // Before loadMode existed the field was ambiguous: some people logged
           // total bodyweight, others additional weight. A positive legacy value

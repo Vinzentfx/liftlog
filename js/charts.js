@@ -4,6 +4,7 @@
 
 import { el } from './ui.js';
 import { t, tn, locale } from './i18n.js';
+import { dayKey } from './models.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 
@@ -372,7 +373,11 @@ export function heatmap(days, weeks = 18) {
   start.setDate(start.getDate() - weeks * 7 + 1);
 
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const key = d.toISOString().slice(0, 10);
+    // dayKey, not toISOString. `d` is local midnight, and east of UTC local
+    // midnight is still yesterday in UTC, so every cell was keyed one day early
+    // while the tooltip printed the correct local date. The colours ended up a
+    // day to the right of the workouts that produced them.
+    const key = dayKey(d.getTime());
     const v = byDay.get(key) || 0;
     const level = v === 0 ? 0 : v <= 8 ? 1 : v <= 16 ? 2 : 3;
     cells.push(el('i', {

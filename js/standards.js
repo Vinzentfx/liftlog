@@ -130,6 +130,32 @@ const BENCHMARK_BASE = {
   'Weighted Pull-Up': 'Pull-Up', 'Weighted Chin-Up': 'Chin-Up', 'Weighted Dip': 'Dip',
 };
 
+/**
+ * What the bundled catalogue calls a lift that already has a published standard.
+ *
+ * free-exercise-db spells a pull-up "Pullups" and splits the dip into a chest
+ * and a triceps version, so not one of the three bodyweight benchmarks in
+ * BOUNDS appears under the name that table uses. All three produced no rank
+ * whatsoever: `isBenchmark` said no, and their equipment ("Bodyweight",
+ * "Other") is not rated either, so buildRating skipped them before it ever
+ * reached a standard. Somebody doing weighted pull-ups off the bundled library
+ * had an unranked back.
+ *
+ * Deliberately a separate table from ALIAS. ALIAS is forbidden from reaching
+ * `isBenchmark`, because a wide-grip pulldown is close enough to borrow a
+ * pulldown's ratio and not close enough to inherit its published standard.
+ * These are not near variants; they are the same movement under the
+ * catalogue's spelling, and saying so has to be its own deliberate list.
+ */
+export const BENCHMARK_ALIAS = {
+  'Pullups': 'Pull-Up',
+  'Dips - Chest Version': 'Dip',
+  'Dips - Triceps Version': 'Dip',
+};
+
+/** The benchmark a catalogue name stands for, or the name itself. */
+export const benchmarkName = (name) => BENCHMARK_ALIAS[name] || name;
+
 /** Which regions a benchmark lift trains, and how strongly (0–1). */
 export const CONTRIB = {
   'Barbell Bench Press':      { chest: 1, 'delts-front': 0.55, triceps: 0.55 },
@@ -268,7 +294,7 @@ export const CONTRIB_EXTRA = {
 export const ANATOMY = { ...CONTRIB_EXTRA, ...CONTRIB };
 
 export const BENCHMARKS = Object.keys(CONTRIB);
-export const isBenchmark = (name) => Object.hasOwn(CONTRIB, name);
+export const isBenchmark = (name) => Object.hasOwn(CONTRIB, benchmarkName(name));
 
 /* ===================== machines get a real standard ===================== */
 
@@ -547,7 +573,7 @@ const ALIAS = {
 };
 
 /** The name the curated tables know this movement by. */
-export const canonical = (name) => ALIAS[name] || name;
+export const canonical = (name) => ALIAS[name] || BENCHMARK_ALIAS[name] || name;
 
 /**
  * Movements a load cannot be ranked on at all, whatever the equipment says.
@@ -788,7 +814,8 @@ export function boundsFor(liftName, profile, { machine = false, community = null
   const f = ageFactor(profile.age);
 
   if (!machine) {
-    const table = BOUNDS[sex][BENCHMARK_BASE[liftName] || liftName];
+    const base = benchmarkName(liftName);
+    const table = BOUNDS[sex][BENCHMARK_BASE[base] || base];
     return table ? ladder(table).map((v) => v * f) : null;
   }
 
@@ -929,7 +956,7 @@ export function weightForScore(liftName, targetScore, profile, { machine = false
   if (!bounds) return null;
   let need = weightForRatio(ratioFromScore(targetScore, bounds), profile);
   if (need === null) return null;
-  if (BODYWEIGHT_INCLUSIVE.has(liftName)) need -= Number(profile.bodyweight);
+  if (BODYWEIGHT_INCLUSIVE.has(benchmarkName(liftName))) need -= Number(profile.bodyweight);
   return need;
 }
 

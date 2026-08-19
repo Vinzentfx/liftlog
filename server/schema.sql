@@ -152,7 +152,7 @@ create policy "own backups" on public.backups
 -- against the app having written something wrong and then faithfully backed the
 -- wrong thing up.
 create or replace function public.trim_backup_history()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = '' as $$
 begin
   delete from public.backups
    where user_id = new.user_id
@@ -221,6 +221,10 @@ $$;
 --
 -- The verifier is compared here rather than in the client for the obvious
 -- reason: a check in the client is a check the client can skip.
+-- Superseded by patch 014, which takes an owner_token as a third argument and
+-- rate limits the attempt, and by patch 017, which dropped this signature from
+-- the live database. Kept here only because schema.sql documents the original
+-- shape; a fresh install should apply the patches in order.
 create or replace function public.claim_ownership(verifier text, device uuid)
 returns void language plpgsql security definer set search_path = public as $$
 declare

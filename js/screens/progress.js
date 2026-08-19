@@ -152,7 +152,8 @@ function overview() {
   root.append(el('div.section-head', {}, [el('h2', { text: t('progress.consistency') })]));
   const dayMap = new Map();
   for (const s of done) {
-    const key = new Date(s.startedAt).toISOString().slice(0, 10);
+    // Local, to match the cell keys the heatmap builds from local midnight.
+    const key = dayKey(s.startedAt);
     const n = s.entries.reduce((m, e) => m + e.sets.filter(isCounted).length, 0);
     dayMap.set(key, (dayMap.get(key) || 0) + n);
   }
