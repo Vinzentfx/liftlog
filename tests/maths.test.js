@@ -508,6 +508,42 @@ test('multi-device backup merge keeps new workouts from both devices', () => {
   assert.equal(merged.sessions.find((s) => s.id === 'shared').notes, 'new local edit');
 });
 
+test('a setting changed here survives a newer snapshot from another device', () => {
+  const base = { format: 'liftlog-backup', version: 1, exercises: [], plans: [],
+    sessions: [], bodyweight: [], foods: [], meals: [], water: [], templates: [] };
+
+  // The gym case: a stack maximum typed into this phone at 17:00, while the
+  // tablet uploaded a snapshot at 16:00 that still carries the old units.
+  const local = { ...base,
+    settings: { machineSetups: { ex_1: { stackMax: 85 } }, units: 'kg' },
+    settingsUpdatedAt: { machineSetups: 1700, units: 900 } };
+  const remote = { ...base,
+    settings: { machineSetups: {}, units: 'lb' },
+    settingsUpdatedAt: { machineSetups: 1600, units: 1500 } };
+
+  const { merged, tookLocal } = mergeDetailed(local, remote);
+  assert.deepEqual(merged.settings.machineSetups, { ex_1: { stackMax: 85 } },
+    'the newer local edit is kept');
+  assert.equal(merged.settings.units, 'lb', 'the newer remote edit still wins');
+  assert.equal(tookLocal, true, 'and the result has to be uploaded');
+  // The times travel on, or the next merge would be blind again.
+  assert.equal(merged.settingsUpdatedAt.machineSetups, 1700);
+  assert.equal(merged.settingsUpdatedAt.units, 1500);
+});
+
+test('settings with no timestamps merge the way they always did', () => {
+  const base = { format: 'liftlog-backup', version: 1, exercises: [], plans: [],
+    sessions: [], bodyweight: [], foods: [], meals: [], water: [], templates: [] };
+  // A snapshot written before per-key times existed. Neither side can say when
+  // anything changed, so remote wins and nothing claims a local edit.
+  const local = { ...base, settings: { units: 'kg', restSeconds: 90 } };
+  const remote = { ...base, settings: { units: 'lb' } };
+  const { merged, tookLocal } = mergeDetailed(local, remote);
+  assert.equal(merged.settings.units, 'lb');
+  assert.equal(merged.settings.restSeconds, 90, 'a key only this side has is kept');
+  assert.equal(tookLocal, false);
+});
+
 test('a synced workout deletion cannot be resurrected by an older device', () => {
   const base = { format: 'liftlog-backup', version: 1, settings: {}, exercises: [], plans: [],
     bodyweight: [], foods: [], meals: [], water: [], templates: [] };

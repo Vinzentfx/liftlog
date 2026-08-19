@@ -286,6 +286,27 @@ body.resting #screen { padding-bottom: 102px; }
 .btn.danger { color: var(--danger); border-color: rgba(248, 113, 113, .32); background: rgba(248, 113, 113, .05); }
 .btn.full   { width: 100%; }
 .btn.sm     { min-height: 36px; font-size: 13.5px; padding: 0 13px; }
+
+/* Fingertips, not pixels.
+ *
+ * A 36px control is comfortable with a mouse and small in a gym with chalk on
+ * your hands, and Apple's floor is 44. Growing them on screen would loosen a
+ * layout that is already tight on a 375px phone, so the hit area grows instead
+ * and the button stays the size it looks. The pseudo-element reaches outward
+ * from the centre, so nothing moves.
+ *
+ * Height only where a neighbour sits close: .set-no is 26px wide with the
+ * weight field immediately to its right, and a 44px-wide hit area there would
+ * steal taps from the field you actually came to type in.
+ */
+.btn.sm, .icon-btn, .set-no { position: relative; }
+.btn.sm::after, .icon-btn::after, .set-no::after {
+  content: ''; position: absolute;
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 100%; height: 44px;
+}
+.icon-btn::after { min-width: 44px; }
+.btn.sm::after { min-width: 44px; }
 .btn:disabled { opacity: .4; pointer-events: none; }
 
 .icon-btn {
@@ -1127,6 +1148,9 @@ button.suggest {
   display: block; width: 100%; text-align: left;
   font: inherit; font-size: 12.5px; color: var(--text-dim);
   -webkit-tap-highlight-color: transparent;
+  /* Real padding rather than an overlay: "show last 3 workouts" sits a few
+     pixels below, and an overlay would reach into it. */
+  min-height: 44px; padding-top: 10px; padding-bottom: 10px;
 }
 button.suggest .row { align-items: baseline; }
 .suggest-why { flex: none; color: var(--text-faint); font-size: 11px; font-weight: 650; }

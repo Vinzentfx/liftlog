@@ -1,5 +1,29 @@
 // Offline shell. Bump CACHE when shipping changes so clients pick them up.
-const CACHE = 'liftlog-v143';
+const CACHE = 'liftlog-v147';
+
+/**
+ * The bulk data tables, in their own cache with their own version.
+ *
+ * Installing used to refetch all 75 shell files with `cache: 'reload'`, which
+ * is 2.1 MB, and 840 KB of that is the exercise catalogue, the food and brand
+ * tables and the image index. Between them those files have changed four times
+ * in the life of the repo, and a one-line CSS fix was costing every phone the
+ * whole download again.
+ *
+ * They keep the same all-or-nothing guarantee, just against their own version:
+ * a shell bump leaves this cache alone, and only what is genuinely missing is
+ * fetched. Bump DATA_CACHE when one of these files actually changes, which is
+ * almost never. strings.js is deliberately NOT here: 53 commits and counting.
+ */
+const DATA_CACHE = 'liftlog-data-v1';
+
+const DATA = [
+  './js/exercise-library.js',
+  './js/exercise-extra.js',
+  './js/exercise-images.js',
+  './js/brand-library.js',
+  './js/food-library.js',
+];
 
 // assets/exercises/*.webp are deliberately NOT precached — ~270 exercises x2
 // frames would bloat the install and most are never opened. The runtime
@@ -30,8 +54,6 @@ const SHELL = [
   './js/exercise-search.js',
   './js/plan-builder.js',
   './js/plan-rating.js',
-  './js/exercise-library.js',
-  './js/exercise-extra.js',
   './js/exercise-rating.js',
   './js/exercise-science.js',
   './js/evidence.js',
@@ -51,14 +73,11 @@ const SHELL = [
   './js/progression.js',
   './js/workout-start.js',
   './js/gym-location.js',
-  './js/food-library.js',
-  './js/brand-library.js',
   './js/foodsearch.js',
   './js/fatigue.js',
   './js/canvas-kit.js',
   './js/week-card.js',
   './js/week-share.js',
-  './js/exercise-images.js',
   './js/exercise-art.js',
   './js/standards.js',
   './js/bodymap.js',
@@ -107,20 +126,34 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE)
-      // Never activate a cache containing only half a deployment. Cloudflare
-      // and GitHub may expose files seconds apart; a failed install is retried,
-      // while an incomplete cache would leave the whole PWA unable to boot.
-      .then((cache) => cache.addAll(SHELL.map((url) => new Request(url, { cache: 'reload' }))))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    // Never activate a cache containing only half a deployment. Cloudflare
+    // and GitHub may expose files seconds apart; a failed install is retried,
+    // while an incomplete cache would leave the whole PWA unable to boot.
+    // Both addAll calls keep that property: either everything lands or the
+    // install throws and is retried.
+    const shell = await caches.open(CACHE);
+    await shell.addAll(SHELL.map((url) => new Request(url, { cache: 'reload' })));
+
+    // Survives a shell bump, so this is usually a no-op after the first
+    // install. Anything already held is left exactly as it is.
+    const data = await caches.open(DATA_CACHE);
+    const held = await Promise.all(DATA.map((url) => data.match(url)));
+    const missing = DATA.filter((url, i) => !held[i]);
+    if (missing.length) {
+      await data.addAll(missing.map((url) => new Request(url, { cache: 'reload' })));
+    }
+
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys
+        .filter((k) => k !== CACHE && k !== DATA_CACHE)
+        .map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -151,11 +184,15 @@ self.addEventListener('fetch', (event) => {
   // Assets: cache-first, refresh in the background.
   event.respondWith(
     caches.match(request).then((cached) => {
+      // A refreshed data file belongs in the data cache, or the next shell
+      // bump would wipe it and the saving with it.
+      const path = new URL(request.url).pathname;
+      const target = DATA.some((url) => path.endsWith(url.slice(1))) ? DATA_CACHE : CACHE;
       const network = fetch(request)
         .then((res) => {
           if (res && res.ok) {
             const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(request, copy));
+            caches.open(target).then((c) => c.put(request, copy));
           }
           return res;
         })

@@ -66,6 +66,9 @@ export const state = {
   templates: [],      // saved meals: a name and a list of foods
   meals: [],          // newest first
   settings: { ...DEFAULT_SETTINGS },
+  // key -> when it was last changed on this device. Only the sync merge reads
+  // it; everything else wants the plain values above.
+  settingsUpdatedAt: {},
   exerciseById: new Map(),
   // Set by `guard` when a write fails; cleared by the next one that works.
   storageError: null,
@@ -109,7 +112,14 @@ export async function load() {
   state.water = water;
   state.templates = templates;
   state.settings = { ...DEFAULT_SETTINGS };
-  for (const row of settingsRows) state.settings[row.key] = row.value;
+  // When each setting was last changed, so a merge can tell a fresh local edit
+  // from a stale remote one. Kept beside the values rather than inside them:
+  // every screen reads state.settings as a plain object of values.
+  state.settingsUpdatedAt = {};
+  for (const row of settingsRows) {
+    state.settings[row.key] = row.value;
+    if (row.updatedAt) state.settingsUpdatedAt[row.key] = row.updatedAt;
+  }
 
   if (!state.exercises.length) {
     state.exercises = seedExercises(db.uid);
@@ -314,8 +324,10 @@ export const machineStep = (exercise) => {
 // ---------- settings ----------
 
 export async function setSetting(key, value) {
+  const updatedAt = Date.now();
   state.settings[key] = value;
-  await db.put(db.STORES.settings, { key, value });
+  state.settingsUpdatedAt[key] = updatedAt;
+  await db.put(db.STORES.settings, { key, value, updatedAt });
   emit();
 }
 
@@ -1017,6 +1029,7 @@ export function exportData() {
     version: 1,
     exportedAt: new Date().toISOString(),
     settings: state.settings,
+    settingsUpdatedAt: state.settingsUpdatedAt,
     exercises: state.exercises,
     plans: state.plans,
     sessions: state.sessions,
@@ -1044,6 +1057,11 @@ export async function importData(payload, { replace = true } = {}) {
     }
   }
   if (payload.settings !== undefined && (typeof payload.settings !== 'object' || payload.settings === null)) {
+    throw new Error('This backup is damaged — its settings are unreadable.');
+  }
+  if (payload.settingsUpdatedAt !== undefined
+      && (typeof payload.settingsUpdatedAt !== 'object' || payload.settingsUpdatedAt === null
+          || Array.isArray(payload.settingsUpdatedAt))) {
     throw new Error('This backup is damaged — its settings are unreadable.');
   }
   if (!lists.some((key) => (payload[key] || []).length)) {
@@ -1082,7 +1100,11 @@ export async function importData(payload, { replace = true } = {}) {
     if (!key || key.length > 128) throw new Error('This backup contains an invalid setting name.');
   }
 
-  const settingRows = Object.entries(settings).map(([key, value]) => ({ key, value }));
+  // Carry the per-key times through a restore, or the first merge after it
+  // would treat every setting as undated and fall back to remote-wins.
+  const times = payload.settingsUpdatedAt || {};
+  const settingRows = Object.entries(settings).map(([key, value]) =>
+    (times[key] ? { key, value, updatedAt: times[key] } : { key, value }));
   if (replace) {
     // Everything except this device's own crypto keys.
     //

@@ -720,12 +720,37 @@ export function mergeDetailed(local, remote) {
     }
   }
   const deletions = [...deletionRows.values()];
+  // Settings used to be a flat spread with remote on top, so a change made on
+  // this device and not yet uploaded was dropped the moment a newer snapshot
+  // arrived from another one. That is not hypothetical: machineSetups lives
+  // here, so a stack maximum typed in at the gym could vanish because a tablet
+  // uploaded first. Each key now carries the time it was last written, and the
+  // more recent write wins, exactly the way the rows below already work.
+  //
+  // Undated keys keep the old behaviour. Snapshots written before this existed
+  // have no times at all, and remote-wins is the right answer when neither
+  // side can say when it changed.
+  const localTimes = local.settingsUpdatedAt || {};
+  const remoteTimes = remote.settingsUpdatedAt || {};
+  const settings = { ...(local.settings || {}) };
+  const settingsUpdatedAt = { ...localTimes };
+  let keptLocalSetting = false;
+  for (const [key, value] of Object.entries(remoteSettings)) {
+    const localAt = Number(localTimes[key]) || 0;
+    const remoteAt = Number(remoteTimes[key]) || 0;
+    if (localAt > remoteAt && Object.hasOwn(settings, key)) { keptLocalSetting = true; continue; }
+    settings[key] = value;
+    if (remoteAt) settingsUpdatedAt[key] = remoteAt;
+  }
+
   const merged = {
     format: 'liftlog-backup', version: 1, exportedAt: new Date().toISOString(),
-    settings: { ...(local.settings || {}), ...remoteSettings, syncDeletions: deletions },
+    settings: { ...settings, syncDeletions: deletions },
+    settingsUpdatedAt,
     deletions,
   };
-  let tookLocal = (local.deletions || local.settings?.syncDeletions || []).some((row) => {
+  let tookLocal = keptLocalSetting
+    || (local.deletions || local.settings?.syncDeletions || []).some((row) => {
     const remoteRow = remoteDeletionRows.get(`${row.collection}:${row.id}`);
     return !remoteRow || Number(row.deletedAt) > Number(remoteRow.deletedAt);
   });

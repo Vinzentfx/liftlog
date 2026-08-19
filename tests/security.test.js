@@ -418,8 +418,23 @@ test('offline updates cannot activate a partial JavaScript deployment', async ()
   const worker = await read('sw.js');
   const html = await read('index.html');
   const bootstrap = await read('js/bootstrap.js');
-  assert.match(worker, /cache\.addAll\(SHELL/);
+  // Still one atomic addAll over the whole shell: a rejected install is retried,
+  // where a per-file loop would leave half a deployment cached and bootable.
+  assert.match(worker, /addAll\(SHELL\.map/);
   assert.doesNotMatch(worker, /precache miss/);
+  // The bulk data tables live in their own cache so a shell bump does not cost
+  // every client another 840 KB. Two properties keep that honest: activate must
+  // spare that cache, and install must only fetch what is genuinely absent.
+  assert.match(worker, /k !== CACHE && k !== DATA_CACHE/);
+  assert.match(worker, /const missing = DATA\.filter\([\s\S]{0,120}addAll\(missing/);
+  // strings.js changes constantly and must never drift into the data cache.
+  const dataList = worker.split('const DATA = [')[1].split('];')[0];
+  assert.doesNotMatch(dataList, /strings\.js/);
+  for (const file of ['exercise-library', 'brand-library', 'food-library']) {
+    assert.match(dataList, new RegExp(file), `${file} belongs in the data cache`);
+    assert.doesNotMatch(worker.split('const SHELL = [')[1].split('\n];')[0],
+      new RegExp(file), `${file} must not also sit in the shell`);
+  }
   assert.match(html, /js\/bootstrap\.js[\s\S]*js\/app\.js/);
   // The reload itself now waits for the workout to end; that it still happens
   // is what this case is about.

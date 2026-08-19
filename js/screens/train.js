@@ -625,9 +625,12 @@ function warmupOffer(session, entry, ex, units, context = {}) {
   );
   // The caveat is a whole sentence about what the trials found. It belongs to
   // the sheet it opens, not above the first input field of a working set.
+  // Padding, not an overlay: the warm-up offer above it is a control too, and a
+  // hit area reaching upward would take taps meant for "add these sets". At
+  // 11px this was a 16px-tall target, the smallest thing in the app.
   wrap.append(el('button.small.faint', {
-    style: { marginTop: '-6px', marginBottom: '8px', fontSize: '11px', background: 'none',
-      border: 0, padding: 0, textAlign: 'left', color: 'var(--text-faint)' },
+    style: { marginTop: '-12px', marginBottom: '2px', fontSize: '11px', background: 'none',
+      border: 0, padding: '14px 0', textAlign: 'left', color: 'var(--text-faint)' },
     onclick: () => warmupEvidenceSheet(),
   }, [`${t('train.warmupWhy')}  ›`]));
   return wrap;
