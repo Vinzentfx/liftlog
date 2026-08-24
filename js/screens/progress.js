@@ -1,7 +1,7 @@
 // Progress — training overview, plus a per-exercise drill-down.
 
 import {
-  el, fmtNum, fmtVolume, fmtWeight, fmtDate, relDay, emptyState,
+  el, fmtNum, fmtDecimal, fmtVolume, fmtWeight, fmtDate, relDay, emptyState,
   openSheet, closeSheet, toast, confirmSheet, listItem,
   numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
@@ -357,12 +357,19 @@ function strengthSection(done) {
       ]),
       // The tier thresholds are the thing people actually want to know their
       // distance from, and reading them off an unlabelled y-axis is guesswork.
-      // Bands are 100/9 points wide — see BAND and tierIndex() in standards.js.
-      // Not every band: twelve of them printed as "Chl 75 · Imm 83 · Rad 92" is
-      // a line nobody reads. The two ends and the one that matters, which is
-      // the next one.
+      // Bands are 100/TIERS.length points wide — see BAND and tierIndex() in
+      // standards.js. Not every band: twelve of them printed as
+      // "Chl 75 · Imm 83 · Rad 92" is a line nobody reads. The two ends and the
+      // one that matters, which is the next one.
+      //
+      // The count is passed in rather than written into the sentence. It said
+      // "nine ranks" for as long as there have been twelve, because the ladder
+      // grew and the string did not; the comment above it had already been
+      // corrected to twelve and the line under it still said nine.
       el('div.small.faint', { style: { marginTop: '6px' },
         text: t('progress.tierBands', {
+          ranks: TIERS.length,
+          divisions: DIVISIONS.length,
           bands: `${tTier(TIERS[0].key)} 0 … ${tTier(TIERS[TIERS.length - 1].key)} ${Math.round((TIERS.length - 1) * BAND)}`,
         }) + ` ${nextTierNote(last.score)}` }),
     ])
@@ -385,7 +392,7 @@ function nextTierNote(score) {
   const next = Math.min(100, (Math.floor(score / step) + 1) * step);
   const target = rankOf(next + 0.0001);
   return t('progress.pointsTo', {
-    points: (next - score).toFixed(1),
+    points: fmtDecimal(next - score),
     tier: `${tTier(target.tier.key)} ${target.division}`,
   });
 }
@@ -458,7 +465,7 @@ function moversSection(done, units) {
       }),
     ]),
     el('div', { style: { textAlign: 'right', color: tone, fontWeight: '680', fontSize: '14px' } }, [
-      `${r.perWeek >= 0 ? '+' : ''}${r.perWeek.toFixed(1)}`,
+      `${r.perWeek >= 0 ? '+' : ''}${fmtDecimal(r.perWeek)}`,
       el('div.small.faint', { style: { fontWeight: '500' }, text: t('progress.perWeekUnits', { units }) }),
     ]),
   ]);
@@ -564,7 +571,7 @@ function timelineSection(units) {
       // title twice.
       barChart(kcalBars, {
         ...AXIS, xLabels: false, height: 120, everyNthLabel: 3,
-        format: (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))),
+        format: (v) => (v >= 1000 ? `${fmtDecimal(v / 1000)}k` : String(Math.round(v))),
         caption: t('timeline.rowKcal'),
       }),
 
@@ -602,7 +609,7 @@ function workloadSection(done, units) {
   const host = el('div');
   // Tonnage runs into five digits fast, and the y-axis gutter is 30px — hence
   // the compact axis format rather than a thousands-separated number.
-  const compact = (v) => (v >= 10000 ? `${Math.round(v / 1000)}k` : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)));
+  const compact = (v) => (v >= 10000 ? `${Math.round(v / 1000)}k` : v >= 1000 ? `${fmtDecimal(v / 1000)}k` : String(Math.round(v)));
 
   const WORK = {
     sets:    { label: t('train.sets'), pick: (b) => b.sets, fmt: (v) => tn(v, 'unit.set'), axis: (v) => String(Math.round(v)),
@@ -789,7 +796,7 @@ function exerciseView(exerciseId) {
     tailHost.append(
       el('div.card.tight', {}, [
         el('div.small', {}, [
-          el('b', { text: `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% `, class: pct >= 0 ? 'mono-accent' : '' }),
+          el('b', { text: `${pct >= 0 ? '+' : ''}${fmtDecimal(pct)}% `, class: pct >= 0 ? 'mono-accent' : '' }),
           t('progress.trendTail', { weeks: tn(weeks, 'unit.week'), metric: m.noun }),
         ]),
       ])

@@ -30,7 +30,7 @@
 import { tRegion, t } from './i18n.js';
 import { THRESHOLDS, SOURCES } from './evidence.js';
 import { rateExercise } from './exercise-rating.js';
-import { starString } from './ui.js';
+import { starString, fmtDecimal } from './ui.js';
 
 export { starString };
 
@@ -277,9 +277,9 @@ function verdict(a) {
   } else if (a.exerciseCount && a.longShare < 0.3) {
     missing.push(t('planRating.longShareLow', { pct: Math.round(a.longShare * 100) }));
   }
-  if (a.meanStars >= 3.75) good.push(t('planRating.starsGood', { stars: a.meanStars.toFixed(1) }));
+  if (a.meanStars >= 3.75) good.push(t('planRating.starsGood', { stars: fmtDecimal(a.meanStars) }));
   else if (a.exerciseCount && a.meanStars < 2.75) {
-    missing.push(t('planRating.starsLow', { stars: a.meanStars.toFixed(1) }));
+    missing.push(t('planRating.starsLow', { stars: fmtDecimal(a.meanStars) }));
   }
   if (a.stableShare >= 0.6) good.push(t('planRating.stabilityGood', { pct: Math.round(a.stableShare * 100) }));
   else if (a.exerciseCount && a.stableShare < 0.25) {

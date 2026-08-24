@@ -1153,6 +1153,12 @@ button.suggest {
   min-height: 44px; padding-top: 10px; padding-bottom: 10px;
 }
 button.suggest .row { align-items: baseline; }
+
+/* A quiet button that still reads as one. The caret is the only thing telling
+   a row of dim text apart from the dim text around it. */
+.warmup-offer { display: flex; flex-direction: column; align-items: flex-start; }
+.btn.quiet.disclose { display: flex; align-items: center; gap: 6px; justify-content: flex-start; }
+.disclose-caret { color: var(--text-faint); font-weight: 700; }
 .suggest-why { flex: none; color: var(--text-faint); font-size: 11px; font-weight: 650; }
 .suggest-reason { display: block; margin-top: 5px; }
 
@@ -1266,6 +1272,16 @@ button.suggest .row { align-items: baseline; }
 }
 .stat-val { font-size: 21px; font-weight: 760; letter-spacing: -0.03em; display: block; }
 .stat-key { font-size: 10.5px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); margin-top: 3px; display: block; }
+
+/* The same three numbers on a screen whose job is the rows underneath them.
+   Used by the live workout header, where the full-size tile is a summary of
+   work you have not done yet standing between you and the field you came to
+   type in. `nowrap` is the other half: three tiles across a 375px phone leave
+   about 80px of label, which "Volume kg" does not fit and "Elapsed" does, so
+   one tile grew a second line and the row lost its baseline. */
+.stat-grid.compact .stat { padding: 9px 10px; }
+.stat-grid.compact .stat-val { font-size: 17px; }
+.stat-grid.compact .stat-key { font-size: 9.5px; letter-spacing: .045em; margin-top: 1px; white-space: nowrap; }
 
 .figure { position: relative; }
 .figure > figcaption { font-size: 12.5px; color: var(--text-dim); margin-bottom: 10px; }

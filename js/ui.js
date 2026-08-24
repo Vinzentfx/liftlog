@@ -32,6 +32,27 @@ export function el(spec, props = {}, children = []) {
   return node;
 }
 
+/**
+ * `parent.append(...)` with `el`'s rules about children.
+ *
+ * `el` skips a null child; the DOM's own `append` stringifies one, so a builder
+ * that returns null on "nothing to show here" renders the word **null** on the
+ * screen the moment somebody appends its result directly instead of listing it
+ * as a child. That is not hypothetical: the strength card printed a literal
+ * "null" under the lift list and again under the machine records for every
+ * lifter with five lifts or fewer, because that is exactly when the "show all"
+ * toggle has nothing to offer and says so by returning null.
+ *
+ * Use this anywhere the child is the result of a call that may decline.
+ */
+export function add(parent, ...children) {
+  for (const child of children.flat()) {
+    if (child === null || child === undefined || child === false) continue;
+    parent.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  }
+  return parent;
+}
+
 const AUTH_ICONS = {
   email: ['M4 6h16v12H4z', 'm4 7 8 6 8-6'],
   lock: ['M6 10h12v10H6z', 'M8 10V7a4 4 0 0 1 8 0v3', 'M12 14v2'],
@@ -176,16 +197,42 @@ export function clear(node) { while (node.firstChild) node.removeChild(node.firs
 
 // ---------- formatting ----------
 
+/**
+ * The decimal mark this language actually writes.
+ *
+ * German has read "6.1kg" and "1.8kg pro Woche" since the interface was
+ * translated, because every number in the app went through `toFixed`, which
+ * only knows the one separator. Display only: `parseNumber` still takes either,
+ * and the value written back into an input field stays canonical, so nothing
+ * that is stored or compared changes shape.
+ */
+const decimalMark = () => (1.1).toLocaleString(locale()).charAt(1);
+const localiseDecimal = (text) => text.replace('.', decimalMark());
+
+/**
+ * A number for a human to read, in this language's notation.
+ *
+ * Exported because `fmtWeight` and `fmtNum` are not the only places a decimal
+ * reaches a screen: rates per week, percentages, litres, megabytes, star
+ * averages and the chart axes all format their own, and every one of them read
+ * "+2.6 kg/Woche" to a German. SVG path geometry deliberately does not come
+ * through here — a `d` attribute is not prose and a comma in it is a bug.
+ */
+export function fmtDecimal(value, digits = 1) {
+  const n = Number(value) || 0;
+  return localiseDecimal(n.toFixed(digits));
+}
+
 export function fmtWeight(v, units = 'kg') {
   const n = Number(v) || 0;
-  const s = Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, '');
+  const s = Number.isInteger(n) ? String(n) : localiseDecimal(n.toFixed(1).replace(/\.0$/, ''));
   return `${s}${units}`;
 }
 
 export function fmtNum(v, digits = 0) {
   const n = Number(v) || 0;
-  if (n >= 10000) return `${(n / 1000).toFixed(n >= 100000 ? 0 : 1)}k`;
-  return n.toFixed(digits);
+  if (n >= 10000) return `${localiseDecimal((n / 1000).toFixed(n >= 100000 ? 0 : 1))}k`;
+  return localiseDecimal(n.toFixed(digits));
 }
 
 /**

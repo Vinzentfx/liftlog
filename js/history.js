@@ -12,7 +12,7 @@
 
 import { startOfWeek, isCounted, e1rm, entryStats, linearFit, withinE1rmWindow } from './models.js';
 import {
-  buildRating, isBenchmark, hasProfile, ratedMachineNames, RATED_EQUIPMENT, regionsFromExercises,
+  buildRating, hasProfile, ratedMachineNames, isRateable, regionsFromExercises,
 } from './standards.js';
 
 // Only for durations and lookback windows, never for a week boundary: a week
@@ -132,7 +132,7 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
       for (const entry of s.entries || []) {
         const ex = exerciseById.get(entry.exerciseId);
         const name = ex ? ex.name : null;
-        if (!name || (!isBenchmark(name) && !RATED_EQUIPMENT.has(ex.equipment))) continue;
+        if (!isRateable(name, machineNames)) continue;
         for (const set of (entry.sets || []).filter(isCounted)) {
           const est = historicalE1rm(name, set, sessionBodyweight);
           // Same window rule as bestOneRepMaxByName, so the line on Progress and
@@ -180,7 +180,7 @@ export function strengthAt(sessions, bodyweightLog, profile, exerciseById, at = 
     if (!s.finishedAt || s.startedAt > at) continue;
     for (const entry of s.entries || []) {
       const ex = exerciseById.get(entry.exerciseId);
-      if (!ex || (!isBenchmark(ex.name) && !RATED_EQUIPMENT.has(ex.equipment))) continue;
+      if (!isRateable(ex?.name, machineNames)) continue;
       for (const set of (entry.sets || []).filter(isCounted)) {
         const sessionBodyweight = bodyweightAt(bw, s.startedAt) ?? profile.bodyweight;
         const est = historicalE1rm(ex.name, set, sessionBodyweight);

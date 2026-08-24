@@ -1,7 +1,7 @@
 // Home — overall strength rating, the muscle map, and training-at-a-glance.
 
 import {
-  el, fmtNum, fmtVolume, fmtWeight, fmtDate, fmtDuration, emptyState, listItem,
+  el, add, fmtNum, fmtDecimal, fmtVolume, fmtWeight, fmtDate, fmtDuration, emptyState, listItem,
   openSheet, closeSheet, toast, confirmSheet,
   numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
@@ -574,7 +574,7 @@ function weekVsPlan(done) {
   return wrap;
 }
 
-const trimNum = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+const trimNum = (n) => (Number.isInteger(n) ? String(n) : fmtDecimal(n));
 
 /* ======================= nutrition ======================= */
 
@@ -644,7 +644,7 @@ function ratingSection(done, settings) {
   // fires once, for a step that was actually just crossed.
   announceRankUp(rank);
 
-  const change = recentRankChange(rating.overall);
+  const change = recentRankChange(rating.overall, rating.ratedRegions);
   if (change) {
     hero.append(el(`div.rank-up${change.up ? '' : '.down'}`, {}, [
       el('span', { text: change.up ? '▲' : '▼', 'aria-hidden': 'true' }),
@@ -654,7 +654,8 @@ function ratingSection(done, settings) {
           weeks: tn(change.weeks, 'unit.week'),
         }) }),
         change.up ? null : el('div.small.faint', { style: { marginTop: '2px' },
-          text: t('home.rating.rankDownWhy') }),
+          text: t(change.measuredMore ? 'home.rating.rankDownWider' : 'home.rating.rankDownWhy',
+            { was: change.wasRegions, now: change.regions }) }),
       ]),
     ]));
   }
@@ -715,7 +716,7 @@ function ratingSection(done, settings) {
         ])
       );
     }
-    wrap.append(showAllToggle(rating.lifts.length, showAllLifts, (v) => { showAllLifts = v; }));
+    add(wrap, showAllToggle(rating.lifts.length, showAllLifts, (v) => { showAllLifts = v; }));
   }
 
   wrap.append(machineRecords(rating.lifts));
@@ -832,7 +833,7 @@ function supportLine(info) {
   const ranks = (Number(info.spread) || 0) / BAND;
   return el('div.small.faint', { style: { marginTop: '6px', textAlign: 'center' },
     text: ranks >= 1
-      ? t('home.region.driversDisagree', { n: drivers, ranks: ranks.toFixed(1) })
+      ? t('home.region.driversDisagree', { n: drivers, ranks: fmtDecimal(ranks) })
       : t('home.region.driversAgree', { n: drivers }) });
 }
 
@@ -872,7 +873,7 @@ function outlierNotice(lift, settings) {
 
   const line = lift.overStack
     ? t('home.rating.overStack', {
-        times: lift.overStack.times.toFixed(1),
+        times: fmtDecimal(lift.overStack.times),
         max: fmtWeight(lift.overStack.max, store.units()),
       })
     : t('home.rating.outlier', { ranks: Math.floor(lift.outlier.ranks) });
@@ -1016,9 +1017,14 @@ function rankTrack(rank, score) {
       ]),
     ]),
     bar,
+    // How far through the current step, in per cent. It used to print the raw
+    // gap on the 0-100 scale — "1.0 to Grandmaster I" — which is the very
+    // number the card above deliberately stopped showing, now stripped of even
+    // the scale that would have made it readable. One point out of a hundred is
+    // most of a division, and nothing on the screen said so.
     el('div.small.faint', { style: { marginTop: '7px', textAlign: 'right' },
       text: rank.top ? t('home.rating.ladderTop') : t('home.rating.toNextStep', {
-        points: (nextStep - score).toFixed(1), rank: rankName(target),
+        pct: Math.max(1, Math.min(99, Math.round(rank.progress * 100))), rank: rankName(target),
       }) }),
   ]);
 }
@@ -1049,14 +1055,26 @@ function nextStepScore(score) {
  * of illness, not a verdict on the lifter. So it is stated flatly, in the same
  * words, without a colour that reads as a telling-off.
  */
-function recentRankChange(currentScore) {
+function recentRankChange(currentScore, ratedNow = null) {
   const weeks = 8;
   const then = strengthAt(store.state.sessions, store.state.bodyweight, store.state.settings,
     store.state.exerciseById, Date.now() - weeks * 7 * 86400000, machineCorrections());
   if (!then || then.overall === null) return null;
   const from = rankOf(then.overall), to = rankOf(currentScore);
   if (!from || !to || to.step === from.step) return null;
-  return { from, to, weeks, up: to.step > from.step, steps: Math.abs(to.step - from.step) };
+  // Whether the average is now taken over more muscle groups than it was.
+  //
+  // This is the honest answer to a complaint that is entirely fair: log an
+  // overhead press for the first time, discover your front delts are two ranks
+  // behind everything else, and the overall drops — so the app appears to have
+  // punished you for measuring something. It did not. The number went down
+  // because it got more accurate, and the only thing wrong was that the screen
+  // offered bodyweight as the sole explanation and let the lifter conclude the
+  // other one.
+  const measuredMore = ratedNow !== null && then.ratedRegions !== undefined
+    && ratedNow > then.ratedRegions;
+  return { from, to, weeks, up: to.step > from.step, steps: Math.abs(to.step - from.step),
+    measuredMore, regions: ratedNow, wasRegions: then.ratedRegions };
 }
 
 function machineRecords(lifts) {
@@ -1095,7 +1113,7 @@ function machineRecords(lifts) {
       ]),
     ]));
   }
-  wrap.append(showAllToggle(all.length, showAllMachines, (v) => { showAllMachines = v; }));
+  add(wrap, showAllToggle(all.length, showAllMachines, (v) => { showAllMachines = v; }));
   return wrap;
 }
 

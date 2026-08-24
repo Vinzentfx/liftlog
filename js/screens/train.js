@@ -173,7 +173,13 @@ function activeView(session) {
         else { await store.pauseSession(session.id); rest.stop(); }
       } }, [t(session.pausedAt ? 'train.resume' : 'train.pause')]),
     ]),
-    el('div.stat-grid', {}, [
+    // Compact, because this is the one screen where the header is not the point.
+    // At the full stat size these three tiles took 190px off an 812px phone and
+    // pushed the first weight field below the fold, so the screen you open to
+    // log a set opened on a summary of the set you have not logged yet. Same
+    // numbers, half the height, and "Volume kg" stops wrapping onto two lines
+    // while "Elapsed" and "Sets" stay on one.
+    el('div.stat-grid.compact', {}, [
       el('div.stat', {}, [elapsed, el('span.stat-key', { text: t('train.elapsed') })]),
       el('div.stat', {}, [el('span.stat-val', { text: String(st.sets) }), el('span.stat-key', { text: t('train.sets') })]),
       el('div.stat', {}, [el('span.stat-val', { text: fmtNum(st.volume) }), el('span.stat-key', { text: t('train.volume', { units }) })]),
@@ -254,7 +260,10 @@ function exerciseBlock(session, entry, entryIndex) {
     // trained from one position still gets a measured cost rather than a prior.
     fallbackCost: pooledOrderCost(store.state.sessions, store.state.exerciseById, { assumedRir }),
   });
-  const prior = priorWork(session.entries, entryIndex, store.state.exerciseById);
+  // `live`, because this session is a plan being carried out rather than a
+  // record of one that was: work still sitting above this card counts, and so
+  // does work already ticked off below it. See `priorWork`.
+  const prior = priorWork(session.entries, entryIndex, store.state.exerciseById, { live: true });
   const doneToday = entry.sets.filter(isCounted);
   const suggesting = store.state.settings.progressionSuggestions !== false;
 
@@ -306,11 +315,18 @@ function exerciseBlock(session, entry, entryIndex) {
         .filter((row) => row.entry?.sets.some(isCounted))
         .sort((a, b) => b.session.startedAt - a.session.startedAt).slice(0, 3);
       const expanded = openHistories.has(entry.exerciseId);
-      block.append(el('button.btn.quiet.sm', { style: { padding: '3px 0', marginBottom: expanded ? '4px' : '8px' },
+      // The chevron is the affordance. Without it this was grey text at the
+      // left margin with no border, no underline and no icon, sitting among
+      // other grey text: everything about it said "label" and nothing said
+      // "tap me", so the last three workouts were effectively unreachable.
+      block.append(el('button.btn.quiet.sm.disclose', { style: { padding: '3px 0', marginBottom: expanded ? '4px' : '8px' },
         'aria-expanded': String(expanded), onclick: () => {
           if (expanded) openHistories.delete(entry.exerciseId); else openHistories.add(entry.exerciseId);
           render();
-        } }, [t(expanded ? 'train.hideSetHistory' : 'train.showSetHistory')]));
+        } }, [
+          el('span', { text: t(expanded ? 'train.hideSetHistory' : 'train.showSetHistory') }),
+          el('span.disclose-caret', { text: expanded ? '⌄' : '›', 'aria-hidden': 'true' }),
+        ]));
       if (expanded) block.append(el('div.set-history', {}, history.map((row) => el('div.row.between.small', {}, [
         el('span.faint', { text: new Date(row.session.startedAt).toLocaleDateString(locale(), { day: '2-digit', month: '2-digit' }) }),
         el('b', { text: setsSummary(row.entry.sets.filter(isCounted), units) }),
@@ -577,7 +593,8 @@ function setMenu(session, entry, set, index) {
  * it cannot name. Two sets on a barbell lift, one on everything else.
  */
 function warmupOffer(session, entry, ex, units, context = {}) {
-  const wrap = el('div');
+  // A column: see `.warmup-offer`, and the note on the caveat link below it.
+  const wrap = el('div.warmup-offer');
   if (ex?.equipment === 'Bodyweight') return wrap;
   if (entry.sets.some((s) => s.type === 'warmup')) return wrap;
   // A warm-up you are offered after the first working set is already logged is
@@ -625,12 +642,19 @@ function warmupOffer(session, entry, ex, units, context = {}) {
   );
   // The caveat is a whole sentence about what the trials found. It belongs to
   // the sheet it opens, not above the first input field of a working set.
+  //
+  // Both this and the offer above it are `.btn`-style inline-flex controls, so
+  // in a plain div they fitted side by side on a 375px phone and the negative
+  // margin then dragged this one's 44px hit area sideways across the offer's:
+  // the exact overlap the next paragraph says it is avoiding. `.warmup-offer`
+  // is a column, so each keeps its own row and its own taps.
   // Padding, not an overlay: the warm-up offer above it is a control too, and a
   // hit area reaching upward would take taps meant for "add these sets". At
   // 11px this was a 16px-tall target, the smallest thing in the app.
   wrap.append(el('button.small.faint', {
-    style: { marginTop: '-12px', marginBottom: '2px', fontSize: '11px', background: 'none',
-      border: 0, padding: '14px 0', textAlign: 'left', color: 'var(--text-faint)' },
+    style: { marginTop: '-8px', marginBottom: '2px', fontSize: '11px', background: 'none',
+      border: 0, padding: '12px 0', textAlign: 'left', color: 'var(--text-faint)',
+      alignSelf: 'flex-start' },
     onclick: () => warmupEvidenceSheet(),
   }, [`${t('train.warmupWhy')}  ›`]));
   return wrap;
@@ -687,14 +711,24 @@ function nextSetLine(advice, units, perSide = false) {
 /**
  * The reasons behind a suggestion, in the order they matter.
  *
- * Two at most. The engine can produce four, and a paragraph under a number is
- * a paragraph nobody reads on a gym floor between sets.
+ * Three at most, and only because they are behind a tap. The verdict is three
+ * words on the closed row; this is what opens underneath it when somebody wants
+ * to know why, which is a different question with a different budget. Two was
+ * the right answer while these were printed inline above the set rows.
+ *
+ * Every load in the params is formatted here rather than in the engine, which
+ * deals in numbers and knows nothing about the unit the screen is showing.
  */
+const REASON_LOADS = ['weight', 'from', 'perWeek'];
+
 function describeReasons(reasons, units) {
-  return reasons.slice(0, 2).map((r) => t(`train.why.${r.key}`, {
-    ...r.params,
-    weight: r.params.weight === undefined ? undefined : fmtWeight(round1(r.params.weight), units),
-  })).join(' ');
+  return reasons.slice(0, 3).map((r) => {
+    const params = { ...r.params };
+    for (const field of REASON_LOADS) {
+      if (params[field] !== undefined) params[field] = fmtWeight(round1(params[field]), units);
+    }
+    return t(`train.why.${r.key}`, params);
+  }).join(' ');
 }
 
 const round1 = (n) => Math.round(n * 10) / 10;
@@ -712,9 +746,15 @@ function orderLabel(rows, prior, session, entryIndex) {
   const before = rows[rows.length - 1].prior.same;
   const now = prior.same;
   if (Math.abs(now - before) < 1) return null;
+  // Amber for the case that costs you something, and nothing louder than the
+  // rest of the line for the case that gives it back. Both used to be painted
+  // in the warning colour, so an exercise moved *earlier* in the session — a
+  // lifter arriving at it fresher than last week, which is good news — was
+  // flagged on screen in the same colour as a problem.
+  const later = now > before;
   return el('span.small', {
-    style: { color: 'var(--warn)', display: 'block', marginTop: '2px' },
-    text: t(now > before ? 'train.order.laterNow' : 'train.order.earlierNow', {
+    style: { color: later ? 'var(--warn)' : 'var(--text-dim)', display: 'block', marginTop: '2px' },
+    text: t(later ? 'train.order.laterNow' : 'train.order.earlierNow', {
       now: fmtNum(round1(now)), before: fmtNum(round1(before)),
     }),
   });

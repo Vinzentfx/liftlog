@@ -97,29 +97,75 @@ function overlap(exercise, earlier) {
   return Math.min(1, hit / primary.size);
 }
 
+/** A set that is on the board for today but has not been ticked. */
+const isPlanned = (set) => set.type === 'working' && !set.done;
+
 /**
  * The work standing between the start of a session and one of its exercises.
  *
- * @param entries   the session's entries, in the order they were performed
+ * Two questions, not one, and which is being asked depends on whether the
+ * session is over.
+ *
+ * **A finished session** is a record. The only work that came before an
+ * exercise is the work that was ticked off above it, and position is the only
+ * account of the order there is — sets carry no timestamp. That is the default,
+ * and `exerciseHistory` and `pooledOrderCost` both want exactly it.
+ *
+ * **A session in progress** is a plan being executed, and the honest question is
+ * *what will have happened by the time this exercise starts*. Two things the
+ * positional rule gets wrong there:
+ *
+ *  - Work sitting above this exercise that has not been done yet counted as
+ *    nothing. Open a push day and the bench, third on the list behind six sets
+ *    of flyes, was advised as though it were the first thing of the morning;
+ *    do the flyes and the same suggestion quietly dropped by a rep. One
+ *    exercise, two different numbers in one session, and the one shown first
+ *    was the wrong one. In the order the lifter has arranged, that work is
+ *    coming, so `live` counts it.
+ *  - Work done *out of* order counted as nothing either. Jump to the last
+ *    exercise, do it, then come back to the first, and the first was advised as
+ *    fresh — despite three sets already behind it. Ticked is ticked, so `live`
+ *    counts it wherever it sits on the list.
+ *
+ * Moving an exercise up or down therefore changes its advice immediately, which
+ * is the point: the arrangement on screen is the lifter saying what they intend
+ * to do, and this is the engine taking them at their word.
+ *
+ * `planned` comes back separately so the suggestion can say out loud how much
+ * of the fatigue it is counting has not happened yet. A number a lifter cannot
+ * account for is a number they stop trusting.
+ *
+ * @param entries   the session's entries, in the order they will be performed
  * @param index     which entry is being asked about
  * @param byId      Map exerciseId -> exercise
- * @returns { same, other, warmedRegions }
+ * @param live      true for the session in progress, false for a record
+ * @returns { same, other, warmedRegions, planned }
  */
-export function priorWork(entries, index, byId) {
-  const exercise = byId.get(entries[index]?.exerciseId);
-  let same = 0, other = 0;
+export function priorWork(entries, index, byId, { live = false } = {}) {
+  const list = entries || [];
+  const exercise = byId.get(list[index]?.exerciseId);
+  let same = 0, other = 0, planned = 0;
   const warmedRegions = new Set();
 
-  for (let i = 0; i < index; i++) {
-    const earlier = byId.get(entries[i].exerciseId);
-    const sets = (entries[i].sets || []).filter(isCounted).length;
-    if (!sets) continue;
-    for (const region of earlier?.primary || []) warmedRegions.add(region);
+  for (let i = 0; i < list.length; i++) {
+    if (i === index) continue;
+    const earlier = byId.get(list[i].exerciseId);
+    const sets = list[i].sets || [];
+    const done = sets.filter(isCounted).length;
+    // Being warm is a fact about the body, not about a list. An exercise
+    // sitting above this one that nobody has started has warmed nothing, so
+    // only work actually performed reaches the warm-up offer.
+    if (done) for (const region of earlier?.primary || []) warmedRegions.add(region);
+
+    const ahead = live && i < index ? sets.filter(isPlanned).length : 0;
+    const counted = live ? done + ahead : (i < index ? done : 0);
+    if (!counted) continue;
+    planned += ahead;
     const share = overlap(exercise, earlier);
-    same += sets * share;
-    other += sets * (1 - share);
+    same += counted * share;
+    other += counted * (1 - share);
   }
-  return { same, other, warmedRegions };
+  return { same, other, warmedRegions, planned };
 }
 
 /**
@@ -335,7 +381,12 @@ export function setDecay(rows, assumedRir = 0) {
       if (value) samples.push((1 - value / first) / (i + 1));
     });
   }
-  if (samples.length < 3) return { value: 0.04, measured: false };
+  // Three per cent, not four. Four came out of nowhere in particular and cost
+  // more than a rep a set: predicting six for the second set of a session that
+  // opened with eight, when practically every log in the wild goes 8-7-6. Three
+  // reproduces that shape, and it only has to hold until two sessions of
+  // multi-set work exist, after which the lifter's own median replaces it.
+  if (samples.length < 3) return { value: 0.03, measured: false };
   samples.sort((a, b) => a - b);
   const median = samples[Math.floor(samples.length / 2)];
   return { value: Math.max(0.005, Math.min(0.12, median)), measured: true };
@@ -394,24 +445,66 @@ export function roundLoad(weight, exercise, { units = 'kg', barWeight = 20, step
   return plan.loaded;
 }
 
-/** Reps a load is good for, given a capacity, leaving `reserve` in the tank. */
-const repsAt = (capacity, weight, reserve) =>
-  Math.floor(30 * (capacity / weight - 1) - reserve);
+/**
+ * Reps a load is good for, given a capacity, leaving `reserve` in the tank.
+ *
+ * The epsilon is not a rounding preference. Epley run forwards and then
+ * backwards does not land where it started: 135 x 8 comes out of `e1rm` as
+ * 170.99999999999997, and a bare floor turns the eight reps that were actually
+ * performed into seven. Every "stay at the same weight, do one rep fewer"
+ * suggestion this app ever printed came out of that missing bit, and so did
+ * half the back-offs, because a rep lost here is a rep below the range there.
+ */
+const repsAt = (capacity, weight, reserve) => {
+  if (!capacity || !weight) return 0;
+  // Nearest, not floor. Epley resolves about one rep per 3.3% of load, so a
+  // floor throws away half a rep on average and always in the same direction —
+  // and a prediction that is biased low every single time is exactly what makes
+  // an app feel like it is talking you out of your own training. Every decision
+  // built on this number carries its own margin (BACK_OFF_MARGIN), so the half
+  // rep of conservatism was never load-bearing anywhere it was used.
+  return Math.round(30 * (capacity / weight - 1) - reserve);
+};
 
 /** The load that lands on a rep target with `reserve` left over. */
 const loadFor = (capacity, reps, reserve) => capacity / (1 + (reps + reserve) / 30);
 
-/** How close to failure the first working set is aimed. Practice, not a finding. */
-const TARGET_RESERVE = 1;
+/**
+ * The reserve the lifter's own opening sets carry.
+ *
+ * This is the number that makes a prediction comparable with the log it was
+ * built from, and getting it wrong is what produced the complaint this rewrite
+ * started from. `rawE1rm` reads a past set as `reps + reserve`; predicting at
+ * any *other* reserve therefore answers a different question than the one the
+ * history asked. Aimed at a fixed one-in-reserve, as it used to be, the engine
+ * read 135 x 8 and replied "135 x 7" — arithmetically consistent, and read by
+ * everybody who saw it as an instruction to get weaker.
+ *
+ * Logged reserves win. Where the column is empty the standing assumption from
+ * settings is used, which is the same value the history was read with, so the
+ * round trip closes exactly.
+ */
+function openingReserve(rows, assumedRir = 0) {
+  const logged = rows.map((r) => r.firstSet).filter(hasEffort).map((s) => Math.max(0, Number(s.rir)));
+  if (!logged.length) return Math.max(0, Math.min(4, Number(assumedRir) || 0));
+  logged.sort((a, b) => a - b);
+  return logged[Math.floor(logged.length / 2)];
+}
 
 /**
- * And how close the ones after it.
+ * How far under the bottom of the range a load has to land before it comes off.
  *
- * Zero, because a later set is where the reserve gets spent. Aiming the third
- * set of the day at one-in-reserve as well is how an app ends up recommending a
- * weight drop for a session that is going exactly as it should.
+ * Two reps, and the reason it is not zero is hysteresis. Fatigue corrections,
+ * Epley's slack and a rounded plate all move the estimate by around a rep, so a
+ * threshold sitting exactly on the range boundary flips between "hold" and
+ * "back off" on noise. That is what turned 135 x 8 into "back off to 130 x 7":
+ * three sets of flyes beforehand cost 4.5%, the estimate crossed the line by a
+ * fraction of a rep, and the suggestion changed the weight over it.
+ *
+ * A step back is a real event. It should need a real reason.
  */
-const LATER_RESERVE = 0;
+const BACK_OFF_MARGIN = 2;
+
 
 /* ===================== between sessions ===================== */
 
@@ -437,6 +530,12 @@ export function openingSet(rows, {
   const today = readiness(prior || { same: 0, other: 0 }, rows.orderCost);
   const capacity = projected.value * today;
 
+  // Predictions are made at the effort the lifter actually trains at, so that
+  // "same weight, same day" predicts the reps that were actually logged rather
+  // than one fewer. See `openingReserve`.
+  const reserve = openingReserve(rows, assumedRir);
+  const predict = (load) => repsAt(capacity, load, reserve);
+
   const reasons = [];
   const firstReps = Number(last.firstSet.reps) || 0;
   const firstReserve = reserveOf(last.firstSet, assumedRir);
@@ -458,39 +557,94 @@ export function openingSet(rows, {
   // see on their own screen and would otherwise read as a regression.
   const orderShift = today - last.readiness;
   if (Math.abs(orderShift) >= 0.01) {
+    // How much of what it is counting has not happened yet. A lifter looking at
+    // a rep target a rep lower than last week deserves to be told that the
+    // reason is six sets they can still see sitting above this card, unticked,
+    // and that moving the exercise up would change the answer.
+    const ahead = Math.round(prior?.planned || 0);
     reasons.push({
-      key: orderShift < 0 ? 'later' : 'earlier',
+      key: orderShift < 0 ? (ahead > 0 ? 'laterPlanned' : 'later') : 'earlier',
       params: {
         pct: Math.abs(Math.round(orderShift * 100)),
         weight: Math.abs(last.openingWeight * orderShift),
+        sets: ahead,
       },
     });
   }
+  const fresherOrEqual = orderShift >= -0.005;
+
+  /**
+   * What to ask for at a weight that is staying where it is.
+   *
+   * Double progression, written out: the load holds and the rep target goes up
+   * by one until the top of the range is reached. That "+1" is the whole
+   * mechanism, and the old version did not have it — it printed a raw model
+   * estimate, which at an unchanged weight is by construction *last time's
+   * number*, so the screen said "hold" and then asked for exactly what had
+   * already been done, or less. Nothing about that tells a lifter what would
+   * count as a good session.
+   *
+   * Three things bound the ask. It never exceeds the top of the range, because
+   * that is where the weight goes up instead. It does not add the rep while the
+   * trend is going backwards, because asking for more on the way down is how a
+   * suggestion loses its credibility. And when today is measurably less fresh
+   * than the session it is being compared with, the *rep target* absorbs that
+   * rather than the weight: three sets of flyes beforehand cost about a rep,
+   * and saying so is far more use than quietly taking 5 kg off the bar.
+   */
+  const holdAsk = () => {
+    const stretch = falling ? firstReps : Math.min(range.high, firstReps + 1);
+    const model = predict(last.openingWeight);
+    return fresherOrEqual
+      ? Math.max(stretch, Math.min(range.high, model))
+      : Math.max(1, Math.min(stretch, model));
+  };
 
   let weight, reps, change;
+  const holdLoad = roundLoad(last.openingWeight, exercise, { units, barWeight, step: stackStep });
+  // Where the load would have to be for the bottom of the range to be reachable
+  // today. Only consulted once something has said the current load is not.
+  const wantedForRange = loadFor(capacity, range.low, reserve);
+  const predictedHere = predict(last.openingWeight);
+  // A back-off needs the load to miss the range by a margin, not by a rounding
+  // error — or the trend to be going backwards and the range genuinely out of
+  // reach. Either way it also has to actually buy a lighter bar: see below.
+  const tooHeavy = predictedHere <= range.low - BACK_OFF_MARGIN
+    || (falling && predictedHere < range.low);
+
   if (rule === 'reps') {
-    weight = roundLoad(last.openingWeight * (1 + orderShift), exercise, { units, barWeight, step: stackStep });
-    reps = Math.max(range.low, Math.min(range.high, repsAt(capacity, weight, TARGET_RESERVE)));
+    // Rep progression holds the load by definition. The old version scaled it
+    // by today's fatigue, which is a weight change under the one rule that
+    // exists to not make weight changes.
+    weight = holdLoad;
+    reps = holdAsk();
     change = 'hold';
     reasons.push({ key: 'repRule', params: { high: range.high } });
   } else if (rule === 'weight' || (clearedTarget && !falling)) {
     // Up. Bounded on both sides: at least one increment so the suggestion is
     // actually a change, at most three so a single very good session cannot
-    // fling the weight somewhere the lifter has never been.
-    const wanted = loadFor(capacity, range.low, TARGET_RESERVE);
+    // fling the weight somewhere the lifter has never been — and never more
+    // than a tenth of the load, because three increments of a 2 kg dumbbell
+    // step is a 60% jump on a 10 kg bell and an 8% one on a 75 kg bar.
+    const ceiling = Math.min(last.openingWeight + step * 3, last.openingWeight * 1.1);
     weight = roundLoad(
-      Math.max(last.openingWeight + step, Math.min(last.openingWeight + step * 3, wanted)),
+      Math.max(last.openingWeight + step, Math.min(Math.max(ceiling, last.openingWeight + step), wantedForRange)),
       exercise, { units, barWeight, step: stackStep }
     );
     if (weight <= last.openingWeight) {
       weight = roundLoad(last.openingWeight + step, exercise, { units, barWeight, step: stackStep });
     }
-    reps = Math.max(range.low, Math.min(range.high, repsAt(capacity, weight, TARGET_RESERVE)));
+    // Honestly, not hopefully. A heavier bar buys fewer reps — that is what
+    // makes it heavier — and clamping the answer up into the rep range printed
+    // "60 kg x 10 → 65 kg x 10", which is two sessions of progress claimed in
+    // one line. What it can do is fall to the bottom of the range and no
+    // further, which is what the increment was sized for.
+    reps = Math.min(range.high, Math.max(1, predict(weight)));
     change = 'up';
     reasons.unshift(rule === 'weight'
       ? { key: 'weightRule', params: {} }
       : firstReps >= range.high
-        ? { key: 'clearedFirstSet', params: { reps: firstReps, high: range.high } }
+        ? { key: 'clearedFirstSet', params: { reps: firstReps, high: range.high, from: last.openingWeight } }
         : {
             // Say which it was. A weight increase built on an assumption the
             // user never made should announce itself as one.
@@ -498,37 +652,57 @@ export function openingSet(rows, {
             params: { reps: firstReps, rir: firstReserve, capable: firstCapable },
           });
   } else {
-    // Hold, or step back when the trend and today's fatigue agree that the old
-    // weight is not there. Stepping back is rare and deliberate: it needs the
-    // projection to say so, not a single bad set.
-    const holdReps = repsAt(capacity, last.openingWeight, TARGET_RESERVE);
-    if (holdReps < range.low) {
-      // Far enough down to actually reach the bottom of the range, not one
-      // increment. After a heavy single, one increment still leaves a weight
-      // nobody is doing six reps with, and the old version printed exactly that.
-      const wanted = loadFor(capacity, range.low, TARGET_RESERVE);
-      weight = roundLoad(Math.max(step, Math.min(last.openingWeight - step, wanted)),
-        exercise, { units, barWeight, step: stackStep });
+    const backOff = tooHeavy
+      ? roundLoad(Math.max(step, Math.min(last.openingWeight - step, wantedForRange)),
+          exercise, { units, barWeight, step: stackStep })
+      : holdLoad;
+    if (tooHeavy && backOff < holdLoad) {
+      weight = backOff;
+      reps = Math.min(range.high, Math.max(1, predict(weight)));
       change = 'down';
-      reasons.unshift({ key: falling ? 'trendDown' : 'tooHeavyToday', params: { low: range.low } });
+      reasons.unshift({
+        key: falling ? 'trendDown' : 'tooHeavyToday',
+        params: { low: range.low, from: last.openingWeight, reps: predictedHere },
+      });
     } else {
-      weight = roundLoad(last.openingWeight, exercise, { units, barWeight, step: stackStep });
+      // Hold. Which of the three things is happening gets its own sentence,
+      // because "stay at 135" for a good session, a tired session and a stalled
+      // one are three different pieces of advice that happen to share a number.
+      weight = holdLoad;
+      reps = holdAsk();
       change = 'hold';
-      reasons.unshift({ key: 'buildReps', params: { reps: firstReps, high: range.high } });
+      reasons.unshift(!fresherOrEqual
+        ? { key: 'holdTired', params: { reps: firstReps, ask: reps, from: last.openingWeight } }
+        // "One more rep" is the double-progression case and only that case. Where
+        // the projection or a fresher slot in the session says there is more than
+        // one rep in hand, the ask is bigger and calling it "one more" is simply
+        // false: it printed "last time was 12, one rep more: 15".
+        : reps > firstReps + 1
+          ? { key: 'stretchReps', params: { reps: firstReps, ask: reps, high: range.high } }
+          : reps > firstReps
+            ? { key: 'buildReps', params: { reps: firstReps, ask: reps, high: range.high } }
+            : { key: 'matchReps', params: { reps: firstReps, high: range.high } });
     }
-    reps = repsAt(capacity, weight, TARGET_RESERVE);
   }
 
-  // Reported as predicted, never rounded up into the range. `nextSet` has
-  // always done it this way; this one used to clamp upward, so a suggestion
-  // built on a 200 kg single came out as "197.5 kg × 6".
+  // A last guard, not a policy. Every branch above already reports what it
+  // predicts; this only catches a rep count that would print as zero.
   reps = Math.min(range.high, Math.max(1, reps));
 
+  // The trend line, when it is saying anything at all. A slope past half a kilo
+  // a week in either direction is a direction; anything under that is a flat
+  // line with noise on it, and this used to call a *falling* one "flat" because
+  // the only two keys it had were up and not-up.
   if (projected.slope !== null && Math.abs(projected.slope) >= 0.5) {
     reasons.push({
-      key: projected.slope > 0 ? 'trendUp' : 'trendFlat',
-      params: { perWeek: Math.abs(projected.slope).toFixed(1), sessions: projected.sessions },
+      key: projected.slope > 0 ? 'trendUp' : 'trendSlipping',
+      // A number, not a pre-formatted string: the engine has no idea whether
+      // the screen is showing kilos or pounds, and "climbing 1.8 a week" with
+      // no unit on it was the reader's problem to solve.
+      params: { perWeek: Math.abs(projected.slope), sessions: projected.sessions },
     });
+  } else if (projected.sessions >= 3) {
+    reasons.push({ key: 'trendFlat', params: { sessions: projected.sessions } });
   }
   if (!rows.some((r) => r.effortLogged)) reasons.push({ key: 'noRir', params: { rir: assumedRir } });
 
@@ -564,27 +738,44 @@ export function nextSet(doneSets, rows, {
   const range = parseReps(targetReps) || { low: 6, high: 10 };
   const step = loadStep(exercise, units, stackStep);
 
-  const opener = effortE1rm(done[0], assumedRir);
-  if (!opener) return null;
   const decay = setDecay(rows || [], assumedRir);
   const lastWeight = effectiveSetWeight(done[done.length - 1]);
   if (!lastWeight) return null;
 
-  // Where the lifter will be on the set about to be done, not where they were.
-  const capacity = opener * Math.max(0.6, 1 - decay.value * done.length);
+  // The share of a fresh lifter still there for the set at position `i`, zero
+  // being the opener. Floored, because a long enough session would otherwise
+  // arithmetic its way down to nothing.
+  const left = (i) => Math.max(0.6, 1 - decay.value * i);
 
-  const holdReps = repsAt(capacity, lastWeight, LATER_RESERVE);
-  const first = done[0];
+  // Today's capacity, read back to fresh from *every* set already done and not
+  // only from the first one. Reading it off set one alone assumes set one was
+  // the hardest, which is true when the sets descend and false the moment
+  // somebody ramps: opening 60 x 10 and then putting 100 on the bar used to
+  // leave the engine estimating the rest of the session off the 60.
+  const capacityFresh = Math.max(...done.map((set, i) => effortE1rm(set, assumedRir) / left(i)));
+  if (!capacityFresh) return null;
+  const capacity = capacityFresh * left(done.length);
+
+  // Predicted at the effort this lifter actually stops at, for the same reason
+  // the between-session advice does: a lifter who logs 2 RIR on every set is
+  // not asking to be told the number that would take them to failure.
+  const reserve = openingReserve(rows || [], assumedRir);
+
+  const holdReps = repsAt(capacity, lastWeight, reserve);
+  const recent = done[done.length - 1];
   // Same reading as between sessions: reps plus reserve is what the set was
-  // actually worth. Two clear of the top of the range means the opener was
-  // light, and the set about to be done should not repeat that.
-  const blewPast = Number(first.reps) + reserveOf(first, assumedRir) >= range.high + 2;
+  // actually worth. Two clear of the top of the range means the weight is
+  // light, and the set about to be done should not repeat that. Judged on the
+  // set just finished rather than only on the opener — a third set that still
+  // has two in the tank is a *stronger* signal than a first one, and the old
+  // version could only ever act on set one.
+  const blewPast = Number(recent.reps) + reserveOf(recent, assumedRir) >= range.high + 2;
 
   // The weight that would land the next set on the bottom of the range.
-  const wanted = loadFor(capacity, range.low, LATER_RESERVE);
+  const wanted = loadFor(capacity, range.low, reserve);
 
   let weight = lastWeight, change = 'hold', key = holdReps >= range.low ? 'holdWeight' : 'holdFade';
-  if (blewPast && done.length === 1) {
+  if (blewPast) {
     weight = roundLoad(lastWeight + step, exercise, { units, barWeight, step: stackStep });
     change = 'up';
     key = 'setTooLight';
@@ -602,7 +793,7 @@ export function nextSet(doneSets, rows, {
   // is information, and rounding it up into the range would be a lie told to
   // make a number look tidy. The ceiling is only there so a very light set does
   // not print a rep count nobody is going to do.
-  const reps = Math.min(range.high, Math.max(1, repsAt(capacity, weight, LATER_RESERVE)));
+  const reps = Math.min(range.high, Math.max(1, repsAt(capacity, weight, reserve)));
   return {
     setNumber: done.length + 1,
     weight,

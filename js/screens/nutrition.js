@@ -10,7 +10,7 @@
 // than becoming zero, which is why the energy split can refuse to draw itself.
 
 import {
-  el, toast, openSheet, closeSheet, confirmSheet, emptyState, listItem, fmtNum, fmtWeight, fmtDate,
+  el, toast, openSheet, closeSheet, confirmSheet, emptyState, listItem, fmtNum, fmtDecimal, fmtWeight, fmtDate,
   numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
@@ -285,8 +285,8 @@ function waterCard(day) {
   const card = el('div.card', {}, [
     el('div.row.between', { style: { alignItems: 'baseline' } }, [
       el('div', {}, [
-        el('span', { style: { fontSize: '20px', fontWeight: '740' }, text: `${(ml / 1000).toFixed(1)} L` }),
-        el('span.small.faint', { text: `  ${t('food.ofAbout', { litres: (target / 1000).toFixed(1) })}` }),
+        el('span', { style: { fontSize: '20px', fontWeight: '740' }, text: `${fmtDecimal(ml / 1000)} L` }),
+        el('span.small.faint', { text: `  ${t('food.ofAbout', { litres: fmtDecimal(target / 1000) })}` }),
       ]),
       el('div.row', { style: { gap: '6px' } }, [
         el('button.btn.quiet.sm', { 'aria-label': t('food.removeGlass'), onclick: () => store.addWater(-GLASS, day) }, ['−']),

@@ -14,6 +14,7 @@
 // doing the training.
 
 import { t } from './i18n.js';
+import { fmtDecimal } from './ui.js';
 import { movers } from './history.js';
 import { analyseWeek } from './log-analysis.js';
 import { startOfWeek } from './models.js';
@@ -127,9 +128,9 @@ export function describeStall(report) {
   if (rir) {
     const delta = rir.recent - rir.earlier;
     lines.push(Math.abs(delta) < 0.3
-      ? t('fatigue.effortSame', { rir: rir.recent.toFixed(1) })
+      ? t('fatigue.effortSame', { rir: fmtDecimal(rir.recent) })
       : t(delta < 0 ? 'fatigue.effortCloser' : 'fatigue.effortFurther', {
-          earlier: rir.earlier.toFixed(1), recent: rir.recent.toFixed(1),
+          earlier: fmtDecimal(rir.earlier), recent: fmtDecimal(rir.recent),
         }));
   }
 

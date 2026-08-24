@@ -236,6 +236,9 @@ export const CONTRIB_EXTRA = {
   'Lateral Raise Machine':     { 'delts-front': 1, traps: 0.3 },
   'Machine Rear Delt Fly':     { 'delts-rear': 1, traps: 0.4 },
   'Machine Biceps Curl':       { biceps: 1, forearms: 0.3 },
+  // The same movement with a bar in your hands. Curated rather than inferred
+  // from the name, like every other row in this table.
+  'Barbell Curl':              { biceps: 1, forearms: 0.35 },
   'Machine Preacher Curl':     { biceps: 1, forearms: 0.25 },
   'Preacher Curl Machine':     { biceps: 1, forearms: 0.25 },
   'Rope Hammer Curl':          { biceps: 0.75, forearms: 1 },
@@ -422,6 +425,14 @@ const MACHINE_ANCHOR = {
   'Cross-Body Cable Lateral Raise': ['Overhead Press', 0.33],
   'Machine Rear Delt Fly':      ['Barbell Row', 0.91],
   'Machine Biceps Curl':        ['Barbell Row', 0.78],
+  // Not a machine. See DERIVED_FREE_WEIGHT: a barbell curl had no way to rank
+  // anything, because rateability was decided by equipment and "Barbell" was
+  // not on the list. 0.52 puts the elite band at 0.96 of the allometric
+  // reference, which is where the published barbell-curl standard sits — a
+  // little under bodyweight for a strong lifter. Routing it through the machine
+  // curl instead would have given 107 kg, because a cam helps and a bar does
+  // not.
+  'Barbell Curl':               ['Barbell Row', 0.52],
   'Machine Preacher Curl':      ['Barbell Row', 0.76],
   'Preacher Curl Machine':      ['Barbell Row', 0.76],
   'Rope Hammer Curl':           ['Barbell Row', 0.80],
@@ -509,6 +520,24 @@ const ALIAS = {
   'Cable Hammer Curls - Rope Attachment': 'Rope Hammer Curl',
   'Seated Two-Arm Palms-Up Low-Pulley Wrist Curl': 'Cable Wrist Curl',
   'Cable Wrist Curl ': 'Cable Wrist Curl',
+
+  // The barbell curl the catalogue never calls a barbell curl. Every one of
+  // these is a two-handed bar curl differing only in grip or bench angle, and
+  // each was invisible to the rating under its own name.
+  'Wide-Grip Standing Barbell Curl': 'Barbell Curl',
+  'Close-Grip Standing Barbell Curl': 'Barbell Curl',
+  'EZ-Bar Curl': 'Barbell Curl',
+  'Close-Grip EZ Bar Curl': 'Barbell Curl',
+  'Close-Grip EZ-Bar Curl': 'Barbell Curl',
+  'Drag Curl': 'Barbell Curl',
+  'Spider Curl': 'Barbell Curl',
+  'Barbell Curls Lying Against An Incline': 'Barbell Curl',
+  'Lying High Bench Barbell Curl': 'Barbell Curl',
+  'Seated Close-Grip Concentration Barbell Curl': 'Barbell Curl',
+  // Deliberately NOT aliased here: a plain "Preacher Curl" is a bench in some
+  // gyms and a stack in others, and MACHINE_ANCHOR already carries the machine
+  // one. Guessing which the lifter means is how a rank ends up built on the
+  // wrong standard.
 
   'Cable Seated Lateral Raise': 'Machine Lateral Raise',
   'Cable Rear Delt Fly': 'Machine Rear Delt Fly',
@@ -640,6 +669,46 @@ export function machineCategory(name) {
 
 /** Equipment whose loads this engine is willing to rank. */
 export const RATED_EQUIPMENT = new Set(['Machine', 'Cable']);
+
+/**
+ * Free weights that rank through an anchor rather than a table of their own.
+ *
+ * Rateability used to be decided entirely by equipment: a benchmark, or a
+ * Machine or Cable. The effect was that the *same movement* ranked or did not
+ * depending on which implement was in the lifter's hands — "Standing Biceps
+ * Cable Curl" gave the biceps a rank, "Wide-Grip Standing Barbell Curl" gave
+ * them nothing at all, and 292 barbell and dumbbell movements in the bundled
+ * catalogue contributed to no muscle and no score. That is not a calibration
+ * judgement, it is a filter drawn around the wrong property.
+ *
+ * The fix is small on purpose. This is an explicit opt-in list, not the
+ * category fallback that unknown machines get: those bands were fitted to pin
+ * stacks, and letting every unrecognised barbell movement fall into them would
+ * hand out ranks nobody calibrated. A name gets in here only when it has an
+ * entry in MACHINE_ANCHOR with the derivation written next to it.
+ *
+ * Dumbbells stay out, and the reason is the logging convention rather than the
+ * lifting: the app records one bell, so the number on screen is half the work,
+ * and choosing where to put that factor is the user's call and not this file's.
+ */
+export const DERIVED_FREE_WEIGHT = new Set(['Barbell Curl']);
+
+/**
+ * Can this movement carry a rank at all? The one place that answers it.
+ *
+ * The rule used to be written out by hand in three places — `buildRating` here,
+ * and twice in history.js for the Progress line — and the copies had already
+ * drifted: the two in history.js tested equipment directly and so quietly
+ * dropped every plate-loaded lift that `ratedMachineNames` had just admitted.
+ * Adding free weights to one copy would have split Home and Progress properly
+ * in half, with the same barbell curl ranked on one screen and invisible on the
+ * other. One function, three callers, no drift.
+ *
+ * @param name          the lift's catalogue name
+ * @param machineNames  the set from `ratedMachineNames`, for this catalogue
+ */
+export const isRateable = (name, machineNames) => !!name
+  && (isBenchmark(name) || machineNames.has(name) || DERIVED_FREE_WEIGHT.has(canonical(name)));
 
 /**
  * Movements that take real plates on a real bar, whatever the catalogue calls
@@ -849,6 +918,9 @@ export function boundsFor(liftName, profile, { machine = false, community = null
  * for it.
  */
 const EXTRAPOLATED_CONFIDENCE = 0.85;
+
+/** How much a free weight ranked through somebody else's standard is trusted. */
+const DERIVED_CONFIDENCE = 0.9;
 
 /** How much a machine's rank is trusted on the shared body map. */
 export function machineConfidence(liftName, community = null) {
@@ -1083,14 +1155,26 @@ export function buildRating(bestByLift, profile,
     const name = rawName;
     const factor = Number(loadFactors[name]) > 0 ? Number(loadFactors[name]) : 1;
     const orm = rawOrm * factor;
+    // Two different questions. `anchored` decides which table the score is read
+    // from — anything without a published standard of its own goes through
+    // MACHINE_ANCHOR. `machine` is what the lift *is*, and it stays false for a
+    // free weight so that a barbell curl wins a tie like the free weight it is
+    // and never turns up under "your machine records".
+    const derivedFree = !isBenchmark(name) && DERIVED_FREE_WEIGHT.has(canonical(name));
     const machine = machineNames.has(name) && !isBenchmark(name);
-    if (!isBenchmark(name) && !machine) continue;
-    const score = machine
+    const anchored = machine || derivedFree;
+    if (!isRateable(name, machineNames)) continue;
+    const score = anchored
       ? scoreForMachine(name, orm, profile, community[name])
       : scoreFor(name, orm, profile);
     if (score === null) continue;
     const sample = Number(community[name]?.count) || 0;
-    const opts = { machine, community: community[name] || null };
+    // `anchored`, not `machine`: this decides which table the *next* target is
+    // read off, and it has to be the same table the score came from. Passing
+    // `machine` here sent a barbell curl to look for its own published
+    // standard, found nothing, and printed "top of the ladder reached" on a
+    // Master II lift with six ranks still above it.
+    const opts = { machine: anchored, community: community[name] || null };
     lifts.push({
       name, oneRepMax: orm, score, tier: tierOf(score), rank: rankOf(score),
       next: toNextTier(name, score, profile, opts),
@@ -1127,12 +1211,25 @@ export function buildRating(bestByLift, profile,
         if (!seen || score > seen.score) indirect[region] = { via: name, score };
         continue;
       }
-      const confidence = (machine ? machineConfidence(name, community[name]) : 1)
+      // How far this lift can be trusted, which is a separate question from how
+      // strong it says the lifter is. It used to be multiplied into the number,
+      // and that put the same lift on the screen at two different ranks: a
+      // machine chest press trained at fifteen reps read Diamond I on the lift
+      // list and Diamond III on the body map, two ranks apart, with nothing on
+      // either screen to say why. Uncertainty about a measurement is not
+      // evidence of weakness, and a lifter who only has machines was quietly
+      // paying a rank for the equipment their gym happens to own.
+      //
+      // So it does what a confidence belongs doing: it decides how much this
+      // region pulls on the overall average, and it rides along on the region so
+      // the map can mark it. The rank itself is the rank.
+      const confidence = (machine ? machineConfidence(name, community[name])
+        // A free weight read off somebody else's standard is a derived number,
+        // and it weighs like one. Since the discount now lives in the average
+        // rather than in the score, the lifter still sees the rank they earned.
+        : derivedFree ? DERIVED_CONFIDENCE : 1)
         * (outside.has(name) ? EXTRAPOLATED_CONFIDENCE : 1);
-      // The weight has already done its job by getting this far. It does not
-      // also discount the number: a lift that drives a region gives that region
-      // its rank, not a fraction of it.
-      const value = score * confidence;
+      const value = score;
       const held = regions[region];
       // Ties go to the published standard: a machine only takes a region off a
       // barbell lift by being strictly better.
@@ -1144,9 +1241,13 @@ export function buildRating(bestByLift, profile,
       // how far apart they sit is the useful part that a single number hides.
       (support[region] ||= []).push({ name, score: value });
       const better = !held || value > held.score
-        || (!stack && held.stack && value >= held.score);
+        || (!stack && held.stack && value >= held.score)
+        // A dead-level tie between two lifts of the same kind goes to the one
+        // the app is surer of, which is the only remaining thing to separate
+        // them now that confidence no longer moves the score.
+        || (value === held.score && confidence > held.confidence);
       if (better) {
-        regions[region] = { score: value, via: name, machine, stack,
+        regions[region] = { score: value, via: name, machine, stack, confidence,
           provisional: machine && sample < 10, sample,
           extrapolated: outside.has(name),
         };
@@ -1210,8 +1311,14 @@ export function buildRating(bestByLift, profile,
     regions[region].drivers = drivers.length;
     regions[region].spread = drivers.length > 1 ? Math.max(...scores) - Math.min(...scores) : 0;
   }
-  const overall = counted.length
-    ? counted.reduce((n, r) => n + r.score, 0) / counted.length
+  // Weighted by confidence rather than counted flat. A region measured through
+  // a machine nobody has calibrated still says something, and dropping it would
+  // leave a machine-only lifter with no overall at all; letting it count as much
+  // as a barbell bench against a published table would be pretending the two
+  // measurements are equally good. This is the one place the discount belongs.
+  const totalWeight = counted.reduce((n, r) => n + (r.confidence ?? 1), 0);
+  const overall = totalWeight
+    ? counted.reduce((n, r) => n + r.score * (r.confidence ?? 1), 0) / totalWeight
     : null;
 
   return {

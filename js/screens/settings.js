@@ -1,7 +1,7 @@
 // Settings sheet — units, rest defaults, and backup/restore.
 
 import {
-  el, openSheet, closeSheet, confirmSheet, toast, fmtClock, fmtDate,
+  el, openSheet, closeSheet, confirmSheet, toast, fmtClock, fmtDate, fmtDecimal,
   numberInput, parseNumber, normaliseOnBlur,
 } from '../ui.js';
 import * as store from '../store.js';
@@ -634,7 +634,7 @@ function viewportLine() {
 function storageLine() {
   const node = el('div.small.faint', { style: { marginBottom: '8px' }, text: t('settings.checkingStorage') });
   db.storageStatus().then(({ persisted, usage }) => {
-    const size = usage ? t('settings.mbUsed', { mb: (usage / 1048576).toFixed(1) }) : null;
+    const size = usage ? t('settings.mbUsed', { mb: fmtDecimal(usage / 1048576) }) : null;
     node.textContent = [
       t(persisted === true ? 'settings.storagePersistent'
         : persisted === false ? 'settings.storageBestEffort'

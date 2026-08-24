@@ -19,6 +19,7 @@
 
 import { entryStats, linearFit } from './models.js';
 import { tRegion, t, tn } from './i18n.js';
+import { fmtDecimal } from './ui.js';
 
 const WEEK = 7 * 86400000;
 
@@ -158,7 +159,7 @@ export function describeRegion(region, p) {
   }
   // `-0.0%` is what a flat fit prints without this, and it reads like a bug.
   const v = Math.abs(p.pctPerWeek) < 0.05 ? 0 : p.pctPerWeek;
-  const rate = t('regionProgress.rate', { pct: `${v > 0 ? '+' : ''}${v.toFixed(1)}` });
+  const rate = t('regionProgress.rate', { pct: `${v > 0 ? '+' : ''}${fmtDecimal(v)}` });
   const via = p.best ? ` ${t('regionProgress.bestMover', { name: p.best.name })}` : '';
   return t('regionProgress.summary', {
     muscle: name,
