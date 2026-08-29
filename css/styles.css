@@ -1280,7 +1280,7 @@ button.suggest .row { align-items: baseline; }
    about 80px of label, which "Volume kg" does not fit and "Elapsed" does, so
    one tile grew a second line and the row lost its baseline. */
 .stat-grid.compact .stat { padding: 9px 10px; }
-.stat-grid.compact .stat-val { font-size: 17px; }
+.stat-grid.compact .stat-val { font-size: 17px; white-space: nowrap; }
 .stat-grid.compact .stat-key { font-size: 9.5px; letter-spacing: .045em; margin-top: 1px; white-space: nowrap; }
 
 .figure { position: relative; }

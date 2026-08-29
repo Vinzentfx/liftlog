@@ -250,7 +250,16 @@ export function renderSettings() {
     input.addEventListener('change', () => store.setSetting(key, input.checked));
     return input;
   };
+  // Opt-in rather than opt-out: `preferenceToggle` reads a missing value as on,
+  // and this one changes what the app recommends, so it has to be asked for.
+  const optInToggle = (key) => {
+    const input = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
+    input.checked = s[key] === true;
+    input.addEventListener('change', () => store.setSetting(key, input.checked));
+    return input;
+  };
   const progressionToggle = preferenceToggle('progressionSuggestions');
+  const strictRangeToggle = optInToggle('strictRepRange');
   const warmupToggle = preferenceToggle('warmupSuggestions');
   const plateauToggle = preferenceToggle('plateauHints');
   const outlierToggle = preferenceToggle('outlierHints');
@@ -363,6 +372,7 @@ export function renderSettings() {
         el('small', { text: t('settings.assumedRirNote') }),
       ]),
       checkRow(progressionToggle, t('settings.progressionSuggestions'), t('settings.progressionSuggestionsNote')),
+      checkRow(strictRangeToggle, t('settings.strictRepRange'), t('settings.strictRepRangeNote')),
       checkRow(warmupToggle, t('settings.warmupSuggestions'), t('settings.warmupSuggestionsNote')),
       checkRow(plateauToggle, t('settings.plateauHints')),
       checkRow(outlierToggle, t('settings.outlierHints'), t('settings.outlierHintsNote')),

@@ -151,6 +151,30 @@ export const BENCHMARK_ALIAS = {
   'Pullups': 'Pull-Up',
   'Dips - Chest Version': 'Dip',
   'Dips - Triceps Version': 'Dip',
+
+  // The catalogue and the standards table spell the same movements
+  // differently, and where they miss each other the lift ranks nothing at all.
+  // "Weighted Pull Ups" is the one that matters most: the published standard is
+  // filed under "Weighted Pull-Up", so the hyphen alone was the difference
+  // between a ranked lift and an invisible one — and without the alias the
+  // training screen also collected it as a plain external load rather than as
+  // bodyweight plus a belt.
+  'Weighted Pull Ups': 'Weighted Pull-Up',
+  'Parallel Bar Dip': 'Dip',
+  'Ring Dips': 'Dip',
+  'Narrow Parallel Grip Chin-ups': 'Chin-Up',
+  // Neutral grip sits between the two, and Chin-Up is the harder standard of
+  // the pair, so this is the conservative of the two readings.
+  'V-Bar Pullup': 'Chin-Up',
+  // Behind the neck is harder than a normal pull-up, never easier, so scoring
+  // it against the pull-up standard cannot flatter anybody.
+  'Wide-Grip Rear Pull-Up': 'Pull-Up',
+
+  // Deliberately absent, and each for its own reason. "Band Assisted Pull-Up"
+  // is assisted, so the number describes the band (see UNRATEABLE). "Bench
+  // Dips" and "Weighted Bench Dip" put the feet on the floor and carry a
+  // fraction of the load. "Scapular Pull-Up", "One Arm Chin-Up" and "Rocky
+  // Pull-Ups/Pulldowns" are different movements, not spellings.
 };
 
 /** The benchmark a catalogue name stands for, or the name itself. */
@@ -816,23 +840,53 @@ const LB_PER_KG = 2.2046226218;
 const toKg = (value, units) => (units === 'lb' ? Number(value) / LB_PER_KG : Number(value));
 const fromKg = (value, units) => (units === 'lb' ? value * LB_PER_KG : value);
 
-export function strengthRatio(oneRepMax, profile) {
+/**
+ * Where a load sits on the scale the standards are written against.
+ *
+ * Two forms, and which one applies is a property of the lift.
+ *
+ * **Allometric**, for anything with a load you choose. Muscle cross-section
+ * scales with mass to about the two-thirds power, so a bigger lifter is
+ * expected to move more in absolute terms and less per kilo of themselves. The
+ * reference bodyweight is the one the published tables were written at, so a
+ * lifter of exactly that weight scores precisely what the table says.
+ *
+ * **Bodyweight-relative**, for a pull-up, a chin-up or a dip, where the load
+ * *is* the lifter. The allometric form counts bodyweight on both sides of the
+ * fraction there, and the two do not cancel: with nothing added it reduces to
+ * `(bw / reference) ^ 0.33`, a number that depends on nothing but the scale in
+ * the bathroom. The result was a rank that went **up** when the lifter gained
+ * weight and did exactly as many pull-ups as before — three steps, from Silver
+ * I at 70 kg to Gold II at 100 kg, for the same single rep. Every other lift in
+ * the app moves the other way, correctly, and so does reality.
+ *
+ * A plain multiple of bodyweight is also how these particular standards are
+ * published ("advanced = 1.55 x bodyweight"), and it agrees with the allometric
+ * form exactly at the reference weight, so nothing that was calibrated there
+ * moves.
+ */
+export function strengthRatio(oneRepMax, profile, { bodyweightRelative = false } = {}) {
   const sex = profile.sex === 'female' ? 'female' : 'male';
   const bw = toKg(profile.bodyweight, profile.units);
   const load = toKg(oneRepMax, profile.units);
   if (!bw || bw <= 0 || !load) return null;
+  if (bodyweightRelative) return load / bw;
   const referenceBw = sex === 'female' ? 60 : 80;
   return load / (Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33));
 }
 
 /** The inverse of strengthRatio, in whatever unit the app is displaying. */
-export function weightForRatio(ratio, profile) {
+export function weightForRatio(ratio, profile, { bodyweightRelative = false } = {}) {
   const sex = profile.sex === 'female' ? 'female' : 'male';
   const bw = toKg(profile.bodyweight, profile.units);
   if (!bw || bw <= 0) return null;
+  if (bodyweightRelative) return fromKg(ratio * bw, profile.units);
   const referenceBw = sex === 'female' ? 60 : 80;
   return fromKg(ratio * Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33), profile.units);
 }
+
+/** Is this lift's load the lifter's own body? Then see `strengthRatio`. */
+const carriesOwnBodyweight = (liftName) => BODYWEIGHT_INCLUSIVE.has(benchmarkName(liftName));
 
 /**
  * Strength peaks roughly 20–35. Older lifters get a proportionally easier
@@ -936,7 +990,8 @@ export function scoreForMachine(liftName, oneRepMax, profile, community = null) 
 }
 
 export function scoreFor(liftName, oneRepMax, profile) {
-  const ratio = strengthRatio(oneRepMax, profile);
+  const ratio = strengthRatio(oneRepMax, profile,
+    { bodyweightRelative: carriesOwnBodyweight(liftName) });
   if (ratio === null) return null;
   const bounds = boundsFor(liftName, profile, { machine: false });
   return bounds ? scoreFromBounds(ratio, bounds) : null;
@@ -1026,9 +1081,11 @@ export function nextThresholds(score) {
 export function weightForScore(liftName, targetScore, profile, { machine = false, community = null } = {}) {
   const bounds = boundsFor(liftName, profile, { machine, community });
   if (!bounds) return null;
-  let need = weightForRatio(ratioFromScore(targetScore, bounds), profile);
+  const relative = carriesOwnBodyweight(liftName);
+  let need = weightForRatio(ratioFromScore(targetScore, bounds), profile,
+    { bodyweightRelative: relative });
   if (need === null) return null;
-  if (BODYWEIGHT_INCLUSIVE.has(benchmarkName(liftName))) need -= Number(profile.bodyweight);
+  if (relative) need -= Number(profile.bodyweight);
   return need;
 }
 

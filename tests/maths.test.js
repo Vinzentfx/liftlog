@@ -1216,6 +1216,27 @@ test('a step back needs a real gap, and has to actually buy a lighter bar', () =
   assert.ok(buried.reasons[0].params.from === 135, 'and it names the weight it is stepping off');
 });
 
+test('a pull-up that clears the range is told to do more, not fewer', () => {
+  // The worst suggestion the app ever produced: ten pull-ups against a 6-10
+  // target came back "aim for 6". The engine had taken the weight-increase
+  // branch, added an increment to the lifter's *bodyweight*, and honestly
+  // reported what a 90 kg body would get for reps.
+  const pull = { ...exercise('ex_pull', 'Pull-Up', ['lats']), equipment: 'Bodyweight' };
+  const byPull = new Map([[pull.id, pull]]);
+  const run = (reps) => {
+    const sets = [{ ...set(0, reps), systemWeight: 82 }];
+    const rows = exerciseHistory([session(at(2026, 7, 1), [entry(pull.id, sets)])], pull.id, byPull);
+    return openingSet(rows, { exercise: pull, targetReps: '6-10', units: 'kg', barWeight: 20 });
+  };
+  for (const reps of [8, 9, 10, 12]) {
+    const tip = run(reps);
+    assert.equal(tip.change, 'hold', 'there is no load to add to a pull-up');
+    assert.equal(tip.weight, 82, 'and no increment to round a bodyweight onto');
+    assert.ok(tip.reps > reps, `did ${reps} pull-ups and was asked for ${tip.reps}`);
+  }
+  assert.equal(run(12).reasons[0].key, 'bodyweightClimb');
+});
+
 test('a weight increase reports the reps it will actually buy', () => {
   // 60 x 10 against a flat target of 10 used to print "go up: 65 x 10", which
   // claims the increase and the reps in the same breath.
@@ -1248,6 +1269,61 @@ test('rep progression never moves the load, however tired the day is', () => {
   });
   assert.equal(tip.change, 'hold');
   assert.equal(tip.weight, 100, 'the one rule that exists to not change the weight changed it');
+});
+
+/* --- the "stay inside the rep range" setting --- */
+
+test('with the range setting on, a fading set loses weight instead of reps', () => {
+  const rows = exerciseHistory(solo([135], { reps: 8 }).reverse(), BENCH.id, byId);
+  const opts = (keepInRange) => ({
+    exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20, keepInRange,
+  });
+
+  let off = [set(135, 8, { rir: 0 })];
+  let on = [set(135, 8, { rir: 0 })];
+  const seen = { off: [], on: [] };
+  for (let n = 2; n <= 6; n++) {
+    const a = nextSet(off, rows, opts(false));
+    const b = nextSet(on, rows, opts(true));
+    seen.off.push(a.reps);
+    seen.on.push(b.reps);
+    off = [...off, set(a.weight, a.reps, { rir: 0 })];
+    on = [...on, set(b.weight, b.reps, { rir: 0 })];
+  }
+  // Left alone, the load stays on the bar and the reps drain away — which is
+  // what sets do, and is the default for that reason.
+  assert.ok(Math.min(...seen.off) < 6, `default never dipped under the range: ${seen.off}`);
+  // Asked to respect the range, every set stays inside it.
+  assert.ok(seen.on.every((r) => r >= 6), `range setting let a set through at ${seen.on}`);
+});
+
+test('the range setting only moves the bar when a step actually fixes it', () => {
+  const rows = exerciseHistory(solo([135], { reps: 8 }).reverse(), BENCH.id, byId);
+  const opts = { exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20, keepInRange: true };
+  // Set two is comfortably inside the range, so nothing should move.
+  const second = nextSet([set(135, 8, { rir: 0 })], rows, opts);
+  assert.equal(second.change, 'hold');
+  assert.equal(second.weight, 135);
+});
+
+test('the range setting reaches the range on an opening set too', () => {
+  const fly = exercise('ex_fly', 'Butterfly', ['chest']);
+  const both = new Map([[BENCH.id, BENCH], [fly.id, fly]]);
+  const rows = exerciseHistory([session(at(2026, 7, 1), [entry(BENCH.id, [set(135, 8)])])], BENCH.id, both);
+  const prior = priorWork([entry(fly.id, Array.from({ length: 5 }, () => set(50, 12))),
+    entry(BENCH.id, [])], 1, both, { live: true });
+  const base = { exercise: BENCH, targetReps: '6-10', units: 'kg', barWeight: 20, prior };
+
+  const loose = openingSet(rows, base);
+  const strict = openingSet(rows, { ...base, keepInRange: true });
+  // Loose holds the load and says the reps will be short; strict takes weight
+  // off until the bottom of the range is back in reach. Both are honest, which
+  // is why this is a setting and not a fix.
+  assert.equal(loose.change, 'hold');
+  assert.ok(loose.reps < 6);
+  assert.equal(strict.change, 'down');
+  assert.ok(strict.weight < 135);
+  assert.ok(strict.reps >= 6, `strict landed on ${strict.reps} reps`);
 });
 
 test('the live advice tracks a real set-to-set fade rather than falling off a cliff', () => {
@@ -1627,6 +1703,29 @@ test('the barbell curl ladder lands where the published standard does', () => {
   assert.equal(at(77), 'legend');
 });
 
+test('gaining weight does not earn a better pull-up rank', () => {
+  // The load on a pull-up *is* the lifter, so the allometric denominator was
+  // counting bodyweight on both sides and the two did not cancel: with nothing
+  // added the ratio reduced to (bw / 80) ^ 0.33, a number that depends on
+  // nothing but the bathroom scale. One rep at 70 kg read Silver I; the same
+  // rep at 100 kg read Gold II. Three steps for eating.
+  const at = (bw) => rankOf(scoreFor('Pull-Up', bw, { sex: 'male', bodyweight: bw, age: 28 })).step;
+  const steps = [60, 70, 80, 90, 100, 120].map(at);
+  assert.equal(new Set(steps).size, 1, `one pull-up ranked ${steps} across bodyweights`);
+
+  // And a barbell lift still moves the other way, which is the control.
+  const bench = (bw) => rankOf(scoreFor('Barbell Bench Press', 100, { sex: 'male', bodyweight: bw, age: 28 })).step;
+  assert.ok(bench(70) > bench(100), 'the same bench got easier for a heavier lifter');
+});
+
+test('a weighted pull-up is worth more to a lighter lifter', () => {
+  // 40 kg on the belt is most of a small lifter and a third of a big one, and
+  // the rank has to say so.
+  const rank = (bw) => rankOf(scoreFor('Weighted Pull-Up', bw + 40,
+    { sex: 'male', bodyweight: bw, age: 28 })).step;
+  assert.ok(rank(60) > rank(90), 'the same belt weighed the same at any size');
+});
+
 test('an unknown leg machine is not ranked against a triceps standard', () => {
   assert.equal(machineCategory('Ai Fitness Leg Blaster'), 'lowerIsolation');
   assert.equal(machineCategory('Glute Machine 3000'), 'lowerIsolation');
@@ -1912,7 +2011,18 @@ test('a manual exercise is never given a number it did not ask for', () => {
 
 /* ===================== is it still moving ===================== */
 
-/** n sessions of one exercise, one a week, at a constant or climbing load. */
+/**
+ * n sessions of one exercise, one a week, at a constant or climbing load.
+ *
+ * `STALL_NOW` is the whole point. `movers` measures backwards from a moment,
+ * and these fixtures are anchored to a fixed date, so with the moment left as
+ * the real clock the sessions slid out of the six-week window as time passed
+ * and both tests below started failing on their own in late August 2026 —
+ * exactly the failure this file's header warns about. The clock is pinned next
+ * to the dates it has to agree with.
+ */
+const STALL_NOW = at(2026, 7, 29);
+
 function series(exercise, { weeks, from, step }) {
   const out = [];
   for (let i = 0; i < weeks; i++) {
@@ -1924,7 +2034,7 @@ function series(exercise, { weeks, from, step }) {
 
 test('stallReport says nothing without enough lifts to compare', () => {
   const only = series(BENCH, { weeks: 6, from: 80, step: 2.5 });
-  assert.equal(stallReport(only, byId), null, 'one lift is not a picture');
+  assert.equal(stallReport(only, byId, { now: STALL_NOW }), null, 'one lift is not a picture');
 });
 
 test('stallReport separates climbing lifts from stalled ones', () => {
@@ -1938,7 +2048,7 @@ test('stallReport separates climbing lifts from stalled ones', () => {
     ...series(row, { weeks: 6, from: 70, step: -1 }),      // falling
   ];
 
-  const report = stallReport(sessions, all);
+  const report = stallReport(sessions, all, { now: STALL_NOW });
   assert.equal(report.tracked, 3);
   assert.equal(report.stalled, 2, 'flat and falling both count as not gaining');
   assert.equal(report.falling, 1);
@@ -1956,7 +2066,7 @@ test('describeStall reports and never prescribes', () => {
     ...series(row, { weeks: 6, from: 70, step: 0 }),
   ];
 
-  const report = stallReport(sessions, all);
+  const report = stallReport(sessions, all, { now: STALL_NOW });
 
   // Both languages, because the rule is about what the app is allowed to say,
   // not about which table the sentence happens to live in. A German

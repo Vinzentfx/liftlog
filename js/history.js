@@ -216,8 +216,12 @@ export function bodyweightAt(sorted, ts) {
  * reps instead of plates still counts as progress. Three sessions is the floor —
  * a line through two points is not a trend, it is a line through two points.
  */
-export function movers(sessions, exerciseById, { minSessions = 3, sinceWeeks = 12 } = {}) {
-  const since = Date.now() - sinceWeeks * WEEK;
+export function movers(sessions, exerciseById, { minSessions = 3, sinceWeeks = 12, now = Date.now() } = {}) {
+  // The clock comes in rather than being read here, so a test can pin it. Every
+  // other window in this file already takes its end as an argument; this one
+  // did not, which made the only tests covering it depend on the real date and
+  // turned them into a time bomb that went off in August 2026.
+  const since = now - sinceWeeks * WEEK;
   const byExercise = new Map();
 
   for (const s of sessions) {

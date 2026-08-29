@@ -30,7 +30,7 @@
 // them, which is the point: the prior only has to be right until it isn't
 // needed.
 
-import { e1rm, isCounted, effectiveSetWeight, linearFit } from './models.js';
+import { e1rm, isCounted, effectiveSetWeight, linearFit, bodyweightLoadMode } from './models.js';
 import { platePlan } from './plates.js';
 
 /* ===================== effort ===================== */
@@ -436,6 +436,9 @@ export function loadStep(exercise, units, override = null) {
  * which on a pin stack is the only weight that exists at all.
  */
 export function roundLoad(weight, exercise, { units = 'kg', barWeight = 20, step = null } = {}) {
+  // A pull-up weighs what the lifter weighs. There is no increment to land on,
+  // and rounding an 82 kg body to the nearest five turned it into 80.
+  if (bodyweightLoadMode(exercise) === 'bodyweight') return weight;
   const increment = loadStep(exercise, units, step);
   if (exercise?.equipment !== 'Barbell' || Number(step) > 0) {
     return Math.round(weight / increment) * increment;
@@ -518,6 +521,7 @@ const BACK_OFF_MARGIN = 2;
 export function openingSet(rows, {
   exercise = null, targetReps = null, rule = 'double', units = 'kg', barWeight = 20,
   prior = null, now = Date.now(), step: stackStep = null, assumedRir = 0,
+  keepInRange = false,
 } = {}) {
   if (!rows.length) return null;
   const range = parseReps(targetReps) || { low: 6, high: 10 };
@@ -552,6 +556,19 @@ export function openingSet(rows, {
   const firstCapable = firstReps + firstReserve;
   const clearedTarget = firstCapable >= range.high;
   const falling = projected.slope !== null && projected.slope < -0.5;
+
+  // A movement whose load is the lifter's own body has no weight progression to
+  // offer, and pretending otherwise produced the worst suggestion in the app:
+  // ten pull-ups against a 6-10 target were answered with "aim for 6". The
+  // engine had taken the `up` branch, added an increment to the *bodyweight*,
+  // and honestly reported the reps that a 90 kg body would get — so the one
+  // session that cleared the range was the one told to do four fewer reps.
+  //
+  // Nobody adds eight kilos to themselves on purpose. On these the rep range's
+  // ceiling is a milestone rather than a wall: clear it and the ask simply keeps
+  // climbing, and the reason points at the weighted variant for anyone who
+  // would rather add a belt than keep adding reps.
+  const ownBodyweight = bodyweightLoadMode(exercise) === 'bodyweight';
 
   // Order. Reported before anything else because it is the one the lifter can
   // see on their own screen and would otherwise read as a regression.
@@ -606,11 +623,30 @@ export function openingSet(rows, {
   // today. Only consulted once something has said the current load is not.
   const wantedForRange = loadFor(capacity, range.low, reserve);
   const predictedHere = predict(last.openingWeight);
+  const shortOfRange = predictedHere < range.low;
   // A back-off needs the load to miss the range by a margin, not by a rounding
   // error — or the trend to be going backwards and the range genuinely out of
   // reach. Either way it also has to actually buy a lighter bar: see below.
-  const tooHeavy = predictedHere <= range.low - BACK_OFF_MARGIN
-    || (falling && predictedHere < range.low);
+  //
+  // `keepInRange` is the lifter saying they would rather the rep range were
+  // respected than the load were held: under it the margin goes away and any
+  // shortfall moves the weight. That is a real preference and not a better
+  // answer — the margin exists because a rep of slack is inside the noise of
+  // the estimate, and without it the suggestion will chase that noise up and
+  // down. Off by default for exactly that reason.
+  const tooHeavy = keepInRange
+    ? shortOfRange
+    : predictedHere <= range.low - BACK_OFF_MARGIN || (falling && shortOfRange);
+
+  /** A load, rounded, and then nudged down if the rounding lost the range. */
+  const landInRange = (want) => {
+    const rounded = roundLoad(want, exercise, { units, barWeight, step: stackStep });
+    if (!keepInRange || repsAt(capacity, rounded, reserve) >= range.low) return rounded;
+    // roundLoad rounds to nearest, so it can round *up* past the load the range
+    // needs. Under a setting whose whole promise is the range, that has to come
+    // back down a step rather than quietly miss by one rep.
+    return roundLoad(rounded - step, exercise, { units, barWeight, step: stackStep });
+  };
 
   if (rule === 'reps') {
     // Rep progression holds the load by definition. The old version scaled it
@@ -620,6 +656,18 @@ export function openingSet(rows, {
     reps = holdAsk();
     change = 'hold';
     reasons.push({ key: 'repRule', params: { high: range.high } });
+  } else if (ownBodyweight) {
+    weight = last.openingWeight;
+    reps = clearedTarget
+      // Past the top of the range, where the range stops applying: one more
+      // than was actually done, and no ceiling.
+      ? Math.max(range.high, firstReps + (falling || !fresherOrEqual ? 0 : 1))
+      : holdAsk();
+    if (!fresherOrEqual) reps = Math.min(reps, Math.max(1, predict(last.openingWeight)));
+    change = 'hold';
+    reasons.unshift(clearedTarget
+      ? { key: 'bodyweightClimb', params: { reps: firstReps, ask: reps, high: range.high } }
+      : { key: 'buildReps', params: { reps: firstReps, ask: reps, high: range.high } });
   } else if (rule === 'weight' || (clearedTarget && !falling)) {
     // Up. Bounded on both sides: at least one increment so the suggestion is
     // actually a change, at most three so a single very good session cannot
@@ -653,8 +701,7 @@ export function openingSet(rows, {
           });
   } else {
     const backOff = tooHeavy
-      ? roundLoad(Math.max(step, Math.min(last.openingWeight - step, wantedForRange)),
-          exercise, { units, barWeight, step: stackStep })
+      ? landInRange(Math.max(step, Math.min(last.openingWeight - step, wantedForRange)))
       : holdLoad;
     if (tooHeavy && backOff < holdLoad) {
       weight = backOff;
@@ -686,8 +733,10 @@ export function openingSet(rows, {
   }
 
   // A last guard, not a policy. Every branch above already reports what it
-  // predicts; this only catches a rep count that would print as zero.
-  reps = Math.min(range.high, Math.max(1, reps));
+  // predicts; this only catches a rep count that would print as zero. The range
+  // ceiling is skipped for a bodyweight movement, which is the one case where
+  // going past the top of the range is the whole progression.
+  reps = Math.max(1, ownBodyweight ? reps : Math.min(range.high, reps));
 
   // The trend line, when it is saying anything at all. A slope past half a kilo
   // a week in either direction is a direction; anything under that is a flat
@@ -731,7 +780,7 @@ export function openingSet(rows, {
  */
 export function nextSet(doneSets, rows, {
   exercise = null, targetReps = null, units = 'kg', barWeight = 20, step: stackStep = null,
-  assumedRir = 0,
+  assumedRir = 0, keepInRange = false,
 } = {}) {
   const done = (doneSets || []).filter(isCounted);
   if (!done.length) return null;
@@ -774,17 +823,40 @@ export function nextSet(doneSets, rows, {
   // The weight that would land the next set on the bottom of the range.
   const wanted = loadFor(capacity, range.low, reserve);
 
+  // Reps falling away set by set is what sets do, so by default a step down has
+  // to buy something real — two increments' worth — before the bar is touched.
+  //
+  // Under `keepInRange` the lifter has said the opposite: they would rather the
+  // range held and the load moved. Then any shortfall is enough, as long as one
+  // step actually fixes it. This is the setting's whole purpose, and the case
+  // it exists for is the fourth set of a heavy exercise, where holding the
+  // weight honestly predicts two reps, or one.
+  const dropsFar = wanted <= lastWeight - step * 2;
+  // Not "is the range more than a step away" but "would a step fix it". The
+  // first question refuses the drop whenever the load the range needs sits a
+  // hair above one increment down — 130.7 against a 130 that reaches the range
+  // perfectly well — and that is precisely the set this setting is for.
+  const oneStepDown = Math.max(step, lastWeight - step);
+  const dropsAtAll = holdReps < range.low
+    && oneStepDown < lastWeight
+    && repsAt(capacity, oneStepDown, reserve) > holdReps;
+
+  /** A load, rounded, nudged down if rounding to nearest lost the range. */
+  const landInRange = (want) => {
+    const rounded = roundLoad(Math.max(step, want), exercise, { units, barWeight, step: stackStep });
+    if (!keepInRange || repsAt(capacity, rounded, reserve) >= range.low) return rounded;
+    return roundLoad(Math.max(step, rounded - step), exercise, { units, barWeight, step: stackStep });
+  };
+
   let weight = lastWeight, change = 'hold', key = holdReps >= range.low ? 'holdWeight' : 'holdFade';
   if (blewPast) {
     weight = roundLoad(lastWeight + step, exercise, { units, barWeight, step: stackStep });
     change = 'up';
     key = 'setTooLight';
-  } else if (wanted <= lastWeight - step * 2) {
-    // Only when a step down actually buys something. Reps falling away set by
-    // set is what sets do — demanding every one of them stay inside the range
-    // is the exact mistake the between-session rule used to make, and repeating
-    // it here would just move it four inches down the screen.
-    weight = roundLoad(Math.max(step, wanted), exercise, { units, barWeight, step: stackStep });
+  } else if (keepInRange ? dropsAtAll : dropsFar) {
+    // The lighter of what the range asks for and one increment down, so the
+    // step is never smaller than a step and never bigger than it needs to be.
+    weight = landInRange(keepInRange ? Math.min(wanted, oneStepDown) : wanted);
     change = 'down';
     key = 'dropToRange';
   }

@@ -30,8 +30,8 @@ const MIN_TRACKED = 3;
  *   { tracked, stalled, falling, names, sets: {recent, earlier},
  *     rir: {recent, earlier, sets} | null, weeks }
  */
-export function stallReport(sessions, exerciseById, { weeks = 6 } = {}) {
-  const lifts = movers(sessions, exerciseById, { sinceWeeks: weeks })
+export function stallReport(sessions, exerciseById, { weeks = 6, now = Date.now() } = {}) {
+  const lifts = movers(sessions, exerciseById, { sinceWeeks: weeks, now })
     // Percent per week, so a 2 kg/week climb on a 40 kg lift is not called the
     // same thing as 2 kg/week on a 140 kg one.
     .map((m) => ({ ...m, pctPerWeek: m.first > 0 ? (m.perWeek / m.first) * 100 : 0 }));
@@ -48,14 +48,14 @@ export function stallReport(sessions, exerciseById, { weeks = 6 } = {}) {
     falling,
     // Worst first — if the list is trimmed, keep the ones that moved least.
     names: stalledLifts.sort((a, b) => a.pctPerWeek - b.pctPerWeek).map((m) => m.ex.name),
-    sets: setsTrend(sessions, exerciseById),
-    rir: rirTrend(sessions, exerciseById),
+    sets: setsTrend(sessions, exerciseById, now),
+    rir: rirTrend(sessions, exerciseById, now),
   };
 }
 
 /** Working sets in the last three weeks against the three before them. */
-function setsTrend(sessions, exerciseById) {
-  const now = startOfWeek(Date.now());
+function setsTrend(sessions, exerciseById, at = Date.now()) {
+  const now = startOfWeek(at);
   const sum = (fromWeeksAgo, toWeeksAgo) => {
     let total = 0;
     for (let i = fromWeeksAgo; i > toWeeksAgo; i--) {
@@ -74,8 +74,8 @@ function setsTrend(sessions, exerciseById) {
  * two logged sets is noise, and this whole module exists to avoid presenting
  * noise as a signal.
  */
-function rirTrend(sessions, exerciseById) {
-  const now = startOfWeek(Date.now());
+function rirTrend(sessions, exerciseById, at = Date.now()) {
+  const now = startOfWeek(at);
   const gather = (fromWeeksAgo, toWeeksAgo) => {
     let sum = 0, n = 0;
     for (let i = fromWeeksAgo; i > toWeeksAgo; i--) {

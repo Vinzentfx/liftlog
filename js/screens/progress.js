@@ -707,7 +707,7 @@ function exerciseView(exerciseId) {
   // --- PRs ---
   const prs = personalRecords(store.state.sessions, exerciseId);
   root.append(
-    el('div.stat-grid', { style: { marginBottom: '4px' } }, [
+    el('div.stat-grid.compact', { style: { marginBottom: '4px' } }, [
       prs.e1rm ? el('div.stat', {}, [
         el('span.stat-val', { text: fmtWeight(Math.round(prs.e1rm.value), units) }),
         el('span.stat-key', { text: t('progress.bestE1rm') }),

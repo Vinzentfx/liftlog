@@ -46,6 +46,10 @@ export const DEFAULT_SETTINGS = {
   // the media controls; switchable on its own, separate from the chime itself.
   restBackgroundAudio: true,
   progressionSuggestions: true,
+  // Off, because it trades one honest answer for another rather than fixing a
+  // mistake: on, the rep range is respected and the load moves to keep it; off,
+  // the load is held through the normal set-to-set fade. See `keepInRange`.
+  strictRepRange: false,
   warmupSuggestions: true,
   plateauHints: true,
   deloadHints: true,
@@ -636,10 +640,16 @@ export function bodyweightLoadMode(exercise) {
   // "Dips - Chest Version" under "Other". The rating already treats that lift
   // as bodyweight plus anything added, and the screen has to collect the load
   // the same way or the two disagree about what a set meant.
+  const canonical = benchmarkName(exercise?.name);
   const bodyweightLift = exercise?.equipment === 'Bodyweight'
-    || BODYWEIGHT_STRENGTH_LIFTS.has(benchmarkName(exercise?.name));
+    || BODYWEIGHT_STRENGTH_LIFTS.has(canonical);
   if (!bodyweightLift) return 'external';
-  return WEIGHTED_BODYWEIGHT.has(exercise.name) ? 'added' : 'bodyweight';
+  // Canonical on both sides. This line used to test the raw catalogue name
+  // while the line above it tested the aliased one, so a movement that reached
+  // the first check through an alias fell out of the second: "Weighted Pull
+  // Ups" was recognised as a bodyweight lift and then asked for the lifter's
+  // whole bodyweight instead of the plate hanging off their belt.
+  return WEIGHTED_BODYWEIGHT.has(canonical) ? 'added' : 'bodyweight';
 }
 
 /** Total moving load, retained per set so later bodyweight edits cannot rewrite history. */

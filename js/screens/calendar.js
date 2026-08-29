@@ -156,7 +156,7 @@ function monthView() {
   const target = perWeek ? Math.round(perWeek * weeksInMonth) : null;
 
   root.append(
-    el('div.stat-grid', {}, [
+    el('div.stat-grid.compact', {}, [
       el('div.stat', {}, [
         el('span.stat-val', { text: String(monthSessions.length) }),
         el('span.stat-key', { text: target ? t('calendar.ofPlanned', { n: target }) : t('home.stat.workouts') }),
@@ -231,7 +231,7 @@ function detailView(id) {
           },
         }, [t(editing ? 'common.done' : 'common.edit')]),
       ]),
-      el('div.stat-grid', { style: { marginTop: '12px' } }, [
+      el('div.stat-grid.compact', { style: { marginTop: '12px' } }, [
         el('div.stat', {}, [el('span.stat-val', { text: fmtDuration(st.durationMs) }), el('span.stat-key', { text: t('calendar.duration') })]),
         store.state.settings.plannedDuration !== false && session.plannedDurationMs
           ? el('div.stat', {}, [el('span.stat-val', { text: fmtDuration(session.plannedDurationMs) }),

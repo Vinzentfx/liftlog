@@ -10,7 +10,7 @@ import * as rest from '../rest.js';
 import * as cloud from '../cloud.js';
 import {
   newSet, newEntry, entryStats, sessionStats, lastPerformance, e1rm, isCounted,
-  bodyweightLoadMode, effectiveSetWeight,
+  bodyweightLoadMode, effectiveSetWeight, withinE1rmWindow,
 } from '../models.js';
 import { pickExercise } from '../pickers.js';
 import { todaysDays, weekdayName, weekdayShort } from '../schedule.js';
@@ -271,10 +271,11 @@ function exerciseBlock(session, entry, entryIndex) {
   // the opening one is history. Two suggestions disagreeing on the same screen
   // is worse than one, so only ever one of these is non-null.
   const step = store.machineStep(ex);
+  const keepInRange = store.state.settings.strictRepRange === true;
   const opening = suggesting && !doneToday.length
     ? openingSet(rows, {
         exercise: ex, targetReps: entry.targetReps, rule: entry.progressionRule,
-        units, barWeight: store.barWeight(), prior, step, assumedRir,
+        units, barWeight: store.barWeight(), prior, step, assumedRir, keepInRange,
       })
     : null;
 
@@ -284,7 +285,8 @@ function exerciseBlock(session, entry, entryIndex) {
   // range.
   const live = suggesting && doneToday.length
     ? nextSet(doneToday, rows, {
-        exercise: ex, targetReps: entry.targetReps, units, barWeight: store.barWeight(), step, assumedRir,
+        exercise: ex, targetReps: entry.targetReps, units, barWeight: store.barWeight(), step,
+        assumedRir, keepInRange,
       })
     : null;
 
@@ -859,23 +861,43 @@ async function toggleDone(session, entry, set, weightInput, repsInput, hint, ex 
 }
 
 /** Returns a message if this set just beat a stored best. */
+/**
+ * Did this set just beat something?
+ *
+ * The estimate is compared like with like. Epley climbs without limit in the
+ * reps, so a set of twenty-five produces a bigger number than a heavy triple
+ * whatever the lifter can actually do: 90 kg x 25 comes out at 165, which
+ * "beats" a genuine 100 kg x 12, and the app fired a personal-best celebration
+ * for a back-off set. The rank has refused to be built outside
+ * THRESHOLDS.e1rmWindow since the window existed; this is the same rule, which
+ * had simply never been carried across to the toast.
+ *
+ * Two pools rather than one filter, so a lifter who only ever trains at fifteen
+ * reps still has records — they are just records against their own high-rep
+ * work instead of against a formula run somewhere it was never fitted.
+ */
 function checkPR(session, entry, set) {
   const units = store.units();
-  let bestE1rm = 0, bestWeight = 0;
+  const best = { in: 0, out: 0 };
+  let bestWeight = 0;
   for (const s of store.state.sessions) {
     if (!s.finishedAt || s.id === session.id) continue;
     const e = s.entries.find((x) => x.exerciseId === entry.exerciseId);
     if (!e) continue;
     for (const prev of e.sets.filter(isCounted)) {
-      bestE1rm = Math.max(bestE1rm, e1rm(effectiveSetWeight(prev), prev.reps));
+      const pool = withinE1rmWindow(prev) ? 'in' : 'out';
+      best[pool] = Math.max(best[pool], e1rm(effectiveSetWeight(prev), prev.reps));
       bestWeight = Math.max(bestWeight, effectiveSetWeight(prev));
     }
   }
-  if (!bestE1rm) return null;   // nothing to beat yet
+  if (!best.in && !best.out) return null;   // nothing to beat yet
 
   const w = effectiveSetWeight(set);
+  // A heavier weight is a heavier weight, whatever the reps, so this side needs
+  // no window at all.
   if (w > bestWeight) return t('train.pr.weight', { weight: fmtWeight(w, units) });
-  if (e1rm(w, set.reps) > bestE1rm) return t('train.pr.e1rm');
+  const pool = withinE1rmWindow(set) ? 'in' : 'out';
+  if (best[pool] && e1rm(w, set.reps) > best[pool]) return t('train.pr.e1rm');
   return null;
 }
 
@@ -1137,7 +1159,7 @@ async function finishFlow(session) {
 
   const st = sessionStats(session);
   const body = el('div', {}, [
-    el('div.stat-grid', { style: { marginBottom: '14px' } }, [
+    el('div.stat-grid.compact', { style: { marginBottom: '14px' } }, [
       el('div.stat', {}, [el('span.stat-val', { text: fmtDuration(st.durationMs) }), el('span.stat-key', { text: t('train.time') })]),
       el('div.stat', {}, [el('span.stat-val', { text: String(completed) }), el('span.stat-key', { text: t('train.sets') })]),
       el('div.stat', {}, [el('span.stat-val', { text: fmtNum(st.volume) }), el('span.stat-key', { text: t('train.volume', { units: store.units() }) })]),

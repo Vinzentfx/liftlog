@@ -1,5 +1,5 @@
 // Offline shell. Bump CACHE when shipping changes so clients pick them up.
-const CACHE = 'liftlog-v148';
+const CACHE = 'liftlog-v149';
 
 /**
  * The bulk data tables, in their own cache with their own version.
