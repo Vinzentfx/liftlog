@@ -1,7 +1,7 @@
 // Train — the active workout, or the launcher when nothing is running.
 
 import {
-  el, $, toast, haptic, fmtWeight, fmtDuration, fmtNum, fmtVolume, setsSummary,
+  el, $, toast, haptic, fmtWeight, fmtDuration, fmtNum, fmtDecimal, fmtVolume, setsSummary,
   openSheet, closeSheet, confirmSheet, emptyState, debounce, listItem,
   numberInput, parseNumber, normaliseOnBlur, undoToast,
 } from '../ui.js';
@@ -19,6 +19,7 @@ import { platePlan, describePlates, PLATES } from '../plates.js';
 import { warmupSets } from '../warmup.js';
 import {
   exerciseHistory, priorWork, openingSet, nextSet, pooledOrderCost, loadStep as defaultStep,
+  capacityToday, predictReps, predictReserve,
 } from '../progression.js';
 import { alreadyWarm } from '../warmup.js';
 import { isPlateLoaded } from '../standards.js';
@@ -381,6 +382,13 @@ function exerciseBlock(session, entry, entryIndex) {
   // set is ticked without typing, or the suggestion is decoration.
   const pendingIndex = entry.sets.findIndex((s) => s.type === 'working' && !s.done);
   const usable = bodyweightLoadMode(ex) !== 'bodyweight' && (live || opening);
+  // What today is worth, for any load the lifter cares to type rather than only
+  // for the one the app picked. Read per set position, because capacity falls
+  // through a session and a prediction pinned to set one is a rep out by set
+  // four. Null when there is no history and nothing logged yet, which is the
+  // honest answer on a movement's first ever appearance.
+  const estimator = (workingIndex) => capacityToday(doneToday, rows,
+    { prior, setIndex: workingIndex, assumedRir });
   // Logged one side at a time means the number on screen is one side's load.
   // Two words, and without them the suggestion reads as double the weight.
   const perSide = entry.movementMode === 'unilateral';
@@ -390,7 +398,7 @@ function exerciseBlock(session, entry, entryIndex) {
     // The line only accompanies the live advice. The opening suggestion has
     // already said its piece in full at the top of the block.
     if (forThis && live) block.append(nextSetLine(live, units, perSide));
-    block.append(setRow(session, entry, set, i, last, ex, forThis));
+    block.append(setRow(session, entry, set, i, last, ex, forThis, estimator));
   });
 
   block.append(
@@ -406,9 +414,9 @@ function exerciseBlock(session, entry, entryIndex) {
   return block;
 }
 
-function setRow(session, entry, set, index, last, ex, advice = null) {
+function setRow(session, entry, set, index, last, ex, advice = null, estimator = null) {
   if (entry.movementMode === 'unilateral') {
-    return unilateralSetRow(session, entry, set, index, last, ex, advice);
+    return unilateralSetRow(session, entry, set, index, last, ex, advice, estimator);
   }
   const workingNo = entry.sets.slice(0, index + 1).filter((s) => s.type === 'working').length;
   const rirOn = store.state.settings.logRir !== false;
@@ -505,11 +513,85 @@ function setRow(session, entry, set, index, last, ex, advice = null) {
         onclick: () => plateSheet(entry, ex, Number(weight.value) || Number(set.weight) || 0),
       }, ['◉'])])
     : weight;
-  row.append(weightCell, reps, rirOn ? rir : null, doneBtn);
+
+  // What your own number is worth. The app used to answer this for exactly one
+  // load, the one it had chosen itself, and go quiet the moment somebody typed
+  // over it: precisely when a lifter is deciding something and would like a
+  // second opinion.
+  const estimate = el('div.set-estimate', { 'aria-live': 'polite' });
+  const paintEstimate = () => repaintEstimate(estimate, {
+    estimator, workingNo, set, loadMode,
+    weight: parseNumber(weight.value), reps: parseNumber(reps.value),
+    perSide: entry.movementMode === 'unilateral',
+  });
+  weight.addEventListener('input', paintEstimate);
+  reps.addEventListener('input', paintEstimate);
+  rir.addEventListener('input', paintEstimate);
+  paintEstimate();
+
+  row.append(weightCell, reps, rirOn ? rir : null, doneBtn, estimate);
   return row;
 }
 
+/**
+ * The estimate under one set row, repainted on every keystroke.
+ *
+ * Two different questions, and which is being asked depends on what is already
+ * on the row:
+ *
+ *  - **A weight and no reps.** "How many is that good for." This is the one the
+ *    suggestion has always answered for its own load, made available for any.
+ *  - **A weight and reps.** The lifter has answered the rep question
+ *    themselves, so re-answering it would be the app arguing with a number
+ *    somebody just typed. The open question is how close to the limit that
+ *    puts them, so it flips to reserve.
+ *
+ * Silent on a ticked set (it is a record, not a decision), on a warm-up (the
+ * whole point is that it is submaximal), and whenever there is nothing to
+ * predict from. Quiet is a valid answer here: a guess with no history behind it
+ * is worse than no line at all.
+ */
+function repaintEstimate(node, { estimator, workingNo, set, loadMode, weight, reps, perSide }) {
+  node.textContent = '';
+  node.hidden = true;
+  if (!estimator || set.done || set.type === 'warmup') return;
+  if (loadMode === 'bodyweight' || !weight || weight <= 0) return;
+
+  const today = estimator(Math.max(0, workingNo - 1));
+  if (!today?.capacity) return;
+
+  // Logged one side at a time, the row holds one side's load and the standards
+  // and the history are about the whole movement. Doubling would be worse than
+  // wrong on a machine, so a unilateral row simply says nothing.
+  if (perSide) return;
+
+  // On a weighted pull-up or dip the load is the lifter plus the belt, which is
+  // what the history was built from, so the estimate has to ask the same
+  // question the log answers.
+  const load = loadMode === 'added'
+    ? (Number(store.state.settings.bodyweight) || 0) + weight
+    : weight;
+  if (!load) return;
+
+  if (reps > 0) {
+    const left = predictReserve(today.capacity, load, reps);
+    if (left === null || !Number.isFinite(left)) return;
+    // Below zero the honest reading is not "minus one in the tank", it is that
+    // the set is past what today looks good for.
+    node.textContent = left < -0.5
+      ? t('train.estimate.beyond')
+      : t('train.estimate.reserve', { rir: fmtDecimal(Math.max(0, left)) });
+  } else {
+    const can = predictReps(today.capacity, load, today.reserve);
+    if (!can) return;
+    node.textContent = t('train.estimate.reps', { reps: can });
+  }
+  node.hidden = false;
+}
+
 function unilateralSetRow(session, entry, set, index, last, ex, advice = null) {
+  // No estimate here on purpose: see repaintEstimate. The row holds one side's
+  // load and every number the engine has is about the whole movement.
   const workingNo = entry.sets.slice(0, index + 1).filter((row) => row.type === 'working').length;
   const row = el('div.unilateral-set' + (set.done ? '.done' : '')
     + (set.type === 'warmup' ? '.warmup' : ''));

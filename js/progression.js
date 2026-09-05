@@ -509,6 +509,74 @@ function openingReserve(rows, assumedRir = 0) {
 const BACK_OFF_MARGIN = 2;
 
 
+/* ===================== what today is worth ===================== */
+
+/**
+ * Reps a given load is good for right now, or null when nothing can be said.
+ *
+ * The engine has always been able to answer this: it is the same call that
+ * turns a suggested weight into "x 7". It was simply not reachable from
+ * outside, so the number only ever appeared next to a weight the app had
+ * chosen. Type your own weight in and the screen went quiet, which is exactly
+ * the moment a lifter is deciding something and would like a second opinion.
+ */
+export const predictReps = (capacity, weight, reserve = 0) =>
+  (!capacity || !weight ? null : Math.max(0, repsAt(capacity, weight, reserve)));
+
+/**
+ * The other direction: reps typed in, effort implied.
+ *
+ * Deliberately *not* the same question. Once a rep count is on the row, "how
+ * many could you do" has been answered by the lifter, and the open question is
+ * how close to the limit that puts them. Answering with a rep prediction there
+ * would be the app arguing with a number somebody just typed.
+ */
+export const predictReserve = (capacity, weight, reps) =>
+  (!capacity || !weight || !reps ? null : 30 * (capacity / weight - 1) - reps);
+
+/**
+ * Fresh-equivalent capacity today, and the reserve it is quoted at.
+ *
+ * One reader for both halves of the session, because the two halves disagree
+ * about where the number comes from and the screen must not.
+ *
+ * **Nothing logged yet**: the projection from past sessions, discounted for the
+ * work standing in front of this exercise. Exactly what `openingSet` builds on,
+ * which is why moving an exercise up the list moves this too.
+ *
+ * **Something logged today**: today's own sets, read back to fresh. One
+ * completed set says more about today than four sessions of history do, and
+ * from that point the history only contributes the set-to-set drop-off.
+ *
+ * `setIndex` is which working set the answer is for, counted from zero, because
+ * capacity falls through a session and a prediction pinned to set one is wrong
+ * by a rep or more by set four.
+ *
+ * @returns { capacity, reserve, live } or null
+ */
+export function capacityToday(doneSets, rows, {
+  prior = null, setIndex = null, assumedRir = 0, now = Date.now(),
+} = {}) {
+  const done = (doneSets || []).filter(isCounted);
+  const list = rows || [];
+  const reserve = openingReserve(list, assumedRir);
+  const decay = setDecay(list, assumedRir);
+  const left = (i) => Math.max(0.6, 1 - decay.value * i);
+  const at = setIndex === null ? done.length : Math.max(0, setIndex);
+
+  if (done.length) {
+    const fresh = Math.max(...done.map((set, i) => effortE1rm(set, assumedRir) / left(i)));
+    if (!fresh) return null;
+    return { capacity: fresh * left(at), reserve, live: true };
+  }
+
+  if (!list.length) return null;
+  const projected = projectFresh(list, now);
+  if (!projected?.value) return null;
+  const fresh = projected.value * readiness(prior || { same: 0, other: 0 }, list.orderCost);
+  return { capacity: fresh * left(at), reserve, live: false };
+}
+
 /* ===================== between sessions ===================== */
 
 /**
