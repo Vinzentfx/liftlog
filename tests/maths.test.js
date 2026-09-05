@@ -49,7 +49,9 @@ const { parseNumber, plural } = await import('../js/ui.js');
 const { platePlan, describePlates } = await import('../js/plates.js');
 const { warmupSets, warmupCount, alreadyWarm } = await import('../js/warmup.js');
 const { exerciseHistory, priorWork, readiness, openingSet, nextSet, projectFresh, setDecay,
-  effortE1rm, pooledOrderCost, loadStep, roundLoad, parseReps } = await import('../js/progression.js');
+  effortE1rm, pooledOrderCost, loadStep, roundLoad, parseReps,
+  capacityToday, predictReps, predictReserve, leadingRegions } = await import('../js/progression.js');
+const { percentiles, zForScore, topSlice, anchorTable } = await import('../js/percentile.js');
 const { stallReport, describeStall } = await import('../js/fatigue.js');
 const { setLanguage } = await import('../js/i18n.js');
 const { timeline, timelineReady, MIN_LOGGED_DAYS } = await import('../js/timeline.js');
@@ -2414,4 +2416,128 @@ test('strengthAt is the score as it stood then, not as it stands now', () => {
   // Cumulative: a week off does not undo strength you have shown.
   const later = strengthAt(sessions, bw, PROFILE, byId, at(2026, 9, 1));
   assert.equal(later.overall, after.overall);
+});
+
+
+/* ===================== where a rank sits in a population ===================== */
+
+test('the ladder reads back to the percentiles its standards were written at', () => {
+  // Not a preference. These four are what the published tables mean: novice is
+  // the 20th percentile of people who train and log, intermediate the 50th,
+  // advanced the 80th, elite the 95th. `ladder()` puts them at Gold, Diamond,
+  // Grandmaster and Legend, so those four ranks must read back unchanged or the
+  // percentile is describing a different table from the one the app ranks with.
+  const at = (step) => percentiles(BAND * step).lifters * 100;
+  assert.ok(Math.abs(at(2) - 20) < 0.5, `Gold read back as ${at(2)}`);
+  assert.ok(Math.abs(at(4) - 50) < 0.5, `Diamond read back as ${at(4)}`);
+  assert.ok(Math.abs(at(6) - 80) < 0.5, `Grandmaster read back as ${at(6)}`);
+  assert.ok(Math.abs(at(8) - 95) < 0.5, `Legend read back as ${at(8)}`);
+});
+
+test('both population readings climb with the rank and never invert', () => {
+  let lastWorld = -1, lastLifters = -1;
+  for (let score = 0; score <= 100; score += 0.5) {
+    const p = percentiles(score);
+    assert.ok(p.world >= lastWorld, `world fell at ${score}`);
+    assert.ok(p.lifters >= lastLifters, `lifters fell at ${score}`);
+    // The whole point of the second number: the world is always kinder than
+    // the room, because most of the world is not in the room.
+    assert.ok(p.world >= p.lifters, `world below lifters at ${score}`);
+    lastWorld = p.world; lastLifters = p.lifters;
+  }
+  assert.ok(percentiles(100).world < 1, 'nothing is the whole population');
+  assert.equal(percentiles(null), null);
+});
+
+test('the top of the ladder is still a slice somebody can read', () => {
+  // The four ranks above Grandmaster all round to 99 or 100 per cent, so a
+  // lifter climbing three whole ranks would watch the number stand still. The
+  // slice is what has to keep moving up there.
+  const legend = topSlice(percentiles(BAND * 8).lifters);
+  const radiant = topSlice(percentiles(BAND * 11).lifters);
+  assert.equal(legend, 5);
+  assert.ok(radiant > 0 && radiant < 0.5, `Radiant came out as top ${radiant}%`);
+  assert.ok(radiant < legend);
+  // And the curve is anchored where the file says it is, at every rank.
+  assert.equal(anchorTable().length, 9);
+  assert.ok(zForScore(0) < zForScore(BAND));
+});
+
+/* ===================== what stood in front of this exercise ===================== */
+
+test('preceding work is counted as sets that trained the muscle, not as fractions', () => {
+  // The bug this replaced: three bench presses ahead of a triceps pushdown
+  // scored 1.5 on the weighted overlap and the screen printed "2 sets for this
+  // muscle", when nothing ahead of it had trained triceps as its job.
+  const bench = exercise('ex_b', 'Barbell Bench Press', ['chest'], ['triceps']);
+  const pushdown = exercise('ex_p', 'Triceps Pushdown', ['triceps']);
+  const all = new Map([[bench.id, bench], [pushdown.id, pushdown]]);
+  const prior = priorWork(
+    [entry(bench.id, [set(100, 8), set(100, 8), set(100, 8)]), entry(pushdown.id, [])],
+    1, all);
+
+  assert.equal(prior.direct, 0, 'a bench press is not there to train triceps');
+  assert.ok(prior.same > 1 && prior.same < 2,
+    `the fatigue arithmetic still sees the overlap, at ${prior.same}`);
+  assert.equal(prior.total, 3);
+  assert.deepEqual(prior.regions, ['triceps'], 'and the screen can name the muscle');
+});
+
+test('a movement that leads on the same muscle counts whole sets', () => {
+  const bench = exercise('ex_b', 'Barbell Bench Press', ['chest'], ['triceps']);
+  const fly = exercise('ex_f', 'Butterfly', ['chest']);
+  const all = new Map([[bench.id, bench], [fly.id, fly]]);
+  const prior = priorWork(
+    [entry(fly.id, [set(50, 12), set(50, 12), set(50, 12)]), entry(bench.id, [])], 1, all);
+
+  assert.equal(prior.direct, 3);
+  // Full weight, not the 0.48 that summing over every region a bench press
+  // touches would give: SAME_REGION is calibrated against exactly this case.
+  assert.equal(prior.same, 3);
+  assert.deepEqual(leadingRegions(bench), ['chest']);
+});
+
+/* ===================== the estimate under a set row ===================== */
+
+test('a load you typed yourself gets the same answer the suggestion gets', () => {
+  const rows = exerciseHistory(
+    [session(at(2026, 8, 1), [entry(BENCH.id, [set(100, 8), set(100, 7)])]),
+     session(at(2026, 8, 8), [entry(BENCH.id, [set(100, 8), set(100, 7)])]),
+     session(at(2026, 8, 15), [entry(BENCH.id, [set(100, 8), set(100, 7)])])],
+    BENCH.id, byId, { assumedRir: 0 });
+
+  const today = capacityToday([], rows, { setIndex: 0 });
+  assert.ok(today.capacity > 0);
+  // The round trip the whole engine turns on: three flat sessions of 100 x 8
+  // have to predict 100 x 8, not 100 x 7. Epley run forwards and backwards does
+  // not land where it started, and every "same weight, one rep fewer"
+  // suggestion the app ever printed came out of that missing bit.
+  assert.equal(predictReps(today.capacity, 100, today.reserve), 8);
+
+  // Heavier is fewer, lighter is more, and reserve runs the other way.
+  assert.ok(predictReps(today.capacity, 120, today.reserve)
+    < predictReps(today.capacity, 100, today.reserve));
+  assert.ok(predictReserve(today.capacity, 100, 1)
+    > predictReserve(today.capacity, 100, 6));
+  assert.equal(predictReps(0, 100, 0), null);
+  assert.equal(predictReserve(200, 100, 0), null);
+});
+
+test('capacity falls through a session, so a late set is not promised set one', () => {
+  const rows = exerciseHistory(
+    [session(at(2026, 8, 1), [entry(BENCH.id, [set(100, 8), set(100, 6)])]),
+     session(at(2026, 8, 8), [entry(BENCH.id, [set(100, 8), set(100, 6)])]),
+     session(at(2026, 8, 15), [entry(BENCH.id, [set(100, 8), set(100, 6)])])],
+    BENCH.id, byId, { assumedRir: 0 });
+
+  const first = capacityToday([], rows, { setIndex: 0 });
+  const fourth = capacityToday([], rows, { setIndex: 3 });
+  assert.ok(fourth.capacity < first.capacity);
+  assert.ok(predictReps(fourth.capacity, 100, 0) < predictReps(first.capacity, 100, 0));
+
+  // One set logged today outweighs the history it was projected from.
+  const live = capacityToday([set(120, 5)], rows, { setIndex: 1 });
+  assert.equal(live.live, true);
+  assert.ok(live.capacity > first.capacity);
+  assert.equal(capacityToday([], [], {}), null, 'and nothing at all says nothing');
 });

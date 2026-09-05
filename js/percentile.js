@@ -148,6 +148,11 @@ const CURVE = ANCHORS.map(([score, share]) => [score, probit(share)]);
  * would make the whole bottom of the app say one thing.
  */
 export function zForScore(score) {
+  // `Number(null)` is 0, and 0 is a real place on this ladder. Without the
+  // first test an unrated lift would come back as Bronze III and be told it is
+  // stronger than two per cent of men, which is a claim about somebody the app
+  // has never measured.
+  if (score === null || score === undefined || score === '') return null;
   const s = Number(score);
   if (!Number.isFinite(s)) return null;
   if (s <= CURVE[0][0]) {
