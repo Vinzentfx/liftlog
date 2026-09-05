@@ -25,7 +25,7 @@ import { alreadyWarm } from '../warmup.js';
 import { isPlateLoaded } from '../standards.js';
 import { navigate, render, flushBackup, startWorkout } from '../app.js';
 import { requestWorkoutStart } from '../workout-start.js';
-import { t, tn, tMuscle, tEquipment, locale } from '../i18n.js';
+import { t, tn, tMuscle, tRegion, tEquipment, locale } from '../i18n.js';
 import { SOURCES } from '../evidence.js';
 
 const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
@@ -336,7 +336,12 @@ function exerciseBlock(session, entry, entryIndex) {
       ]))));
     }
   } else {
-    block.append(el('div.small.faint', { style: { marginBottom: '10px' }, text: t('train.firstTime') }));
+    // No history to compare against, but the work standing in front of this
+    // exercise is still the reason today's numbers look the way they do.
+    block.append(el('div.small.faint', { style: { marginBottom: '10px' } }, [
+      el('span', { text: t('train.firstTime') }),
+      orderLabel(rows, prior, session, entryIndex),
+    ]));
   }
 
   if (store.state.settings.warmupSuggestions !== false) {
@@ -818,28 +823,69 @@ function describeReasons(reasons, units) {
 const round1 = (n) => Math.round(n * 10) / 10;
 
 /**
- * "2 sets of chest work before this one" on the last-time line.
+ * "6 sets of chest before this one" on the last-time line.
  *
  * The whole reason the correction exists is that it is invisible otherwise: the
  * lifter sees 100 × 8 last week and 95 × 8 today and reads a regression, when
  * what actually changed is that the bench was not free and the butterfly went
  * first. Naming it is half the value of measuring it.
+ *
+ * It has to name it *correctly*, and for a long time it did not. The number
+ * printed was `prior.same`, the weighted overlap, rounded to a whole number:
+ * three bench presses ahead of a triceps pushdown came out as 1.5 and the
+ * screen said "2 sets for this muscle before this one", when nothing ahead of
+ * it had trained triceps as its job. A count a lifter can disprove by looking
+ * at their own screen destroys the credibility of every other number on it.
+ *
+ * So the printed count is `prior.direct`: whole sets from movements that lead
+ * on the same muscle. The weighted figure still drives the arithmetic, where
+ * fractions belong, and never reaches the page. And the muscle is named, so
+ * "this muscle" is not something the reader has to work out.
+ *
+ * When the direct count has not changed but the exercise has clearly moved, the
+ * line still says so, because the systemic cost of being an hour into a session
+ * is real and OTHER_REGION is what charges for it. It just stops pretending
+ * that work was for this muscle.
  */
 function orderLabel(rows, prior, session, entryIndex) {
-  if (!rows.length) return null;
-  const before = rows[rows.length - 1].prior.same;
-  const now = prior.same;
-  if (Math.abs(now - before) < 1) return null;
+  const muscle = prior.regions.length ? tRegion(prior.regions[0]) : null;
+  if (!muscle) return null;
+
+  // Nothing to compare against on the first outing, but "6 sets of chest come
+  // first" is worth saying on its own: it is the reason today's suggestion is
+  // what it is.
+  if (!rows.length) {
+    return prior.direct >= 2
+      ? el('span.small', { style: { color: 'var(--text-dim)', display: 'block', marginTop: '2px' },
+          text: t('train.order.firstTime', { now: prior.direct, muscle }) })
+      : null;
+  }
+
+  const was = rows[rows.length - 1].prior;
+  const movedDirect = Math.abs(prior.direct - (was.direct ?? 0)) >= 1;
+  // Two increments of "everything else" before a move with no same-muscle work
+  // in it is worth a line. One set either way is noise.
+  const movedOverall = Math.abs(prior.total - (was.total ?? 0)) >= 3;
+  if (!movedDirect && !movedOverall) return null;
+
   // Amber for the case that costs you something, and nothing louder than the
   // rest of the line for the case that gives it back. Both used to be painted
-  // in the warning colour, so an exercise moved *earlier* in the session — a
-  // lifter arriving at it fresher than last week, which is good news — was
+  // in the warning colour, so an exercise moved *earlier* in the session, a
+  // lifter arriving at it fresher than last week and therefore good news, was
   // flagged on screen in the same colour as a problem.
-  const later = now > before;
+  const later = movedDirect
+    ? prior.direct > (was.direct ?? 0)
+    : prior.total > (was.total ?? 0);
+  const key = movedDirect
+    ? (later ? 'train.order.laterNow' : 'train.order.earlierNow')
+    : (later ? 'train.order.laterOther' : 'train.order.earlierOther');
+
   return el('span.small', {
     style: { color: later ? 'var(--warn)' : 'var(--text-dim)', display: 'block', marginTop: '2px' },
-    text: t(later ? 'train.order.laterNow' : 'train.order.earlierNow', {
-      now: fmtNum(round1(now)), before: fmtNum(round1(before)),
+    text: t(key, {
+      muscle,
+      now: movedDirect ? prior.direct : Math.round(prior.total),
+      before: movedDirect ? (was.direct ?? 0) : Math.round(was.total ?? 0),
     }),
   });
 }

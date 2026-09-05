@@ -1134,7 +1134,7 @@ export function toNextDivision(liftName, score, profile, opts = {}) {
  * on the map and in the region sheet. A trapezius reading of "Diamond II"
  * computed as `row rank x 0.7` is not a weak trapezius, it is a row.
  */
-const DIRECT_CONTRIBUTION = 0.8;
+export const DIRECT_CONTRIBUTION = 0.8;
 
 /**
  * Per-region and overall rating.
@@ -1427,6 +1427,28 @@ export function drivesRegion(name, region) {
 }
 
 export const canRank = (name, region) => drivesRegion(name, region) >= DIRECT_CONTRIBUTION;
+
+/**
+ * How strongly one exercise trains each region, curated where possible.
+ *
+ * The one place in the app that answers "which muscles, and how much" for an
+ * arbitrary exercise. ANATOMY is hand-written and graded from 0 to 1; the
+ * catalogue's own primary/secondary lists are coarse (a movement is either a
+ * chest exercise or it is not) and are the fallback rather than the answer.
+ *
+ * The fallback's 1 and 0.5 are the same fractional convention the plan rating
+ * and the weekly volume already count with, so nothing invents a third scale
+ * for the same idea.
+ */
+export function anatomyOf(exercise) {
+  if (!exercise) return {};
+  const curated = ANATOMY[canonical(exercise.name)];
+  if (curated) return curated;
+  const out = {};
+  for (const region of exercise.primary || []) out[region] = 1;
+  for (const region of exercise.secondary || []) if (!out[region]) out[region] = 0.5;
+  return out;
+}
 
 export function regionsFromExercises(exercises = []) {
   const out = {};

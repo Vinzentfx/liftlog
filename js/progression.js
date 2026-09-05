@@ -32,6 +32,7 @@
 
 import { e1rm, isCounted, effectiveSetWeight, linearFit, bodyweightLoadMode } from './models.js';
 import { platePlan } from './plates.js';
+import { anatomyOf, DIRECT_CONTRIBUTION } from './standards.js';
 
 /* ===================== effort ===================== */
 
@@ -84,17 +85,72 @@ const MAX_FATIGUE = 0.15;
 /**
  * How much of the same muscle two exercises share, 0–1.
  *
- * Primary against primary is the full cost. A primary that is somebody else's
- * secondary is half, because that is the convention the whole app counts
- * fractional sets with (THRESHOLDS.indirectSetWeight).
+ * The old version read the catalogue's primary and secondary lists directly and
+ * got two things wrong at once. It counted a hit against `primary.size`, so an
+ * exercise the catalogue files under three muscles could never score more than
+ * a third from any single one of them. And it never consulted ANATOMY, the
+ * hand-graded table the rating engine has used for a year, so the *rest* of the
+ * app knew that a chest-supported row is 1.0 trapezius and this did not.
+ *
+ * The replacement asks the question the fatigue correction actually cares
+ * about: of the muscles this exercise *leads* on, how much has already been
+ * worked. Averaged over the leading regions only, weighted by how much the
+ * earlier movement drives each of them.
+ *
+ *     share = Σ w_this(r) · w_earlier(r) / Σ w_this(r),  over r this one leads
+ *
+ * Leading regions only, and that is load-bearing rather than tidiness. Summing
+ * over *every* region an exercise touches puts the bench press's own front
+ * delts and triceps in the denominator, so a butterfly before a bench comes out
+ * at 0.48 instead of 1. Which is arguably a truer statement about total
+ * muscular demand, and is the wrong number here: SAME_REGION is calibrated
+ * against exactly that case at full weight, and halving the input while leaving
+ * the cost alone would quietly halve a correction that was measured.
+ *
+ * So a butterfly before a bench press still scores 1. A triceps pushdown before
+ * it scores 0, correctly: the bench is not there to train triceps. And a bench
+ * press before a pushdown now scores 0.55 rather than the old 0.5, because the
+ * pushdown *is* there to train triceps and ANATOMY says how much of that a
+ * bench does, where the catalogue could only say "secondary".
  */
 function overlap(exercise, earlier) {
-  const primary = new Set(exercise?.primary || []);
-  if (!primary.size) return 0;
-  let hit = 0;
-  for (const region of earlier?.primary || []) if (primary.has(region)) hit += 1;
-  for (const region of earlier?.secondary || []) if (primary.has(region)) hit += 0.5;
-  return Math.min(1, hit / primary.size);
+  const mine = anatomyOf(exercise);
+  const theirs = anatomyOf(earlier);
+  let total = 0, shared = 0;
+  for (const [region, weight] of Object.entries(mine)) {
+    if (weight < DIRECT_CONTRIBUTION) continue;
+    total += weight;
+    shared += weight * (theirs[region] || 0);
+  }
+  return total ? Math.min(1, shared / total) : 0;
+}
+
+/**
+ * Does this earlier exercise *prioritise* what this one is here for?
+ *
+ * A separate question from `overlap`, and the reason it is separate is the line
+ * the training screen puts on the page. "Sets for this muscle before this one"
+ * has to be a count of sets somebody could point at, and a weighted overlap is
+ * not: three bench presses before a pushdown came out as 1.5, printed as "2",
+ * and the honest answer was that nothing before it had trained triceps as its
+ * job. A number a lifter can disprove by looking at their own screen is worse
+ * than no number.
+ *
+ * So this is deliberately binary and deliberately strict: the earlier movement
+ * has to drive one of the regions this one leads on, at the same 0.8 the rating
+ * engine uses to decide whether a lift can rank a muscle at all.
+ */
+function prioritisesSame(exercise, earlier) {
+  const theirs = anatomyOf(earlier);
+  return leadingRegions(exercise).some((region) => (theirs[region] || 0) >= DIRECT_CONTRIBUTION);
+}
+
+/** The regions an exercise actually leads on, strongest first. */
+export function leadingRegions(exercise) {
+  return Object.entries(anatomyOf(exercise))
+    .filter(([, weight]) => weight >= DIRECT_CONTRIBUTION)
+    .sort((a, b) => b[1] - a[1])
+    .map(([region]) => region);
 }
 
 /** A set that is on the board for today but has not been ticked. */
@@ -135,16 +191,23 @@ const isPlanned = (set) => set.type === 'working' && !set.done;
  * of the fatigue it is counting has not happened yet. A number a lifter cannot
  * account for is a number they stop trusting.
  *
+ * `same` and `direct` count two different things and are not interchangeable.
+ * `same` is the weighted overlap and it is what the fatigue arithmetic runs on,
+ * because half a set of shared work really is half a set of shared work.
+ * `direct` counts whole sets from movements that lead on the same muscle, and
+ * it is the only one of the two fit to be printed as a number of sets. See
+ * `prioritisesSame`.
+ *
  * @param entries   the session's entries, in the order they will be performed
  * @param index     which entry is being asked about
  * @param byId      Map exerciseId -> exercise
  * @param live      true for the session in progress, false for a record
- * @returns { same, other, warmedRegions, planned }
+ * @returns { same, other, direct, total, warmedRegions, planned, regions }
  */
 export function priorWork(entries, index, byId, { live = false } = {}) {
   const list = entries || [];
   const exercise = byId.get(list[index]?.exerciseId);
-  let same = 0, other = 0, planned = 0;
+  let same = 0, other = 0, direct = 0, planned = 0;
   const warmedRegions = new Set();
 
   for (let i = 0; i < list.length; i++) {
@@ -164,8 +227,14 @@ export function priorWork(entries, index, byId, { live = false } = {}) {
     const share = overlap(exercise, earlier);
     same += counted * share;
     other += counted * (1 - share);
+    if (prioritisesSame(exercise, earlier)) direct += counted;
   }
-  return { same, other, warmedRegions, planned };
+  return {
+    same, other, direct, total: same + other, warmedRegions, planned,
+    // What "this muscle" means for this exercise, so the screen can say the
+    // word instead of pointing at something the reader has to guess at.
+    regions: leadingRegions(exercise),
+  };
 }
 
 /**
