@@ -312,9 +312,19 @@ async function boot() {
     await gate.show(openApp);
   }
 
-  if ('serviceWorker' in navigator) {
+  // Not under ?e2e=1. The worker caches the app shell, which is exactly what it
+  // is for in a gym and exactly wrong on a dev server: an edited file keeps
+  // being served from the last install, so a change looks like it did nothing
+  // and the obvious conclusion is that the code is broken rather than stale.
+  if ('serviceWorker' in navigator && !browserTest) {
     // Only meaningful over https/localhost; silently skipped elsewhere.
     navigator.serviceWorker.register('./sw.js').catch(() => {});
+  } else if (browserTest && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations()
+      .then((all) => all.forEach((one) => one.unregister())).catch(() => {});
+    if (typeof caches !== 'undefined') {
+      caches.keys().then((keys) => keys.forEach((key) => caches.delete(key))).catch(() => {});
+    }
   }
 }
 

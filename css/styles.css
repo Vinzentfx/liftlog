@@ -795,6 +795,32 @@ label.field > span {
   color: var(--tier, var(--accent)); opacity: .75;
 }
 
+/* Where a rank sits in a population. Two lines with different weights,
+   because they are two different claims: the estimate people asked for, and
+   the near-arithmetic one that keeps it honest. Tinted with --tier so the
+   sentence belongs to the badge above it rather than floating free. */
+.pop-note {
+  margin-top: 14px; padding: 10px 12px; border-radius: var(--r-sm); text-align: center;
+  background: color-mix(in srgb, var(--tier, var(--accent)) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tier, var(--accent)) 26%, transparent);
+}
+.pop-world {
+  font-size: 14.5px; font-weight: 700; line-height: 1.35;
+  color: var(--tier, var(--accent-hi));
+}
+.pop-lifters {
+  display: flex; align-items: baseline; justify-content: center; gap: 8px;
+  flex-wrap: wrap; margin-top: 3px;
+  font-size: 12.5px; color: var(--text-dim);
+}
+.pop-why {
+  flex: none; background: none; border: 0; padding: 2px 0;
+  font: inherit; font-size: 12.5px; font-weight: 650;
+  color: var(--accent-hi); cursor: pointer;
+}
+/* On a lift card the note is one grey line among several, not a panel. */
+.pop-line { line-height: 1.35; }
+
 /* ============ ranking up ============ */
 
 .rank-up-overlay {

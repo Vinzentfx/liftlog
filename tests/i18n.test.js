@@ -117,6 +117,9 @@ test('no unused keys', () => {
     // price of that, and the parity test above still guarantees both languages
     // define the same set of them.
     'cloud.err.', 'cloud.status.',
+    // Which population line a rank is compared against depends on the profile,
+    // so the key ends in Male or Female and is assembled at the call site.
+    'rank.pop.world', 'rank.pop.howWorld', 'rank.pop.short',
   ];
   const used = new Set();
 

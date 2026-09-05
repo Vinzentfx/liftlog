@@ -16,8 +16,10 @@
 // the colour system instead of fighting it. It costs nothing over the wire, it
 // draws at any size, and there is no third party to credit or to outlive.
 
-import { el, haptic } from './ui.js';
+import { el, haptic, openSheet } from './ui.js';
 import { TIERS } from './standards.js';
+import { percentiles, shareDigits, topSlice } from './percentile.js';
+import { t, locale } from './i18n.js';
 
 // Gradient ids have to be unique per document or the second badge on a screen
 // borrows the first one's fill. A counter is enough and keeps the markup short.
@@ -191,6 +193,96 @@ export function rankBadge(tierIndex, { size = 34, glow = false } = {}) {
   }
 
   return svg;
+}
+
+/* ===================== where that sits in a population ===================== */
+
+/**
+ * A share as a percentage, with the decimals the top of the scale needs.
+ *
+ * Localised through Intl rather than by swapping a dot for a comma, because the
+ * grouping and the decimal mark are not the same decision in every language the
+ * app might grow into.
+ */
+const num = (value, digits) => new Intl.NumberFormat(locale(), {
+  minimumFractionDigits: digits, maximumFractionDigits: digits,
+}).format(value);
+
+const pct = (fraction) => num(fraction * 100, shareDigits(fraction));
+
+/**
+ * The "top X%" number, which needs its own rule.
+ *
+ * Running it through `pct` was wrong in the one place it matters: Radiant is
+ * the top 0.05%, `shareDigits` sees a tiny fraction and asks for no decimals,
+ * and the end of the ladder printed "Top 0%". The slice is already rounded to
+ * something sayable by `topSlice`; all this has to do is keep the decimals that
+ * rounding left behind.
+ */
+const slice = (value) => num(value, value >= 1 ? 0 : value >= 0.1 ? 1 : 2);
+
+/**
+ * The two population readings of a score, as one or two lines.
+ *
+ * Why both, when one number would be tidier: they are different kinds of claim
+ * and collapsing them would hide which is which. The lifter number is the
+ * published standards read backwards and is very nearly arithmetic. The world
+ * number adds an assumption about how many adults train at all, and it is the
+ * one that answers the question people actually ask. Showing them together also
+ * keeps the second honest: "top 3% of people who train" makes it obvious that
+ * "99% of men" is not a claim about the gym.
+ *
+ * Below the median of lifters the "top X%" phrasing stops being flattering and
+ * starts being silly ("top 95%"), so it flips to the same sentence the world
+ * line uses.
+ *
+ * @param score     0-100 ladder score
+ * @param sex       'male' | 'female' | null, for who the world line compares to
+ * @param compact   one line instead of two, for the small cards
+ */
+export function populationNote(score, sex, { compact = false, onExplain = null } = {}) {
+  const p = percentiles(score);
+  if (!p) return null;
+
+  const group = sex === 'female' ? 'Female' : 'Male';
+  const world = t(`rank.pop.world${group}`, { pct: pct(p.world) });
+  const lifters = p.lifters >= 0.5
+    ? t('rank.pop.top', { pct: slice(topSlice(p.lifters)) })
+    : t('rank.pop.amongLifters', { pct: pct(p.lifters) });
+
+  // On a lift card the full sentence wrapped to two lines on every single
+  // record, which turned a useful aside into the loudest thing in the list.
+  // Same two facts, abbreviated, with the full wording still one tap away in
+  // the hero and the muscle sheet.
+  if (compact) {
+    const short = p.lifters >= 0.5
+      ? t('rank.pop.shortTop', { pct: slice(topSlice(p.lifters)) })
+      : t('rank.pop.shortAmong', { pct: pct(p.lifters) });
+    return el('div.small.faint.pop-line', { style: { marginTop: '2px' },
+      text: `${t(`rank.pop.short${group}`, { pct: pct(p.world) })} · ${short}` });
+  }
+
+  const block = el('div.pop-note', {}, [
+    el('div.pop-world', { text: world }),
+    el('div.pop-lifters', {}, [
+      el('span', { text: lifters }),
+      el('button.pop-why', {
+        onclick: onExplain || (() => populationSheet(sex)),
+        'aria-label': t('rank.pop.howTitle'),
+      }, [t('rank.pop.how')]),
+    ]),
+  ]);
+  return block;
+}
+
+/** Where the estimate comes from, and what it is not. */
+export function populationSheet(sex) {
+  const group = sex === 'female' ? 'Female' : 'Male';
+  openSheet(t('rank.pop.howTitle'), el('div', {}, [
+    el('div.small.muted', { text: t('rank.pop.howLifters') }),
+    el('div.small.muted', { style: { marginTop: '12px' }, text: t(`rank.pop.howWorld${group}`) }),
+    el('div.small.faint', { style: { marginTop: '12px' }, text: t('rank.pop.howCaveat') }),
+  ]));
 }
 
 /* ===================== the moment you earn one ===================== */

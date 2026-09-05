@@ -16,7 +16,7 @@ import {
   regionsFromExercises, canRank, drivesRegion,
 } from '../standards.js';
 import { strengthAt } from '../history.js';
-import { rankBadge, celebrateRankUp } from '../rank-art.js';
+import { rankBadge, celebrateRankUp, populationNote } from '../rank-art.js';
 import { t, tn, tRegion, tTier, locale } from '../i18n.js';
 import { bodyMap, tierLegend } from '../bodymap.js';
 import { barChart, lineChart } from '../charts.js';
@@ -636,6 +636,11 @@ function ratingSection(done, settings) {
       }),
     ]),
     rankTrack(rank, rating.overall),
+    // What the rank is *worth*, which the ladder alone does not say. Legend is
+    // the ninth name of twelve, so it reads as mid-table to anybody who has not
+    // been told that the three above it are competition territory. See
+    // js/percentile.js.
+    populationNote(rating.overall, settings.sex),
     el('div.small.muted', { style: { marginTop: '12px' }, text: t(`tier.${rank.tier.key}.note`) }),
     percentileBar('overall'),
   ]);
@@ -711,6 +716,7 @@ function ratingSection(done, settings) {
             ? el('div.small', { style: { marginTop: '6px', color: 'var(--warn)' },
                 text: t('home.rating.extrapolatedShort') })
             : null,
+          populationNote(lift.score, settings.sex, { compact: true }),
           percentileLine(`lift:${lift.name}`),
           staleBestLabel(lift),
         ])
@@ -1381,6 +1387,7 @@ function regionSheet(region, rating) {
           ]),
           el('div.small.muted', { style: { textAlign: 'center' }, text: t('home.region.via', { lift: info.via }) }),
           supportLine(info),
+          populationNote(info.score, store.state.settings.sex),
           percentileBar(`region:${region}`),
           info.machine ? el('div.small.faint', { style: { marginTop: '8px', textAlign: 'center' },
             text: t(info.provisional ? 'home.region.machineEstimated' : 'home.region.machineCommunity', { n: info.sample }) }) : null,
