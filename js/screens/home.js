@@ -629,18 +629,24 @@ function ratingSection(done, settings) {
   const hero = el(`div.card.glow.tier-${idx}`, {}, [
     el('div.rating-hero', {}, [
       el('div.rank-hero-badge', {}, [rankBadge(idx, { size: 96, glow: true })]),
-      el('div.rank-hero-name', { text: tTier(rank.tier.key) }),
-      el('div.rank-hero-division', { text: rank.division }),
+      // One line, not two. The division on a line of its own was a solitary
+      // roman numeral floating under a heading, which reads as a stray
+      // character rather than as part of the name it belongs to.
+      el('div.rank-hero-name', {}, [
+        el('span', { text: tTier(rank.tier.key) }),
+        el('span.rank-hero-division', { text: rank.division }),
+      ]),
       el('div.rating-sub', {
         text: t('home.rating.overall', { rated: rating.ratedRegions, total: rating.totalRegions }),
       }),
     ]),
-    rankTrack(rank, rating.overall),
-    // What the rank is *worth*, which the ladder alone does not say. Legend is
-    // the ninth name of twelve, so it reads as mid-table to anybody who has not
-    // been told that the three above it are competition territory. See
+    // What the rank is *worth*, which the ladder alone does not say, and
+    // therefore the second thing to read rather than the seventh. Legend is the
+    // ninth name of twelve, so it reads as mid-table to anybody who has not
+    // been told the three above it are competition territory. See
     // js/percentile.js.
     populationNote(rating.overall, settings.sex),
+    rankTrack(rank, rating.overall),
     el('div.small.muted', { style: { marginTop: '12px' }, text: t(`tier.${rank.tier.key}.note`) }),
     percentileBar('overall'),
   ]);
@@ -1382,8 +1388,10 @@ function regionSheet(region, rating) {
           // hundred whose top nobody reaches reads as a mark out of a hundred.
           el('div.rating-hero', { style: { paddingBottom: '10px' } }, [
             el('div.rank-hero-badge', {}, [rankBadge(tierIndex(info.score), { size: 58, glow: true })]),
-            el('div.rank-hero-name', { style: { fontSize: '24px' }, text: tTier(rankOf(info.score).tier.key) }),
-            el('div.rank-hero-division', { text: rankOf(info.score).division }),
+            el('div.rank-hero-name', { style: { fontSize: '24px' } }, [
+              el('span', { text: tTier(rankOf(info.score).tier.key) }),
+              el('span.rank-hero-division', { text: rankOf(info.score).division }),
+            ]),
           ]),
           el('div.small.muted', { style: { textAlign: 'center' }, text: t('home.region.via', { lift: info.via }) }),
           supportLine(info),

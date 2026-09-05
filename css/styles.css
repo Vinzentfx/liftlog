@@ -787,12 +787,16 @@ label.field > span {
 /* The hero badge is the headline now, not a decoration above a number. */
 .rank-hero-badge { display: flex; justify-content: center; margin-bottom: 10px; }
 .rank-hero-name {
-  font-size: 34px; font-weight: 800; letter-spacing: -.025em; line-height: 1;
+  display: flex; align-items: baseline; justify-content: center; gap: .34em;
+  font-size: 34px; font-weight: 800; letter-spacing: -.025em; line-height: 1.05;
   color: var(--tier, var(--accent));
+  flex-wrap: wrap;
 }
+/* Sized in em so it tracks whatever the name is set at: the muscle sheet drops
+   the heading to 24px and the division has to come with it. */
 .rank-hero-division {
-  font-size: 15px; font-weight: 750; letter-spacing: .16em; margin-top: 6px;
-  color: var(--tier, var(--accent)); opacity: .75;
+  font-size: .44em; font-weight: 750; letter-spacing: .16em;
+  opacity: .7; transform: translateY(-.15em);
 }
 
 /* Where a rank sits in a population. Two lines with different weights,
@@ -1071,13 +1075,21 @@ label.field > span {
 .exercise-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .exercise-head h3 { margin: 0; font-size: 17px; font-weight: 680; letter-spacing: -0.012em; flex: 1; }
 
+/* The last-time panel is also the way into the three sessions before it, so it
+   is a button. Left-aligned and full width, because a control that looks like a
+   panel has to behave like the panel it replaced. */
 .last-time {
+  display: block; width: 100%; text-align: left; font: inherit;
   font-size: 12.5px; color: var(--text-dim); background: rgba(59, 130, 246, .06);
   border: 1px solid rgba(59, 130, 246, .16); border-left: 3px solid var(--accent);
   border-radius: 0 var(--r-sm) var(--r-sm) 0;
-  padding: 8px 11px; margin-bottom: 10px;
+  padding: 9px 11px; margin-bottom: 10px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
+button.last-time:active { background: rgba(59, 130, 246, .12); }
 .last-time b { color: var(--text); font-weight: 650; }
+.last-time-main { display: inline; }
+.last-time .disclose-caret { float: right; margin-left: 8px; }
 
 .set-row { display: grid; grid-template-columns: 30px 1fr 1fr 46px; gap: 8px; align-items: center; margin-bottom: 7px; }
 .set-row .set-no { font-size: 13px; font-weight: 700; color: var(--text-faint); text-align: center; }
@@ -1108,6 +1120,17 @@ label.field > span {
   box-shadow: 0 0 16px -4px rgba(52, 211, 153, .75);
 }
 .set-row.done input { opacity: .6; }
+
+/* Which set you are on. A tinted set number and a lit weight field, no extra
+   height and nothing that moves: on a four-set exercise the rows are otherwise
+   identical grey boxes, and coming back from a rest timer meant counting ticks
+   to find your place. */
+.set-row.up-next .set-no { color: var(--accent-hi); }
+.set-row.up-next input { border-color: color-mix(in srgb, var(--accent) 42%, var(--line)); }
+.set-row.up-next .done-btn {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  color: var(--accent-hi);
+}
 .set-labels {
   display: grid; grid-template-columns: 30px 1fr 1fr 46px; gap: 8px;
   font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase;
@@ -1191,11 +1214,32 @@ button.suggest .row { align-items: baseline; }
 
 /* A quiet button that still reads as one. The caret is the only thing telling
    a row of dim text apart from the dim text around it. */
-.warmup-offer { display: flex; flex-direction: column; align-items: flex-start; }
+.warmup-offer { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: center; }
+.warmup-offer:empty { display: none; }
+.warmup-add {
+  min-width: 0; text-align: left; background: none; border: 0;
+  padding: 10px 0; margin: 0; font: inherit; font-size: 12.5px; font-weight: 620;
+  color: var(--accent-hi); line-height: 1.35; cursor: pointer;
+}
+.warmup-why {
+  justify-self: end; width: 44px; height: 44px; padding: 0; margin: 0;
+  background: none; border: 0; cursor: pointer;
+  color: var(--text-faint); font-size: 15px; line-height: 1;
+}
 .btn.quiet.disclose { display: flex; align-items: center; gap: 6px; justify-content: flex-start; }
 .disclose-caret { color: var(--text-faint); font-weight: 700; }
 .suggest-why { flex: none; color: var(--text-faint); font-size: 11px; font-weight: 650; }
 .suggest-reason { display: block; margin-top: 5px; }
+
+/* Seat, backrest and stack step: noted once, read back months later. A quiet
+   line under the sets rather than a full-width button above them. */
+.machine-line {
+  display: flex; align-items: flex-start; gap: 7px; width: 100%;
+  margin-top: 8px; padding: 8px 2px; background: none; border: 0;
+  font: inherit; font-size: 11.5px; line-height: 1.4; text-align: left;
+  color: var(--text-faint); cursor: pointer;
+}
+.machine-line:active { color: var(--text-dim); }
 
 /* ============ rest timer ============ */
 #rest-bar {

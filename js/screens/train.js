@@ -292,16 +292,45 @@ function exerciseBlock(session, entry, entryIndex) {
     : null;
 
   // The single most useful line on the screen: what you did last time.
+  //
+  // It is also the way into the three sessions before that. It used to be a
+  // flat panel with a separate "show the last 3 workouts" button underneath,
+  // which was one more full-width control in a stack of seven standing between
+  // the exercise's name and its first input field. The panel is the obvious
+  // thing to tap for more of the same, so it is the control.
   const last = lastPerformance(store.state.sessions, entry.exerciseId, session.id);
+  const historyOn = store.state.settings.setHistory !== false;
   if (last) {
-    block.append(
-      el('div.last-time', {}, [
+    const expanded = historyOn && openHistories.has(entry.exerciseId);
+    const lastLine = el(historyOn ? 'button.last-time' : 'div.last-time', historyOn ? {
+      'aria-expanded': String(expanded),
+      'aria-label': t(expanded ? 'train.hideSetHistory' : 'train.showSetHistory'),
+      onclick: () => {
+        if (expanded) openHistories.delete(entry.exerciseId); else openHistories.add(entry.exerciseId);
+        render();
+      },
+    } : {}, [
+      el('span.last-time-main', {}, [
         el('span', { text: `${relLabel(last.session.startedAt)}: ` }),
         el('b', { text: setsSummary(last.sets, units) }),
         lastRirLabel(last.sets),
-        orderLabel(rows, prior, session, entryIndex),
-      ])
-    );
+      ]),
+      historyOn ? el('span.disclose-caret', { text: expanded ? '⌄' : '›', 'aria-hidden': 'true' }) : null,
+      orderLabel(rows, prior, session, entryIndex),
+    ]);
+    block.append(lastLine);
+
+    if (expanded) {
+      const history = store.state.sessions.filter((row) => row.finishedAt && row.id !== session.id)
+        .map((row) => ({ session: row, entry: row.entries.find((item) => item.exerciseId === entry.exerciseId) }))
+        .filter((row) => row.entry?.sets.some(isCounted))
+        .sort((a, b) => b.session.startedAt - a.session.startedAt).slice(0, 3);
+      block.append(el('div.set-history', {}, history.map((row) => el('div.row.between.small', {}, [
+        el('span.faint', { text: new Date(row.session.startedAt).toLocaleDateString(locale(), { day: '2-digit', month: '2-digit' }) }),
+        el('b', { text: setsSummary(row.entry.sets.filter(isCounted), units) }),
+      ]))));
+    }
+
     const tip = opening;
     if (tip) {
       // A bodyweight movement has no weight to name, so the same engine answer
@@ -311,29 +340,6 @@ function exerciseBlock(session, entry, entryIndex) {
         : t(`train.tip.${tip.change}`, { weight: fmtWeight(tip.weight, units), reps: tip.reps }))
         + (entry.movementMode === 'unilateral' ? ` ${t('train.perSide')}` : '');
       block.append(reasonedSuggestion(entry.exerciseId, headline, describeReasons(tip.reasons, units)));
-    }
-    if (store.state.settings.setHistory !== false) {
-      const history = store.state.sessions.filter((row) => row.finishedAt && row.id !== session.id)
-        .map((row) => ({ session: row, entry: row.entries.find((item) => item.exerciseId === entry.exerciseId) }))
-        .filter((row) => row.entry?.sets.some(isCounted))
-        .sort((a, b) => b.session.startedAt - a.session.startedAt).slice(0, 3);
-      const expanded = openHistories.has(entry.exerciseId);
-      // The chevron is the affordance. Without it this was grey text at the
-      // left margin with no border, no underline and no icon, sitting among
-      // other grey text: everything about it said "label" and nothing said
-      // "tap me", so the last three workouts were effectively unreachable.
-      block.append(el('button.btn.quiet.sm.disclose', { style: { padding: '3px 0', marginBottom: expanded ? '4px' : '8px' },
-        'aria-expanded': String(expanded), onclick: () => {
-          if (expanded) openHistories.delete(entry.exerciseId); else openHistories.add(entry.exerciseId);
-          render();
-        } }, [
-          el('span', { text: t(expanded ? 'train.hideSetHistory' : 'train.showSetHistory') }),
-          el('span.disclose-caret', { text: expanded ? '⌄' : '›', 'aria-hidden': 'true' }),
-        ]));
-      if (expanded) block.append(el('div.set-history', {}, history.map((row) => el('div.row.between.small', {}, [
-        el('span.faint', { text: new Date(row.session.startedAt).toLocaleDateString(locale(), { day: '2-digit', month: '2-digit' }) }),
-        el('b', { text: setsSummary(row.entry.sets.filter(isCounted), units) }),
-      ]))));
     }
   } else {
     // No history to compare against, but the work standing in front of this
@@ -352,24 +358,6 @@ function exerciseBlock(session, entry, entryIndex) {
 
   if (entry.note) {
     block.append(el('div.small.muted', { style: { marginBottom: '8px' }, text: entry.note }));
-  }
-
-  if (ex && ['Machine', 'Cable'].includes(ex.equipment)) {
-    const setup = store.state.settings.machineSetups?.[ex.id];
-    const summary = setup && [
-      setup.seat && `${t('train.machine.seat')}: ${setup.seat}`,
-      setup.backrest && `${t('train.machine.backrest')}: ${setup.backrest}`,
-      setup.pad && `${t('train.machine.pad')}: ${setup.pad}`,
-      setup.step > 0 && t('train.machine.stepSummary', { step: fmtWeight(setup.step, units) }),
-      setup.note,
-    ].filter(Boolean).join(' · ');
-    block.append(el('button.btn.ghost.full.sm', {
-      style: {
-        marginBottom: '10px', textAlign: 'left', justifyContent: 'flex-start',
-        whiteSpace: 'normal', lineHeight: '1.35', paddingTop: '8px', paddingBottom: '8px',
-      },
-      onclick: () => machineSetupSheet(ex),
-    }, [summary ? `⚙ ${summary}` : `⚙ ${t('train.machine.saveSetup')}`]));
   }
 
   const rirOn = store.state.settings.logRir !== false;
@@ -416,7 +404,37 @@ function exerciseBlock(session, entry, entryIndex) {
     }, [t('train.addSet')])
   );
 
+  // Below the sets, not above them. Seat height and stack step are things you
+  // note once and read back months later; they were a full-width button in a
+  // stack of seven controls standing between an exercise's name and the first
+  // field you have to type in, which is the wrong end of the card for a setting
+  // that changes about once a year.
+  //
+  // Guarded, because `append` is the DOM's and prints a null as the word.
+  const machineLine = machineSetupLine(ex, units);
+  if (machineLine) block.append(machineLine);
+
   return block;
+}
+
+/** The saved seat, backrest and stack step for a machine, or the offer to save one. */
+function machineSetupLine(ex, units) {
+  if (!ex || !['Machine', 'Cable'].includes(ex.equipment)) return null;
+  const setup = store.state.settings.machineSetups?.[ex.id];
+  const summary = setup && [
+    setup.seat && `${t('train.machine.seat')}: ${setup.seat}`,
+    setup.backrest && `${t('train.machine.backrest')}: ${setup.backrest}`,
+    setup.pad && `${t('train.machine.pad')}: ${setup.pad}`,
+    setup.step > 0 && t('train.machine.stepSummary', { step: fmtWeight(setup.step, units) }),
+    setup.note,
+  ].filter(Boolean).join(' · ');
+  return el('button.machine-line', {
+    'aria-label': t('train.machine.editSetup'),
+    onclick: () => machineSetupSheet(ex),
+  }, [
+    el('span', { text: '⚙', 'aria-hidden': 'true' }),
+    el('span.grow', { text: summary || t('train.machine.saveSetup') }),
+  ]);
 }
 
 function setRow(session, entry, set, index, last, ex, advice = null, estimator = null) {
@@ -426,9 +444,15 @@ function setRow(session, entry, set, index, last, ex, advice = null, estimator =
   const workingNo = entry.sets.slice(0, index + 1).filter((s) => s.type === 'working').length;
   const rirOn = store.state.settings.logRir !== false;
   const loadMode = bodyweightLoadMode(ex);
+  // The row that is up next gets a mark of its own. On a four-set exercise the
+  // rows are identical grey boxes, and after a rest timer the question "which
+  // one am I on" was answered by counting ticks.
+  const upNext = !set.done && set.type === 'working'
+    && entry.sets.findIndex((row) => row.type === 'working' && !row.done) === index;
   const row = el('div.set-row'
     + (rirOn ? '.with-rir' : '')
     + (set.done ? '.done' : '')
+    + (upNext ? '.up-next' : '')
     + (set.type === 'warmup' ? '.warmup' : ''));
 
   // The set number opens the quick menu: duplicate, warm-up and delete without
@@ -682,7 +706,7 @@ function setMenu(session, entry, set, index) {
  * it cannot name. Two sets on a barbell lift, one on everything else.
  */
 function warmupOffer(session, entry, ex, units, context = {}) {
-  // A column: see `.warmup-offer`, and the note on the caveat link below it.
+  // A two-column grid: see `.warmup-offer` and the note on the caveat below.
   const wrap = el('div.warmup-offer');
   if (ex?.equipment === 'Bodyweight') return wrap;
   if (entry.sets.some((s) => s.type === 'warmup')) return wrap;
@@ -714,9 +738,18 @@ function warmupOffer(session, entry, ex, units, context = {}) {
       : wrap;
   }
 
+  // Two controls on one row rather than two rows, and the row is a grid so they
+  // cannot overlap. The previous version stacked them because both were
+  // inline-flex `.btn`s that fitted side by side on a 375px phone and then a
+  // negative margin dragged the caveat's 44px hit area sideways across the
+  // offer's, stealing taps meant for "add these sets". A grid with a fixed
+  // second column has no such freedom: each control owns its own box, and the
+  // caveat keeps a full 44px square to be tapped in.
+  //
+  // The caveat itself is a whole sentence about what the trials found, so it
+  // still belongs in the sheet it opens rather than above a working set.
   wrap.append(
-    el('button.btn.quiet.sm', {
-      style: { padding: '2px 0', marginBottom: '8px', textAlign: 'left' },
+    el('button.warmup-add', {
       onclick: async () => {
         await store.updateSession(session.id, () => {
           // In front of the working sets, which is where they belong and where
@@ -727,25 +760,12 @@ function warmupOffer(session, entry, ex, units, context = {}) {
         });
         toast(t('train.warmupAdded', { sets: tn(sets.length, 'unit.warmupSet') }));
       },
-    }, [t('train.warmupOffer', { sets: sets.map((w) => `${fmtWeight(w.weight, units)} × ${w.reps}`).join(', ') })])
+    }, [t('train.warmupOffer', { sets: sets.map((w) => `${fmtWeight(w.weight, units)} × ${w.reps}`).join(', ') })]),
+    el('button.warmup-why', {
+      'aria-label': t('train.warmupWhy'), title: t('train.warmupWhy'),
+      onclick: () => warmupEvidenceSheet(),
+    }, ['ⓘ'])
   );
-  // The caveat is a whole sentence about what the trials found. It belongs to
-  // the sheet it opens, not above the first input field of a working set.
-  //
-  // Both this and the offer above it are `.btn`-style inline-flex controls, so
-  // in a plain div they fitted side by side on a 375px phone and the negative
-  // margin then dragged this one's 44px hit area sideways across the offer's:
-  // the exact overlap the next paragraph says it is avoiding. `.warmup-offer`
-  // is a column, so each keeps its own row and its own taps.
-  // Padding, not an overlay: the warm-up offer above it is a control too, and a
-  // hit area reaching upward would take taps meant for "add these sets". At
-  // 11px this was a 16px-tall target, the smallest thing in the app.
-  wrap.append(el('button.small.faint', {
-    style: { marginTop: '-8px', marginBottom: '2px', fontSize: '11px', background: 'none',
-      border: 0, padding: '12px 0', textAlign: 'left', color: 'var(--text-faint)',
-      alignSelf: 'flex-start' },
-    onclick: () => warmupEvidenceSheet(),
-  }, [`${t('train.warmupWhy')}  ›`]));
   return wrap;
 }
 
