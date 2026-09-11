@@ -1,12 +1,12 @@
-// The sheet that builds and hands over a week card.
+// Das Sheet, das eine Wochenkarte baut und weitergibt.
 //
-// Everything here happens on the phone: the summary is read out of IndexedDB,
-// drawn onto a canvas and turned into a PNG. There is no upload step and no
-// service to be down — this works in flight mode, which is the point of the app.
+// Alles passiert auf dem Handy: die Zusammenfassung kommt aus IndexedDB, wird auf
+// einen Canvas gezeichnet und als PNG ausgegeben. Es gibt keinen Upload und keinen
+// Dienst, der ausfallen kann. Das geht im Flugmodus, und darum geht es bei der App.
 //
-// Three ways out, because iOS has three habits: the share sheet (straight into a
-// chat), a download, and a long press on the preview, which is what most people
-// actually do with an image they can see.
+// Drei Wege nach draußen, weil iOS drei Gewohnheiten hat: das Teilen-Menü (direkt
+// in einen Chat), ein Download und langes Drücken auf die Vorschau. Letzteres
+// machen die meisten mit einem Bild, das sie sehen.
 
 import { t } from './i18n.js';
 import { el, openSheet, toast } from './ui.js';
@@ -15,8 +15,8 @@ import { startOfWeek } from './models.js';
 import { hasProfile } from './standards.js';
 import { weekSummary, renderCard, cardBlob } from './week-card.js';
 
-// Remembered while the app is open — someone who shares last week once usually
-// means it the next time too.
+// Wird gemerkt, solange die App offen ist. Wer einmal die letzte Woche teilt, meint
+// es beim nächsten Mal meistens auch.
 let which = 'this';
 let mapMode = null;
 
@@ -24,16 +24,16 @@ const FILE_NAME = (weekStart) => `liftlog-week-${new Date(weekStart).toISOString
 
 export function shareWeekSheet() {
   if (mapMode === null) {
-    // The tier map is the better-looking one, but it stays dark for someone who
-    // only trains on machines. Open on the map that will actually have colour.
+    // Die Rangkarte sieht besser aus, bleibt aber dunkel bei jemandem, der nur an
+    // Maschinen trainiert. Deshalb mit der Karte öffnen, die auch Farbe hat.
     mapMode = hasProfile(store.state.settings) && store.state.settings.showRatings !== false
       ? 'strength'
       : 'progress';
   }
 
-  let url = null;         // object URL of the current preview
+  let url = null;         // Object-URL der aktuellen Vorschau
   let blob = null;
-  let token = 0;          // guards against a slow render landing after a newer one
+  let token = 0;          // verhindert, dass ein langsames Rendern nach einem neueren ankommt
 
   const preview = el('div.card', {
     style: { padding: '10px', display: 'flex', justifyContent: 'center', minHeight: '180px' },
@@ -78,9 +78,9 @@ export function shareWeekSheet() {
       mapMode,
     });
 
-    // The card falls back to the progress map when there is no strength rating
-    // behind that week — the toggle has to say what is actually on the picture,
-    // not what was asked for.
+    // Ohne Stärkebewertung für diese Woche fällt die Karte auf die Fortschrittskarte
+    // zurück. Der Schalter muss sagen, was wirklich auf dem Bild ist, nicht was
+    // gewünscht war.
     mapMode = summary.mapMode;
     const strengthPossible = !!summary.strength;
     mapSeg.children[0].disabled = !strengthPossible;
@@ -92,7 +92,7 @@ export function shareWeekSheet() {
     try {
       const canvas = await renderCard(summary);
       const next = await cardBlob(canvas);
-      if (mine !== token) return;      // a newer render already won
+      if (mine !== token) return;      // ein neueres Rendern war schneller
 
       if (url) URL.revokeObjectURL(url);
       blob = next;
@@ -116,13 +116,13 @@ export function shareWeekSheet() {
     const file = fileFrom(blob, name);
     const canShareFile = !!(file && navigator.canShare && navigator.canShare({ files: [file] }));
 
-    // replaceChildren stringifies null into a literal "null" text node, unlike
-    // el()'s children — the optional buttons have to be filtered out, not passed.
+    // replaceChildren macht aus null einen Textknoten "null", anders als die Kinder
+    // von el(). Die optionalen Knöpfe müssen herausgefiltert und nicht übergeben werden.
     actions.replaceChildren(...[
       canShareFile
         ? el('button.btn.primary.full', {
             onclick: () => navigator.share({ files: [fileFrom(blob, name)], title: `LiftLog · ${summary.label}` })
-              .catch(() => { /* dismissed, or the target refused the file */ }),
+              .catch(() => { /* weggeklickt, oder das Ziel wollte die Datei nicht */ }),
           }, [t('plans.send')])
         : null,
       el('button.btn.ghost.full', {
@@ -134,9 +134,9 @@ export function shareWeekSheet() {
           toast(t('weekShare.saved'));
         },
       }, [t('weekShare.save')]),
-      // Clipboard images are Safari 13.1+ and Chrome 76+, but write() is behind
-      // a permission in some builds, so this stays an extra rather than the
-      // main path.
+      // Bilder in die Zwischenablage gehen ab Safari 13.1 und Chrome 76, aber
+      // write() hängt in manchen Versionen an einer Berechtigung. Deshalb bleibt es
+      // ein Extra und nicht der Hauptweg.
       navigator.clipboard && window.ClipboardItem
         ? el('button.btn.ghost.full', {
             onclick: async () => {
@@ -158,7 +158,7 @@ export function shareWeekSheet() {
 
   openSheet(t('weekShare.title'), body, {
     onClose: () => {
-      token++;                              // orphan any render still in flight
+      token++;                              // ein laufendes Rendern ins Leere laufen lassen
       if (url) URL.revokeObjectURL(url);
       url = null;
       blob = null;
@@ -167,7 +167,7 @@ export function shareWeekSheet() {
   draw();
 }
 
-/** A File is what the share sheet wants; a Blob alone is refused on iOS. */
+/** Das Teilen-Menü will eine File, einen reinen Blob lehnt iOS ab. */
 function fileFrom(blob, name) {
   if (!blob || typeof File !== 'function') return null;
   try {

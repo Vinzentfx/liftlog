@@ -1,12 +1,12 @@
-// Rest timer. Driven off wall-clock timestamps rather than tick accumulation,
-// so it stays correct when iOS throttles timers or the screen sleeps.
+// Pausentimer. Läuft über Uhrzeit-Zeitstempel statt über aufaddierte Ticks, damit er
+// auch stimmt, wenn iOS Timer drosselt oder der Bildschirm schläft.
 //
-// The deadline also survives the page going away entirely, which on a phone is
-// the normal case rather than the exception: iOS discards a backgrounded PWA
-// whenever it wants the memory, and a service-worker update reloads it outright.
-// Both used to lose the timer, in the middle of the one minute it exists for.
-// Only the deadline is kept, in localStorage, because that is all it takes to
-// rebuild the bar from a wall clock.
+// Das Ende übersteht sogar, dass die Seite ganz weg ist, und auf dem Handy ist das der
+// Normalfall: iOS wirft eine PWA im Hintergrund weg, wann immer es Speicher braucht,
+// und ein Update des Service Workers lädt sie einfach neu. Beides hat den Timer
+// früher verloren, mitten in der einen Minute, für die es ihn gibt. Gespeichert wird
+// nur das Ende, im localStorage, mehr braucht es nicht, um die Leiste aus der Uhrzeit
+// wieder aufzubauen.
 
 import { $, fmtClock, haptic } from './ui.js';
 import { t } from './i18n.js';
@@ -22,23 +22,23 @@ let sound = true;
 const STATE_KEY = 'liftlog.rest';
 
 /**
- * How late the chime may be and still be worth making.
+ * Wie spät der Ton noch kommen darf, damit er sich lohnt.
  *
- * A page that was hidden or discarded runs no timers at all, so `tick` can
- * arrive minutes after the deadline. Announcing a rest that ended four minutes
- * ago is noise about something the screen is already saying, and it is the same
- * judgement `restore()` makes about a reload.
+ * Eine versteckte oder weggeworfene Seite hat keine laufenden Timer, `tick` kann also
+ * Minuten nach dem Ende kommen. Eine Pause anzusagen, die vor vier Minuten vorbei war,
+ * ist Lärm über etwas, das der Bildschirm schon sagt, und dieselbe Abwägung trifft
+ * `restore()` beim Neuladen.
  */
 const ANNOUNCE_GRACE_MS = 30 * 1000;
 
 const bar = () => $('#rest-bar');
 
 /**
- * Show or hide the bar, and tell the layout it is there.
+ * Die Leiste zeigen oder verstecken und dem Layout sagen, dass sie da ist.
  *
- * The bar floats over the bottom of the screen, so without the class the last
- * control on any screen sits underneath it: on the workout screen that is
- * "end workout", which was unreachable for the whole of every rest.
+ * Die Leiste schwebt über dem unteren Rand. Ohne die Klasse liegt der letzte Knopf
+ * jedes Screens darunter. Beim Training ist das "Training beenden", und der war
+ * während jeder Pause nicht zu erreichen.
  */
 function showBar(visible) {
   bar().hidden = !visible;
@@ -48,11 +48,11 @@ function showBar(visible) {
 export function isRunning() { return endsAt > Date.now(); }
 
 /**
- * Keep the deadline where a fresh page can find it.
+ * Das Ende dort ablegen, wo eine frische Seite es findet.
  *
- * Not IndexedDB: this has to be readable synchronously during `init()`, before
- * the first frame, or the bar flashes in a moment after the screen has drawn.
- * It is also not app data, so it has no business in a backup.
+ * Nicht IndexedDB: das muss in `init()` synchron lesbar sein, vor dem ersten Bild,
+ * sonst blitzt die Leiste erst einen Moment nach dem Screen auf. Es sind auch keine
+ * App-Daten und gehören nicht in eine Sicherung.
  */
 function persist() {
   try {
@@ -61,33 +61,33 @@ function persist() {
     } else {
       localStorage.removeItem(STATE_KEY);
     }
-  } catch { /* private mode: the timer still works for as long as the page lives */ }
+  } catch { /* privater Modus: der Timer geht trotzdem, solange die Seite lebt */ }
 }
 
 /**
- * Pick a running timer back up after a reload.
+ * Einen laufenden Timer nach dem Neuladen wieder aufnehmen.
  *
- * A timer that ran out while the app was away is dropped rather than completed.
- * Chiming for a rest that ended twenty minutes ago is noise, and the set it
- * belonged to is long over.
+ * Ein Timer, der abgelaufen ist, während die App weg war, wird verworfen statt
+ * abgeschlossen. Für eine Pause zu klingeln, die vor zwanzig Minuten zu Ende war,
+ * ist Lärm, und der Satz dazu ist längst vorbei.
  */
 function restore() {
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(STATE_KEY) || 'null'); } catch { saved = null; }
   const deadline = Number(saved?.endsAt) || 0;
   if (deadline <= Date.now()) {
-    try { localStorage.removeItem(STATE_KEY); } catch { /* nothing to clear */ }
+    try { localStorage.removeItem(STATE_KEY); } catch { /* nichts zu löschen */ }
     return;
   }
   endsAt = deadline;
-  // Guard the divisor in `tick`: a damaged or truncated record must not turn
-  // the progress bar into a NaN transform.
+  // Den Teiler in `tick` absichern: ein beschädigter oder abgeschnittener Eintrag darf
+  // aus dem Fortschrittsbalken keine NaN-Transformation machen.
   total = Math.max(1, Number(saved.total) || Math.ceil((deadline - Date.now()) / 1000));
   sound = saved.sound !== false;
-  // Deliberately not resumed. Playback can only begin inside a user gesture and
-  // a page that has just loaded itself has none, so this rest finishes without
-  // the keep-alive and the next one gets it back. Claiming otherwise here would
-  // only mean a keeper that never actually plays.
+  // Absichtlich nicht fortgesetzt. Abspielen darf nur innerhalb einer Nutzeraktion
+  // beginnen, und eine Seite, die sich gerade selbst geladen hat, hat keine. Diese Pause
+  // läuft also ohne das Wachhalten zu Ende, und die nächste bekommt es wieder. Hier
+  // etwas anderes zu behaupten hieße nur, einen Wachhalter zu haben, der nie spielt.
   keepAlive = false;
   chimed = false;
   onDone = null;
@@ -100,9 +100,9 @@ export function start(seconds, { onComplete, sound: withSound = true, background
   endsAt = Date.now() + total * 1000;
   onDone = onComplete || null;
   sound = withSound;
-  // Holding an audio session open buys exactly one thing: a sound from a
-  // backgrounded app. With the chime switched off there is nothing to buy, so
-  // the battery is not spent.
+  // Eine offene Audio-Sitzung bringt genau eine Sache: einen Ton aus einer App im
+  // Hintergrund. Ist der Ton ausgeschaltet, bringt sie nichts, also wird auch kein Akku
+  // dafür verbraucht.
   keepAlive = background && withSound;
   chimed = false;
   showBar(true);
@@ -141,16 +141,16 @@ function tick() {
   if (remainingMs <= 0) {
     if (!chimed) {
       chimed = true;
-      // The deadline has passed, so a reload from here on should not bring the
-      // bar back. `stop()` four seconds later would do it too, but only if this
-      // page survives that long.
+      // Das Ende ist vorbei, ein Neuladen ab hier soll die Leiste nicht zurückbringen.
+      // `stop()` vier Sekunden später würde das auch erledigen, aber nur, wenn die Seite
+      // so lange überlebt.
       persist();
       $('#rest-label').textContent = t('rest.done');
-      // Only announce a deadline that has just passed. See ANNOUNCE_GRACE_MS.
+      // Nur ein Ende ansagen, das gerade erst vorbei ist. Siehe ANNOUNCE_GRACE_MS.
       if (remainingMs > -ANNOUNCE_GRACE_MS) {
         haptic([90, 60, 90]);
-        // The keeper first: if it is running we may be in the background,
-        // where the AudioContext is suspended and `chime()` is silence.
+        // Zuerst der Wachhalter: läuft er, sind wir vielleicht im Hintergrund, dort ist
+        // der AudioContext angehalten und `chime()` bleibt stumm.
         if (sound && !keeperChime()) chime();
       } else {
         stopKeeper();
@@ -162,29 +162,29 @@ function tick() {
   }
 
   $('#rest-label').textContent = t('rest.label');
-  // setTimeout, not requestAnimationFrame: rAF does not run at all while the
-  // page is hidden, so the countdown froze wherever it happened to be and never
-  // reached its own deadline. It finished when you next looked at the screen,
-  // which is the one moment you did not need telling. A timer is not an
-  // animation and has no business waiting for a frame.
+  // setTimeout, nicht requestAnimationFrame: rAF läuft bei einer versteckten Seite gar
+  // nicht, der Countdown blieb also stehen, wo er gerade war, und erreichte sein Ende
+  // nie. Fertig wurde er, wenn man das nächste Mal auf den Bildschirm geschaut hat, also
+  // genau in dem Moment, in dem man es nicht mehr gesagt bekommen musste. Ein Timer ist
+  // keine Animation und hat nichts damit zu tun, auf ein Bild zu warten.
   timer = setTimeout(tick, 200);
 }
 
-/* ===================== keeping the page alive on iOS ===================== */
+/* ===================== die Seite unter iOS wachhalten ===================== */
 
-// iOS suspends a backgrounded web view: no timers, no audio, nothing. A page
-// that is *playing media*, however, keeps running, because that is how a web
-// radio works. So while a rest is counting down, a silent loop plays, and the
-// page stays alive long enough to reach its own deadline and say so.
+// iOS hält eine Web-Ansicht im Hintergrund an: keine Timer, kein Ton, nichts. Eine
+// Seite, die MEDIEN ABSPIELT, läuft aber weiter, so funktioniert Webradio. Während eine
+// Pause läuft, spielt deshalb eine stille Schleife, und die Seite bleibt lange genug
+// wach, um ihr eigenes Ende zu erreichen und es zu sagen.
 //
-// The price, stated here because it is real and the setting exists for it:
-// it holds an audio session open, which costs battery, and it takes over the
-// phone's media controls for the duration. It is also a side effect rather
-// than a feature Apple offers, so an iOS release could end it without warning.
-// The rest of the timer does not depend on any of it.
+// Der Preis, hier genannt, weil er echt ist und es die Einstellung dafür gibt: die
+// Audio-Sitzung kostet Akku, und so lange gehören die Mediensteuerungen des Handys
+// der App. Außerdem ist das ein Nebeneffekt und keine Funktion, die Apple anbietet,
+// ein iOS-Update könnte es ohne Vorwarnung beenden. Der Rest des Timers hängt an
+// nichts davon.
 //
-// It only runs while a rest is actually running, never for the whole session,
-// which keeps the cost to the ninety seconds it is buying.
+// Läuft nur, solange wirklich eine Pause läuft, nie das ganze Training. So bleiben die
+// Kosten bei den neunzig Sekunden, um die es geht.
 
 let keeper = null;
 let keepAlive = false;
@@ -192,9 +192,9 @@ let silence = null;
 let chimeTrack = null;
 
 /**
- * Build a WAV as a data URI, so there is still no audio asset to cache.
+ * Ein WAV als Data-URI bauen, dann gibt es weiterhin keine Audiodatei zum Cachen.
  *
- * `sample(i, rate)` returns -1..1 per frame.
+ * `sample(i, rate)` liefert -1..1 pro Abtastwert.
  */
 function wav(seconds, sample, rate = 8000) {
   const frames = Math.round(rate * seconds);
@@ -215,17 +215,17 @@ function wav(seconds, sample, rate = 8000) {
 }
 
 /**
- * Not digital silence: a 40 Hz tone at roughly -80 dBFS.
+ * Keine digitale Stille, sondern ein 40-Hz-Ton bei etwa -80 dBFS.
  *
- * A phone speaker cannot reproduce 40 Hz at any volume, let alone this quiet,
- * so it is inaudible. It is a tone rather than zeroes because a track of pure
- * zeroes is the thing a platform is most likely to decide is not playback.
- * And the quiet lives in the samples rather than in `.volume`, because iOS
- * ignores volume on a media element and a muted one does not hold the session.
+ * Ein Handylautsprecher kann 40 Hz bei keiner Lautstärke wiedergeben, schon gar nicht
+ * so leise, man hört also nichts. Ein Ton statt Nullen, weil eine Spur aus reinen
+ * Nullen genau das ist, was eine Plattform am ehesten nicht als Wiedergabe zählt. Und
+ * die Stille steckt in den Werten und nicht in `.volume`, weil iOS die Lautstärke
+ * eines Medienelements ignoriert und ein stummgeschaltetes die Sitzung nicht hält.
  */
 const silentTrack = () => (silence ||= wav(2, (i, rate) => Math.sin(2 * Math.PI * 40 * i / rate) * 0.0001));
 
-/** The same two notes `chime()` synthesises, as a file the media element can play. */
+/** Dieselben zwei Töne, die `chime()` erzeugt, als Datei, die das Medienelement abspielen kann. */
 const chimeFile = () => (chimeTrack ||= wav(0.42, (i, rate) => {
   const at = i / rate;
   let value = 0;
@@ -238,9 +238,9 @@ const chimeFile = () => (chimeTrack ||= wav(0.42, (i, rate) => {
 }));
 
 /**
- * Must be called from inside a user gesture, which `start()` is: the tap that
- * ticked off the set. iOS will not begin playback anywhere else, and an element
- * that never played during a gesture cannot be played later either.
+ * Muss innerhalb einer Nutzeraktion aufgerufen werden, und `start()` ist eine: der
+ * Tipp, der den Satz abhakt. Woanders beginnt iOS keine Wiedergabe, und ein Element,
+ * das nie während einer Aktion gespielt hat, lässt sich auch später nicht abspielen.
  */
 function startKeeper() {
   if (!keepAlive || keeper) return;
@@ -254,16 +254,16 @@ function startKeeper() {
 
 function stopKeeper() {
   if (!keeper) return;
-  try { keeper.pause(); keeper.removeAttribute('src'); keeper.load(); } catch { /* already gone */ }
+  try { keeper.pause(); keeper.removeAttribute('src'); keeper.load(); } catch { /* schon weg */ }
   keeper = null;
 }
 
 /**
- * Chime through the element that is already playing.
+ * Über das Element klingeln, das schon spielt.
  *
- * In the background the AudioContext is suspended and `chime()` produces
- * nothing, but this element holds a live media session, so swapping its source
- * is a sound that actually comes out. Returns whether it took the job.
+ * Im Hintergrund ist der AudioContext angehalten und `chime()` erzeugt nichts, dieses
+ * Element hält aber eine laufende Mediensitzung. Seine Quelle zu tauschen ist also ein
+ * Ton, der wirklich herauskommt. Gibt zurück, ob es die Aufgabe übernommen hat.
  */
 function keeperChime() {
   if (!keeper) return false;
@@ -277,7 +277,7 @@ function keeperChime() {
   }
 }
 
-/** Synthesised so there's no audio file to cache. */
+/** Synthetisch erzeugt, damit es keine Audiodatei zum Cachen gibt. */
 function chime() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -297,26 +297,26 @@ function chime() {
       osc.start(ctx.currentTime + offset);
       osc.stop(ctx.currentTime + offset + 0.2);
     });
-  } catch { /* audio unavailable — the haptic already fired */ }
+  } catch { /* kein Ton möglich, die Vibration kam schon */ }
 }
 
-// iOS and other mobile browsers only allow audio after a user gesture. Creating
-// and resuming the context when the user first touches the app keeps it usable
-// minutes later when the timer itself finishes without a gesture.
+// iOS und andere mobile Browser erlauben Ton erst nach einer Nutzeraktion. Den Context
+// beim ersten Berühren der App anzulegen und fortzusetzen hält ihn nutzbar, wenn der
+// Timer Minuten später ohne Aktion fertig wird.
 function unlockAudio() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
     audio ||= new Ctx();
     if (audio.state === 'suspended') audio.resume().catch(() => {});
-  } catch { /* sound remains optional */ }
+  } catch { /* Ton bleibt freiwillig */ }
 }
 
 export function init() {
   document.addEventListener('pointerdown', unlockAudio, { once: true, passive: true });
   $('#rest-dismiss').addEventListener('click', stop);
   $('#rest-add').addEventListener('click', () => extend(30));
-  // Recompute immediately on wake — a throttled tick may be seconds stale.
+  // Beim Aufwachen sofort neu rechnen, ein gedrosselter Tick kann Sekunden alt sein.
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && endsAt) tick();
   });

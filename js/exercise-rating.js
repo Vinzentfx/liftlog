@@ -1,26 +1,25 @@
-// Exercise quality rating, scored for muscle growth.
+// Bewertung einer Übung, bezogen auf Muskelaufbau.
 //
-// IMPORTANT — what this is and is not.
+// Wichtig, was das ist und was nicht.
 //
-// There is no dataset that ranks exercises for hypertrophy, and there never
-// will be: nobody is going to run a head-to-head trial on 900 movements. EMG is
-// the usual stand-in and it is a poor predictor of growth. So this is not a
-// research result. It is a scoring of the four properties the current
-// literature actually says something about, with every point shown to the user
-// and its source named.
+// Es gibt keinen Datensatz, der Übungen nach Hypertrophie sortiert, und es wird
+// nie einen geben: niemand vergleicht 900 Bewegungen direkt in einer Studie. EMG
+// ist der übliche Ersatz und sagt Wachstum schlecht voraus. Das hier ist also kein
+// Forschungsergebnis, sondern eine Punktwertung der vier Eigenschaften, zu denen
+// die aktuelle Literatur wirklich etwas sagt. Jeder Punkt wird angezeigt, mit Quelle.
 //
-// What changed in the July 2026 review of the evidence:
-//   - Equipment no longer decides most of the score. Machines and free weights
-//     build the same muscle at matched volume and effort (SOURCES.haugen2023),
-//     so the old "barbell 2 points, machine 1 point" was scoring a difference
-//     that does not exist. Equipment now only affects how finely you can load
-//     the thing, which is a tracking argument, not a growth one.
-//   - Muscle length under load is now the heaviest criterion. It is the one
-//     exercise-selection variable with real evidence behind it
-//     (SOURCES.wolf2025).
-//   - "Compound" is no longer treated as automatically better. A compound gets
-//     credit for covering more muscle per set — efficiency — not for growing
-//     any single muscle harder.
+// Was sich bei der Durchsicht im Juli 2026 geändert hat:
+//   - Das Gerät entscheidet nicht mehr den Großteil der Punkte. Maschinen und
+//     freie Gewichte bauen bei gleichem Volumen und gleicher Anstrengung gleich
+//     viel Muskel auf (SOURCES.haugen2023). "Langhantel 2 Punkte, Maschine 1" hat
+//     also einen Unterschied bewertet, den es nicht gibt. Das Gerät zählt jetzt nur
+//     noch dafür, wie fein man die Last steigern kann. Das ist ein Argument fürs
+//     Mitschreiben, nicht fürs Wachstum.
+//   - Die Muskellänge unter Last ist jetzt das schwerste Kriterium. Das ist die
+//     einzige Stellschraube bei der Übungswahl mit echten Belegen (SOURCES.wolf2025).
+//   - Grundübungen gelten nicht mehr automatisch als besser. Sie bekommen Punkte
+//     dafür, dass sie pro Satz mehr Muskeln abdecken, also für Effizienz, nicht
+//     dafür, einen einzelnen Muskel stärker wachsen zu lassen.
 
 import { isBenchmark } from './standards.js';
 import { lengthBias, limiter, stability, LENGTH_LABEL } from './exercise-science.js';
@@ -31,8 +30,8 @@ import { starString } from './ui.js';
 export { starString };
 
 /**
- * How finely you can add load, which is what makes progression measurable.
- * Explicitly NOT a claim about growth — see SOURCES.haugen2023.
+ * Wie fein sich die Last steigern lässt, das macht Fortschritt messbar.
+ * Ausdrücklich KEINE Aussage über Wachstum, siehe SOURCES.haugen2023.
  */
 const LOADABILITY = {
   Barbell: 2, Dumbbell: 2, Machine: 2, Cable: 2, Kettlebell: 1.5,
@@ -40,20 +39,20 @@ const LOADABILITY = {
 };
 
 function loadability(ex) {
-  // Imported Bodyweight Flyes use rolling EZ-bars as handles. The bars do not
-  // make the movement externally loadable; leverage and reps are the only
-  // practical progression, and instability changes between repetitions.
+  // Die importierten Bodyweight Flyes benutzen rollende SZ-Stangen als Griffe. Die
+  // machen die Bewegung nicht von außen belastbar, steigern lässt sie sich nur über
+  // Hebel und Wiederholungen, und die Instabilität ändert sich von Wiederholung zu Wiederholung.
   if (/bodyweight (fly|flye)/i.test(ex.name || '')) return 0.5;
   if (/suspension|trx|ring (fly|push)/i.test(ex.name || '')) return 0.5;
   return LOADABILITY[ex.equipment] ?? 1;
 }
 
-// Points available on paper. Nothing real scores at either end of that range —
-// the criteria pull against each other, so a movement that is target-limited is
-// usually not the one covering five muscle regions. Stars are therefore mapped
-// from the window real exercises actually occupy; anchoring them to 0 and 9.5
-// would squash every movement in the catalogue between three and four stars,
-// which is a scale that tells you nothing.
+// Die Punkte, die es auf dem Papier gibt. Keine echte Übung landet an einem der
+// beiden Enden, weil sich die Kriterien gegenseitig ausbremsen: was vom Zielmuskel
+// begrenzt wird, deckt meistens nicht fünf Regionen ab. Die Sterne werden deshalb
+// aus dem Bereich abgeleitet, in dem echte Übungen tatsächlich liegen. Hängt man
+// sie an 0 und 9,5, landet jede Übung im Katalog zwischen drei und vier Sternen,
+// und so eine Skala sagt nichts.
 const MAX_SCORE = 10.5;
 const STAR_FLOOR = 2.5;
 const STAR_CEIL = 9;
@@ -61,14 +60,14 @@ const STAR_CEIL = 9;
 /**
  * @returns {{stars:number, score:number, max:number, criteria:object[],
  *            reasons:string[], caveats:string[], length:object, limit:object}}
- *   stars is 1–5 in half steps.
+ *   stars ist 1 bis 5 in halben Schritten.
  */
 export function rateExercise(ex) {
   if (!ex) return null;
 
-  // The library repaints on every keystroke of the search box, so 60 rows worth
-  // of regex matching runs constantly. Cache per exercise object, keyed on the
-  // fields the rating reads so an edit invalidates it.
+  // Die Bibliothek zeichnet bei jedem Tastendruck im Suchfeld neu, 60 Zeilen
+  // Regex-Abgleich laufen also ständig. Deshalb Cache je Übungsobjekt, mit den
+  // Feldern als Schlüssel, die die Bewertung liest, damit eine Änderung ihn verwirft.
   const sig = `${ex.name}|${ex.equipment}|${ex.mech}|${(ex.primary || []).length}|${(ex.secondary || []).length}`;
   const hit = CACHE.get(ex);
   if (hit && hit.sig === sig) return hit.rating;
@@ -77,7 +76,7 @@ export function rateExercise(ex) {
   const reasons = [];
   const caveats = [];
 
-  // ---- 1. muscle length under load (0–3) — the heaviest criterion ----
+  // ---- 1. Muskellänge unter Last (0 bis 3), das schwerste Kriterium ----
   const length = lengthBias(ex);
   const lengthPoints = { long: 3, mixed: 1.5, short: 0.5 }[length.bias];
   criteria.push({
@@ -94,19 +93,19 @@ export function rateExercise(ex) {
     caveats.push(t('exRating.pairStretched', { why: t(length.why) }));
   }
 
-  // ---- 2. does the target muscle decide when the set ends (0–2) ----
+  // ---- 2. Entscheidet der Zielmuskel, wann der Satz endet (0 bis 2) ----
   const limit = limiter(ex);
   const limitPoints = { target: 2, mixed: 1, other: 0.5 }[limit.level];
   criteria.push({
     label: 'exRating.limiter',
     points: limitPoints, max: 2,
     detail: limit.why,
-    source: null,   // training practice, not a study, so say so
+    source: null,   // Trainingspraxis, keine Studie, also auch so sagen
   });
   if (limit.level === 'target') reasons.push(t(limit.why));
   if (limit.level === 'other') caveats.push(t(limit.why));
 
-  // ---- 3. stability for target-muscle effort (0–1.5) ----
+  // ---- 3. Stabilität für Anstrengung im Zielmuskel (0 bis 1,5) ----
   const stable = stability(ex);
   criteria.push({
     label: 'exRating.stability',
@@ -117,7 +116,7 @@ export function rateExercise(ex) {
   if (stable.level === 'supported') reasons.push(t(stable.why));
   if (stable.level === 'unstable' || stable.level === 'demanding') caveats.push(t(stable.why));
 
-  // ---- 4. progression you can measure (0–2) ----
+  // ---- 4. Messbarer Fortschritt (0 bis 2) ----
   const loadPoints = loadability(ex);
   criteria.push({
     label: 'exRating.progression',
@@ -133,11 +132,11 @@ export function rateExercise(ex) {
   });
   if (ex.equipment === 'Bands') caveats.push(t('exRating.bandCaveat'));
 
-  // ---- 5. productive muscle coverage per set (0–1) ----
+  // ---- 5. Sinnvoll abgedeckte Muskeln pro Satz (0 bis 1) ----
   const regions = (ex.primary || []).length + (ex.secondary || []).length;
-  // Stabilizers listed as secondary regions must not turn an isolation exercise
-  // into a high-efficiency compound. That was the second reason Bodyweight
-  // Flyes outranked the pec deck.
+  // Stabilisatoren, die als Nebenregionen eingetragen sind, dürfen aus einer
+  // Isolationsübung keine hocheffiziente Grundübung machen. Das war der zweite
+  // Grund, warum Bodyweight Flyes vor der Butterfly-Maschine lagen.
   const compound = ex.mech === 'compound';
   const breadthPoints = compound ? 1 : (ex.primary || []).length >= 2 ? 0.75 : 0.5;
   criteria.push({
@@ -149,7 +148,7 @@ export function rateExercise(ex) {
   });
   if (compound) reasons.push(t('exRating.compoundReason'));
 
-  // ---- 6. published strength standards (0–0.5) ----
+  // ---- 6. Veröffentlichte Kraftstandards (0 bis 0,5) ----
   const benchmark = isBenchmark(ex.name);
   criteria.push({
     label: 'exRating.standards',

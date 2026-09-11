@@ -1,29 +1,30 @@
-// Trends over time: how much you moved, how strong you got, and which lifts are
-// actually going somewhere.
+// Verläufe über die Zeit: wie viel bewegt wurde, wie stark man geworden ist und
+// welche Übungen wirklich vorankommen.
 //
-// The app already charted a single exercise well. What it could not answer was
-// the question people actually ask after a few months — "am I getting stronger?"
-// — because the strength rating was only ever computed for *today*, from
-// best-ever lifts. Recomputing it week by week turns a snapshot into a line.
+// Eine einzelne Übung konnte die App schon gut zeichnen. Was sie nicht beantworten
+// konnte, war die Frage, die man sich nach ein paar Monaten wirklich stellt: "werde
+// ich stärker?". Die Stärkebewertung wurde nur für HEUTE berechnet, aus den besten
+// Werten aller Zeiten. Sie Woche für Woche neu zu rechnen macht aus einem
+// Schnappschuss eine Linie.
 //
-// Everything here is derived from the session log on the fly. Nothing is stored:
-// a cached trend would go stale the moment a session is edited or deleted, and
-// the recompute is cheap at personal-log sizes.
+// Alles hier wird bei Bedarf aus dem Trainingslog abgeleitet, gespeichert wird
+// nichts. Ein zwischengespeicherter Verlauf wäre veraltet, sobald eine Einheit
+// geändert oder gelöscht wird, und das Neurechnen ist bei einem persönlichen Log billig.
 
 import { startOfWeek, isCounted, e1rm, entryStats, linearFit, withinE1rmWindow } from './models.js';
 import {
   buildRating, hasProfile, ratedMachineNames, isRateable, regionsFromExercises,
 } from './standards.js';
 
-// Only for durations and lookback windows, never for a week boundary: a week
-// containing a clock change is not this long. Anything that decides which week
-// a timestamp belongs to steps by calendar days instead.
+// Nur für Dauern und Rückblick-Fenster, nie für eine Wochengrenze: eine Woche mit
+// Zeitumstellung ist nicht so lang. Alles, was entscheidet, in welche Woche ein
+// Zeitstempel gehört, zählt stattdessen in Kalendertagen.
 const WEEK = 7 * 86400000;
 const BODYWEIGHT_LIFTS = new Set(['Pull-Up', 'Chin-Up', 'Dip']);
 
 /**
- * The in-window bests, topped up with out-of-window ones for lifts that have
- * nothing else, carrying the same `extrapolated` marker buildRating expects.
+ * Die Bestwerte im Zeitfenster, ergänzt um ältere für Übungen, die sonst nichts
+ * haben, mit derselben `extrapolated`-Markierung, die buildRating erwartet.
  */
 function withFallbacks(best, outside) {
   const merged = new Map(best);
@@ -44,7 +45,7 @@ function historicalE1rm(name, set, bodyweight) {
   return e1rm(bodyweight + added, set.reps);
 }
 
-/** Week-start timestamps, oldest first, stepping by calendar days for DST. */
+/** Wochenanfänge als Zeitstempel, die ältesten zuerst, in Kalendertagen wegen der Zeitumstellung. */
 function weekStarts(count, endTs = Date.now()) {
   const out = [];
   for (let i = count - 1; i >= 0; i--) {
@@ -56,12 +57,12 @@ function weekStarts(count, endTs = Date.now()) {
 }
 
 /**
- * Total work moved, per week.
+ * Bewegte Last pro Woche.
  *
- * Tonnage is weight x reps summed over every working set. It is a blunt measure
- * — it rewards high reps on light weight and says nothing about effort — but it
- * is the honest answer to "how much did I actually shift this week", and it is
- * the number that visibly climbs long before a 1RM does.
+ * Tonnage ist Gewicht x Wiederholungen über alle Arbeitssätze. Ein grobes Maß:
+ * es belohnt viele Wiederholungen mit wenig Gewicht und sagt nichts über die
+ * Anstrengung. Aber es ist die ehrliche Antwort auf "wie viel habe ich diese Woche
+ * bewegt", und die Zahl steigt sichtbar, lange bevor sich beim 1RM etwas tut.
  */
 export function tonnageHistory(sessions, weeks = 12, endTs = Date.now()) {
   const buckets = weekStarts(weeks, endTs).map((week) => ({
@@ -85,19 +86,19 @@ export function tonnageHistory(sessions, weeks = 12, endTs = Date.now()) {
 }
 
 /**
- * The overall strength score, recomputed for each week as it stood *then*.
+ * Die Gesamtstärke, für jede Woche so neu berechnet, wie sie DAMALS stand.
  *
- * Two details that decide whether the line means anything:
+ * Zwei Details entscheiden, ob die Linie etwas bedeutet:
  *
- *  - Best-e1RM-so-far is cumulative. A week where you did not touch the bench
- *    does not drop your bench score; strength you have shown does not evaporate
- *    because you took a week off.
- *  - Bodyweight is the entry from that week, not today's. The score is relative
- *    to bodyweight, so holding today's weight fixed would rewrite history every
- *    time the scale moves — a bulk would retroactively make you look weaker in
- *    March.
+ *  - Das beste e1RM bis dahin ist kumulativ. Eine Woche ohne Bankdrücken senkt
+ *    den Wert fürs Bankdrücken nicht. Gezeigte Stärke verschwindet nicht, nur weil
+ *    man eine Woche Pause gemacht hat.
+ *  - Das Körpergewicht ist der Eintrag aus dieser Woche, nicht der von heute. Die
+ *    Wertung hängt am Körpergewicht, und das heutige festzuhalten würde bei jeder
+ *    Bewegung der Waage die Vergangenheit umschreiben. Ein Aufbau würde einen im
+ *    Nachhinein im März schwächer aussehen lassen.
  *
- * @returns [{ week, score, tier, lifts }] for weeks with enough data, or []
+ * @returns [{ week, score, tier, lifts }] für Wochen mit genug Daten, sonst []
  */
 export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, weeks = 16,
   endTs = Date.now(), corrections = {}) {
@@ -109,23 +110,23 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
   if (!finished.length) return [];
 
   const bw = [...(bodyweightLog || [])].sort((a, b) => a.date - b.date);
-  const best = new Map();          // lift name -> best e1RM so far, inside the window
-  const outside = new Map();       // and the fallback for lifts never trained in it
+  const best = new Map();          // Übungsname -> bestes e1RM bis dahin, im Fenster
+  const outside = new Map();       // und der Rückfall für Übungen, die darin nie trainiert wurden
   const machineNames = ratedMachineNames([...exerciseById.values()]);
   const regionsByName = regionsFromExercises([...exerciseById.values()]);
-  let cursor = 0;                  // how far through `finished` we have walked
+  let cursor = 0;                  // wie weit wir in `finished` schon sind
 
   const out = [];
   for (const week of weekStarts(weeks, endTs)) {
-    // Stepped by calendar days, not by a fixed WEEK of milliseconds. A week
-    // containing a clock change is 167 or 169 hours long, so the fixed version
-    // put this boundary an hour into the Monday and folded that first hour of
-    // the next week into this week's score, twice a year.
+    // In Kalendertagen weitergezählt, nicht in einer festen WEEK in Millisekunden.
+    // Eine Woche mit Zeitumstellung hat 167 oder 169 Stunden, mit festen Werten lag
+    // diese Grenze eine Stunde im Montag, und die erste Stunde der nächsten Woche
+    // landete zweimal im Jahr in der Wertung dieser Woche.
     const nextWeek = new Date(week);
     nextWeek.setDate(nextWeek.getDate() + 7);
     const cutoff = nextWeek.getTime();
 
-    // Walk forward only — the cumulative max never needs revisiting.
+    // Nur vorwärts, das kumulative Maximum muss nie noch mal angeschaut werden.
     while (cursor < finished.length && finished[cursor].startedAt < cutoff) {
       const s = finished[cursor++];
       const sessionBodyweight = bodyweightAt(bw, s.startedAt) ?? profile.bodyweight;
@@ -135,8 +136,8 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
         if (!isRateable(name, machineNames)) continue;
         for (const set of (entry.sets || []).filter(isCounted)) {
           const est = historicalE1rm(name, set, sessionBodyweight);
-          // Same window rule as bestOneRepMaxByName, so the line on Progress and
-          // the number on Home cannot be built from different sets.
+          // Dieselbe Fensterregel wie bestOneRepMaxByName, damit die Linie in
+          // Fortschritt und die Zahl auf Home nicht aus verschiedenen Sätzen entstehen.
           const target = withinE1rmWindow(set) ? best : outside;
           if (est > (target.get(name) || 0)) target.set(name, est);
         }
@@ -153,19 +154,20 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
     out.push({ week, score: rating.overall, tier: rating.overallTier, lifts: rating.lifts.length });
   }
 
-  // A single point is not a trend, and drawing one implies more than it says.
+  // Ein einzelner Punkt ist kein Verlauf, und ihn zu zeichnen behauptet mehr, als er sagt.
   return out.length >= 2 ? out : [];
 }
 
 /**
- * The full rating as it stood at one moment, or null when it cannot be built.
+ * Die ganze Bewertung, wie sie zu einem Zeitpunkt stand, oder null, wenn sie sich
+ * nicht bauen lässt.
  *
- * Same two rules as strengthHistory above — cumulative best e1RM, bodyweight as
- * it was then — for callers that want a single point rather than a line. The
- * week card uses it twice, at both ends of a week, to say what the week changed.
- * Kept separate rather than folded into strengthHistory: that function walks the
- * log once for sixteen weeks, and rewriting it to call this one would turn one
- * pass into sixteen for no gain.
+ * Dieselben zwei Regeln wie bei strengthHistory oben (kumulatives bestes e1RM,
+ * Körpergewicht wie damals), für Aufrufer, die einen Punkt statt einer Linie
+ * wollen. Die Wochenkarte ruft das zweimal auf, an beiden Enden einer Woche, um
+ * zu sagen, was die Woche verändert hat. Absichtlich nicht in strengthHistory
+ * eingebaut: die Funktion läuft einmal für sechzehn Wochen durchs Log, und wenn sie
+ * das hier aufriefe, würden aus einem Durchlauf sechzehn, ohne dass es etwas bringt.
  */
 export function strengthAt(sessions, bodyweightLog, profile, exerciseById, at = Date.now(),
   corrections = {}) {
@@ -199,7 +201,7 @@ export function strengthAt(sessions, bodyweightLog, profile, exerciseById, at = 
   return rating.overall === null ? null : rating;
 }
 
-/** Bodyweight as recorded on or before a moment, or null before the first entry. */
+/** Körpergewicht zu oder vor einem Zeitpunkt, null vor dem ersten Eintrag. */
 export function bodyweightAt(sorted, ts) {
   let value = null;
   for (const b of sorted) {
@@ -210,17 +212,18 @@ export function bodyweightAt(sorted, ts) {
 }
 
 /**
- * Which lifts are moving and which have stalled.
+ * Welche Übungen vorankommen und welche stehen.
  *
- * Fitted on estimated 1RM rather than top weight, so a session where you added
- * reps instead of plates still counts as progress. Three sessions is the floor —
- * a line through two points is not a trend, it is a line through two points.
+ * Gerechnet mit geschätztem 1RM statt Höchstgewicht, damit eine Einheit mit mehr
+ * Wiederholungen statt mehr Scheiben trotzdem als Fortschritt zählt. Drei Einheiten
+ * sind die Untergrenze. Eine Linie durch zwei Punkte ist kein Trend, sondern eine
+ * Linie durch zwei Punkte.
  */
 export function movers(sessions, exerciseById, { minSessions = 3, sinceWeeks = 12, now = Date.now() } = {}) {
-  // The clock comes in rather than being read here, so a test can pin it. Every
-  // other window in this file already takes its end as an argument; this one
-  // did not, which made the only tests covering it depend on the real date and
-  // turned them into a time bomb that went off in August 2026.
+  // Die Uhrzeit kommt von außen und wird nicht hier gelesen, damit ein Test sie
+  // festhalten kann. Jedes andere Fenster in dieser Datei bekommt sein Ende schon
+  // als Argument, dieses nicht, und damit hingen die einzigen Tests dafür am echten
+  // Datum. Eine Zeitbombe, die im August 2026 hochgegangen ist.
   const since = now - sinceWeeks * WEEK;
   const byExercise = new Map();
 
@@ -253,7 +256,7 @@ export function movers(sessions, exerciseById, { minSessions = 3, sinceWeeks = 1
       ex,
       sessions: points.length,
       first, last,
-      perWeek: fit.slope,                       // kg of e1RM per week
+      perWeek: fit.slope,                       // kg e1RM pro Woche
       pctTotal: first > 0 ? ((last - first) / first) * 100 : 0,
       spanWeeks: Math.round(spanWeeks),
     });

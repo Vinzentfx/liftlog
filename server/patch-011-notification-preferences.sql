@@ -1,5 +1,5 @@
--- Notification master switch and daily creatine reminders.
--- Apply after patch-010-social-plans-invites.sql.
+-- Hauptschalter für Benachrichtigungen und tägliche Erinnerung an Kreatin.
+-- Nach patch-010-social-plans-invites.sql einspielen.
 
 create table if not exists public.notification_preferences (
   user_id uuid primary key references auth.users on delete cascade,

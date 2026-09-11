@@ -1,44 +1,42 @@
-// End-to-end encryption for the cloud backup.
+// Ende-zu-Ende-Verschlüsselung für die Cloud-Sicherung.
 //
-// The rule this file exists to keep: **nothing readable leaves the phone.** The
-// server stores ciphertext and public keys and never sees a key that opens
-// anything. That is not a nicety here, it is what makes it defensible to hold
-// other people's training and bodyweight data at all.
+// Die Regel, für die es diese Datei gibt: NICHTS LESBARES VERLÄSST DAS HANDY. Der
+// Server speichert Chiffrat und öffentliche Schlüssel und sieht nie einen Schlüssel,
+// der etwas öffnet. Das ist hier kein nettes Extra, sondern der Grund, warum man
+// Trainings- und Körpergewichtsdaten anderer Leute überhaupt verantworten kann.
 //
-// Web Crypto only, so no dependency and no build step, the same constraint the
-// rest of the app runs under. Everything below is available in Safari, in
-// Chrome and in Node's test runner, which is why the whole file is testable
-// without a server existing.
+// Nur Web Crypto, also keine Abhängigkeit und kein Build-Schritt, dieselbe Vorgabe wie
+// im Rest der App. Alles hier gibt es in Safari, in Chrome und im Testrunner von Node,
+// deshalb lässt sich die ganze Datei testen, ohne dass es einen Server gibt.
 //
-// The key hierarchy, because getting this wrong is the expensive kind of wrong:
+// Die Schlüsselhierarchie, weil ein Fehler hier von der teuren Sorte ist:
 //
-//   dataKey        AES-GCM 256, random, created once with the account.
-//                  Encrypts the backup. Never transmitted in the clear.
-//   recoveryKey    128 random bits, shown to the user exactly once. Stretched
-//                  with PBKDF2 and used to wrap dataKey. The wrapped copy sits
-//                  on the server, which is useless without the key itself.
-//   device keypair ECDH P-256, one per device, private half never leaves it.
-//                  Approving a device means the main device does ECDH against
-//                  the newcomer's public key and wraps dataKey for it.
+//   dataKey         AES-GCM 256, zufällig, einmal mit dem Konto erzeugt.
+//                   Verschlüsselt die Sicherung. Wird nie im Klartext übertragen.
+//   recoveryKey     128 Zufallsbits, dem Nutzer genau einmal gezeigt. Mit PBKDF2
+//                   gestreckt und benutzt, um dataKey einzupacken. Die eingepackte
+//                   Kopie liegt auf dem Server und ist ohne den Schlüssel nutzlos.
+//   Geräte-Paar     ECDH P-256, eins pro Gerät, die private Hälfte verlässt es nie.
+//                   Ein Gerät freizugeben heißt: das Hauptgerät macht ECDH mit dem
+//                   öffentlichen Schlüssel des neuen und packt dataKey dafür ein.
 //
-// The login password is deliberately NOT in that list. It authenticates to the
-// server and nothing else. Someone who learns the password can fetch the
-// ciphertext and gets nowhere with it, which is exactly the property the
-// device-approval flow is asking for: the password gets you the box, an
-// approved device or the recovery key gets you the lid.
+// Das Login-Passwort steht absichtlich NICHT in dieser Liste. Es meldet beim Server an
+// und sonst nichts. Wer das Passwort kennt, kann das Chiffrat abholen und kommt damit
+// nicht weiter, und genau das will die Gerätefreigabe: das Passwort bringt einem die
+// Kiste, ein freigegebenes Gerät oder der Wiederherstellungsschlüssel den Deckel.
 //
-// Consequence, stated plainly because it cannot be softened: lose the main
-// device and the recovery key together and the cloud copy is gone forever. The
-// server cannot help. That is what end-to-end means.
+// Die Folge, klar gesagt, weil man sie nicht abmildern kann: wer Hauptgerät und
+// Wiederherstellungsschlüssel zusammen verliert, hat die Cloud-Kopie für immer
+// verloren. Der Server kann nicht helfen. Genau das heißt Ende-zu-Ende.
 
 const subtle = globalThis.crypto.subtle;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
-/** OWASP's floor for PBKDF2-SHA256 at the time of writing. */
+/** Die Untergrenze von OWASP für PBKDF2-SHA256, Stand beim Schreiben. */
 const PBKDF2_ROUNDS = 600000;
 
-/* ============================ small helpers ============================ */
+/* ============================ kleine Helfer ============================ */
 
 export function randomBytes(n) {
   return globalThis.crypto.getRandomValues(new Uint8Array(n));
@@ -47,8 +45,8 @@ export function randomBytes(n) {
 export function toBase64(bytes) {
   let s = '';
   const view = new Uint8Array(bytes);
-  // Chunked: String.fromCharCode(...bigArray) blows the argument limit on a
-  // backup-sized payload, and it does it as a RangeError far from here.
+  // In Stücken: String.fromCharCode(...großesArray) sprengt bei einer Sicherung die
+  // Grenze für Argumente, und zwar als RangeError weit weg von hier.
   for (let i = 0; i < view.length; i += 0x8000) {
     s += String.fromCharCode(...view.subarray(i, i + 0x8000));
   }
@@ -62,18 +60,17 @@ export function fromBase64(text) {
   return out;
 }
 
-/* ============================ recovery key ============================ */
+/* ============================ Wiederherstellungsschlüssel ============================ */
 
 /**
- * The escape hatch, in hex.
+ * Der Notausgang, in Hex.
  *
- * Hex rather than something denser because it has no confusable characters:
- * the letters O and I never appear, so the digits 0 and 1 cannot be misread as
- * them. Someone copying this off a piece of paper months after a lost phone
- * gets exactly one chance, and a base32 alphabet that saves eight characters is
- * not worth a transcription that silently fails.
+ * Hex statt etwas Dichterem, weil es keine verwechselbaren Zeichen hat: O und I kommen
+ * nie vor, 0 und 1 lassen sich also nicht mit ihnen verwechseln. Wer das Monate nach
+ * einem verlorenen Handy von einem Zettel abschreibt, hat genau einen Versuch, und ein
+ * Base32-Alphabet, das acht Zeichen spart, ist keine Abschrift wert, die still scheitert.
  *
- * 128 bits, stretched by PBKDF2 before it wraps anything.
+ * 128 Bit, mit PBKDF2 gestreckt, bevor damit etwas eingepackt wird.
  */
 export function generateRecoveryKey() {
   return formatRecoveryKey(randomBytes(16));
@@ -86,10 +83,10 @@ export function formatRecoveryKey(bytes) {
 }
 
 /**
- * Tolerant on purpose: spaces, missing dashes and lower case all parse. The
- * person typing this has already had a bad day.
+ * Absichtlich großzügig: Leerzeichen, fehlende Bindestriche und Kleinbuchstaben gehen
+ * alle. Wer das eintippt, hatte schon einen schlechten Tag.
  *
- * @returns {Uint8Array|null} null when it is not a recovery key at all
+ * @returns {Uint8Array|null} null, wenn es gar kein Wiederherstellungsschlüssel ist
  */
 export function parseRecoveryKey(text) {
   const hex = String(text || '').toUpperCase().replace(/[^0-9A-F]/g, '');
@@ -100,19 +97,18 @@ export function parseRecoveryKey(text) {
 }
 
 /**
- * Proof that you hold the recovery key, for the server.
+ * Beweis für den Server, dass man den Wiederherstellungsschlüssel hat.
  *
- * Needed for the one thing the recovery key does that is not decryption: making
- * a fresh phone the main device when the old one is gone. That is a change to a
- * row on the server, so the server has to be convinced, and by design it knows
- * nothing that could convince it.
+ * Nötig für das Eine, was der Schlüssel außer Entschlüsseln tut: ein neues Handy zum
+ * Hauptgerät zu machen, wenn das alte weg ist. Das ist eine Änderung an einer Zeile
+ * auf dem Server, der Server muss also überzeugt werden, und absichtlich weiß er nichts,
+ * womit man ihn überzeugen könnte.
  *
- * So it stores a hash instead. The client sends this verifier, the server
- * compares it to the stored one, and a match authorises the takeover. A
- * verifier is not a key: it cannot decrypt anything, and working backwards from
- * it means guessing 128 random bits. The salt here is deliberately a different
- * one from the salt that wraps the data key, so the stored verifier gives no
- * head start on the wrapping key either.
+ * Er speichert deshalb einen Hash. Der Client schickt diesen Prüfwert, der Server
+ * vergleicht ihn mit dem gespeicherten, und bei Gleichheit ist die Übernahme erlaubt.
+ * Ein Prüfwert ist kein Schlüssel: er entschlüsselt nichts, und rückwärts heißt 128
+ * Zufallsbits raten. Das Salz hier ist absichtlich ein anderes als das zum Einpacken
+ * des Datenschlüssels, der gespeicherte Prüfwert hilft also auch dort keinen Schritt weiter.
  */
 export async function recoveryVerifier(recovery, verifierSalt) {
   const bytes = typeof recovery === 'string' ? parseRecoveryKey(recovery) : new Uint8Array(recovery);
@@ -123,14 +119,14 @@ export async function recoveryVerifier(recovery, verifierSalt) {
   return toBase64(await subtle.digest('SHA-256', input));
 }
 
-/* ========================== keys and wrapping ========================== */
+/* ========================== Schlüssel und Einpacken ========================== */
 
-/** The key the backup is actually encrypted with. Extractable, so it can be wrapped. */
+/** Der Schlüssel, mit dem die Sicherung wirklich verschlüsselt ist. Exportierbar, damit er sich einpacken lässt. */
 export function generateDataKey() {
   return subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
 }
 
-/** Stretches a recovery key into something that can wrap the data key. */
+/** Streckt einen Wiederherstellungsschlüssel zu etwas, das den Datenschlüssel einpacken kann. */
 export async function keyFromRecovery(recovery, salt) {
   const bytes = typeof recovery === 'string' ? parseRecoveryKey(recovery) : new Uint8Array(recovery);
   if (!bytes) throw new Error('RECOVERY_MALFORMED');
@@ -145,12 +141,12 @@ export async function keyFromRecovery(recovery, salt) {
 }
 
 /**
- * Wrap the data key so it can be stored somewhere untrusted.
+ * Den Datenschlüssel einpacken, damit er an einem nicht vertrauenswürdigen Ort liegen kann.
  *
- * Plain AES-GCM over the raw key bytes rather than wrapKey/unwrapKey, because
- * the two produce the same result here and this way the wrapped blob is just
- * another authenticated ciphertext, handled by the same code path as everything
- * else. One less thing that can be subtly different.
+ * Einfaches AES-GCM über die rohen Schlüsselbytes statt wrapKey/unwrapKey. Beides ergibt
+ * hier dasselbe, und so ist der eingepackte Blob einfach ein weiteres authentifiziertes
+ * Chiffrat, das über denselben Code läuft wie alles andere. Eine Sache weniger, die
+ * sich unbemerkt unterscheiden kann.
  */
 export async function wrapDataKey(wrappingKey, dataKey) {
   const raw = await subtle.exportKey('raw', dataKey);
@@ -165,20 +161,20 @@ export async function unwrapDataKey(wrappingKey, { wrapped, iv }) {
     raw = await subtle.decrypt(
       { name: 'AES-GCM', iv: fromBase64(iv) }, wrappingKey, fromBase64(wrapped));
   } catch {
-    // AES-GCM authenticates, so this is the wrong key or a tampered blob and
-    // never a plausible-but-wrong result. Say which, rather than letting a
-    // decode error surface three layers up as something unrelated.
+    // AES-GCM authentifiziert, das hier ist also der falsche Schlüssel oder ein
+    // manipulierter Blob, nie ein plausibles, aber falsches Ergebnis. Sagen, was davon,
+    // statt einen Fehler beim Dekodieren drei Ebenen weiter oben als etwas anderes auftauchen zu lassen.
     throw new Error('WRONG_KEY');
   }
   return subtle.importKey('raw', raw, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
 }
 
-/* =========================== device linking =========================== */
+/* =========================== Geräte verbinden =========================== */
 
 /**
- * One keypair per device. The private half stays in IndexedDB as a
- * non-extractable CryptoKey, so even code running in the page cannot read the
- * bytes back out; it can only ask the browser to use it.
+ * Ein Schlüsselpaar pro Gerät. Die private Hälfte bleibt als nicht exportierbarer
+ * CryptoKey in IndexedDB, selbst Code auf der Seite kann die Bytes also nicht
+ * auslesen, er kann den Browser nur bitten, ihn zu benutzen.
  */
 export function generateDeviceKeys() {
   return subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveKey']);
@@ -189,10 +185,9 @@ export function exportPublicKey(keyPair) {
 }
 
 /**
- * The shared secret between two devices, from one side's private key and the
- * other side's public key. Both sides compute the same thing without it ever
- * crossing the network, which is the whole point of approving a device rather
- * than emailing it a key.
+ * Das gemeinsame Geheimnis zweier Geräte, aus dem privaten Schlüssel der einen und dem
+ * öffentlichen der anderen Seite. Beide rechnen dasselbe aus, ohne dass es je übers Netz
+ * geht. Genau darum gibt man ein Gerät frei, statt ihm einen Schlüssel zu mailen.
  */
 export async function sharedKey(privateKey, otherPublicJwk) {
   const theirs = await subtle.importKey(
@@ -206,25 +201,25 @@ export async function sharedKey(privateKey, otherPublicJwk) {
   );
 }
 
-/* ============================ the payload ============================ */
+/* ============================ der Inhalt ============================ */
 
 /**
- * Compress, then encrypt. In that order, always.
+ * Erst komprimieren, dann verschlüsseln. Immer in dieser Reihenfolge.
  *
- * Compression first because ciphertext does not compress: encrypt-then-deflate
- * would upload the full size for nothing. A backup is mostly repeated JSON keys
- * and exercise prose, so deflate takes roughly a megabyte down to a tenth of
- * that, which is the difference between a free database tier lasting years and
- * lasting months.
+ * Erst komprimieren, weil Chiffrat sich nicht komprimieren lässt: erst verschlüsseln,
+ * dann packen würde die volle Größe umsonst hochladen. Eine Sicherung besteht vor allem
+ * aus wiederholten JSON-Schlüsseln und Übungstexten, deflate macht aus etwa einem
+ * Megabyte ein Zehntel. Das ist der Unterschied, ob die kostenlose Datenbank Jahre oder
+ * nur Monate reicht.
  *
- * `CompressionStream` is already how a shared plan gets into a URL, so this is
- * the same trick the app plays elsewhere rather than a new dependency.
+ * `CompressionStream` bringt schon einen geteilten Plan in eine URL, das ist also
+ * derselbe Trick wie anderswo in der App und keine neue Abhängigkeit.
  *
- * The known caveat, since compressing before encrypting has a bad name: the
- * length of the result leaks something about the content. That attack needs an
- * adversary who can inject text into your data and watch the size change
- * repeatedly. Nobody can inject anything into your own training log, and the
- * only observer is a server that already knows how big your backup is.
+ * Der bekannte Haken, weil Komprimieren vor dem Verschlüsseln einen schlechten Ruf hat:
+ * die Länge des Ergebnisses verrät etwas über den Inhalt. Für den Angriff braucht es
+ * jemanden, der Text in die Daten einschleusen und immer wieder zusehen kann, wie sich
+ * die Größe ändert. In das eigene Trainingslog kann niemand etwas einschleusen, und der
+ * einzige Beobachter ist ein Server, der ohnehin weiß, wie groß die Sicherung ist.
  */
 export async function seal(dataKey, value) {
   const json = enc.encode(JSON.stringify(value));
@@ -235,8 +230,8 @@ export async function seal(dataKey, value) {
     v: 1,
     iv: toBase64(iv),
     ct: toBase64(ct),
-    // Recorded so a restore screen can say how big the thing is before pulling
-    // it, and so a truncated upload is visible rather than merely broken.
+    // Gespeichert, damit ein Wiederherstellungs-Screen vor dem Holen sagen kann, wie groß
+    // es ist, und damit ein abgeschnittener Upload auffällt, statt einfach kaputt zu sein.
     bytes: ct.byteLength,
   };
 }
@@ -253,7 +248,7 @@ export async function open(dataKey, blob) {
   return JSON.parse(dec.decode(await inflate(packed)));
 }
 
-/* ============================ compression ============================ */
+/* ============================ Kompression ============================ */
 
 async function through(bytes, stream, maxBytes = Infinity) {
   const reader = new Blob([bytes]).stream().pipeThrough(stream).getReader();

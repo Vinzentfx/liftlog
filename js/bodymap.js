@@ -1,6 +1,6 @@
-// Muscle body map. Loads the two placeholder SVGs and recolours each region by
-// rating tier at runtime. The same component doubles as the "which muscles does
-// this hit" illustration in the exercise library, so one asset serves both.
+// Muskelkarte. Lädt die beiden SVG-Vorlagen und färbt jede Region zur Laufzeit nach
+// ihrer Rangstufe ein. Dieselbe Komponente zeigt in der Bibliothek auch, welche
+// Muskeln eine Übung trifft, ein Bild für beides.
 
 import { el } from './ui.js';
 import { t, tRegion, tTier } from './i18n.js';
@@ -10,7 +10,7 @@ import { rankBadge } from './rank-art.js';
 const SRC = { front: 'assets/body-front.svg', back: 'assets/body-back.svg' };
 const cache = {};
 
-/** Fetch + parse once; later calls clone the parsed node. */
+/** Einmal laden und parsen, danach wird der geparste Knoten nur noch geklont. */
 async function loadSvg(view) {
   if (cache[view]) return cache[view].cloneNode(true);
   const res = await fetch(SRC[view]);
@@ -43,19 +43,19 @@ function paint(svg, fills, { lit = true } = {}) {
 }
 
 /**
- * @param {Object<string, {tier:number}>} byRegion  rating per muscle region
+ * @param {Object<string, {tier:number}>} byRegion  Bewertung je Muskelregion
  * @param {object} opts  { onSelect(region), lit }
- * @returns {HTMLElement} host that fills itself in once the SVGs load
+ * @returns {HTMLElement} Hülle, die sich füllt, sobald die SVGs geladen sind
  */
 export function bodyMap(byRegion = {}, opts = {}) {
   const { onSelect = null, lit = true } = opts;
 
-  // Accepts a bare tier index, {tier}, or the {score} shape buildRating emits.
+  // Nimmt eine reine Stufe, {tier} oder die {score}-Form von buildRating.
   const fills = {};
   for (const [region, rating] of Object.entries(byRegion)) {
     if (rating === null || rating === undefined) continue;
-    // A string is a colour, used straight. That is for maps which are not rank
-    // scales at all and must not borrow the ladder's palette.
+    // Ein String ist eine Farbe und wird direkt benutzt. Das ist für Karten, die gar
+    // keine Rangskala sind und sich deshalb nicht die Farben der Leiter leihen dürfen.
     if (typeof rating === 'string') { fills[region] = rating; continue; }
     let idx;
     if (typeof rating === 'number') idx = rating;
@@ -93,31 +93,31 @@ export function bodyMap(byRegion = {}, opts = {}) {
   return host;
 }
 
-/** Highlight-only map for the exercise library: primary vs secondary muscles. */
+/** Karte nur zum Hervorheben in der Bibliothek: Haupt- gegen Nebenmuskeln. */
 export function muscleHighlight(primary = [], secondary = []) {
   const byRegion = {};
-  // Not the rank ramp. This map answers "primary or secondary", which is not a
-  // scale and has no business borrowing one: pinned to the ends of the ladder,
-  // it went from cyan-against-silver to near-white-against-silver the moment
-  // three ranks were added on top, and the two stopped being tellable apart.
+  // Nicht die Rangfarben. Die Karte beantwortet "Haupt- oder Nebenmuskel", das ist
+  // keine Skala und darf sich auch keine leihen: an den Enden der Leiter festgemacht
+  // wurde aus Cyan gegen Silber fast Weiß gegen Silber, sobald oben drei Ränge dazukamen,
+  // und man konnte die beiden nicht mehr unterscheiden.
   for (const r of secondary) byRegion[r] = 'var(--text-faint)';
   for (const r of primary) byRegion[r] = 'var(--accent-hi)';
   return bodyMap(byRegion, { lit: true });
 }
 
 /**
- * Legend for the strength map: a scale, not a list.
+ * Legende für die Stärkekarte: eine Skala, keine Liste.
  *
- * This used to be one chip per rank. At nine that already wrapped onto two rows
- * of abbreviations, and German truncated several of them into nonsense; at
- * twelve it is unreadable in any language. The abbreviations were the wrong
- * answer to the wrong question anyway — nobody reads a legend to learn that
- * "GM" means Grandmaster, they read it to learn *which end is which*.
+ * Früher war das ein Chip pro Rang. Bei neun Rängen brach das schon auf zwei
+ * Zeilen mit Abkürzungen um, und im Deutschen wurden mehrere zu Unsinn gekürzt.
+ * Bei zwölf ist es in keiner Sprache mehr lesbar. Die Abkürzungen waren ohnehin
+ * die falsche Antwort: niemand liest eine Legende, um zu lernen, dass "GM"
+ * Grandmaster heißt, sondern um zu sehen, WELCHES Ende welches ist.
  *
- * So it is drawn as what it actually is: an ordinal ramp, with the two ends
- * named and badged and the middle left to speak for itself. The full scale with
- * every rank and its point range is one tap away on any muscle, which is where
- * somebody who wants the detail is already going.
+ * Deshalb wird sie als das gezeichnet, was sie ist: eine geordnete Farbskala, die
+ * beiden Enden mit Namen und Abzeichen, die Mitte spricht für sich. Die ganze Skala
+ * mit jedem Rang und seinen Punkten ist einen Tipp auf einen Muskel entfernt, und
+ * da schaut ohnehin hin, wer es genau wissen will.
  */
 export function tierLegend() {
   const end = (i, align) => el(`div.legend-end.tier-${i}`, { style: { textAlign: align } }, [

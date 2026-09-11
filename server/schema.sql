@@ -1,63 +1,64 @@
--- LiftLog cloud backup: the whole server side.
--- IMPORTANT: after this base schema, also apply
--- server/patch-002-device-capabilities.sql. It replaces the permissive bootstrap
--- policies below with device-capability protected write RPCs. The two files are
--- kept separate so existing Supabase projects can migrate without data loss.
--- Then apply server/patch-003-revocable-access.sql for independently revocable
--- access grants checked by every cloud read and write.
--- Finally apply server/patch-004-repair-invite-claims.sql, which repairs legacy
--- partial activations and installs the self-contained invite claim RPC.
--- Apply server/patch-005-fix-access-policy-permission.sql last so authenticated
--- policies can run the access helper, then patch-006-unblock-devices.sql so a
--- main device can explicitly restore a blocked installation. Apply
--- patch-007-account-deletion.sql for complete self-service account deletion.
--- Apply patch-008-social-hub.sql afterwards if the optional Users area should
--- be enabled; it never changes or decrypts backup data.
--- Apply patch-009-multi-device-backups.sql last to let every approved device
--- contribute conflict-checked backups without gaining owner privileges.
--- Apply patch-010-social-plans-invites.sql afterwards for scheduled presence,
--- strength leaderboards, private training invites and push subscriptions.
--- Apply patch-011-notification-preferences.sql afterwards for the notification
--- master switch and daily creatine reminder preferences.
+-- LiftLog Cloud-Sicherung: die ganze Serverseite.
+-- WICHTIG: nach diesem Grundschema auch server/patch-002-device-capabilities.sql
+-- einspielen. Es ersetzt die offenen Start-Policies unten durch Schreib-RPCs, die
+-- an Gerätefähigkeiten hängen. Die zwei Dateien sind getrennt, damit bestehende
+-- Supabase-Projekte ohne Datenverlust umziehen können.
+-- Danach server/patch-003-revocable-access.sql für einzeln widerrufbare Freigaben,
+-- die bei jedem Lesen und Schreiben in der Cloud geprüft werden.
+-- Dann server/patch-004-repair-invite-claims.sql, das halb abgeschlossene alte
+-- Freischaltungen repariert und die eigenständige RPC zum Einlösen von Einladungen anlegt.
+-- server/patch-005-fix-access-policy-permission.sql danach, damit Policies für
+-- angemeldete Nutzer die Zugriffs-Hilfsfunktion ausführen können, dann
+-- patch-006-unblock-devices.sql, damit ein Hauptgerät eine gesperrte Installation
+-- ausdrücklich wiederherstellen kann. patch-007-account-deletion.sql für das
+-- vollständige Löschen des eigenen Kontos.
+-- patch-008-social-hub.sql danach, wenn der optionale Bereich Nutzer an sein soll;
+-- es ändert oder entschlüsselt nie Sicherungsdaten.
+-- patch-009-multi-device-backups.sql zuletzt, damit jedes freigegebene Gerät Sicherungen
+-- mit Konfliktprüfung beisteuern kann, ohne Besitzerrechte zu bekommen.
+-- patch-010-social-plans-invites.sql danach für geplante Anwesenheit, Stärke-Ranglisten,
+-- private Trainingseinladungen und Push-Abos.
+-- patch-011-notification-preferences.sql danach für den Hauptschalter der
+-- Benachrichtigungen und die tägliche Kreatin-Erinnerung.
 --
--- Paste this into the Supabase SQL editor once. There is no other server code:
--- the app talks to PostgREST over plain fetch, and what it is allowed to do is
--- decided here rather than in JavaScript. That is deliberate. Access rules that
--- live in the client are not access rules.
+-- Das hier einmal in den SQL-Editor von Supabase kopieren. Anderen Servercode gibt es
+-- nicht: die App spricht über einfaches fetch mit PostgREST, und was sie darf, wird
+-- hier entschieden und nicht in JavaScript. Das ist Absicht. Zugriffsregeln, die im
+-- Client stehen, sind keine Zugriffsregeln.
 --
--- What this server can see:  ciphertext, public keys, sizes, timestamps.
--- What it can never see:     training data, bodyweight, food, or any key that
---                            opens them. See js/crypto.js for why.
+-- Was dieser Server sieht:        Chiffretext, öffentliche Schlüssel, Größen, Zeitstempel.
+-- Was er nie sehen kann:          Trainingsdaten, Körpergewicht, Essen oder einen Schlüssel,
+--                                 der sie öffnet. Warum, steht in js/crypto.js.
 --
--- Which means: if this database leaks in full, the honest damage is a list of
--- email addresses and the knowledge that those people back up a fitness app.
--- That is the whole point of doing it this way.
+-- Heißt: wenn diese Datenbank komplett wegkommt, ist der ehrliche Schaden eine Liste von
+-- E-Mail-Adressen und das Wissen, dass diese Leute eine Fitness-App sichern. Genau darum
+-- geht es bei diesem Aufbau.
 
--- ---------------------------------------------------------------- profiles --
+-- ----------------------------------------------------------------- Profile --
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users on delete cascade,
   created_at timestamptz not null default now(),
 
-  -- Consent, recorded rather than assumed. Nothing syncs until these are set,
-  -- and the version is stored so it is possible to tell later who agreed to
-  -- which wording.
+  -- Zustimmung, festgehalten statt angenommen. Nichts wird synchronisiert, bevor das gesetzt
+  -- ist, und die Version wird gespeichert, damit man später sagen kann, wer welchem
+  -- Wortlaut zugestimmt hat.
   consent_at      timestamptz,
   consent_version text,
 
-  -- The data key, wrapped by the recovery key. Useless without it.
+  -- Der Datenschlüssel, verpackt mit dem Wiederherstellungsschlüssel. Ohne ihn nutzlos.
   recovery_wrap  text,
   recovery_iv    text,
   recovery_salt  text,
 
-  -- Hash of the recovery key against a separate salt. Proves possession for the
-  -- one action that is a server-side change rather than a decryption: making a
-  -- fresh device the main one after the old one is gone. It cannot decrypt
-  -- anything and going backwards means guessing 128 random bits.
+  -- Hash des Wiederherstellungsschlüssels mit eigenem Salt. Beweist den Besitz für die eine
+  -- Aktion, die eine Änderung am Server ist und keine Entschlüsselung: ein neues Gerät zum
+  -- Hauptgerät zu machen, wenn das alte weg ist. Er kann nichts entschlüsseln, und rückwärts
+  -- hieße 128 zufällige Bit raten.
   recovery_verifier      text,
   recovery_verifier_salt text,
 
-  -- The device allowed to upload. Everything else is read-only.
+  -- Das Gerät, das hochladen darf. Alle anderen dürfen nur lesen.
   owner_device uuid
 );
 
@@ -66,24 +67,24 @@ alter table public.profiles enable row level security;
 create policy "own profile" on public.profiles
   for all using (auth.uid() = id) with check (auth.uid() = id);
 
--- Does this account have a profile at all?
+-- Hat dieses Konto überhaupt ein Profil?
 --
--- The invite code gates profile creation and nothing else, which turned out not
--- to be the same thing as gating the account. Found by testing rather than by
--- reading: a signed-up account with no invite happily wrote a backup row,
--- because "own backups" only ever asked whether the row belonged to the caller,
--- and it did. Not a leak, since everyone still sees only their own rows, but an
--- open door to using this database as free storage.
+-- Der Einladungscode sperrt das Anlegen eines Profils und sonst nichts, und das ist nicht
+-- dasselbe, wie das Konto zu sperren. Gefunden durch Testen, nicht durch Lesen: ein
+-- registriertes Konto ohne Einladung hat fröhlich eine Sicherung geschrieben, weil "eigene
+-- Sicherungen" nur gefragt hat, ob die Zeile dem Aufrufer gehört, und das tat sie. Kein Leck,
+-- jeder sieht weiter nur seine eigenen Zeilen, aber eine offene Tür, um diese Datenbank als
+-- Gratisspeicher zu benutzen.
 --
--- Security definer so it can look at profiles without tripping over that
--- table's own row-level security, and stable so the planner calls it once per
--- statement rather than once per row.
+-- Security definer, damit sie in profiles schauen kann, ohne über die Zeilensicherheit dieser
+-- Tabelle zu stolpern, und stable, damit der Planer sie einmal pro Anweisung aufruft und
+-- nicht einmal pro Zeile.
 create or replace function public.has_profile()
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.profiles where id = auth.uid());
 $$;
 
--- ----------------------------------------------------------------- devices --
+-- ------------------------------------------------------------------ Geräte --
 
 create table if not exists public.devices (
   id         uuid primary key default gen_random_uuid(),
@@ -93,9 +94,9 @@ create table if not exists public.devices (
   status     text not null default 'pending'
              check (status in ('pending', 'approved', 'revoked')),
 
-  -- The data key wrapped for this device, filled in when it is approved. The
-  -- wrapping side's public key travels with it so this device can do its half
-  -- of the ECDH. Neither half is a secret.
+  -- Der Datenschlüssel, für dieses Gerät verpackt, gefüllt bei der Freigabe. Der öffentliche
+  -- Schlüssel der verpackenden Seite reist mit, damit dieses Gerät seine Hälfte des ECDH
+  -- rechnen kann. Keine der beiden Hälften ist geheim.
   wrapped_key text,
   wrap_iv     text,
   wrapped_by  jsonb,
@@ -109,15 +110,15 @@ create index if not exists devices_user on public.devices (user_id, status);
 
 alter table public.devices enable row level security;
 
--- A device row is only ever the account owner's. A pending request from a new
--- phone is written by that phone while logged in as the same account, so this
--- one policy covers requesting, approving and revoking.
+-- Eine Gerätezeile gehört immer nur dem Kontoinhaber. Die Anfrage eines neuen Handys schreibt
+-- dieses Handy selbst, angemeldet mit demselben Konto, diese eine Policy deckt also Anfragen,
+-- Freigeben und Widerrufen ab.
 create policy "own devices" on public.devices
   for all
   using       (auth.uid() = user_id and public.has_profile())
   with check  (auth.uid() = user_id and public.has_profile());
 
--- ----------------------------------------------------------------- backups --
+-- -------------------------------------------------------------- Sicherungen --
 
 create table if not exists public.backups (
   user_id    uuid not null references auth.users on delete cascade,
@@ -130,9 +131,9 @@ create table if not exists public.backups (
 
   primary key (user_id, version),
 
-  -- A sealed backup of a heavy log is a couple of hundred kilobytes. Eight
-  -- megabytes of base64 is far above anything real and far below anything that
-  -- could fill the database by accident.
+  -- Die versiegelte Sicherung eines langen Logs hat ein paar hundert Kilobyte. Acht Megabyte
+  -- Base64 liegen weit über allem Echten und weit unter allem, was die Datenbank aus
+  -- Versehen füllen könnte.
   constraint backup_size check (length(ct) < 8000000)
 );
 
@@ -143,14 +144,13 @@ create policy "own backups" on public.backups
   using       (auth.uid() = user_id and public.has_profile())
   with check  (auth.uid() = user_id and public.has_profile());
 
--- The primary key is what makes a stale upload fail instead of overwriting.
--- A device that has been offline uploads version 8 while the server is already
--- at 9, gets a duplicate-key error, and has to pull before it can push. That is
--- the whole concurrency story, and it is enforced here rather than hoped for.
+-- Der Primärschlüssel sorgt dafür, dass ein veralteter Upload fehlschlägt, statt zu
+-- überschreiben. Ein Gerät, das offline war, lädt Version 8 hoch, während der Server schon bei
+-- 9 ist, bekommt einen Fehler wegen doppeltem Schlüssel und muss erst holen, bevor es schieben
+-- kann. Das ist die ganze Geschichte der Nebenläufigkeit, und sie wird hier erzwungen statt erhofft.
 
--- Keep a handful of older versions. A backup you cannot roll back is no defence
--- against the app having written something wrong and then faithfully backed the
--- wrong thing up.
+-- Ein paar ältere Versionen behalten. Eine Sicherung, die man nicht zurückdrehen kann, schützt
+-- nicht davor, dass die App etwas Falsches geschrieben und das Falsche dann brav gesichert hat.
 create or replace function public.trim_backup_history()
 returns trigger language plpgsql set search_path = '' as $$
 begin
@@ -166,13 +166,13 @@ create trigger trim_backups
   after insert on public.backups
   for each row execute function public.trim_backup_history();
 
--- ----------------------------------------------------------------- invites --
+-- --------------------------------------------------------------- Einladungen --
 
--- Signing up is possible for anyone; getting a profile is not, and every policy
--- above additionally requires `has_profile()`. So an uninvited account can log
--- in and do precisely nothing, which is a property worth re-testing rather than
--- re-reading: the first version of this file only checked row ownership, and an
--- uninvited account could write freely.
+-- Registrieren kann sich jeder, ein Profil bekommen nicht, und jede Policy oben verlangt
+-- zusätzlich `has_profile()`. Ein Konto ohne Einladung kann sich also anmelden und genau
+-- nichts tun. Das sollte man immer wieder testen statt nur nachlesen: die erste Version
+-- dieser Datei hat nur geprüft, wem eine Zeile gehört, und ein Konto ohne Einladung konnte
+-- frei schreiben.
 create table if not exists public.invites (
   code       text primary key,
   note       text,
@@ -182,9 +182,8 @@ create table if not exists public.invites (
 );
 
 alter table public.invites enable row level security;
--- No policy at all: nobody reads or writes this table through the API. Codes go
--- in through the SQL editor, and are only ever checked by the function below,
--- which runs as the definer.
+-- Gar keine Policy: niemand liest oder schreibt diese Tabelle über die API. Codes kommen über
+-- den SQL-Editor hinein und werden nur von der Funktion unten geprüft, die als Definer läuft.
 
 create or replace function public.claim_invite(invite_code text)
 returns void language plpgsql security definer set search_path = public as $$
@@ -196,7 +195,7 @@ begin
   end if;
 
   if exists (select 1 from public.profiles where id = auth.uid()) then
-    return;                              -- already set up, nothing to do
+    return;                              -- schon eingerichtet, nichts zu tun
   end if;
 
   update public.invites
@@ -212,19 +211,19 @@ begin
 end;
 $$;
 
--- ---------------------------------------------------------------- takeover --
+-- ---------------------------------------------------------------- Übernahme --
 
--- The escape hatch, server side. The client proves it holds the recovery key by
--- sending the verifier; on a match this device becomes the main one and every
--- other device is revoked, because a lost phone should stop being trusted the
--- moment you replace it.
+-- Der Notausgang auf der Serverseite. Der Client beweist, dass er den Wiederherstellungsschlüssel
+-- hat, indem er den Prüfwert schickt. Stimmt er, wird dieses Gerät zum Hauptgerät und jedes
+-- andere Gerät wird widerrufen, weil ein verlorenes Handy in dem Moment kein Vertrauen mehr
+-- verdient, in dem man es ersetzt.
 --
--- The verifier is compared here rather than in the client for the obvious
--- reason: a check in the client is a check the client can skip.
--- Superseded by patch 014, which takes an owner_token as a third argument and
--- rate limits the attempt, and by patch 017, which dropped this signature from
--- the live database. Kept here only because schema.sql documents the original
--- shape; a fresh install should apply the patches in order.
+-- Der Prüfwert wird hier verglichen und nicht im Client, aus dem naheliegenden Grund: eine
+-- Prüfung im Client ist eine Prüfung, die der Client auslassen kann.
+-- Abgelöst durch Patch 014, das ein owner_token als drittes Argument nimmt und die Versuche
+-- begrenzt, und durch Patch 017, das diese Signatur aus der echten Datenbank entfernt hat.
+-- Steht hier nur noch, weil schema.sql die ursprüngliche Form dokumentiert. Eine frische
+-- Installation spielt die Patches der Reihe nach ein.
 create or replace function public.claim_ownership(verifier text, device uuid)
 returns void language plpgsql security definer set search_path = public as $$
 declare
@@ -239,9 +238,9 @@ begin
     raise exception 'NO_RECOVERY_SET';
   end if;
 
-  -- Constant-time-ish comparison. Postgres has no timing-safe equality for
-  -- text, and the value being guessed has 128 bits of entropy, so a timing
-  -- oracle here buys an attacker nothing worth the sentence explaining it.
+  -- Ungefähr zeitkonstanter Vergleich. Postgres hat keinen timing-sicheren Vergleich für Text,
+  -- und der geratene Wert hat 128 Bit Entropie, ein Timing-Orakel bringt einem Angreifer hier
+  -- also nichts, was den Satz wert wäre, der es erklärt.
   if stored <> verifier then
     raise exception 'RECOVERY_WRONG';
   end if;
@@ -263,11 +262,11 @@ begin
 end;
 $$;
 
--- ------------------------------------------------------------ housekeeping --
+-- ---------------------------------------------------------------- Aufräumen --
 
--- Deleting the auth user cascades through every table above, which is what a
--- deletion request has to actually do. Worth testing once on a throwaway
--- account before anyone asks.
+-- Das Löschen des Auth-Nutzers läuft per Cascade durch jede Tabelle oben, und genau das muss
+-- eine Löschanfrage wirklich tun. Lohnt sich, einmal an einem Wegwerfkonto zu testen, bevor
+-- jemand fragt.
 
--- Adding an invite, for reference:
+-- Eine Einladung anlegen, zum Nachschlagen:
 --   insert into public.invites (code, note) values ('MARCEL-2026', 'Marcel');

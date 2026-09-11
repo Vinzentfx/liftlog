@@ -1,19 +1,19 @@
-// Offline shell. Bump CACHE when shipping changes so clients pick them up.
+// Offline-Hülle. CACHE hochzählen, wenn sich etwas ändert, damit die Geräte es mitbekommen.
 const CACHE = 'liftlog-v150';
 
 /**
- * The bulk data tables, in their own cache with their own version.
+ * Die großen Datentabellen, in einem eigenen Cache mit eigener Version.
  *
- * Installing used to refetch all 75 shell files with `cache: 'reload'`, which
- * is 2.1 MB, and 840 KB of that is the exercise catalogue, the food and brand
- * tables and the image index. Between them those files have changed four times
- * in the life of the repo, and a one-line CSS fix was costing every phone the
- * whole download again.
+ * Die Installation hat früher alle 75 Dateien mit `cache: 'reload'` neu geholt, das
+ * sind 2,1 MB, davon 840 KB Übungskatalog, Lebensmittel- und Markentabellen und der
+ * Bildindex. Diese Dateien haben sich im ganzen Leben des Repos viermal geändert,
+ * und ein einzeiliger CSS-Fix hat jedes Handy trotzdem den ganzen Download gekostet.
  *
- * They keep the same all-or-nothing guarantee, just against their own version:
- * a shell bump leaves this cache alone, and only what is genuinely missing is
- * fetched. Bump DATA_CACHE when one of these files actually changes, which is
- * almost never. strings.js is deliberately NOT here: 53 commits and counting.
+ * Sie behalten dieselbe Alles-oder-nichts-Garantie, nur gegen ihre eigene Version:
+ * ein neuer Stand der Hülle lässt diesen Cache in Ruhe, geholt wird nur, was
+ * wirklich fehlt. DATA_CACHE hochzählen, wenn sich eine dieser Dateien wirklich
+ * ändert, also fast nie. strings.js steht absichtlich NICHT hier: 53 Commits und es
+ * werden mehr.
  */
 const DATA_CACHE = 'liftlog-data-v1';
 
@@ -25,9 +25,9 @@ const DATA = [
   './js/food-library.js',
 ];
 
-// assets/exercises/*.webp are deliberately NOT precached — ~270 exercises x2
-// frames would bloat the install and most are never opened. The runtime
-// cache-first handler picks each one up the first time it's viewed.
+// assets/exercises/*.webp werden absichtlich NICHT vorab gecacht. Etwa 270 Übungen
+// mal 2 Bilder würden die Installation aufblähen, und die meisten öffnet nie jemand.
+// Der Handler für den Laufzeit-Cache holt jedes Bild beim ersten Ansehen.
 const SHELL = [
   './',
   './index.html',
@@ -128,16 +128,16 @@ self.addEventListener('notificationclick', (event) => {
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
-    // Never activate a cache containing only half a deployment. Cloudflare
-    // and GitHub may expose files seconds apart; a failed install is retried,
-    // while an incomplete cache would leave the whole PWA unable to boot.
-    // Both addAll calls keep that property: either everything lands or the
-    // install throws and is retried.
+    // Nie einen Cache aktivieren, in dem nur ein halber Deploy steckt. Cloudflare und
+    // GitHub stellen Dateien manchmal Sekunden versetzt bereit. Eine gescheiterte
+    // Installation wird wiederholt, ein unvollständiger Cache dagegen ließe die ganze
+    // PWA nicht mehr starten. Beide addAll-Aufrufe halten das ein: entweder kommt
+    // alles an, oder die Installation wirft und wird wiederholt.
     const shell = await caches.open(CACHE);
     await shell.addAll(SHELL.map((url) => new Request(url, { cache: 'reload' })));
 
-    // Survives a shell bump, so this is usually a no-op after the first
-    // install. Anything already held is left exactly as it is.
+    // Übersteht einen neuen Stand der Hülle, nach der ersten Installation passiert
+    // hier also meistens nichts. Was schon da ist, bleibt genau so.
     const data = await caches.open(DATA_CACHE);
     const held = await Promise.all(DATA.map((url) => data.match(url)));
     const missing = DATA.filter((url, i) => !held[i]);
@@ -164,7 +164,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   if (new URL(request.url).origin !== self.location.origin) return;
 
-  // Navigations: try network so updates land, fall back to the cached shell offline.
+  // Seitenaufrufe: erst das Netz versuchen, damit Updates ankommen, offline die gecachte Hülle.
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -182,11 +182,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Assets: cache-first, refresh in the background.
+  // Dateien: zuerst aus dem Cache, im Hintergrund auffrischen.
   event.respondWith(
     caches.match(request).then((cached) => {
-      // A refreshed data file belongs in the data cache, or the next shell
-      // bump would wipe it and the saving with it.
+      // Eine aufgefrischte Datendatei gehört in den Daten-Cache, sonst würde der
+      // nächste neue Stand der Hülle sie löschen und die Ersparnis gleich mit.
       const path = new URL(request.url).pathname;
       const target = DATA.some((url) => path.endsWith(url.slice(1))) ? DATA_CACHE : CACHE;
       const network = fetch(request)
@@ -197,8 +197,8 @@ self.addEventListener('fetch', (event) => {
           }
           return res;
         })
-        // Offline with nothing cached: answer with a real Response, never
-        // undefined — respondWith(undefined) throws and kills the request.
+        // Offline und nichts im Cache: mit einer echten Response antworten, nie mit
+        // undefined. respondWith(undefined) wirft und beendet die Anfrage.
         .catch(() => cached || new Response('', { status: 504, statusText: 'Offline' }));
       return cached || network;
     })

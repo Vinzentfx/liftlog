@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
-Dev server for LiftLog.
+Entwicklungsserver für LiftLog.
 
-Plain `http.server` lets the browser cache ES modules, so an edited file keeps
-running the old version until the cache happens to expire — which silently
-invalidates any verification you do. This sends no-store on everything.
+Das einfache `http.server` lässt den Browser ES-Module cachen, eine geänderte Datei läuft
+dann mit der alten Version weiter, bis der Cache zufällig abläuft. Damit ist jede Prüfung,
+die man macht, still wertlos. Dieser hier schickt no-store für alles.
 
-Production (GitHub Pages) sets its own caching headers; this file is dev-only.
+In Produktion (GitHub Pages) gelten eigene Cache-Header, diese Datei ist nur für die
+Entwicklung.
 
     python3 tools/devserver.py [port]
 
-The port comes from the argument, else $PORT, else 5173 — so two of these can
-run side by side when something else already holds the default.
+Der Port kommt aus dem Argument, sonst aus $PORT, sonst 5173. So können zwei davon
+nebeneinander laufen, wenn schon etwas anderes den Standard belegt.
 """
 import os
 import sys
@@ -39,7 +40,7 @@ class NoCacheHandler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def log_message(self, fmt, *args):
-        # Keep the console readable; errors still surface via log_error.
+        # Die Konsole lesbar halten, Fehler kommen weiter über log_error.
         if args and str(args[0]).startswith(("GET", "HEAD")) and "200" in str(args):
             return
         super().log_message(fmt, *args)

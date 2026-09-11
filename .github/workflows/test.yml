@@ -1,5 +1,5 @@
-# Both suites on every push and pull request. The README has promised this
-# since the tests were written; this file is what makes it true.
+# Beide Testsammlungen bei jedem Push und Pull Request. Die README verspricht das, seit es
+# die Tests gibt, und diese Datei sorgt dafür, dass es stimmt.
 name: Tests
 
 on:
@@ -25,8 +25,8 @@ jobs:
       - name: Workout flows in a phone-sized browser
         run: npm run test:browser
 
-      # playwright.config.js keeps a trace of every failed case. Without this
-      # step it would vanish with the runner.
+      # playwright.config.js hebt von jedem fehlgeschlagenen Fall einen Trace auf. Ohne diesen
+      # Schritt würde er mit dem Runner verschwinden.
       - name: Keep the traces of a failed browser run
         if: failure()
         uses: actions/upload-artifact@v4

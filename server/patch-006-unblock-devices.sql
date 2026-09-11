@@ -1,6 +1,6 @@
--- Allow the main device to explicitly restore a previously blocked device.
--- The owner capability is still required, and a fresh encrypted key copy is
--- written at the same time, so changing the status alone never restores access.
+-- Das Hauptgerät darf ein vorher gesperrtes Gerät ausdrücklich wieder freigeben. Die
+-- Besitzerberechtigung ist weiter nötig, und gleichzeitig wird eine frische verschlüsselte
+-- Kopie des Schlüssels geschrieben, den Status allein zu ändern gibt also nie Zugang zurück.
 
 create or replace function public.approve_device(
   device uuid, wrapped_key text, wrap_iv text, wrapped_by jsonb, owner_token text

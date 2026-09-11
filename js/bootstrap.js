@@ -1,15 +1,15 @@
-// Keep service-worker recovery independent from app.js. A partially cached
-// module graph cannot register its own repair because it never executes.
+// Die Reparatur des Service Workers bleibt unabhängig von app.js. Ein halb
+// gecachter Modulbaum kann sich nicht selbst reparieren, weil er nie läuft.
 //
-// Which is also why this file imports nothing. It talks to the rest of the app
-// through one localStorage key, written by js/store.js.
+// Deshalb importiert diese Datei auch nichts. Mit dem Rest der App redet sie über
+// einen einzigen localStorage-Schlüssel, den js/store.js schreibt.
 
-// How long a session may stay open before an update stops waiting for it. Same
-// twelve hours the app uses to call a session stale: past that it is not a
-// workout in progress, it is one nobody closed.
+// Wie lange ein Training offen bleiben darf, bevor ein Update nicht mehr darauf
+// wartet. Dieselben zwölf Stunden, ab denen die App ein Training als alt ansieht:
+// danach läuft da kein Training mehr, es hat nur keiner beendet.
 const STALE_WORKOUT_MS = 12 * 60 * 60 * 1000;
 
-/** True while a workout is actually being logged right now. */
+/** true, solange gerade wirklich ein Training eingetragen wird. */
 function workoutOpen() {
   try {
     const startedAt = Number(localStorage.getItem('liftlog.workoutOpen')) || 0;
@@ -23,15 +23,15 @@ if ('serviceWorker' in navigator) {
   let reloading = false;
 
   /**
-   * A new worker has taken over, so this page is now running against a cache it
-   * was not loaded from. Reloading fixes that, but not at any moment: the app
-   * exists to be used mid-set, in a gym, and a deployment used to yank the page
-   * out from under whoever happened to be training. The sets are safe in
-   * IndexedDB either way; the rest timer, a half-typed weight and your place on
-   * the screen are not.
+   * Ein neuer Worker hat übernommen, die Seite läuft also gegen einen Cache, aus
+   * dem sie nicht geladen wurde. Neu laden behebt das, aber nicht zu jedem
+   * Zeitpunkt: die App wird mitten im Satz im Studio benutzt, und früher hat ein
+   * Deploy die Seite einfach unter dem weggezogen, der gerade trainiert hat. Die
+   * Sätze liegen so oder so sicher in IndexedDB, der Pausentimer, ein halb
+   * eingetipptes Gewicht und die Stelle auf dem Bildschirm aber nicht.
    *
-   * So the reload waits for the workout to end, and the app keeps running the
-   * old code until then. That is the same code it has been running all along.
+   * Deshalb wartet das Neuladen, bis das Training vorbei ist, und bis dahin läuft
+   * der alte Code weiter. Das ist derselbe Code, der die ganze Zeit schon lief.
    */
   const reloadWhenIdle = () => {
     if (!workoutOpen()) {

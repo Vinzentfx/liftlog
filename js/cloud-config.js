@@ -1,14 +1,14 @@
-// Where the cloud backup lives.
+// Wo die Cloud-Sicherung liegt.
 //
-// Both values are public on purpose and are meant to be committed. The anon key
-// is not a password, it is a name badge: it says which project is being called
-// and that the caller is nobody in particular. Every table has row-level
-// security, so that role can do nothing at all on its own. Access appears only
-// once a signed-in user's own token rides along on top, and then only to their
-// own rows. That is enforced in server/schema.sql, not here.
+// Beide Werte sind absichtlich öffentlich und gehören ins Repo. Der anon-Schlüssel
+// ist kein Passwort, sondern ein Namensschild: er sagt, welches Projekt gerufen wird
+// und dass der Aufrufer niemand Bestimmtes ist. Jede Tabelle hat Row-Level-Security,
+// allein kann diese Rolle also gar nichts. Zugriff gibt es erst, wenn das Token
+// eines angemeldeten Nutzers mitkommt, und dann nur auf dessen eigene Zeilen. Das
+// setzt server/schema.sql durch, nicht diese Datei.
 //
-// The key that must never appear in this file, in this repo, or in a chat is
-// the `service_role` one. It bypasses row-level security completely.
+// Der Schlüssel, der nie in dieser Datei, in diesem Repo oder in einem Chat
+// auftauchen darf, ist der `service_role`-Schlüssel. Der umgeht Row-Level-Security komplett.
 
 export const SUPABASE_URL = 'https://txjikhreoshmkjuyomki.supabase.co';
 
@@ -19,12 +19,12 @@ export const SUPABASE_ANON =
   + '.ZC2EppPZ3qtvb65QJ1_WZa7jTg2Tc8sXgsiFQe2-3LE';
 
 /**
- * Bumped when the consent wording changes, and stored alongside the timestamp
- * on the profile row. Without it "they agreed" is a claim with no content: it
- * would be impossible to say later what anyone actually agreed to.
+ * Wird erhöht, wenn sich der Text der Einwilligung ändert, und zusammen mit dem
+ * Zeitstempel in der Profilzeile gespeichert. Ohne das wäre "hat zugestimmt" eine
+ * Behauptung ohne Inhalt, später könnte niemand sagen, wozu eigentlich.
  */
 export const CONSENT_VERSION = '2026-08-01';
 
-// Public half of the Web Push key. The matching private half lives only in
-// Supabase Edge Function secrets (server/.vapid-secrets is gitignored).
+// Öffentliche Hälfte des Web-Push-Schlüssels. Die private Hälfte liegt nur in den
+// Secrets der Supabase Edge Functions (server/.vapid-secrets steht in .gitignore).
 export const VAPID_PUBLIC_KEY = 'BKPwWaQtwir-hMT7mYY5bOEaZ6c7JBl0aPZgupGm4QknzHmNO8aLDTLmKP5AkbvPpSILwEeHGZgNbaB-o_miDc0';

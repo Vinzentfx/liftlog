@@ -1,4 +1,4 @@
-// Plans — multi-day workout templates, from presets or built by hand.
+// Pläne: Trainingsvorlagen über mehrere Tage, aus Vorlagen oder von Hand gebaut.
 
 import {
   el, toast, openSheet, closeSheet, confirmSheet, emptyState, listItem, fmtWeight,
@@ -24,8 +24,8 @@ import { pickExercise } from '../pickers.js';
 import { navigate } from '../app.js';
 import { requestWorkoutStart } from '../workout-start.js';
 
-// In-app clipboard. It deliberately stays local to this installation: plan
-// editing should work offline and copying a day is not cloud data by itself.
+// Zwischenablage in der App. Bleibt absichtlich auf dieser Installation: Pläne
+// bearbeiten soll offline gehen, und einen Tag zu kopieren ist für sich keine Cloud-Sache.
 let copiedPlanItem = null;
 let copiedPlanDay = null;
 
@@ -44,7 +44,7 @@ export default function renderPlans({ param, actions }) {
   return listView();
 }
 
-/* ============================ list ============================ */
+/* ============================ Liste ============================ */
 
 function listView() {
   const root = el('div');
@@ -116,15 +116,15 @@ function listView() {
 }
 
 /**
- * What a template scores once it is filled in from the current library. Built
- * and thrown away — the picker is deterministic, so this is the plan the user
- * would actually get.
+ * Welche Wertung eine Vorlage bekommt, wenn sie aus der aktuellen Bibliothek gefüllt
+ * wird. Gebaut und wieder weggeworfen. Die Auswahl ist deterministisch, das ist also
+ * genau der Plan, den man bekäme.
  */
 function previewBlueprint(bp) {
-  // Filling four blueprints means ranking the whole library a few dozen times.
-  // Cheap enough to do once, not cheap enough to redo on every repaint of the
-  // list — and the only inputs that change the answer are the library size and
-  // which movements are favourited.
+  // Vier Vorlagen zu füllen heißt, die ganze Bibliothek ein paar Dutzend Mal zu
+  // sortieren. Billig genug für einmal, nicht billig genug für jedes Neuzeichnen der
+  // Liste. Die Antwort ändert sich nur mit der Größe der Bibliothek und damit,
+  // welche Übungen Favoriten sind.
   const sig = `${store.state.exercises.length}:${store.defaultSets()}:${store.defaultReps()}:${store.state.exercises.filter((e) => e.favourite).map((e) => e.id).join(',')}`;
   const hit = previewCache.get(bp.key);
   if (hit && hit.sig === sig) return hit.analysis;
@@ -137,7 +137,7 @@ function previewBlueprint(bp) {
 
 const previewCache = new Map();
 
-/** Two ways to take a template: filled in, or just the day structure. */
+/** Zwei Arten, eine Vorlage zu nehmen: gefüllt oder nur mit dem Aufbau der Tage. */
 function blueprintSheet(bp, preview = previewBlueprint(bp)) {
   const perDay = bp.days.map((d) => {
     const n = d.slots.reduce((m, [, c]) => m + c, 0);
@@ -191,7 +191,7 @@ function blueprintSheet(bp, preview = previewBlueprint(bp)) {
   openSheet(bp.name, body);
 }
 
-/* ============================ plan ============================ */
+/* ============================ Plan ============================ */
 
 function planView(planId) {
   const plan = store.state.plans.find((p) => p.id === planId);
@@ -299,13 +299,13 @@ function planVersionsSheet(plan) {
   openSheet(t('plans.versions'), body);
 }
 
-/** Star rating plus a plain-language breakdown of what works and what doesn't. */
+/** Sternewertung plus eine Aufschlüsselung in Klartext, was passt und was nicht. */
 /**
- * The week at a glance, once any day has a weekday assigned.
+ * Die Woche auf einen Blick, sobald ein Tag einen Wochentag hat.
  *
- * Hidden entirely while nothing is scheduled — an empty seven-row grid is not
- * an invitation, it is clutter. The nudge to schedule lives on the first day's
- * menu instead, where you are already editing.
+ * Ganz ausgeblendet, solange nichts eingeplant ist. Ein leeres Raster mit sieben
+ * Zeilen ist keine Einladung, sondern Unordnung. Der Hinweis zum Einplanen steckt
+ * stattdessen im Menü des ersten Tages, wo man sowieso gerade bearbeitet.
  */
 function weekCard(plan) {
   const wrap = el('div');
@@ -403,9 +403,9 @@ function qualityCard(plan) {
 }
 
 /**
- * The plan doctor. Each fix applies on its own and saves immediately — batching
- * them behind one "apply all" would make a plan you no longer recognise, and the
- * point is that you see each change land.
+ * Der Plan-Doktor. Jede Korrektur gilt für sich und wird sofort gespeichert. Alle
+ * hinter einem "alles übernehmen" zu bündeln ergäbe einen Plan, den man nicht mehr
+ * wiedererkennt, und es geht gerade darum, dass man jede Änderung ankommen sieht.
  */
 function doctorSheet(plan, fixes) {
   const body = el('div');
@@ -415,8 +415,8 @@ function doctorSheet(plan, fixes) {
     const row = el('div.card.tight', { style: { marginTop: '10px' } });
     const applyBtn = el('button.btn.sm.primary', {
       onclick: async () => {
-        // Work on the live plan object, then persist through the normal path so
-        // the rating, the Train tab and the calendar all see it at once.
+        // Am echten Planobjekt arbeiten und dann über den normalen Weg speichern, damit
+        // Bewertung, Trainieren-Tab und Kalender es gleichzeitig sehen.
         fix.apply(plan);
         await store.savePlan(plan);
         applyBtn.replaceChildren(t('plans.applied'));
@@ -441,7 +441,7 @@ function doctorSheet(plan, fixes) {
   openSheet(t('plans.fixesTitle', { name: plan.name }), body);
 }
 
-// Kept short — .bar-row gives the label an 84px column and ellipsises the rest.
+// Kurz gehalten, .bar-row gibt der Beschriftung 84 px und kürzt den Rest mit Auslassungspunkten.
 const PART_LABEL = {
   volume: 'plans.part.volume', coverage: 'plans.part.coverage', session: 'plans.part.session',
   selection: 'plans.part.selection', variety: 'plans.part.variety', frequency: 'plans.part.frequency',
@@ -457,8 +457,8 @@ function breakdownSheet(title, a) {
     .sort((x, y) => y[1] - x[1]);
   const max = Math.max(...rows.map(([, v]) => v), 1);
 
-  // Weight shown next to each component, because a 40% on something worth a
-  // tenth of the score reads very differently from a 40% on volume.
+  // Das Gewicht steht neben jedem Teil, weil 40 % bei etwas, das ein Zehntel der
+  // Wertung ausmacht, etwas ganz anderes heißt als 40 % beim Volumen.
   const part = (key) => el('div', { style: { marginBottom: '10px' } }, [
     el('div.bar-row', { style: { marginBottom: '2px' } }, [
       el('span.name', { text: t(PART_LABEL[key]) }),
@@ -584,8 +584,8 @@ function dayCard(plan, day, index) {
     el('button.btn.ghost.full.sm', {
       style: { marginTop: '8px' },
       onclick: () => pickExercise(async (ex) => {
-        // Whatever you set in Settings, not a hardcoded 3 x 8-12 that
-        // disagreed with what the generator produces.
+        // Was in den Einstellungen steht, und kein fest eingebautes 3 x 8-12, das
+        // nicht zu dem gepasst hat, was der Generator erzeugt.
         day.items.push({
           exerciseId: ex.id,
           targetSets: store.defaultSets(),
@@ -601,7 +601,7 @@ function dayCard(plan, day, index) {
   return card;
 }
 
-/** One exercise row, with its strength tier inline where one exists. */
+/** Eine Übungszeile, mit Stärkestufe, wo es eine gibt. */
 function exerciseRow(plan, day, item) {
   const ex = store.state.exerciseById.get(item.exerciseId);
   if (!ex) return el('div');
@@ -609,8 +609,8 @@ function exerciseRow(plan, day, item) {
   const settings = store.state.settings;
   let chip = null;
 
-  // Machines earn a chip here too now that they have a standard behind them —
-  // a plan built entirely of machine work used to show no ranks at all.
+  // Maschinen bekommen hier jetzt auch einen Chip, weil es einen Standard für sie
+  // gibt. Ein Plan nur aus Maschinenübungen hat vorher gar keine Ränge gezeigt.
   const machine = !isBenchmark(ex.name) && ratedMachineNames([ex]).has(ex.name);
   if (settings.showRatings !== false && hasProfile(settings) && (isBenchmark(ex.name) || machine)) {
     const best = bestOneRepMaxByName(store.state.sessions, store.state.exerciseById, settings);
@@ -642,7 +642,7 @@ function exerciseRow(plan, day, item) {
     el('div.grow', {}, [
       el('div', { style: { fontWeight: '600', fontSize: '14.5px' }, text: ex.name }),
       el('div.small.faint', { text: `${item.targetSets} × ${item.targetReps || '8-12'} · ${tMuscle(ex.muscle)}` }),
-      // Tapping the stars explains them; the row's own ··· menu edits the item.
+      // Ein Tipp auf die Sterne erklärt sie, das ···-Menü der Zeile bearbeitet den Eintrag.
       store.starsShown()
         ? el('button.btn.quiet.sm', {
             style: { padding: '2px 0', marginTop: '2px' },
@@ -659,7 +659,7 @@ function exerciseRow(plan, day, item) {
   ]);
 }
 
-/* ============================ menus ============================ */
+/* ============================ Menüs ============================ */
 
 function itemMenu(plan, day, item, ex) {
   const itemIndex = day.items.indexOf(item);
@@ -748,9 +748,9 @@ function dayMenu(plan, day, index) {
 
   const name = el('input', { type: 'text', value: day.name });
 
-  // Scheduling is optional: "Any day" keeps the least-recently-trained
-  // suggestion the Train tab has always used, which is the better answer for
-  // anyone training on feel rather than on a calendar.
+  // Wochentage sind freiwillig: "Beliebiger Tag" behält den Vorschlag des Trainieren-
+  // Tabs (was am längsten her ist). Für alle, die nach Gefühl statt nach Kalender
+  // trainieren, ist das die bessere Antwort.
   const weekday = el('select', {}, [
     el('option', { value: '', selected: !Number.isInteger(day.weekday) }, [t('plans.anyDay')]),
     ...WEEK_ORDER.map((n) =>
@@ -794,10 +794,9 @@ function dayMenu(plan, day, index) {
 }
 
 /**
- * A plan as a link. No server involved: the whole plan rides inside the URL,
- * so there is nothing to host, nothing to sign up for, and nothing of yours
- * stored anywhere. It also means the link is exactly as private as whoever you
- * send it to.
+ * Ein Plan als Link. Kein Server beteiligt, der ganze Plan steckt in der URL. Es
+ * gibt also nichts zu hosten, nichts zum Registrieren, und nirgends ist etwas von dir
+ * gespeichert. Der Link ist damit genau so privat wie die Person, der du ihn schickst.
  */
 function shareSheet(plan) {
   const status = el('div.small.faint', { style: { marginTop: '10px' }, text: t('plans.buildingLink') });
@@ -820,12 +819,12 @@ function shareSheet(plan) {
       el('div.small.faint', { style: { marginTop: '-8px', marginBottom: '14px' },
         text: t('plans.linkNote', { exercises: tn(exCount, 'unit.exercise'), chars: url.length }) }),
       el('div.stack', {}, [
-        // navigator.share opens the iOS share sheet, which is the fastest path
-        // into a chat. Not available everywhere, hence the copy fallback below.
+        // navigator.share öffnet das Teilen-Menü von iOS, der schnellste Weg in einen
+        // Chat. Gibt es nicht überall, deshalb unten der Rückfall mit Kopieren.
         navigator.share
           ? el('button.btn.primary.full', {
               onclick: () => navigator.share({ title: plan.name, text: t('plans.shareText', { name: plan.name }), url })
-                .catch(() => { /* user dismissed the sheet */ }),
+                .catch(() => { /* Menü weggeklickt */ }),
             }, [t('plans.send')])
           : null,
         el('button.btn.ghost.full', {

@@ -1,22 +1,22 @@
-// The invite gate: an account with a code is needed before the app opens.
+// Die Einladungssperre: bevor die App aufgeht, braucht man ein Konto mit Code.
 //
-// What this is honestly worth, said once so nobody relies on more than it gives:
-// the app is a static page in a public repository and every screen runs on the
-// device. Someone who wants past this can open the developer tools and set a
-// flag. It cannot be otherwise without making the app need the server to
-// function, which would cost it the ability to work in a gym basement.
+// Was die ehrlich wert ist, einmal gesagt, damit sich niemand auf mehr verlässt:
+// die App ist eine statische Seite in einem öffentlichen Repo, und jeder Screen läuft
+// auf dem Gerät. Wer an der Sperre vorbei will, öffnet die Entwicklertools und setzt
+// eine Markierung. Anders geht es nicht, ohne dass die App den Server zum
+// Funktionieren braucht, und dann ginge sie im Kellerstudio nicht mehr.
 //
-// What it does buy, and this is real: nobody stumbles in and starts using it,
-// and nothing reaches the server without a code. It is a door, not a vault.
+// Was sie wirklich bringt: niemand stolpert zufällig hinein und benutzt sie, und
+// ohne Code erreicht nichts den Server. Eine Tür, kein Tresor.
 //
-// The rule that matters more than the gate itself: **it asks once.** Once a
-// device is unlocked it stays unlocked, offline, indefinitely. The one place
-// this app must never fail is halfway through a set in a basement with no
-// reception, and a login check on every launch would fail exactly there.
+// Die Regel, die wichtiger ist als die Sperre selbst: SIE FRAGT EINMAL. Ist ein
+// Gerät einmal entsperrt, bleibt es das, offline und unbegrenzt. Die eine Stelle, an
+// der die App nie versagen darf, ist mitten im Satz in einem Keller ohne Empfang,
+// und eine Anmeldeprüfung bei jedem Start würde genau dort versagen.
 //
-// The flag lives in the `keys` store, which is the only store a restore leaves
-// alone and which never appears in an exported backup. So it survives restoring
-// a backup, and it does not travel to someone else's phone inside one.
+// Die Markierung liegt im Store `keys`, dem einzigen, den eine Wiederherstellung in
+// Ruhe lässt und der nie in einer exportierten Sicherung auftaucht. Sie übersteht
+// also das Zurückspielen einer Sicherung und reist darin nicht auf ein fremdes Handy.
 
 import { el, clear, $, toast, authField, confirmSheet } from '../ui.js';
 import * as db from '../db.js';
@@ -48,12 +48,12 @@ export async function lock() {
 }
 
 /**
- * Check, when there is a connection, that the account still exists.
+ * Bei Verbindung prüfen, ob es das Konto noch gibt.
  *
- * This is the whole revocation story: delete someone's profile row and their
- * app locks the next time it has reception. Offline it does nothing at all, on
- * purpose, and any error other than "the profile is gone" is treated as a bad
- * connection rather than as grounds for locking someone out of their own log.
+ * Das ist das ganze Konzept zum Entziehen des Zugangs: die Profilzeile von jemandem
+ * löschen, und seine App sperrt sich beim nächsten Empfang. Offline passiert mit
+ * Absicht gar nichts, und jeder Fehler außer "das Profil ist weg" gilt als schlechte
+ * Verbindung und nicht als Grund, jemanden aus seinem eigenen Log auszusperren.
  */
 export async function recheck() {
   if (!cloud.isSignedIn()) return true;
@@ -73,21 +73,21 @@ export async function recheck() {
     if (deviceStatus === 'revoked') return revokeLocalAccess();
     return true;
   } catch (err) {
-    // Some Supabase installations need a short schema-cache refresh before a
-    // newly deployed RPC is reachable. RLS still hides a revoked profile, so a
-    // successful fallback read gives us a second authoritative signal. A real
-    // network failure still never locks an offline training log.
+    // Manche Supabase-Installationen brauchen kurz, bis der Schema-Cache eine neu
+    // bereitgestellte RPC kennt. RLS versteckt ein entzogenes Profil trotzdem, ein
+    // erfolgreiches Lesen als Rückfall ist also ein zweites verlässliches Signal. Ein
+    // echter Netzwerkfehler sperrt ein Offline-Trainingslog weiterhin nie.
     if (err?.code === 'OFFLINE') return null;
     try {
       if ((await cloud.getProfile()) === null) return revokeLocalAccess();
-    } catch { /* server unavailable: keep offline access */ }
+    } catch { /* Server nicht erreichbar: Offline-Zugang bleibt */ }
     return null;
   }
 }
 
-/* ================================ the screen ================================ */
+/* ================================ der Screen ================================ */
 
-/** Renders over everything and calls `onOpen` once the device is unlocked. */
+/** Legt sich über alles und ruft `onOpen` auf, sobald das Gerät entsperrt ist. */
 export async function show(onOpen) {
   document.getElementById('tabbar').hidden = true;
   $('#screen-title').textContent = 'LiftLog';
@@ -120,19 +120,18 @@ export async function show(onOpen) {
       }
     } catch (err) {
       if (err?.code === 'DEVICE_REVOKED') await cloud.signOut();
-      // Show the normal sign-in choice if the session cannot resume.
+      // Die normale Anmeldeauswahl zeigen, wenn die Sitzung sich nicht fortsetzen lässt.
     }
   }
   paintChoice(pane, done);
 }
 
 /**
- * `el()` drops a null child; `replaceChildren()` turns it into the text "null".
+ * `el()` lässt ein null-Kind weg, `replaceChildren()` macht daraus den Text "null".
  *
- * Which is exactly what the gate showed under its buttons on a device with no
- * training on it, because the export offer below returns null in that case.
- * Everything the gate paints goes through here so the trap has one place to be
- * avoided rather than four.
+ * Genau das stand bei einem Gerät ohne Trainings unter den Knöpfen der Sperre, weil
+ * das Angebot zum Exportieren unten dann null zurückgibt. Alles, was die Sperre
+ * zeichnet, geht hier durch, damit man die Falle an einer Stelle umgeht und nicht an vieren.
  */
 function paint(pane, ...children) {
   pane.replaceChildren(...children.filter(Boolean));
@@ -229,13 +228,13 @@ function paintWaiting(pane, done) {
 }
 
 /**
- * A way out for someone who is locked out but has a log on this device.
+ * Ein Ausweg für jemanden, der ausgesperrt ist, aber ein Log auf diesem Gerät hat.
  *
- * Revoking access is meant to stop someone using the app, not to hold their own
- * training hostage: the sessions are sitting in IndexedDB on their phone and
- * they are theirs. Anyone determined could read them out with the developer
- * tools anyway, so refusing here would only inconvenience the people who would
- * not think to. Only shown when there is actually something to export.
+ * Den Zugang zu entziehen soll jemanden von der App fernhalten, nicht sein eigenes
+ * Training als Geisel nehmen: die Einheiten liegen in IndexedDB auf seinem Handy und
+ * gehören ihm. Wer will, liest sie ohnehin mit den Entwicklertools aus, eine
+ * Weigerung würde also nur die treffen, die nicht darauf kämen. Wird nur gezeigt,
+ * wenn es wirklich etwas zu exportieren gibt.
  */
 function lockedOutExport() {
   if (!store.state.sessions.length) return null;
@@ -289,8 +288,8 @@ function paintSignUp(pane, done) {
     status.textContent = t('cloud.working');
     try {
       await cloud.signUp(email.value.trim(), password.value, { persist: false });
-      // The invite is what actually opens the door. An account without one can
-      // sign in and do nothing, here or on the server.
+      // Die Einladung ist das, was die Tür wirklich öffnet. Ein Konto ohne kann sich
+      // anmelden und nichts tun, weder hier noch auf dem Server.
       await cloud.claimInvite(code.value);
       if (!(await cloud.hasActiveAccess())) {
         throw Object.assign(new Error('ACCESS_SETUP_FAILED'), { code: 'ACCESS_SETUP_FAILED' });
@@ -354,8 +353,8 @@ function paintSignIn(pane, done) {
       cloud.persistSession();
       const profile = await cloud.getProfile();
       if (!profile) {
-        // Signed in, but this account never redeemed a code. Say which of the
-        // two things is missing rather than "wrong password".
+        // Angemeldet, aber dieses Konto hat nie einen Code eingelöst. Sagen, welches
+        // der beiden Dinge fehlt, statt "falsches Passwort".
         problem(status, { code: 'DENIED' });
         return;
       }

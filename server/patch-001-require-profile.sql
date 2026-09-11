@@ -1,12 +1,12 @@
--- Patch 001: an account without an invite must not be able to store anything.
+-- Patch 001: ein Konto ohne Einladung darf nichts speichern können.
 --
--- Run this once on a project that was created from the first version of
--- schema.sql. Projects set up from the current schema.sql already have it.
+-- Einmal auf einem Projekt ausführen, das aus der ersten Fassung von schema.sql entstanden
+-- ist. Projekte aus dem aktuellen schema.sql haben das schon.
 --
--- The hole: the invite code gates profile creation, and the policies on
--- `backups` and `devices` only ever asked "is this row yours". For a signed-up
--- but uninvited account the answer is yes, so it could write. Found by trying
--- it against a live project, not by re-reading the file.
+-- Die Lücke: der Einladungscode sperrt das Anlegen des Profils, und die Policies auf
+-- `backups` und `devices` haben nur gefragt "gehört dir diese Zeile". Bei einem Konto, das
+-- registriert, aber nicht eingeladen ist, heißt die Antwort ja, es konnte also schreiben.
+-- Gefunden durch Ausprobieren gegen ein echtes Projekt, nicht durch nochmaliges Lesen der Datei.
 
 create or replace function public.has_profile()
 returns boolean language sql stable security definer set search_path = public as $$

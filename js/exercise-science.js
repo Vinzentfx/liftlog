@@ -1,38 +1,38 @@
-// Per-exercise properties that the catalogue does not record but the research
-// cares about: at what muscle length the load actually lands, and whether the
-// target muscle is the thing that gives out first.
+// Eigenschaften einer Übung, die der Katalog nicht kennt, die Forschung aber schon:
+// bei welcher Muskellänge die Last wirklich ankommt, und ob der Zielmuskel als
+// Erstes aufgibt.
 //
-// Neither can be derived from the free-exercise-db fields, so both are curated
-// name rules. The rules are deliberately conservative — an exercise that no rule
-// recognises comes back as `classified: false` and is scored neutrally rather
-// than guessed at. A large share of the 900-odd catalogue entries are obscure
-// variants that genuinely have no published answer; pretending otherwise would
-// be inventing precision, the same reason height is left out of the strength
-// standards.
+// Aus den Feldern von free-exercise-db lässt sich beides nicht ableiten, also sind
+// es gepflegte Namensregeln. Die sind bewusst vorsichtig: eine Übung, die keine
+// Regel erkennt, kommt als `classified: false` zurück und wird neutral bewertet
+// statt geraten. Ein großer Teil der rund 900 Einträge im Katalog sind seltene
+// Varianten, zu denen es wirklich keine veröffentlichte Antwort gibt. So zu tun,
+// als gäbe es eine, wäre ausgedachte Genauigkeit, aus demselben Grund fehlt die
+// Körpergröße in den Kraftstandards.
 //
-// See js/evidence.js — SOURCES.wolf2025 for the length-bias evidence.
+// Die Belege zur Muskellänge stehen in js/evidence.js unter SOURCES.wolf2025.
 
 /**
- * Where the exercise loads the target muscle.
- *   long  — meaningful tension while the muscle is stretched (the good case)
- *   mixed — tension spread across the range, or depth-dependent
- *   short — peak resistance lands where the muscle is already shortened
+ * Wo die Übung den Zielmuskel belastet.
+ *   long   deutliche Spannung, während der Muskel gedehnt ist (der gute Fall)
+ *   mixed  Spannung über den ganzen Weg verteilt, oder abhängig von der Tiefe
+ *   short  der größte Widerstand kommt, wenn der Muskel schon verkürzt ist
  */
 const LONG = 'long', MIXED = 'mixed', SHORT = 'short';
 
 /**
- * First match wins, so order matters: exceptions sit above the general rules.
- * The same movement name can mean opposite things for different muscles — a
- * chest fly stretches the pec, a rear-delt fly does the reverse — so those
- * pairs are separated by name rather than by muscle field, which the imported
- * data fills in too loosely to trust.
+ * Die erste passende Regel gewinnt, die Reihenfolge ist also wichtig: Ausnahmen
+ * stehen über den allgemeinen Regeln. Derselbe Name kann bei verschiedenen Muskeln
+ * das Gegenteil bedeuten (Flys dehnen die Brust, Reverse Flys für die hintere
+ * Schulter machen das Umgekehrte). Solche Paare werden deshalb über den Namen
+ * getrennt und nicht über das Muskelfeld, das die importierten Daten zu locker füllen.
  */
 const LENGTH_RULES = [
   { re: /decline.{0,32}press|press.{0,32}decline/i,
     bias: SHORT, why: 'science.declinePress' },
-  // --- exceptions that have to beat the generic rules further down ---
-  // "Reverse Machine Flyes" has to lose to this rule and not to the chest-fly
-  // one below, hence the gap allowance rather than a straight "reverse fly".
+  // --- Ausnahmen, die vor den allgemeinen Regeln weiter unten greifen müssen ---
+  // "Reverse Machine Flyes" muss an dieser Regel hängen bleiben und nicht an der für
+  // Brust-Flys weiter unten, deshalb die erlaubte Lücke statt eines festen "reverse fly".
   { re: /reverse.{0,16}(fly|flye|pec deck)|rear (delt|deltoid)|bent[- ]?over.{0,12}(lateral|rear|fly|flye)/i,
     bias: SHORT, why: 'science.reverseFlyFlye' },
   { re: /(spider|concentration) curl/i,
@@ -41,7 +41,7 @@ const LENGTH_RULES = [
   { re: /cable.{0,16}(lateral|side) raise|lean[- ]?away|cross[- ]?body (lateral|raise)/i,
     bias: MIXED, why: 'science.cableLateralSide' },
 
-  // --- long: load lands on a stretched muscle ---
+  // --- long: die Last kommt auf den gedehnten Muskel ---
   { re: /pullover/i, bias: LONG, why: 'science.pullover' },
   { re: /incline.{0,16}curl|bayesian/i,
     bias: LONG, why: 'science.inclineCurlBayesian' },
@@ -60,16 +60,16 @@ const LENGTH_RULES = [
   { re: /pec deck|chest fly|cable (cross|fly|flye)|dumbbell (fly|flye)|\bflyes?\b|butterfly|iron cross|cross[- ]?over/i,
     bias: LONG, why: 'science.pecDeckChest' },
   { re: /\bdips?\b/i, bias: LONG, why: 'science.bdips' },
-  // Shoulder pressing has to be taken out before the dumbbell-press rule below.
-  // Without this "Arnold Dumbbell Press" reads as a chest movement and the app
-  // explains a delt exercise in terms of pectoral stretch — which is how the
-  // swap suggestions first exposed the bug.
+  // Schulterdrücken muss vor der Kurzhantel-Drück-Regel darunter raus. Ohne das
+  // gilt "Arnold Dumbbell Press" als Brustübung, und die App erklärt eine
+  // Schulterübung mit der Dehnung der Brust. So ist der Fehler über die
+  // Tauschvorschläge überhaupt aufgefallen.
   { re: /(shoulder|overhead|military|arnold|bradford).{0,12}press/i,
     bias: MIXED, why: 'science.shoulderOverheadMilitary' },
   { re: /press/i, when: (ex) => ex.muscle === 'Shoulders',
     bias: MIXED, why: 'science.press' },
-  // Guarded by the muscle field as well as the name: "Seated Dumbbell Press" is
-  // a shoulder movement that the name rule alone would happily call a chest one.
+  // Zusätzlich über das Muskelfeld abgesichert: "Seated Dumbbell Press" ist eine
+  // Schulterübung, die die Namensregel allein gern zur Brustübung machen würde.
   { re: /(dumbbell|db) (bench |incline |decline )?press/i, when: (ex) => ex.muscle === 'Chest',
     bias: LONG, why: 'science.dumbbellDbBench' },
   { re: /hack squat|sissy squat|pendulum squat|(bulgarian|split) squat|\blunge/i,
@@ -85,7 +85,7 @@ const LENGTH_RULES = [
   { re: /deadlift/i,
     bias: LONG, why: 'science.deadlift' },
 
-  // --- short: peak resistance where the muscle is already shortened ---
+  // --- short: der größte Widerstand kommt, wenn der Muskel schon verkürzt ist ---
   { re: /hip thrust|glute bridge|kick[- ]?back|glute machine|bridg(e|ing)|hip (extension|lift) with band/i,
     bias: SHORT, why: 'science.hipThrustGlute' },
   { re: /rack pull/i,
@@ -103,7 +103,7 @@ const LENGTH_RULES = [
   { re: /(lateral|side) raise/i,
     bias: SHORT, why: 'science.lateralSideRaise' },
 
-  // --- mixed: tension across the range, or it depends how you do it ---
+  // --- mixed: Spannung über den ganzen Weg, oder es hängt von der Ausführung ab ---
   { re: /leg extension/i,
     bias: MIXED, why: 'science.legExtension' },
   { re: /leg press/i, bias: MIXED, why: 'science.legPress' },
@@ -117,10 +117,10 @@ const LENGTH_RULES = [
 ];
 
 /**
- * Movements where something other than the target muscle decides when the set
- * ends — grip, the lower back, or balance. Those sets buy less growth per unit
- * of fatigue. That is a training-practice argument rather than a study result,
- * and the UI labels it as one.
+ * Bewegungen, bei denen etwas anderes als der Zielmuskel entscheidet, wann der Satz
+ * endet: Griff, unterer Rücken oder Gleichgewicht. Solche Sätze bringen pro Ermüdung
+ * weniger Wachstum. Das ist ein Argument aus der Trainingspraxis und kein
+ * Studienergebnis, und die Oberfläche kennzeichnet es auch so.
  */
 const LIMITER_RULES = [
   { re: /bodyweight (fly|flye)|stability ball|swiss ball|bosu|suspension|trx|ring (fly|push)/i,
@@ -150,8 +150,8 @@ export function lengthBias(ex) {
   const name = ex?.name || '';
   for (const rule of LENGTH_RULES) {
     if (!rule.re.test(name)) continue;
-    // `when` narrows a rule that the name alone cannot decide — the same words
-    // mean different things on different muscles.
+    // `when` grenzt eine Regel ein, die der Name allein nicht entscheiden kann.
+    // Dieselben Wörter bedeuten bei verschiedenen Muskeln etwas anderes.
     if (rule.when && !rule.when(ex || {})) continue;
     return { bias: rule.bias, why: rule.why, classified: true };
   }
@@ -171,10 +171,10 @@ export function limiter(ex) {
   if (ex?.mech === 'isolation') {
     return { level: 'target', why: 'science.singleJoint', classified: true };
   }
-  // Supported multi-joint work. Being braced by a machine or a cable stack is
-  // exactly what removes balance and torso fatigue from the equation — which is
-  // a fatigue argument, not the growth claim the old rating used to make about
-  // free weights (SOURCES.haugen2023).
+  // Gestützte Mehrgelenksübungen. Von einer Maschine oder einem Kabelzug gehalten zu
+  // werden nimmt genau das Gleichgewicht und die Rumpfermüdung aus der Rechnung.
+  // Das ist ein Argument über Ermüdung und nicht die Behauptung zum Wachstum, die die
+  // alte Bewertung über freie Gewichte aufgestellt hat (SOURCES.haugen2023).
   if (ex?.equipment === 'Machine' || ex?.equipment === 'Cable') {
     return { level: 'target', why: 'science.supported', classified: true };
   }
@@ -182,9 +182,9 @@ export function limiter(ex) {
 }
 
 /**
- * How much the setup lets the target muscle express effort without balance or
- * implement control ending the set. This is a practical quality, not proof
- * that machines grow more than free weights at matched effort.
+ * Wie gut der Aufbau den Zielmuskel sich anstrengen lässt, ohne dass Gleichgewicht
+ * oder die Kontrolle über das Gerät den Satz beenden. Eine praktische Eigenschaft,
+ * kein Beweis, dass Maschinen bei gleicher Anstrengung mehr aufbauen als freie Gewichte.
  */
 const STABILITY_RULES = [
   { re: /bodyweight (fly|flye)|ring (fly|push)|suspension|trx|swiss ball|bosu|stability ball|exercise ball/i,
@@ -215,7 +215,7 @@ export function stability(ex) {
   return { level: 'normal', points: 1, why: 'science.stabilityNormal', classified: false };
 }
 
-// Keys, resolved by the caller. See js/strings.js.
+// Schlüssel, der Aufrufer löst sie auf. Siehe js/strings.js.
 export const LENGTH_LABEL = {
   long: 'science.label.long',
   mixed: 'science.label.mixed',

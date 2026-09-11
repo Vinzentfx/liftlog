@@ -1,6 +1,6 @@
-// Local-only gym geofence and map picker. Coordinates never enter LiftLog's
-// database or cloud snapshot; the browser stores only this device's chosen
-// point, radius and last prompt day.
+// Standort des Studios und Kartenauswahl, nur lokal. Die Koordinaten kommen nie in
+// die Datenbank von LiftLog oder in die Cloud-Sicherung. Der Browser speichert nur
+// den gewählten Punkt dieses Geräts, den Radius und den Tag der letzten Nachfrage.
 
 import { el, openSheet, closeSheet, toast } from './ui.js';
 import { t } from './i18n.js';
@@ -31,7 +31,7 @@ export function saveGymLocation(value) {
 }
 
 export function clearGymLocation() {
-  try { localStorage.removeItem(KEY); } catch { /* unavailable storage */ }
+  try { localStorage.removeItem(KEY); } catch { /* Speicher nicht verfügbar */ }
 }
 
 export function distanceMeters(a, b) {
@@ -48,8 +48,8 @@ export function nearbyPlannedWorkout(config, position, plan, sessions, now = Dat
   const dayKey = localDayKey(now);
   if (config.lastPromptDay === dayKey) return null;
   const today = todaysDays(plan, sessions);
-  // Location may only start a day explicitly assigned to this weekday. The
-  // unscheduled fallback is a suggestion, not "today's selected workout".
+  // Der Standort darf nur einen Tag starten, der fest auf diesem Wochentag liegt.
+  // Der Rückfall ohne Wochentage ist ein Vorschlag und nicht "das Training von heute".
   if (!today.scheduled || !today.days.length) return null;
   const distance = distanceMeters(config, position);
   if (distance > config.radius + Math.min(Number(position.accuracy) || 0, 75)) return null;
@@ -67,7 +67,7 @@ export function currentPosition(options = {}) {
   });
 }
 
-/** Open a small, dependency-free OpenStreetMap picker with a fixed centre pin. */
+/** Eine kleine OpenStreetMap-Auswahl ohne Abhängigkeiten, mit fester Nadel in der Mitte. */
 export function gymMapPicker(onSave) {
   const saved = loadGymLocation();
   let centre = saved ? { latitude: saved.latitude, longitude: saved.longitude } : null;

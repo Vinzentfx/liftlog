@@ -1,35 +1,34 @@
-// Talking to the cloud backup. Plain fetch against PostgREST and GoTrue, the
-// same mechanism js/foodlookup.js already uses for barcodes, so no SDK and no
-// build step.
+// Die Verbindung zur Cloud-Sicherung. Einfaches fetch gegen PostgREST und GoTrue,
+// derselbe Weg, den js/foodlookup.js schon für Barcodes nimmt. Kein SDK, kein Build-Schritt.
 //
-// Nothing in this file understands training data. It moves a sealed blob and
-// some public keys, and it never sees a key that opens anything: encryption
-// happens in js/crypto.js before anything is handed over. That separation is
-// the point, so keep it. The day this module starts taking a session object
-// instead of a ciphertext is the day the promise stops being true.
+// Nichts in dieser Datei versteht Trainingsdaten. Sie bewegt einen versiegelten Blob
+// und ein paar öffentliche Schlüssel und sieht nie einen Schlüssel, der etwas öffnet:
+// verschlüsselt wird in js/crypto.js, bevor irgendetwas übergeben wird. Genau diese
+// Trennung ist der Sinn, also bitte so lassen. An dem Tag, an dem dieses Modul ein
+// Sitzungsobjekt statt eines Chiffrats annimmt, ist das Versprechen nicht mehr wahr.
 //
-// Every failure comes back as an Error with a `code` the screens can branch on,
-// because "it did not work" is not something a backup feature is allowed to
-// say. The distinction that matters most:
+// Jeder Fehler kommt als Error mit einem `code` zurück, an dem die Screens
+// verzweigen können. "Hat nicht geklappt" darf eine Sicherungsfunktion nicht sagen.
+// Die wichtigste Unterscheidung:
 //
-//   OFFLINE  the phone could not reach the server. Nothing is wrong, try later.
-//   STALE    the server already has a newer version than this device based its
-//            upload on. Pull before pushing. This is the one-writer rule doing
-//            its job, not an error in the usual sense.
-//   DENIED   row-level security refused. In practice: signed in, but no invite.
-//   AUTH     no session, or the refresh token is spent. Ask for the password.
+//   OFFLINE  Das Handy kam nicht an den Server. Nichts ist kaputt, später probieren.
+//   STALE    Der Server hat schon eine neuere Version als die, auf der dieses Gerät
+//            seinen Upload aufgebaut hat. Erst holen, dann schicken. Das ist die
+//            Regel mit dem einen Schreiber bei der Arbeit, kein Fehler im üblichen Sinn.
+//   DENIED   Row-Level-Security hat abgelehnt. In der Praxis: angemeldet, aber ohne Einladung.
+//   AUTH     Keine Sitzung oder das Refresh-Token ist verbraucht. Nach dem Passwort fragen.
 
 import { SUPABASE_URL, SUPABASE_ANON } from './cloud-config.js';
 
 const AUTH = `${SUPABASE_URL}/auth/v1`;
 const REST = `${SUPABASE_URL}/rest/v1`;
 
-/* ============================== the session ============================== */
+/* ============================== die Sitzung ============================== */
 
-// localStorage rather than IndexedDB, deliberately: this is not app data. It is
-// a credential that has to be readable synchronously at boot, before the store
-// has opened, and that should disappear with the site data when someone signs
-// out or clears the browser. Falls back to memory so the module can be tested.
+// Bewusst localStorage statt IndexedDB: das hier sind keine App-Daten, sondern ein
+// Zugangsnachweis, der beim Start synchron lesbar sein muss, bevor der Store offen
+// ist, und der mit den Seitendaten verschwinden soll, wenn sich jemand abmeldet oder
+// den Browser leert. Fällt auf den Speicher zurück, damit sich das Modul testen lässt.
 const memory = new Map();
 const store = {
   get(key) {
@@ -38,11 +37,11 @@ const store = {
   },
   set(key, value) {
     memory.set(key, value);
-    try { globalThis.localStorage?.setItem(key, value); } catch { /* private mode */ }
+    try { globalThis.localStorage?.setItem(key, value); } catch { /* privater Modus */ }
   },
   remove(key) {
     memory.delete(key);
-    try { globalThis.localStorage?.removeItem(key); } catch { /* private mode */ }
+    try { globalThis.localStorage?.removeItem(key); } catch { /* privater Modus */ }
   },
 };
 
@@ -56,8 +55,8 @@ function keepSession(next, persistent = sessionPersistent) {
   session = next && next.access_token ? {
     access_token: next.access_token,
     refresh_token: next.refresh_token,
-    // Recorded as an absolute moment, because `expires_in` is only meaningful
-    // at the instant it arrives and this survives a phone being asleep.
+    // Als fester Zeitpunkt gespeichert, weil `expires_in` nur im Moment der Ankunft
+    // etwas bedeutet und das hier ein schlafendes Handy übersteht.
     expires_at: Date.now() + (Number(next.expires_in) || 3600) * 1000,
     user: next.user ? { id: next.user.id, email: next.user.email } : session?.user,
   } : null;
@@ -71,7 +70,7 @@ function keepSession(next, persistent = sessionPersistent) {
 export const currentUser = () => session?.user ?? null;
 export const isSignedIn = () => !!session?.access_token;
 
-/* ================================ plumbing ================================ */
+/* ================================ Leitungen ================================ */
 
 function fail(code, message, extra = {}) {
   const err = new Error(message || code);
@@ -81,15 +80,15 @@ function fail(code, message, extra = {}) {
 }
 
 /**
- * PostgREST reports failures as SQL state codes. Translating them here means a
- * screen never has to know what 23505 is, and more importantly means the two
- * that need different words get them.
+ * PostgREST meldet Fehler als SQL-State-Codes. Sie hier zu übersetzen heißt, dass kein
+ * Screen wissen muss, was 23505 ist, und vor allem, dass die beiden, die andere Worte
+ * brauchen, auch andere bekommen.
  */
 function fromPostgrest(status, body) {
   const code = body?.code;
   if (code === '23505') return fail('STALE', 'the server already has a newer version');
   if (code === '42501') return fail('DENIED', body?.message || 'not allowed');
-  if (code === 'P0001') return fail(body.message, body.message);   // our own raise
+  if (code === 'P0001') return fail(body.message, body.message);   // unser eigenes raise
   if (typeof code === 'string' && /^[A-Z][A-Z0-9_]+$/.test(code)) {
     return fail(code, body?.message || code);
   }
@@ -111,8 +110,8 @@ async function raw(url, { method = 'GET', headers = {}, body, token } = {}) {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (err) {
-    // No response at all: aeroplane mode, no signal, the project asleep. Never
-    // the user's fault and never worth an alarming message.
+    // Gar keine Antwort: Flugmodus, kein Empfang, das Projekt schläft. Nie die Schuld
+    // des Nutzers und nie eine beunruhigende Meldung wert.
     throw fail('OFFLINE', err?.message || 'no connection');
   }
 
@@ -130,18 +129,18 @@ async function raw(url, { method = 'GET', headers = {}, body, token } = {}) {
   return parsed;
 }
 
-/** A call that carries the signed-in user, refreshing the token if it is due. */
+/** Ein Aufruf mit dem angemeldeten Nutzer, das Token wird erneuert, wenn es fällig ist. */
 async function authed(url, options = {}) {
   if (!session?.access_token) throw fail('AUTH', 'not signed in');
 
-  // A minute of slack, so a request started just before expiry does not race it.
+  // Eine Minute Puffer, damit eine Anfrage kurz vor Ablauf nicht mit ihm um die Wette läuft.
   if (session.expires_at && session.expires_at - Date.now() < 60000) await refresh();
 
   try {
     return await raw(url, { ...options, token: session.access_token });
   } catch (err) {
-    // A token can be rejected before it looks expired here, for instance after
-    // the account was deleted on another device. One retry, then give up.
+    // Ein Token kann abgelehnt werden, bevor es hier abgelaufen aussieht, zum Beispiel
+    // wenn das Konto auf einem anderen Gerät gelöscht wurde. Einmal wiederholen, dann aufgeben.
     if (err.code !== 'AUTH') throw err;
     await refresh();
     return raw(url, { ...options, token: session.access_token });
@@ -156,20 +155,20 @@ async function refresh() {
       method: 'POST', body: { refresh_token: session.refresh_token },
     });
   } catch (err) {
-    if (err.code === 'OFFLINE') throw err;      // keep the session, just no signal
-    keepSession(null);                          // spent or revoked: really signed out
+    if (err.code === 'OFFLINE') throw err;      // Sitzung behalten, nur kein Empfang
+    keepSession(null);                          // verbraucht oder entzogen: wirklich abgemeldet
     throw fail('AUTH', 'session expired');
   }
   keepSession(next, sessionPersistent);
 }
 
-/* ================================= account ================================= */
+/* ================================= Konto ================================= */
 
 export async function signUp(email, password, { persist = true } = {}) {
   const out = await raw(`${AUTH}/signup`, { method: 'POST', body: { email, password } });
-  // With email confirmation switched off this carries a session straight away.
-  // If it is ever switched on, there is no token here and the caller has to say
-  // so rather than pretending the account is ready.
+  // Ist die Bestätigung per E-Mail aus, kommt hier sofort eine Sitzung mit. Wird sie
+  // je eingeschaltet, gibt es hier kein Token, und der Aufrufer muss das sagen, statt
+  // so zu tun, als wäre das Konto fertig.
   if (!out?.access_token) throw fail('CONFIRM_EMAIL', 'this account needs email confirmation first');
   return keepSession(out, persist);
 }
@@ -182,14 +181,14 @@ export async function signIn(email, password, { persist = true } = {}) {
   return keepSession(out, persist);
 }
 
-/** Persist a session only after the server has confirmed ongoing access. */
+/** Eine Sitzung erst speichern, wenn der Server bestätigt hat, dass der Zugang weiter besteht. */
 export function persistSession() {
   if (session) keepSession(session, true);
 }
 
 export async function signOut() {
-  // Best effort: the local session is what actually matters, and a phone with
-  // no signal must still be able to sign out.
+  // So gut es geht: die lokale Sitzung ist das, was wirklich zählt, und auch ein Handy
+  // ohne Empfang muss sich abmelden können.
   try {
     const registration = await globalThis.navigator?.serviceWorker?.getRegistration?.();
     const subscription = await registration?.pushManager?.getSubscription?.();
@@ -199,35 +198,36 @@ export async function signOut() {
       });
       await subscription.unsubscribe();
     }
-  } catch { /* an offline sign-out still wins; stale endpoints expire on push */ }
-  try { await authed(`${AUTH}/logout`, { method: 'POST' }); } catch { /* ignore */ }
+  } catch { /* eine Abmeldung offline gewinnt trotzdem, alte Endpunkte laufen beim Push aus */ }
+  try { await authed(`${AUTH}/logout`, { method: 'POST' }); } catch { /* ignorieren */ }
   keepSession(null);
 }
 
-/* ================================= profile ================================= */
+/* ================================= Profil ================================= */
 
-/** The row that only exists once an invite has been redeemed. Null before that. */
+/** Die Zeile, die es erst gibt, wenn eine Einladung eingelöst ist. Vorher null. */
 export async function getProfile() {
   const rows = await authed(`${REST}/profiles?select=*`);
   return rows?.[0] ?? null;
 }
 
-/** Server-authoritative entitlement; unlike the local gate this cannot be bypassed. */
+/** Berechtigung laut Server. Anders als die lokale Sperre lässt sich die nicht umgehen. */
 export async function hasActiveAccess() {
   return await authed(`${REST}/rpc/access_status`, { method: 'POST', body: {} }) === true;
 }
 
 /**
- * Turn a status the server *returned* into the error it used to *raise*.
+ * Einen Status, den der Server ZURÜCKGEGEBEN hat, in den Fehler verwandeln, den er
+ * früher GEWORFEN hat.
  *
- * These RPCs stopped raising on purpose. A `raise exception` aborts the
- * transaction the function runs in, which rolled back the rate-limit row the
- * same function had just written one line earlier — so every counter reset
- * itself on exactly the attempts it existed to count. Committing a status
- * string is what makes the limit real. See server/patch-014.
+ * Diese RPCs werfen mit Absicht nicht mehr. Ein `raise exception` bricht die
+ * Transaktion ab, in der die Funktion läuft, und hat damit die Zeile fürs Rate-Limit
+ * zurückgerollt, die dieselbe Funktion eine Zeile vorher geschrieben hatte. Jeder
+ * Zähler hat sich also genau bei den Versuchen zurückgesetzt, die er zählen sollte.
+ * Erst ein festgeschriebener Status macht die Grenze echt. Siehe server/patch-014.
  *
- * A server still on the older, void-returning version answers with null, and
- * has already raised for anything that went wrong, so null means success here.
+ * Ein Server mit der älteren Version ohne Rückgabewert antwortet mit null und hat bei
+ * jedem Problem schon geworfen. null heißt hier also Erfolg.
  */
 function statusOrThrow(status, fallback) {
   if (status === null || status === undefined || status === 'OK') return;
@@ -241,7 +241,7 @@ export async function claimInvite(code) {
   statusOrThrow(status, 'INVITE_INVALID');
 }
 
-/** Atomically establishes the first owner device and recovery material. */
+/** Legt in einem Schritt das erste Besitzergerät und das Wiederherstellungsmaterial an. */
 export function configureBackup(deviceId, fields, ownerToken) {
   return authed(`${REST}/rpc/configure_backup`, {
     method: 'POST',
@@ -249,13 +249,13 @@ export function configureBackup(deviceId, fields, ownerToken) {
   });
 }
 
-/* ================================= devices ================================= */
+/* ================================= Geräte ================================= */
 
 export function listDevices() {
   return authed(`${REST}/devices?select=*&order=created_at`);
 }
 
-/** Announces this device and asks to be let in. Approval happens elsewhere. */
+/** Meldet dieses Gerät an und bittet um Einlass. Freigegeben wird woanders. */
 export async function registerDevice({ name, publicKey }) {
   const id = session?.user?.id;
   if (!id) throw fail('AUTH', 'not signed in');
@@ -288,7 +288,7 @@ export function touchDevice(deviceId, ownerToken) {
   });
 }
 
-/** The recovery route: prove the key, take the account over, revoke the rest. */
+/** Der Weg über die Wiederherstellung: Schlüssel beweisen, Konto übernehmen, den Rest entziehen. */
 export async function claimOwnership(verifier, deviceId, ownerToken) {
   const status = await authed(`${REST}/rpc/claim_ownership`, {
     method: 'POST', body: { verifier, device: deviceId, owner_token: ownerToken },
@@ -296,9 +296,9 @@ export async function claimOwnership(verifier, deviceId, ownerToken) {
   statusOrThrow(status, 'RECOVERY_WRONG');
 }
 
-/* ================================= backups ================================= */
+/* ================================= Sicherungen ================================= */
 
-/** Version and size only. Enough to decide whether to upload, without the download. */
+/** Nur Version und Größe. Reicht, um zu entscheiden, ob hochgeladen wird, ohne herunterzuladen. */
 export async function latestMeta() {
   const rows = await authed(
     `${REST}/backups?select=version,bytes,created_at,device_id&order=version.desc&limit=1`);
@@ -314,12 +314,12 @@ export async function download(version = null) {
 }
 
 /**
- * Push a sealed snapshot as the next version.
+ * Einen versiegelten Stand als nächste Version hochschieben.
  *
- * The version is passed in rather than read here, so the caller has to have
- * looked at what the server holds. Getting it wrong is not silent: the primary
- * key on (user_id, version) turns a stale push into STALE rather than letting
- * it overwrite whatever a second device wrote in the meantime.
+ * Die Version kommt von außen und wird nicht hier gelesen, der Aufrufer muss also
+ * nachgesehen haben, was der Server hat. Ein Fehler dabei bleibt nicht still: der
+ * Primärschlüssel auf (user_id, version) macht aus einem veralteten Upload ein STALE,
+ * statt zu überschreiben, was ein zweites Gerät inzwischen geschrieben hat.
  */
 export async function upload(blob, { version, deviceId }) {
   if (!session?.user?.id) throw fail('AUTH', 'not signed in');
@@ -334,13 +334,13 @@ export async function upload(blob, { version, deviceId }) {
 }
 
 /**
- * Erase everything this account has stored through the owner-protected RPC.
+ * Alles löschen, was dieses Konto gespeichert hat, über die RPC mit Besitzerschutz.
  *
- * The app needs this for a deletion request, and it is the honest answer to
- * one: after this the server holds nothing but a login. Removing the login
- * itself needs the `service_role` key, which by design nothing here has, so
- * that last step happens in the Supabase dashboard. Worth saying out loud
- * rather than implying the button does more than it does.
+ * Die App braucht das für eine Löschanfrage, und es ist die ehrliche Antwort darauf:
+ * danach hat der Server nur noch einen Login. Den Login selbst zu löschen braucht den
+ * `service_role`-Schlüssel, und den hat hier absichtlich nichts. Dieser letzte Schritt
+ * passiert also im Supabase-Dashboard. Das sollte man sagen, statt so zu tun, als
+ * würde der Knopf mehr machen, als er macht.
  */
 export async function deleteEverything(ownerToken) {
   if (!session?.user?.id) throw fail('AUTH', 'not signed in');
@@ -349,7 +349,7 @@ export async function deleteEverything(ownerToken) {
   });
 }
 
-/** Delete cloud rows and the Supabase Auth identity through the protected Edge Function. */
+/** Cloud-Zeilen und die Identität in Supabase Auth über die geschützte Edge Function löschen. */
 export async function deleteAccount(ownerToken) {
   if (!session?.user?.id) throw fail('AUTH', 'not signed in');
   await authed(`${SUPABASE_URL}/functions/v1/delete-account`, {
@@ -362,7 +362,7 @@ export function listVersions() {
   return authed(`${REST}/backups?select=version,bytes,created_at,device_id&order=version.desc`);
 }
 
-/* ================================ social ================================= */
+/* ================================ Soziales ================================= */
 
 const socialRpc = (name, body = {}) => authed(`${REST}/rpc/${name}`, { method: 'POST', body });
 
@@ -436,11 +436,11 @@ export const removeMachineRecord = (exercise) =>
   socialRpc('remove_machine_record', { p_exercise: exercise });
 
 /**
- * Contribute this device's rank scores and get the distribution back.
+ * Die eigenen Rangwerte dieses Geräts beisteuern und die Verteilung zurückbekommen.
  *
- * `entries` is [{ key, score }]. There is no read-only counterpart on purpose:
- * contributing is what buys the answer, so nobody is measured against a
- * population they declined to join. See server/patch-016.
+ * `entries` ist [{ key, score }]. Eine Variante nur zum Lesen gibt es absichtlich
+ * nicht: wer beisteuert, bekommt die Antwort, niemand wird an einer Gruppe gemessen,
+ * der er nicht beitreten wollte. Siehe server/patch-016.
  */
 export const shareRankScores = (entries) => socialRpc('share_rank_scores', { p_scores: entries });
 export const forgetRankScores = () => socialRpc('forget_rank_scores');

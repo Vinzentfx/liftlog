@@ -1,6 +1,6 @@
--- Patch 005: RLS policies execute has_active_access() as the authenticated role.
--- That role therefore needs EXECUTE permission on the boolean helper. The
--- helper exposes no account data and always evaluates auth.uid().
+-- Patch 005: RLS-Policies führen has_active_access() als Rolle authenticated aus. Diese
+-- Rolle braucht also das Recht EXECUTE auf die boolesche Hilfsfunktion. Die Funktion gibt
+-- keine Kontodaten preis und wertet immer auth.uid() aus.
 
 grant execute on function public.has_active_access() to authenticated;
 notify pgrst, 'reload schema';

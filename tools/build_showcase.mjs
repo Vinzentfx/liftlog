@@ -1,23 +1,22 @@
-// Generates a showcase backup: half a year of plausible training and four
-// months of food, so every screen in the app has something real to show.
+// Erzeugt eine Vorführ-Sicherung: ein halbes Jahr glaubwürdiges Training und vier Monate
+// Essen, damit jeder Screen der App etwas Echtes zu zeigen hat.
 //
 //   node tools/build_showcase.mjs > showcase-backup.json
 //
-// Why a backup file and not a "load demo data" button in Settings: importing
-// replaces everything. A button that wipes your training log is one mis-tap
-// away from being a disaster, and it would sit permanently in the app for the
-// sake of a demo you give twice. As a file it goes through the Restore path,
-// which already asks first and says what it will replace.
+// Warum eine Sicherungsdatei und kein Knopf "Beispieldaten laden" in den Einstellungen: ein
+// Import ersetzt alles. Ein Knopf, der das eigene Trainingslog löscht, ist einen Fehltipp von
+// einer Katastrophe entfernt und stünde für immer in der App, wegen einer Vorführung, die man
+// zweimal macht. Als Datei geht es über Wiederherstellen, und das fragt schon vorher und sagt,
+// was ersetzt wird.
 //
-// The records come from js/models.js rather than from JSON written here by
-// hand. Anything else would drift from the app's actual shape the first time a
-// field is added, and would fail silently: the store does not validate records,
-// it just reads fields that may not be there.
+// Die Einträge kommen aus js/models.js und nicht aus JSON, das hier von Hand geschrieben wird.
+// Alles andere würde beim ersten neuen Feld von der echten Form der App abweichen, und zwar
+// still: der Store prüft keine Einträge, er liest einfach Felder, die vielleicht fehlen.
 //
-// Everything is derived, nothing is asserted. The maintenance estimate, the
-// strength score, the stall report and the timeline all compute themselves out
-// of this data, so the numbers on screen are the numbers this file implies. If
-// the demo looks wrong, the data is wrong, which is the honest failure mode.
+// Alles ist abgeleitet, nichts behauptet. Bedarf, Stärkewertung, Stillstandsbericht und
+// Zeitleiste rechnen sich selbst aus diesen Daten aus, die Zahlen auf dem Screen sind also die,
+// die aus dieser Datei folgen. Sieht die Vorführung falsch aus, sind die Daten falsch, und das
+// ist die ehrliche Art zu scheitern.
 
 import {
   seedExercises, newSession, newEntry, newSet, newFood, newMeal, newTemplate,
@@ -25,9 +24,9 @@ import {
 } from '../js/models.js';
 import { PLAN_BLUEPRINTS, buildPlanDays } from '../js/plan-builder.js';
 
-/* ============================ determinism ============================ */
+/* ============================ Wiederholbarkeit ============================ */
 
-/** Seeded so re-running produces the same file; a demo should not drift. */
+/** Mit festem Startwert, damit ein neuer Lauf dieselbe Datei ergibt. Eine Vorführung soll nicht wandern. */
 function rng(seed) {
   let a = seed >>> 0;
   return () => {
@@ -45,13 +44,13 @@ const chance = (p) => rand() < p;
 let counter = 0;
 const uid = (prefix = '') => `${prefix}sc${(counter++).toString(36).padStart(4, '0')}`;
 
-/* ============================== profile ============================== */
+/* ============================== Profil ============================== */
 
 const WEEKS = 26;
 const START_BW = 78.5;
 const END_BW = 84.0;
 
-// Noon, so nothing lands on a day boundary and nothing depends on the hour.
+// Mittags, damit nichts auf einer Tagesgrenze landet und nichts von der Uhrzeit abhängt.
 const today = new Date(); today.setHours(12, 0, 0, 0);
 const dayOffset = (n) => {
   const d = new Date(today);
@@ -59,13 +58,13 @@ const dayOffset = (n) => {
   return d;
 };
 
-/* ============================= exercises ============================= */
+/* ============================= Übungen ============================= */
 
 const exercises = seedExercises(uid);
 const byName = new Map(exercises.map((e) => [normName(e.name), e]));
 
-// A few marked as favourites and personally rated, because those change what
-// the library, the generator and the swap suggestions do.
+// Ein paar als Favoriten markiert und selbst bewertet, weil das ändert, was Bibliothek,
+// Generator und Tauschvorschläge machen.
 for (const [name, rating] of [
   ['Barbell Bench Press', 5], ['Lat Pulldown', 4], ['Back Squat', 5],
   ['Romanian Deadlift', 4], ['Lateral Raise', 3], ['Leg Extension', 2],
@@ -77,14 +76,14 @@ for (const [name, rating] of [
   if (rating >= 4) ex.favourite = true;
 }
 
-/* =============================== plan =============================== */
+/* =============================== Plan =============================== */
 
 const blueprint = PLAN_BLUEPRINTS.find((b) => b.key === 'pplul') || PLAN_BLUEPRINTS[0];
 const days = buildPlanDays(blueprint, exercises, { sets: 2, reps: '6-10' });
 
-// Weekdays assigned, so the Train tab, the week overview and the week card all
-// have a schedule to talk about rather than falling back to "least recently
-// trained". Mon/Tue/Thu/Fri/Sat.
+// Mit Wochentagen, damit Trainieren-Tab, Wochenübersicht und Wochenkarte einen Plan haben,
+// über den sie reden können, statt auf "am längsten nicht trainiert" zurückzufallen.
+// Mo/Di/Do/Fr/Sa.
 const WEEKDAYS = [1, 2, 4, 5, 6];
 days.forEach((d, i) => { d.weekday = WEEKDAYS[i] ?? null; });
 
@@ -99,16 +98,16 @@ const plan = {
   updatedAt: today.getTime(),
 };
 
-/* ============================= training ============================= */
+/* ============================= Training ============================= */
 
 /**
- * Where each lift starts and how fast it climbs.
+ * Wo jede Übung anfängt und wie schnell sie steigt.
  *
- * Absolute numbers matter here: the strength tiers are bodyweight-relative, so
- * a made-up 200 kg bench would show a demo profile as Elite and make every
- * screen that mentions tiers useless. These land a well-trained-but-not-freak
- * 84 kg lifter around the middle of the scale, which is where the interesting
- * parts of the UI live.
+ * Die absoluten Zahlen zählen hier: die Stärkestufen hängen am Körpergewicht, ein
+ * ausgedachtes Bankdrücken mit 200 kg würde ein Vorführprofil als Elite zeigen und jeden
+ * Screen, der Stufen erwähnt, nutzlos machen. Diese hier legen jemanden mit 84 kg, gut
+ * trainiert, aber kein Ausnahmefall, etwa in die Mitte der Skala, und dort passiert das
+ * Interessante in der Oberfläche.
  */
 const START = {
   'Barbell Bench Press': [72.5, 1.25],
@@ -126,7 +125,7 @@ const START = {
   'Hip Thrust': [100, 1.8],
 };
 
-/** Plausible starting load for anything not named above. */
+/** Glaubwürdige Startlast für alles, was oben nicht genannt ist. */
 function startWeight(ex) {
   if (START[ex.name]) return START[ex.name];
   switch (ex.equipment) {
@@ -134,10 +133,10 @@ function startWeight(ex) {
     case 'Machine': return [between(35, 70), between(0.7, 1.2)];
     case 'Cable': return [between(20, 45), between(0.4, 0.8)];
     case 'Dumbbell': return [between(10, 24), between(0.18, 0.32)];
-    // Bodyweight and "other" work carries added load, which is both what people
-    // actually do once they can and what keeps it out of the stall report: an
-    // estimated 1RM computed from a zero weight is zero every week, and a flat
-    // line at zero is indistinguishable from a lift that stopped moving.
+    // Körpergewicht und "Other" bekommen Zusatzgewicht. Das machen Leute wirklich, sobald sie
+    // können, und es hält sie aus dem Stillstandsbericht: ein geschätztes 1RM aus null Gewicht
+    // ist jede Woche null, und eine flache Linie bei null sieht genauso aus wie eine Übung, die
+    // nicht mehr vorankommt.
     default: return [between(5, 14), between(0.2, 0.4)];
   }
 }
@@ -151,11 +150,10 @@ for (const day of days) {
 }
 
 /**
- * Two lifts that stop moving two thirds of the way in.
+ * Zwei Übungen, die nach zwei Dritteln stehen bleiben.
  *
- * Deliberate: the stall report and the "what is moving" list are among the more
- * interesting things this app does, and with everything climbing forever they
- * both have nothing to say.
+ * Mit Absicht: der Stillstandsbericht und die Liste "was sich bewegt" gehören zum
+ * Interessanteren an dieser App, und wenn alles für immer steigt, haben beide nichts zu sagen.
  */
 const STALLS = ['Overhead Press', 'Lateral Raise'];
 const stallIds = new Set(
@@ -178,11 +176,11 @@ const NOTES = [
 
 for (let week = WEEKS - 1; week >= 0; week--) {
   for (const [dayIndex, day] of days.entries()) {
-    // A missed session here and there, so streaks, "week vs plan" and the
-    // consistency heatmap are not a solid block of green.
+    // Ab und zu fällt eine Einheit aus, damit Serien, "Woche gegen Plan" und die Heatmap nicht
+    // ein durchgehend grüner Block sind.
     if (chance(0.11)) continue;
 
-    // Weekday of the plan day, counted back from today.
+    // Wochentag des Plantags, von heute aus zurückgezählt.
     const daysAgo = week * 7 + (6 - dayIndex);
     const when = dayOffset(daysAgo);
     when.setHours(17 + Math.floor(rand() * 3), Math.floor(rand() * 60), 0, 0);
@@ -203,7 +201,7 @@ for (let week = WEEKS - 1; week >= 0; week--) {
 
       const sets = [];
 
-      // Warm-ups on the heavy barbell lifts, the way the app itself offers them.
+      // Aufwärmsätze bei den schweren Langhantelübungen, so wie die App sie selbst anbietet.
       if (ex.equipment === 'Barbell' && working > 40) {
         sets.push({ ...newSet(), weight: roundTo(working * 0.5, s), reps: 5, type: 'warmup', done: true });
         sets.push({ ...newSet(), weight: roundTo(working * 0.75, s), reps: 3, type: 'warmup', done: true });
@@ -216,8 +214,8 @@ for (let week = WEEKS - 1; week >= 0; week--) {
           ...newSet(),
           weight: working,
           reps,
-          // RIR missing on roughly a fifth of sets, because the app treats a
-          // blank as unknown and that path deserves to be visible.
+          // RIR fehlt bei etwa einem Fünftel der Sätze, weil die App ein leeres Feld als
+          // unbekannt behandelt und dieser Weg sichtbar sein soll.
           rir: chance(0.2) ? null : Math.max(0, Math.round(between(0, 3))),
           done: true,
         });
@@ -235,12 +233,12 @@ for (let week = WEEKS - 1; week >= 0; week--) {
   }
 }
 
-/* ============================ bodyweight ============================ */
+/* ============================ Körpergewicht ============================ */
 
 const bodyweight = [];
 for (let d = WEEKS * 7; d >= 0; d--) {
-  // Two or three weigh-ins a week, not every day: the timeline's "weeks you did
-  // not weigh stay empty" rule needs gaps to show.
+  // Zwei oder drei Wiegungen pro Woche, nicht jeden Tag: die Regel der Zeitleiste "Wochen ohne
+  // Wiegen bleiben leer" braucht Lücken, damit man sie sieht.
   if (!chance(0.36)) continue;
   const t = 1 - d / (WEEKS * 7);
   const date = dayOffset(d);
@@ -248,14 +246,14 @@ for (let d = WEEKS * 7; d >= 0; d--) {
   bodyweight.push({
     id: uid('bw_'),
     date: date.getTime(),
-    // Trend plus the daily noise a real scale has, rounded the way one reads.
+    // Trend plus das tägliche Rauschen einer echten Waage, gerundet, wie man sie abliest.
     weight: Math.round((START_BW + (END_BW - START_BW) * t + between(-0.5, 0.5)) * 10) / 10,
   });
 }
 
-/* ============================== food ============================== */
+/* ============================== Essen ============================== */
 
-/** name, portion, protein, kcal, carbs, fat, fibre */
+/** Name, Portion, Eiweiß, kcal, Kohlenhydrate, Fett, Ballaststoffe */
 const FOODS = [
   ['Magerquark 500 g', '500 g', 60, 345, 20, 1, 0],
   ['Haferflocken', '80 g', 11, 303, 49, 6, 8],
@@ -293,8 +291,8 @@ const foods = FOODS.map(([name, portion, protein, kcal, carbs, fat, fibre]) =>
   newFood(uid, { name, portion, protein, kcal, carbs, fat, fibre, source: 'manual' }));
 const food = (name) => foods.find((f) => f.name === name);
 
-// One food deliberately without carbs, fat or fibre, so the energy split has a
-// reason to refuse on some days and the "not recorded" wording is reachable.
+// Ein Lebensmittel absichtlich ohne Kohlenhydrate, Fett und Ballaststoffe, damit sich die
+// Energieaufteilung an manchen Tagen weigern kann und der Text "nicht eingetragen" erreichbar ist.
 const incomplete = newFood(uid, {
   name: 'Kantine Tagesgericht', portion: '1 Portion', protein: 30, kcal: 640, source: 'manual',
 });
@@ -311,13 +309,12 @@ const meals = [];
 const water = [];
 
 /**
- * A day is built up to a calorie target rather than by picking items blind.
+ * Ein Tag wird bis zu einem Kalorienziel aufgebaut, statt blind Einträge zu ziehen.
  *
- * Picking uniformly from a list produced a 1,500 kcal average for someone
- * gaining half a kilo a month, and every number downstream inherited it: the
- * maintenance estimate came out at 1,193 kcal, and the calorie and carb targets
- * derived from it were nonsense. The demo has to hold together arithmetically
- * or it demonstrates the app computing rubbish.
+ * Gleichmäßig aus einer Liste zu ziehen ergab 1.500 kcal im Schnitt für jemanden, der ein
+ * halbes Kilo im Monat zunimmt, und jede Zahl danach hat das geerbt: der Bedarf kam bei
+ * 1.193 kcal heraus, und die daraus abgeleiteten Ziele für Kalorien und Kohlenhydrate waren
+ * Unsinn. Die Vorführung muss rechnerisch zusammenpassen, sonst führt sie vor, wie die App Mist rechnet.
  */
 function buildDay(date, key, targetKcal) {
   const weekend = [0, 6].includes(date.getDay());
@@ -330,7 +327,7 @@ function buildDay(date, key, targetKcal) {
     total += f.kcal * amount;
   };
 
-  // Breakfast and dinner are the anchors; lunch and snacks fill the gap.
+  // Frühstück und Abendessen sind die Anker, Mittagessen und Snacks füllen die Lücke.
   add(pick(BREAKFAST), 'breakfast', 8);
   add(pick(BREAKFAST), 'breakfast', 8);
   if (chance(0.55)) add('Kaffee mit Milch', 'breakfast', 9);
@@ -348,12 +345,11 @@ function buildDay(date, key, targetKcal) {
   add(pick(DINNER), 'dinner', 19);
   add(pick(DINNER), 'dinner', 19);
 
-  // Top up towards the target with snacks, which is how the day actually gets
-  // filled. Capped so a low-calorie run of picks cannot spiral.
-  // The cap has to be loose enough to actually reach the target. At six it was
-  // binding on most days and the whole log came out ~700 kcal light, which the
-  // maintenance estimate then faithfully reported as a 1,984 kcal maintenance
-  // for an 84 kg lifter who was gaining weight.
+  // Mit Snacks bis zum Ziel auffüllen, so füllt sich ein Tag wirklich. Gedeckelt, damit eine
+  // Reihe kalorienarmer Züge nicht ausufert.
+  // Der Deckel muss locker genug sein, um das Ziel wirklich zu erreichen. Bei sechs hat er an
+  // den meisten Tagen gegriffen, und das ganze Log kam ~700 kcal zu leicht heraus. Der Bedarf
+  // hat das dann brav als 1.984 kcal gemeldet, für jemanden mit 84 kg, der zunimmt.
   let guard = 0;
   while (total < targetKcal - 200 && guard++ < 14) {
     add(pick(SNACK), 'snack', guard % 2 ? 16 : 21, chance(0.3) ? 2 : 1);
@@ -364,15 +360,15 @@ for (let d = FOOD_WEEKS * 7; d >= 0; d--) {
   const date = dayOffset(d);
   const key = dayKey(date.getTime());
 
-  // One week away, logged only twice: the timeline's four-day floor and the
-  // "a day nobody logged is blank, not zero" rule both need a week that falls
-  // below them, or neither is visible in the demo.
+  // Eine Woche weg, nur zweimal eingetragen: die Untergrenze von vier Tagen in der Zeitleiste und
+  // die Regel "ein Tag ohne Einträge ist leer, nicht null" brauchen beide eine Woche darunter,
+  // sonst sieht man keins von beiden in der Vorführung.
   const awayWeek = d >= 63 && d <= 69;
   const logChance = awayWeek ? 0.28 : 0.78;
   if (!chance(logChance)) continue;
 
-  // Gaining slowly, so intake sits a few hundred over maintenance, with the
-  // weekend variance any real log has.
+  // Langsame Zunahme, das Essen liegt also ein paar hundert über dem Bedarf, mit den
+  // Schwankungen am Wochenende, die jedes echte Log hat.
   const weekend = [0, 6].includes(date.getDay());
   const target = Math.round(between(2950, 3250) + (weekend ? between(0, 500) : 0));
   buildDay(date, key, target);
@@ -380,7 +376,7 @@ for (let d = FOOD_WEEKS * 7; d >= 0; d--) {
   if (chance(0.85)) water.push({ day: key, ml: 250 * Math.round(between(5, 11)) });
 }
 
-/* ========================== saved meals ========================== */
+/* ========================== gespeicherte Mahlzeiten ========================== */
 
 const templates = [
   newTemplate(uid, {
@@ -405,13 +401,13 @@ templates[0].uses = 23;
 templates[1].uses = 14;
 templates[2].uses = 31;
 
-// `uses` drives the order of the food list, so the staples sit on top the way
-// they would after four months of real logging.
+// `uses` bestimmt die Reihenfolge der Lebensmittelliste, die Klassiker stehen also oben, wie
+// nach vier Monaten echtem Eintragen.
 for (const f of foods) {
   f.uses = meals.filter((m) => m.foodId === f.id).length;
 }
 
-/* ============================= output ============================= */
+/* ============================= Ausgabe ============================= */
 
 const settings = {
   ...DEFAULT_SETTINGS,
@@ -424,10 +420,9 @@ const settings = {
   goal: 'gain',
   activePlanId: plan.id,
   restSeconds: 180,
-  // Backed up recently enough that the "back up your training" card on Home
-  // stays quiet: the nudge needs 10 sessions or 28 days since, and a warning
-  // banner across the top of a demo is noise. Push this further back if you
-  // want to show the card itself.
+  // Kürzlich genug gesichert, dass die Karte "sichere dein Training" auf Home still bleibt: der
+  // Hinweis braucht 10 Einheiten oder 28 Tage, und ein Warnbanner oben über einer Vorführung ist
+  // Lärm. Weiter zurücklegen, wenn man die Karte selbst zeigen will.
   lastExportAt: dayOffset(9).getTime(),
 };
 
@@ -448,8 +443,8 @@ const payload = {
 
 process.stdout.write(JSON.stringify(payload));
 
-// A short report on stderr, so piping stdout to a file still tells you what
-// came out. A showcase you have not looked at is a showcase that demos a bug.
+// Ein kurzer Bericht auf stderr, damit man auch beim Umleiten von stdout in eine Datei sieht,
+// was herauskam. Eine Vorführung, die man nicht angeschaut hat, führt einen Fehler vor.
 const totalSets = sessions.reduce(
   (n, s) => n + s.entries.reduce((m, e) => m + e.sets.filter((x) => x.done && x.type === 'working').length, 0), 0);
 const loggedDays = new Set(meals.map((m) => m.day)).size;

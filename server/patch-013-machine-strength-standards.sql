@@ -1,7 +1,7 @@
--- Privacy-preserving, same-model machine-strength aggregates.
--- The app sends a SHA-256 hash of the normalized manufacturer/model label,
--- never the readable label or gym location. Raw rows are inaccessible to app
--- users; the RPC returns only a count and four robust percentiles.
+-- Datensparsame Kraftwerte je Maschinenmodell. Die App schickt einen SHA-256-Hash des
+-- normalisierten Namens von Hersteller und Modell, nie den lesbaren Namen oder den Ort des
+-- Studios. Rohe Zeilen sind für Nutzer der App unerreichbar, die RPC gibt nur eine Anzahl
+-- und vier robuste Perzentile zurück.
 
 create table if not exists public.machine_strength_observations (
   user_id uuid not null references auth.users on delete cascade,

@@ -1,6 +1,6 @@
--- Let every explicitly approved device upload without receiving the owner's
--- powerful approve/revoke/delete capability. Version sequencing remains atomic:
--- simultaneous uploads cannot silently overwrite one another.
+-- Jedes ausdrücklich freigegebene Gerät darf hochladen, ohne die mächtige Berechtigung des
+-- Besitzers zum Freigeben, Entziehen und Löschen zu bekommen. Die Reihenfolge der Versionen
+-- bleibt atomar: gleichzeitige Uploads können sich nicht still überschreiben.
 
 create or replace function public.upload_backup_from_device(
   backup_version bigint, backup_iv text, backup_ct text, backup_bytes int,
@@ -16,8 +16,8 @@ begin
   if backup_bytes <= 0 or backup_bytes > 6000000 or length(backup_ct) >= 8000000
      or length(backup_iv) not between 16 and 24 then raise exception 'BACKUP_INVALID'; end if;
 
-  -- Serialise writers for this account. The profile row exists for every
-  -- activated account and gives all devices the same small lock target.
+  -- Schreiber für dieses Konto nacheinander. Die Profilzeile gibt es für jedes aktivierte
+  -- Konto, und sie gibt allen Geräten dasselbe kleine Ziel zum Sperren.
   perform 1 from public.profiles where id=auth.uid() for update;
   select coalesce(max(version),0)+1 into expected from public.backups where user_id=auth.uid();
   if backup_version<>expected then raise exception 'STALE'; end if;

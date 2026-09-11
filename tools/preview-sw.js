@@ -1,22 +1,21 @@
-// The service worker of the public preview. The workflow publishes it as sw.js
-// in place of the real one; see js/demo.js for why the preview has no offline
-// copy.
+// Der Service Worker der öffentlichen Vorschau. Der Workflow veröffentlicht ihn
+// als sw.js anstelle des echten, warum die Vorschau keine Offline-Kopie hat, steht
+// in js/demo.js.
 //
-// This address served the real app until the move to Cloudflare, so a browser
-// that visited back then still runs that worker and serves its cached build: the
-// gated app, empty, from July. The job here is to end that and then get out of
-// the way.
+// Unter dieser Adresse lief bis zum Umzug zu Cloudflare die echte App. Ein Browser,
+// der damals da war, hat also noch diesen Worker und liefert dessen gecachten Stand
+// aus: die App mit Einladungssperre, leer, von Juli. Dieser Worker soll das beenden
+// und danach nicht mehr im Weg sein.
 //
-// install   Take over at once instead of waiting for every old tab to close.
-// activate  Delete every cache, then send the pages the old worker was serving
-//           to the current build. That build predates bootstrap.js and has no
-//           reload of its own, so without this it keeps running until someone
-//           reloads by hand.
+// install   Sofort übernehmen, statt zu warten, bis jeder alte Tab zu ist.
+// activate  Jeden Cache löschen, dann die Seiten, die der alte Worker bedient hat,
+//           auf den aktuellen Stand schicken. Der ist älter als bootstrap.js und
+//           lädt nicht von selbst neu, ohne das liefe er, bis jemand von Hand neu lädt.
 //
-// Two things it deliberately does not do. It never calls clients.claim(): a
-// first visit stays uncontrolled, so matchAll() below cannot see it and nothing
-// reloads a page that is already current. And it has no fetch handler, so every
-// request goes to the network as if no worker existed.
+// Zwei Dinge macht er bewusst nicht. Er ruft nie clients.claim() auf: ein erster
+// Besuch bleibt ohne Worker, matchAll() unten sieht ihn also nicht, und nichts lädt
+// eine Seite neu, die schon aktuell ist. Und er hat keinen fetch-Handler, jede
+// Anfrage geht ins Netz, als gäbe es keinen Worker.
 
 self.addEventListener('install', () => self.skipWaiting());
 

@@ -1,13 +1,14 @@
-// Nutrition — today's log, your own food list, and the protein target.
+// Essen: das Log von heute, die eigene Lebensmittelliste und das Eiweißziel.
 //
-// Still built around a list you write yourself: 95% of what anyone eats is the
-// same thirty things, and typing those in once beats fighting a catalogue of
-// three million products forever. The barcode lookup fills the same fields
-// rather than replacing that idea.
+// Weiterhin um eine Liste gebaut, die man selbst schreibt: 95 % von dem, was jemand
+// isst, sind immer dieselben dreißig Dinge, und die einmal einzutippen ist besser, als
+// sich für immer durch einen Katalog von drei Millionen Produkten zu kämpfen. Die
+// Barcode-Abfrage füllt dieselben Felder und ersetzt diese Idee nicht.
 //
-// Protein and calories carry the claims; carbs, fat, fibre and water are
-// recorded and shown without one. Anything not filled in stays *unknown* rather
-// than becoming zero, which is why the energy split can refuse to draw itself.
+// Eiweiß und Kalorien tragen die Aussagen. Kohlenhydrate, Fett, Ballaststoffe und Wasser
+// werden festgehalten und ohne Aussage gezeigt. Was nicht ausgefüllt ist, bleibt
+// UNBEKANNT und wird nicht zu null, deshalb kann sich die Energieaufteilung weigern, sich
+// zu zeichnen.
 
 import {
   el, toast, openSheet, closeSheet, confirmSheet, emptyState, listItem, fmtNum, fmtDecimal, fmtWeight, fmtDate,
@@ -30,10 +31,10 @@ import { barChart } from '../charts.js';
 import { navigate } from '../app.js';
 import { t, tn } from '../i18n.js';
 
-let viewDay = null;      // null = today; set by the date stepper
-let trendMetric = 'protein';   // which metric the 14-day chart shows
+let viewDay = null;      // null = heute, setzt die Datumsauswahl
+let trendMetric = 'protein';   // welche Größe das Diagramm über 14 Tage zeigt
 
-/** The target band for a metric, or null where there is none to compare against. */
+/** Der Zielbereich einer Größe, oder null, wo es keinen zum Vergleichen gibt. */
 function bandFor(key, targets) {
   if (!targets || !targets.ok) return null;
   if (key === 'kcal') return { low: targets.kcal, high: targets.kcal };
@@ -43,10 +44,10 @@ function bandFor(key, targets) {
 export default function renderNutrition({ actions, fresh }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
 
-  // Stepping back a day survives a re-render, which is what the stepper needs,
-  // but not a trip to another tab. Coming back to Food and finding it still on
-  // last Tuesday is how a lunch ends up logged five days late, and the only
-  // sign would have been the date under the heading.
+  // Einen Tag zurückgehen übersteht das Neuzeichnen, das braucht die Datumsauswahl, aber
+  // nicht den Wechsel auf einen anderen Tab. Zurück bei Essen noch auf dem letzten
+  // Dienstag zu stehen ist genau der Weg, auf dem ein Mittagessen fünf Tage zu spät
+  // eingetragen wird, und das Einzige, was es verraten hätte, wäre das Datum unter der Überschrift.
   if (fresh) viewDay = null;
 
   const root = el('div');
@@ -57,8 +58,8 @@ export default function renderNutrition({ actions, fresh }) {
   const target = proteinTarget(store.state.settings);
 
   root.append(dayHeader(day, isToday));
-  // Today's calories and macros answer the first question on this screen.
-  // Search follows immediately afterwards, before water, meals and trends.
+  // Kalorien und Makros von heute beantworten die erste Frage auf diesem Screen. Die Suche
+  // kommt direkt danach, vor Wasser, Mahlzeiten und Verläufen.
   root.append(targetCard(totals, target));
   root.append(targetsSection(totals));
   root.append(macroCard(totals));
@@ -71,16 +72,16 @@ export default function renderNutrition({ actions, fresh }) {
   return root;
 }
 
-/* ======================= targets ======================= */
+/* ======================= Ziele ======================= */
 
 /**
- * What to aim for, and how much of it is left today.
+ * Worauf man zielt und wie viel davon heute noch übrig ist.
  *
- * The order matters and is stated on the card, because it is the whole reason
- * these numbers are allowed to exist: energy sets the direction, protein has
- * its own band, fat has a floor, and carbohydrate is the remainder. Nothing
- * here is a ratio — the carb figure is arithmetic on the user's own calorie
- * target, which is itself measured rather than predicted.
+ * Die Reihenfolge ist wichtig und steht auf der Karte, weil nur sie diese Zahlen
+ * überhaupt rechtfertigt: die Energie bestimmt die Richtung, Eiweiß hat seinen eigenen
+ * Bereich, Fett eine Untergrenze, und die Kohlenhydrate sind der Rest. Nichts davon ist
+ * ein Verhältnis. Die Zahl für Kohlenhydrate ist Rechnerei auf dem eigenen Kalorienziel,
+ * und das ist selbst gemessen und nicht vorhergesagt.
  */
 function targetsSection(totals) {
   const wrap = el('div');
@@ -107,9 +108,9 @@ function targetsSection(totals) {
 
   const rows = [
     [t('food.calories'), `${fmtNum(targets.kcal)} kcal`, totals.kcal, targets.kcal, targets.kcal, 'var(--text)'],
-    [t('food.protein'), `${targets.protein.low}–${targets.protein.high} g`, totals.protein, targets.protein.low, targets.protein.high, 'var(--accent-hi)'],
-    [t('food.carbs'), `${targets.carbs.low}–${targets.carbs.high} g`, totals.carbs, targets.carbs.low, targets.carbs.high, '#22D3EE'],
-    [t('food.fat'), `${targets.fat.low}–${targets.fat.high} g`, totals.fat, targets.fat.low, targets.fat.high, '#C084FC'],
+    [t('food.protein'), `${targets.protein.low}-${targets.protein.high} g`, totals.protein, targets.protein.low, targets.protein.high, 'var(--accent-hi)'],
+    [t('food.carbs'), `${targets.carbs.low}-${targets.carbs.high} g`, totals.carbs, targets.carbs.low, targets.carbs.high, '#22D3EE'],
+    [t('food.fat'), `${targets.fat.low}-${targets.fat.high} g`, totals.fat, targets.fat.low, targets.fat.high, '#C084FC'],
   ];
 
   const card = el('div.card', {});
@@ -198,15 +199,15 @@ function targetsSheet(targets) {
   ]));
 }
 
-/* ======================= macros ======================= */
+/* ======================= Makros ======================= */
 
 /**
- * Where the day's energy came from.
+ * Woher die Energie des Tages kam.
  *
- * Shown as a split, never as a target. No macro ratio has an evidence base
- * worth printing — protein has one, and past that "40/30/30" is folklore with a
- * decimal point. So this reports what was eaten and says nothing about what
- * should have been.
+ * Gezeigt als Aufteilung, nie als Ziel. Kein Verhältnis der Makros hat eine Grundlage,
+ * die sich zu drucken lohnt. Eiweiß hat eine, und darüber hinaus ist "40/30/30" Folklore
+ * mit Komma. Das hier berichtet also, was gegessen wurde, und sagt nichts darüber, was
+ * es hätte sein sollen.
  */
 function macroCard(totals) {
   const wrap = el('div');
@@ -221,8 +222,8 @@ function macroCard(totals) {
   ]));
 
   if (!split) {
-    // The honest failure: with carbs or fat unrecorded on some items, any bar
-    // drawn here would be a picture of the logging rather than the eating.
+    // Das ehrliche Scheitern: fehlen bei manchen Einträgen Kohlenhydrate oder Fett, wäre
+    // jeder Balken hier ein Bild vom Eintragen und nicht vom Essen.
     const gaps = [];
     if (totals.missing.carbs) gaps.push(t('food.withoutCarbs', { n: totals.missing.carbs }));
     if (totals.missing.fat) gaps.push(t('food.withoutFat', { n: totals.missing.fat }));
@@ -265,15 +266,15 @@ function macroKey(colour, label, grams, share) {
   ]);
 }
 
-/* ======================= water ======================= */
+/* ======================= Wasser ======================= */
 
 /**
- * Water as glasses, because nobody thinks in millilitres.
+ * Wasser in Gläsern, weil niemand in Millilitern denkt.
  *
- * The reference line is an adequate intake, not a goal to beat: requirements
- * move with heat, training and bodyweight, and thirst covers the difference for
- * most people. So the row fills up and then stops mattering — there is no
- * "over" state and nothing turns red.
+ * Die Bezugslinie ist ein Richtwert und kein Ziel zum Übertreffen: der Bedarf ändert
+ * sich mit Hitze, Training und Körpergewicht, und bei den meisten gleicht der Durst den
+ * Rest aus. Die Reihe füllt sich also und ist dann egal. Es gibt kein "zu viel", und
+ * nichts wird rot.
  */
 function waterCard(day) {
   const GLASS = 250;
@@ -305,14 +306,14 @@ function waterCard(day) {
   ]);
 }
 
-/* ======================= day navigation ======================= */
+/* ======================= zwischen Tagen wechseln ======================= */
 
 function dayHeader(day, isToday) {
   const step = (delta) => {
     const d = new Date(`${day}T12:00:00`);
     d.setDate(d.getDate() + delta);
     const next = dayKey(d.getTime());
-    // No logging into the future — an empty tomorrow is not information.
+    // Nicht in die Zukunft eintragen, ein leeres Morgen ist keine Information.
     if (next > dayKey()) return;
     viewDay = next === dayKey() ? null : next;
     navigate('nutrition');
@@ -324,11 +325,11 @@ function dayHeader(day, isToday) {
     el('div', { style: { textAlign: 'center' } }, [
       el('div', { style: { fontWeight: '700', fontSize: '17px' },
         text: isToday ? t('common.today') : fmtDate(noon, { weekday: 'short' }) }),
-      // The day key is how the app stores a date, not how anyone reads one.
+      // Der Tagesschlüssel ist, wie die App ein Datum speichert, nicht wie jemand es liest.
       el('div.small.faint', { text: fmtDate(noon, { weekday: 'short', year: 'numeric' }) }),
     ]),
-    // Tomorrow cannot be logged, so the button says so to everything that asks,
-    // not only to a pair of eyes: dimmed alone still takes focus and a tap.
+    // Für morgen kann man nichts eintragen, also sagt der Knopf das jedem, der fragt, und
+    // nicht nur den Augen: nur abgeblendet nimmt er trotzdem Fokus und Tipps an.
     el('button.icon-btn', {
       'aria-label': t('food.nextDay'),
       disabled: isToday || null,
@@ -337,14 +338,14 @@ function dayHeader(day, isToday) {
   ]);
 }
 
-/* ======================= target ======================= */
+/* ======================= Ziel ======================= */
 
 /**
- * The day at a glance: energy first, then the three macros under it.
+ * Der Tag auf einen Blick: zuerst die Energie, darunter die drei Makros.
  *
- * Calories lead because that is the number that decides which direction you are
- * going. Protein keeps its band underneath, because it is the only one of the
- * three with a target worth showing — carbs and fat are reported, not judged.
+ * Die Kalorien stehen vorne, weil diese Zahl entscheidet, in welche Richtung es geht.
+ * Eiweiß behält darunter seinen Bereich, weil es als einziges der drei ein Ziel hat, das
+ * sich zu zeigen lohnt. Kohlenhydrate und Fett werden berichtet, nicht bewertet.
  */
 function targetCard(totals, target) {
   const verdict = proteinVerdict(totals.protein, target);
@@ -367,8 +368,8 @@ function targetCard(totals, target) {
   ]);
 
   if (target) {
-    // The bar fills to the bottom of the band; the band itself is what matters,
-    // so the top edge is marked rather than treated as a finish line.
+    // Der Balken füllt sich bis zum unteren Ende des Bereichs. Der Bereich selbst ist das
+    // Wichtige, die obere Kante wird markiert und nicht wie eine Ziellinie behandelt.
     const pct = Math.min(1, totals.protein / target.low);
     card.append(
       el('div.track-thin', { style: { marginTop: '12px' } }, [
@@ -411,13 +412,13 @@ function macroPill(label, grams, colour, missing = 0) {
 }
 
 /**
- * Everything the day's log actually knows.
+ * Alles, was das Log des Tages wirklich weiß.
  *
- * Micronutrients are here rather than on the main screen because their coverage
- * is thin and uneven: they come from the bundled USDA library and from whatever
- * a barcode record happened to carry, so a day is nearly always part-known. Each
- * row therefore says how many of the day's items had no value, and a row where
- * nothing did says so instead of printing a confident zero.
+ * Die Mikronährstoffe stehen hier und nicht auf dem Hauptscreen, weil sie dünn und
+ * ungleich abgedeckt sind: sie kommen aus der mitgelieferten USDA-Bibliothek und aus
+ * dem, was ein Barcode-Eintrag zufällig hatte, ein Tag ist also fast immer nur teilweise
+ * bekannt. Jede Zeile sagt deshalb, bei wie vielen Einträgen des Tages der Wert fehlte,
+ * und eine Zeile, bei der alle fehlen, sagt das, statt selbstbewusst null zu drucken.
  */
 function detailSheet(totals) {
   const rows = NUTRIENTS.map((n) => {
@@ -484,7 +485,7 @@ function targetSheet() {
   ]));
 }
 
-/* ======================= today's meals ======================= */
+/* ======================= Mahlzeiten von heute ======================= */
 
 const SLOT_KEY = {
   breakfast: 'food.slot.breakfast', lunch: 'food.slot.lunch',
@@ -500,7 +501,7 @@ function mealList(meals, day) {
 
   wrap.append(el('div.section-head', {}, [
     el('h2', { text: t('food.logged') }),
-    // Most days repeat most of the day before. One tap beats fifteen.
+    // Die meisten Tage wiederholen den Großteil des Vortags. Ein Tipp ist besser als fünfzehn.
     canRepeat && !meals.length
       ? el('button.btn.quiet.sm', {
           onclick: async () => {
@@ -520,8 +521,8 @@ function mealList(meals, day) {
     return wrap;
   }
 
-  // Grouped by time of day purely so a long list reads as a day rather than a
-  // heap. Nothing in the app scores meal timing — see slotFor in models.js.
+  // Nach Tageszeit gruppiert, nur damit sich eine lange Liste wie ein Tag liest und nicht
+  // wie ein Haufen. Nichts in der App bewertet, wann gegessen wird, siehe slotFor in models.js.
   for (const slot of MEAL_SLOTS) {
     const inSlot = meals.filter((m) => (m.slot || slotFor(m.at)) === slot);
     if (!inSlot.length) continue;
@@ -533,8 +534,8 @@ function mealList(meals, day) {
       el('span', { text: slotLabel(slot) }),
       el('div.row', { style: { gap: '10px', alignItems: 'baseline' } }, [
         el('span', { text: `${slotProtein} g${slotKcal ? ` · ${fmtNum(slotKcal)} kcal` : ''}` }),
-        // The cheapest place to create a saved meal is the moment you have just
-        // logged one — no separate builder screen to go and find.
+        // Eine gespeicherte Mahlzeit anzulegen ist nie billiger als direkt nach dem
+        // Eintragen. Kein eigener Screen zum Zusammenbauen, den man erst suchen muss.
         inSlot.length > 1
           ? el('button.btn.quiet.sm', {
               style: { padding: '0 4px', minHeight: '22px', fontSize: '11px' },
@@ -575,7 +576,7 @@ function mealRow(m) {
   ]);
 }
 
-/** Change how much of something you had, or which part of the day it belongs to. */
+/** Ändern, wie viel man von etwas hatte oder zu welcher Tageszeit es gehört. */
 function mealSheet(m) {
   const amount = normaliseOnBlur(numberInput({ decimal: true, value: m.amount }));
 
@@ -613,15 +614,15 @@ function mealSheet(m) {
 }
 
 /**
- * Turn what is already logged into a reusable meal.
+ * Aus dem, was schon eingetragen ist, eine wiederverwendbare Mahlzeit machen.
  *
- * Offered from the slot header because that is the moment it costs nothing: you
- * have just built the thing, and naming it is one field. A separate builder
- * screen would be a place nobody goes.
+ * Angeboten an der Überschrift der Tageszeit, weil es genau dort nichts kostet: man hat
+ * das Ding gerade gebaut, und einen Namen zu geben ist ein Feld. Ein eigener Screen
+ * zum Bauen wäre ein Ort, an den niemand geht.
  *
- * Only the items that still resolve to a food can be saved — a portion logged
- * from a food since deleted carries its own snapshot in history, but there is
- * nothing left to re-log it from.
+ * Speichern lassen sich nur Einträge, die noch auf ein Lebensmittel zeigen. Eine
+ * Portion von einem inzwischen gelöschten Lebensmittel trägt im Verlauf ihre eigene
+ * Momentaufnahme, aber es gibt nichts mehr, woraus man sie neu eintragen könnte.
  */
 function saveMealSheet(meals, slot) {
   const resolvable = meals.filter((m) => store.state.foods.some((f) => f.id === m.foodId));
@@ -659,7 +660,7 @@ function saveMealSheet(meals, slot) {
   ]));
 }
 
-/** Saved meals, one tap each. */
+/** Gespeicherte Mahlzeiten, je ein Tipp. */
 function savedMeals(day) {
   const wrap = el('div');
   const templates = store.state.templates;
@@ -671,8 +672,8 @@ function savedMeals(day) {
   ]));
 
   for (const tpl of templates.slice(0, 8)) {
-    // Totals are computed from the foods now, not from when it was saved — the
-    // whole point of storing references rather than values.
+    // Die Summen kommen aus den Lebensmitteln von jetzt, nicht aus dem Moment des
+    // Speicherns. Genau dafür werden Verweise gespeichert und keine Werte.
     const items = tpl.items
       .map((i) => ({ food: store.state.foods.find((f) => f.id === i.foodId), amount: i.amount }))
       .filter((x) => x.food);
@@ -740,7 +741,7 @@ function previousDay(day) {
   return dayKey(d.getTime());
 }
 
-/* ======================= the food list ======================= */
+/* ======================= die Lebensmittelliste ======================= */
 
 function quickAdd(day) {
   const wrap = el('div');
@@ -784,9 +785,9 @@ function quickAdd(day) {
       }));
     }
 
-    // Then the bundled libraries, kept visibly apart. Generic entries were
-    // measured in a lab; branded ones were typed off a packet by a stranger.
-    // Both are useful and they are not the same kind of number.
+    // Dann die mitgelieferten Bibliotheken, sichtbar getrennt. Allgemeine Einträge wurden
+    // im Labor gemessen, Markenprodukte hat ein Fremder von einer Packung abgetippt.
+    // Beides ist nützlich, aber nicht dieselbe Art von Zahl.
     const hits = q ? searchFoods(q) : [];
     for (const kind of ['generic', 'brand']) {
       const group = hits.filter((h) => h.kind === kind);
@@ -837,12 +838,11 @@ function quickAdd(day) {
 }
 
 /**
- * Pick a portion for a library food, then it joins your list.
+ * Eine Portion für ein Lebensmittel aus der Bibliothek wählen, dann kommt es auf die eigene Liste.
  *
- * The library stores per 100 g because that is how the source reports it and
- * the only figure that is unambiguous. How much of it you eat is the one thing
- * no database knows, so it is asked here — the same decision the barcode path
- * makes, in the same place.
+ * Die Bibliothek speichert pro 100 g, weil die Quelle das so angibt und nur diese Zahl
+ * eindeutig ist. Wie viel man davon isst, weiß keine Datenbank, also wird es hier
+ * gefragt. Dieselbe Entscheidung wie beim Barcode, an derselben Stelle.
  */
 function libraryPortionSheet(entry, day, kind = 'generic') {
   const grams = normaliseOnBlur(numberInput({ value: String(entry.serving || 100), 'aria-label': t('food.grams') }), { integer: true });
@@ -864,8 +864,8 @@ function libraryPortionSheet(entry, day, kind = 'generic') {
     if (g === null || g <= 0) { toast(t('food.howManyGrams')); grams.focus(); return; }
     const fields = toFoodFields(entry, g);
     if (kind === 'brand') {
-      // Keep the barcode: a later scan of the same packet then answers from
-      // your own list instead of the network.
+      // Den Barcode behalten: ein späteres Scannen derselben Packung antwortet dann aus der
+      // eigenen Liste statt aus dem Netz.
       fields.source = 'brand-library';
       fields.barcode = entry.code || null;
       if (entry.brand) fields.name = `${entry.name} · ${entry.brand}`;
@@ -899,8 +899,8 @@ function libraryPortionSheet(entry, day, kind = 'generic') {
 }
 
 /**
- * @param draft  an Open Food Facts result, which carries per-100 g values and
- *               therefore needs a grams field the manual path does not.
+ * @param draft  ein Ergebnis von Open Food Facts. Das hat Werte pro 100 g und braucht
+ *               deshalb ein Feld für Gramm, das der Weg von Hand nicht braucht.
  */
 function foodForm(existing = null, day = dayKey(), draft = null) {
   const name = el('input', {
@@ -913,8 +913,8 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
   });
   const protein = normaliseOnBlur(numberInput({ decimal: true, value: existing ? existing.protein : '' }));
   const kcal = el('input', { type: 'number', inputmode: 'numeric', step: '1', min: '0', value: existing ? existing.kcal : '' });
-  // Blank means unknown, not zero — see newFood. Leaving these empty is a
-  // perfectly complete entry; it just keeps the day's split honest about it.
+  // Leer heißt unbekannt, nicht null, siehe newFood. Die Felder leer zu lassen ist ein
+  // völlig vollständiger Eintrag, es hält nur die Aufteilung des Tages ehrlich.
   const optional = (key) => normaliseOnBlur(numberInput({
     decimal: true,
     value: existing && existing[key] !== null && existing[key] !== undefined ? existing[key] : '',
@@ -924,10 +924,9 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
   const fat = optional('fat');
   const fibre = optional('fibre');
 
-  // Only the barcode path gets this: the database stores per 100 g, and how
-  // much of that you actually eat is the one thing it cannot know. Putting the
-  // decision here — rather than trusting a manufacturer "serving" — is also the
-  // honest place for it.
+  // Das bekommt nur der Barcode-Weg: die Datenbank speichert pro 100 g, und wie viel man
+  // davon wirklich isst, kann sie nicht wissen. Die Entscheidung hierhin zu legen, statt
+  // einer "Portion" vom Hersteller zu vertrauen, ist auch der ehrliche Ort dafür.
   let grams = null;
   if (draft) {
     grams = el('input', {
@@ -964,9 +963,9 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
       fibre: parseNumber(fibre.value),
     };
     if (draft) {
-      // Keep the barcode so a re-lookup answers from your own list, and the
-      // per-100 g basis so the portion can be re-scaled later without asking
-      // the network again.
+      // Den Barcode behalten, damit eine erneute Abfrage aus der eigenen Liste antwortet,
+      // und die Basis pro 100 g, damit sich die Portion später neu rechnen lässt, ohne
+      // wieder das Netz zu fragen.
       fields.barcode = draft.code;
       fields.per100 = draft.per100;
       fields.portionGrams = Number(grams.value) || null;
@@ -1031,12 +1030,12 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
   ]));
 }
 
-/* ======================= barcode ======================= */
+/* ======================= Barcode ======================= */
 
 /**
- * Type the number under the stripes. No camera: no browser on iOS implements
- * BarcodeDetector, and a WebAssembly scanner would cost the app its "no
- * dependencies, no build step" property for something you do once per product.
+ * Die Zahl unter den Strichen eintippen. Keine Kamera: kein Browser unter iOS hat
+ * BarcodeDetector, und ein Scanner in WebAssembly würde die App "keine Abhängigkeiten,
+ * kein Build-Schritt" kosten, für etwas, das man einmal pro Produkt macht.
  */
 function barcodeSheet(day) {
   const input = el('input', {
@@ -1051,8 +1050,8 @@ function barcodeSheet(day) {
     const code = input.value.trim();
     if (!code) { input.focus(); return; }
 
-    // Your own list wins over the network — a product you already added is
-    // already correct for the portion you actually eat.
+    // Die eigene Liste gewinnt vor dem Netz: ein Produkt, das man schon hinzugefügt hat,
+    // stimmt schon für die Portion, die man wirklich isst.
     const known = store.state.foods.find((f) => f.barcode && f.barcode === code.replace(/\D/g, ''));
     if (known) {
       closeSheet();
@@ -1071,7 +1070,7 @@ function barcodeSheet(day) {
     if (!res.ok) {
       status.style.color = res.reason === 'notfound' ? 'var(--text-dim)' : 'var(--warn)';
       status.textContent = res.detail;
-      // A hit with no protein value still saves you typing the name.
+      // Ein Treffer ohne Eiweiß spart einem trotzdem, den Namen zu tippen.
       if (res.draft) {
         closeSheet();
         foodForm(null, day, res.draft);
@@ -1139,17 +1138,17 @@ function manageSheet() {
   openSheet(t('food.myFoods'), body);
 }
 
-/* ======================= trends ======================= */
+/* ======================= Verläufe ======================= */
 
 /**
- * The last fourteen days, per metric.
+ * Die letzten vierzehn Tage, je Größe.
  *
- * Protein was the only one charted here for a long time, because it was the
- * only one with a target. Now that calories, carbs and fat have one too — see
- * macroTargets — they get the same treatment, against the same band, with the
- * same rule underneath: **a day nobody logged is blank, not zero.** Averaging
- * in zeroes would make a fortnight of decent eating with two forgotten days
- * look like failure, which is the fastest way to make someone stop logging.
+ * Lange war Eiweiß das Einzige mit Diagramm, weil es als Einziges ein Ziel hatte. Jetzt
+ * haben Kalorien, Kohlenhydrate und Fett auch eins (siehe macroTargets) und bekommen
+ * dieselbe Behandlung, mit demselben Bereich und derselben Regel darunter: EIN TAG OHNE
+ * EINTRÄGE IST LEER, NICHT NULL. Nullen mitzurechnen würde zwei Wochen ordentliches Essen
+ * mit zwei vergessenen Tagen wie ein Scheitern aussehen lassen, und so hört man am
+ * schnellsten auf einzutragen.
  */
 function trendSection() {
   const wrap = el('div');
@@ -1179,8 +1178,8 @@ function trendSection() {
     const m = METRICS.find((x) => x.key === trendMetric) || METRICS[0];
     const band = bandFor(m.key, targets);
 
-    // Only days that carry this metric count. Carbs and fat are optional per
-    // food, so a day can be logged and still have nothing to say about them.
+    // Nur Tage, die diese Größe haben, zählen. Kohlenhydrate und Fett sind pro Lebensmittel
+    // freiwillig, ein Tag kann also eingetragen sein und trotzdem nichts dazu sagen.
     const withValue = logged.filter((d) => !(d.missing && d.missing[m.key]) || d[m.key] > 0);
     const mean = withValue.length
       ? Math.round(withValue.reduce((n, d) => n + d[m.key], 0) / withValue.length)
@@ -1200,7 +1199,7 @@ function trendSection() {
           caption: (band
             ? t('food.dailyAgainst', {
                 metric: m.label,
-                target: `${fmtNum(band.low)}${band.low === band.high ? '' : `–${fmtNum(band.high)}`} ${m.unit}`,
+                target: `${fmtNum(band.low)}${band.low === band.high ? '' : `-${fmtNum(band.high)}`} ${m.unit}`,
               })
             : t('food.daily', { metric: m.label }))
             + ' ' + t('food.blankNotZero'),
@@ -1230,7 +1229,7 @@ function trendSection() {
   paint();
   wrap.append(seg, host);
 
-  // The point of the whole module: intake next to what it produced.
+  // Der Sinn des ganzen Moduls: das Essen neben dem, was dabei herausgekommen ist.
   const trend = weightTrend(store.state.bodyweight, 4);
   const tv = trendVerdict(trend);
   wrap.append(el('div.section-head', {}, [
@@ -1260,9 +1259,9 @@ function trendSection() {
 
   wrap.append(maintenanceSection());
 
-  // The way in to the shared timeline. It lives on Progress because that is
-  // where the training half already is, and a second copy of the same three
-  // charts here would be two screens to keep in step.
+  // Der Einstieg in die gemeinsame Zeitleiste. Die liegt bei Fortschritt, weil dort schon
+  // die Hälfte mit dem Training ist, und eine zweite Kopie derselben drei Diagramme hier
+  // wären zwei Screens, die man im Gleichschritt halten müsste.
   wrap.append(
     el('button.btn.ghost.full.sm', {
       style: { marginTop: '14px' },
@@ -1273,13 +1272,13 @@ function trendSection() {
 }
 
 /**
- * Maintenance calories from what actually happened.
+ * Wartungskalorien aus dem, was wirklich passiert ist.
  *
- * Deliberately not Mifflin-St Jeor with an activity multiplier: that is a
- * population average wearing your name, and the multiplier asks you to guess
- * the very thing you opened the app to find out. This subtracts the energy your
- * weight change accounts for from the energy you logged, which needs no guess
- * about you at all — only enough data, which is the part it refuses to fake.
+ * Absichtlich nicht Mifflin-St Jeor mit Aktivitätsfaktor: das ist ein
+ * Bevölkerungsdurchschnitt mit deinem Namen drauf, und der Faktor fragt nach genau dem,
+ * was man mit der App herausfinden will. Hier wird die Energie, die die
+ * Gewichtsänderung erklärt, von der eingetragenen Energie abgezogen. Dafür braucht es
+ * keine Schätzung über einen selbst, nur genug Daten, und genau die werden nicht vorgetäuscht.
  */
 function maintenanceSection() {
   const wrap = el('div');

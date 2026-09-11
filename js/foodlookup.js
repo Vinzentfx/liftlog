@@ -1,41 +1,40 @@
-// Barcode lookup against Open Food Facts.
+// Barcode-Abfrage bei Open Food Facts.
 //
-// The only part of this app that needs the network, and it is deliberately
-// isolated here so the boundary is obvious: everything else — logging, targets,
-// the whole training side — works with the phone in flight mode. A failed
-// lookup falls back to typing the numbers in, which is what you would have done
-// anyway.
+// Das einzige in dieser App, das Netz braucht, und bewusst hier abgetrennt, damit
+// die Grenze klar ist: alles andere, also Eintragen, Ziele und die ganze
+// Trainingsseite, funktioniert im Flugmodus. Klappt eine Abfrage nicht, tippt man
+// die Zahlen eben ein, das hätte man sonst auch getan.
 //
-// No barcode *scanning*: no browser on iOS implements BarcodeDetector, and the
-// WebAssembly alternatives would break "no dependencies, no build step". You
-// type the 13 digits printed under the stripes once per new product, and never
-// again — the code is stored on the food, so a re-lookup answers from your own
-// list without touching the network.
+// Kein Barcode-SCANNEN: kein Browser unter iOS hat BarcodeDetector, und die
+// WebAssembly-Alternativen würden "keine Abhängigkeiten, kein Build-Schritt"
+// brechen. Man tippt die 13 Ziffern unter den Strichen einmal pro neuem Produkt
+// ein und nie wieder. Der Code wird am Lebensmittel gespeichert, eine erneute
+// Abfrage antwortet also aus der eigenen Liste, ohne ins Netz zu gehen.
 //
-// Licence: the Open Food Facts database is ODbL (structure) and DbCL (content).
-// Querying the live API and caching what you personally looked up is not
-// redistributing a database, which is the case their terms explicitly support —
-// "1 API call = 1 real scan by a user". Bulk-downloading it into the repo would
-// be a derived database and would carry share-alike obligations. Attribution
-// sits in Settings → Credits either way.
+// Lizenz: die Datenbank von Open Food Facts steht unter ODbL (Struktur) und DbCL
+// (Inhalt). Die Live-API abzufragen und zu speichern, was man selbst nachgeschlagen
+// hat, ist keine Weitergabe einer Datenbank, und genau diesen Fall erlauben die
+// Bedingungen ausdrücklich ("1 API call = 1 real scan by a user"). Sie gesammelt ins
+// Repo zu laden wäre eine abgeleitete Datenbank mit Share-Alike-Pflichten. Die
+// Quellenangabe steht so oder so unter Einstellungen, Credits.
 
 import { t } from './i18n.js';
 
 const ENDPOINT = 'https://world.openfoodfacts.org/api/v2/product';
 
-// Only the fields we use — a full product record is enormous and most of it is
-// images and provenance metadata.
+// Nur die Felder, die wir brauchen. Ein vollständiger Produkteintrag ist riesig
+// und besteht größtenteils aus Bildern und Herkunftsangaben.
 const FIELDS = [
   'product_name', 'product_name_de', 'brands', 'quantity',
   'serving_size', 'serving_quantity', 'nutriments',
 ].join(',');
 
 /**
- * Open Food Facts asks callers to identify themselves with a User-Agent. A
- * browser will not let a page set that header — it is on the Fetch spec's
- * forbidden list — so their API also accepts `X-User-Agent`, which is what a
- * web app can actually send. Not a workaround they merely tolerate: it is in
- * their CORS allow-list.
+ * Open Food Facts möchte, dass sich Aufrufer mit einem User-Agent melden. Diesen
+ * Header darf eine Seite im Browser nicht setzen (er steht auf der Verbotsliste
+ * der Fetch-Spezifikation), deshalb nimmt die API auch `X-User-Agent`, und das
+ * kann eine Web-App wirklich schicken. Kein geduldeter Umweg: der Header steht in
+ * ihrer CORS-Freigabe.
  */
 const IDENT = 'LiftLog/1.0 (personal workout tracker; https://github.com/Vinzentfx/liftlog)';
 
@@ -46,7 +45,7 @@ export const ATTRIBUTION = {
   licenceUrl: 'https://opendatacommons.org/licenses/odbl/1-0/',
 };
 
-/** A GTIN is 8, 12, 13 or 14 digits and ends in a check digit. */
+/** Eine GTIN hat 8, 12, 13 oder 14 Ziffern und endet mit einer Prüfziffer. */
 export function normaliseBarcode(input) {
   const digits = String(input || '').replace(/\D/g, '');
   if (![8, 12, 13, 14].includes(digits.length)) return null;
@@ -57,7 +56,7 @@ export function normaliseBarcode(input) {
   return (10 - (sum % 10)) % 10 === Number(digits.at(-1)) ? digits : null;
 }
 
-/** Reject obviously corrupted community rows without pretending to verify labels. */
+/** Offensichtlich kaputte Einträge aus der Community ablehnen, ohne so zu tun, als würden Etiketten geprüft. */
 export function nutritionLooksPlausible(per100) {
   const values = ['protein', 'carbs', 'fat', 'fibre'].map((key) => per100?.[key]).filter((v) => v != null);
   if (values.some((v) => !Number.isFinite(Number(v)) || Number(v) < 0 || Number(v) > 100)) return false;
@@ -71,8 +70,8 @@ export function nutritionLooksPlausible(per100) {
 /**
  * @returns {Promise<{ok:true, draft:object} | {ok:false, reason:string, detail:string}>}
  *
- * Never throws. A lookup is a convenience, and the caller's fallback is always
- * the same — type it in — so every failure mode is a message, not an exception.
+ * Wirft nie. Eine Abfrage ist nur eine Erleichterung, und der Rückfall ist immer
+ * derselbe (eintippen). Jeder Fehler ist also eine Meldung und keine Exception.
  */
 export async function lookupBarcode(code, { signal } = {}) {
   const ean = normaliseBarcode(code);
@@ -133,20 +132,20 @@ export async function lookupBarcode(code, { signal } = {}) {
 }
 
 /**
- * Normalise a product record into the fields this app stores.
+ * Einen Produkteintrag auf die Felder bringen, die diese App speichert.
  *
- * Per-100 g is the only reliable ground truth: every entry has it, while
- * `serving_size` is missing on most products and, when present, is whatever the
- * manufacturer felt like calling a serving. So the app keeps the per-100 g
- * numbers and asks *you* how much you eat — which is also the honest place to
- * put that decision, since only you know what landed on the plate.
+ * Pro 100 g ist das Einzige, worauf man sich verlassen kann: das hat jeder
+ * Eintrag, während `serving_size` bei den meisten fehlt und sonst das ist, was der
+ * Hersteller gerade Portion nennen wollte. Die App behält also die Werte pro 100 g
+ * und fragt DICH, wie viel du isst. Da gehört die Entscheidung auch hin, denn nur
+ * du weißt, was auf dem Teller gelandet ist.
  */
 function toDraft(code, p) {
   const n = p.nutriments || {};
   const label = (p.product_name_de || p.product_name || '').trim();
   const brand = firstBrand(p.brands);
-  // Plenty of records repeat the brand as the product name ("Nutella" by
-  // "Nutella"), so appending it unconditionally produces "Nutella · Nutella".
+  // Viele Einträge wiederholen die Marke als Produktname ("Nutella" von "Nutella"),
+  // sie immer anzuhängen ergibt "Nutella · Nutella".
   const name = brand && !label.toLowerCase().includes(brand.toLowerCase())
     ? `${label} · ${brand}`.trim()
     : label;
@@ -155,26 +154,26 @@ function toDraft(code, p) {
     code,
     name: name || `Artikel ${code}`,
     brand,
-    quantity: p.quantity || null,          // package size, e.g. "500 g"
+    quantity: p.quantity || null,          // Packungsgröße, z. B. "500 g"
     per100: {
       protein: num(n.proteins_100g),
       kcal: num(n['energy-kcal_100g']),
-      // Null where the record has nothing, never 0 — a product that does not
-      // list its fibre has unknown fibre, and the totals depend on the
-      // difference.
+      // null, wo der Eintrag nichts hat, nie 0. Ein Produkt ohne Angabe zu
+      // Ballaststoffen hat unbekannte Ballaststoffe, und die Summen hängen an diesem
+      // Unterschied.
       carbs: num(n.carbohydrates_100g),
       fat: num(n.fat_100g),
       fibre: num(n.fiber_100g),
     },
-    // A manufacturer serving if there is one, otherwise 100 g — a round number
-    // beats a guess, and the user overrides it in the next field anyway.
+    // Eine Portion vom Hersteller, falls es eine gibt, sonst 100 g. Eine runde Zahl
+    // ist besser als geraten, und im nächsten Feld überschreibt man sie ohnehin.
     suggestedGrams: num(p.serving_quantity) || 100,
     servingLabel: p.serving_size || null,
     source: 'barcode',
   };
 }
 
-/** Scale per-100 g values to a portion. */
+/** Werte pro 100 g auf eine Portion rechnen. */
 export function scaleToPortion(per100, grams) {
   const f = (Number(grams) || 0) / 100;
   const scale = (v) => (v === null || v === undefined ? null : round1(v * f));

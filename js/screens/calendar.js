@@ -1,5 +1,5 @@
-// Calendar — month grid of gym attendance, and the full workout history.
-// History lives here rather than in its own tab: tapping a date opens that session.
+// Kalender: Monatsraster mit den Tagen im Studio und der ganze Trainingsverlauf.
+// Der Verlauf steht hier statt in einem eigenen Tab, ein Tipp auf ein Datum öffnet die Einheit.
 
 import {
   el, fmtNum, fmtVolume, fmtWeight, fmtDuration, fmtDate, relDay, setsSummary,
@@ -13,8 +13,8 @@ import { navigate, flushBackup, duplicateWorkout } from '../app.js';
 import { t, tn, locale } from '../i18n.js';
 import { WEEK_ORDER } from '../schedule.js';
 
-let cursor = null;      // first-of-month being viewed
-let editingId = null;   // which session is open for editing, if any
+let cursor = null;      // der erste Tag des angezeigten Monats
+let editingId = null;   // welche Einheit gerade bearbeitet wird, falls eine
 
 const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
 
@@ -24,7 +24,7 @@ export default function renderCalendar({ param, actions }) {
   return monthView();
 }
 
-/* =========================== month =========================== */
+/* =========================== Monat =========================== */
 
 function monthView() {
   const root = el('div');
@@ -40,7 +40,7 @@ function monthView() {
   const year = view.getFullYear();
   const month = view.getMonth();
 
-  // sessions in this month, keyed by day-of-month
+  // Einheiten in diesem Monat, nach Tag im Monat
   const byDay = new Map();
   for (const s of done) {
     const d = new Date(s.startedAt);
@@ -50,7 +50,7 @@ function monthView() {
     byDay.get(key).push(s);
   }
 
-  // ---- header ----
+  // ---- Kopf ----
   const canGoNext = (() => {
     const now = new Date(); now.setDate(1); now.setHours(0, 0, 0, 0);
     return view.getTime() < now.getTime();
@@ -73,9 +73,9 @@ function monthView() {
     ])
   );
 
-  // ---- grid ----
+  // ---- Raster ----
   const first = new Date(year, month, 1);
-  const startPad = (first.getDay() + 6) % 7;             // Monday-first
+  const startPad = (first.getDay() + 6) % 7;             // Montag zuerst
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
@@ -92,13 +92,13 @@ function monthView() {
 
   for (let i = 0; i < startPad; i++) grid.append(el('div'));
 
-  // How hard each day was, so the grid says more than "trained / did not". The
-  // scale is the month's own hardest day: this is a shape to read at a glance,
-  // not a figure to compare between months, and an absolute scale would leave a
-  // deload month looking uniformly empty.
+  // Wie hart jeder Tag war, damit das Raster mehr sagt als "trainiert oder nicht".
+  // Maßstab ist der härteste Tag des Monats: eine Form zum schnellen Lesen, keine
+  // Zahl zum Vergleichen zwischen Monaten. Ein fester Maßstab ließe einen
+  // Deload-Monat einfach überall leer aussehen.
   const setsOn = (sessions) => sessions.reduce((n, s) => n + sessionStats(s).sets, 0);
   const busiest = Math.max(1, ...[...byDay.values()].map(setsOn));
-  /** Four steps. Fewer reads as on/off again, more is not visible on a 45px tile. */
+  /** Vier Stufen. Weniger wirkt wieder wie an/aus, mehr sieht man auf einer 45-px-Kachel nicht. */
   const MIX = [46, 64, 82, 100];
   const mixFor = (sets) => MIX[Math.min(MIX.length - 1, Math.floor((sets / busiest) * MIX.length - 1e-9))];
 
@@ -146,7 +146,7 @@ function monthView() {
 
   root.append(el('div.card', {}, [grid]));
 
-  // ---- month summary ----
+  // ---- Monatsübersicht ----
   const monthSessions = [...byDay.values()].flat();
   const sets = monthSessions.reduce((n, s) => n + sessionStats(s).sets, 0);
   const volume = monthSessions.reduce((n, s) => n + sessionStats(s).volume, 0);
@@ -171,7 +171,7 @@ function monthView() {
       text: t('calendar.targetFrom', { plan: plan.name, days: tn(perWeek, 'unit.day') }) }));
   }
 
-  // ---- history list ----
+  // ---- Verlauf ----
   root.append(el('div.section-head', {}, [el('h2', { text: t('calendar.allWorkouts') })]));
 
   let currentMonth = null;
@@ -192,7 +192,7 @@ function monthView() {
   return root;
 }
 
-/* =========================== detail =========================== */
+/* =========================== Detail =========================== */
 
 function detailView(id) {
   const session = store.state.sessions.find((s) => s.id === id);
@@ -314,21 +314,21 @@ function readEntry(entry, units) {
   ]);
 }
 
-/* ============================ editing ============================ */
+/* ============================ Bearbeiten ============================ */
 
 /**
- * Correcting a workout after the fact.
+ * Ein Training im Nachhinein korrigieren.
  *
- * This existed as "delete the whole thing" for far too long. A mistyped rep
- * count is not a reason to throw away a session, and leaving it in is worse
- * than it looks: 120 reps instead of 12 mints an estimated 1RM that is never
- * beaten again, lifts the strength score permanently and bends twelve weeks of
- * slope. Everything the app says is derived from this log, so the log has to be
- * correctable.
+ * Viel zu lange ging nur "alles löschen". Eine vertippte Wiederholungszahl ist kein
+ * Grund, eine Einheit wegzuwerfen, und sie stehen zu lassen ist schlimmer, als es
+ * aussieht: 120 statt 12 Wiederholungen erzeugen ein geschätztes 1RM, das nie wieder
+ * geschlagen wird, heben die Stärkewertung für immer an und verbiegen zwölf Wochen
+ * Verlauf. Alles, was die App sagt, kommt aus diesem Log, also muss es sich
+ * korrigieren lassen.
  *
- * Keystrokes save quietly, exactly as they do in a live workout — re-rendering
- * on every character would destroy the caret. Structural edits go through
- * store.updateSession, which re-renders and can roll back.
+ * Tastendrücke speichern still, genau wie im laufenden Training. Bei jedem Zeichen
+ * neu zu zeichnen würde den Cursor zerstören. Änderungen am Aufbau gehen über
+ * store.updateSession, das neu zeichnet und zurückrollen kann.
  */
 function editHeader(session) {
   const name = el('input', { type: 'text', value: session.name });
@@ -348,8 +348,8 @@ function editHeader(session) {
     const shift = moved - session.startedAt;
     const ok = await store.updateSession(session.id, (s) => {
       s.startedAt = moved;
-      // Keep the duration rather than the end time; a session moved to another
-      // day did not suddenly last three days.
+      // Die Dauer behalten, nicht die Endzeit. Eine Einheit, die auf einen anderen Tag
+      // verschoben wird, hat nicht plötzlich drei Tage gedauert.
       if (s.finishedAt) s.finishedAt += shift;
     });
     if (ok) toast(t('calendar.dateCorrected'));
@@ -485,8 +485,8 @@ function editRow(session, entry, set, index, ex) {
         const snapshot = JSON.parse(JSON.stringify(set));
         await store.updateSession(session.id, (s) => {
           entry.sets.splice(index, 1);
-          // An exercise with no sets left is not a record of anything, and it
-          // would still be counted as an exercise performed.
+          // Eine Übung ohne Sätze hält nichts fest und würde trotzdem als gemachte
+          // Übung gezählt.
           if (!entry.sets.length) s.entries = s.entries.filter((e) => e !== entry);
         });
         undoToast(t('train.setRemoved'), () => store.updateSession(session.id, (s) => {
@@ -539,7 +539,7 @@ const toDateValue = (ts) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-/** Same clock time, different day. Returns null if the field is unusable. */
+/** Gleiche Uhrzeit, anderer Tag. Gibt null zurück, wenn das Feld nicht brauchbar ist. */
 function movedToDate(startedAt, value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;
   const [y, m, d] = value.split('-').map(Number);

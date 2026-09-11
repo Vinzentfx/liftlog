@@ -1,8 +1,8 @@
--- Patch 002: enforce owner-device writes on the server.
+-- Patch 002: Schreiben nur vom Besitzergerät, auf dem Server durchgesetzt.
 --
--- Apply in the Supabase SQL editor before deploying the matching client. Existing
--- cloud users keep their recovery proof but must enter their recovery key once to
--- mint the new, device-local owner capability.
+-- Im SQL-Editor von Supabase einspielen, bevor der passende Client ausgerollt wird.
+-- Bestehende Cloud-Nutzer behalten ihren Wiederherstellungsnachweis, müssen ihren
+-- Wiederherstellungsschlüssel aber einmal eingeben, um die neue Besitzerberechtigung auf dem Gerät zu erzeugen.
 
 create extension if not exists pgcrypto;
 
@@ -14,7 +14,7 @@ create table if not exists public.recovery_proofs (
   verifier text not null
 );
 alter table public.recovery_proofs enable row level security;
--- Deliberately no policies: even the account JWT must not read the reusable proof.
+-- Absichtlich keine Policies: selbst das JWT des Kontos darf den wiederverwendbaren Nachweis nicht lesen.
 
 create table if not exists public.security_attempts (
   user_id uuid not null references auth.users on delete cascade,
@@ -24,7 +24,7 @@ create table if not exists public.security_attempts (
   primary key (user_id, action)
 );
 alter table public.security_attempts enable row level security;
--- No policies: this is server-only rate-limit state.
+-- Keine Policies: das ist Zustand fürs Rate-Limit, nur für den Server.
 
 insert into public.recovery_proofs (user_id, verifier)
 select id, recovery_verifier from public.profiles
@@ -34,9 +34,9 @@ on conflict (user_id) do nothing;
 alter table public.profiles drop column if exists recovery_verifier;
 
 alter table public.backups
-  -- Preserve old rows created before device_id became mandatory.
-  -- This update is intentionally non-destructive; the following ALTER will stop
-  -- with an error if an orphan cannot be associated with the recorded owner.
+  -- Alte Zeilen von vor der Pflicht zur device_id erhalten. Dieses Update zerstört mit
+  -- Absicht nichts. Das ALTER danach bricht mit einem Fehler ab, wenn sich eine verwaiste
+  -- Zeile nicht dem eingetragenen Besitzer zuordnen lässt.
   alter column device_id drop not null;
 update public.backups b set device_id = p.owner_device
 from public.profiles p

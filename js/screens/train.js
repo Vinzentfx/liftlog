@@ -1,4 +1,4 @@
-// Train — the active workout, or the launcher when nothing is running.
+// Trainieren: das laufende Training, oder der Startbildschirm, wenn keins läuft.
 
 import {
   el, $, toast, haptic, fmtWeight, fmtDuration, fmtNum, fmtDecimal, fmtVolume, setsSummary,
@@ -30,9 +30,9 @@ import { SOURCES } from '../evidence.js';
 
 const saveSoon = debounce((session) => store.saveSessionQuiet(session), 350);
 const openHistories = new Set();
-// Which exercises are showing the reasoning behind their suggestion. Closed by
-// default: in the gym the number is the answer, and the three-line explanation
-// of how it was reached pushed the first input field off the screen.
+// Bei welchen Übungen gerade die Begründung zum Vorschlag aufgeklappt ist. Standardmäßig
+// zu: im Studio ist die Zahl die Antwort, und die dreizeilige Erklärung, wie sie
+// zustande kam, hat das erste Eingabefeld aus dem Bildschirm geschoben.
 const openReasons = new Set();
 
 export default function renderTrain({ actions }) {
@@ -57,7 +57,7 @@ function remoteWorkoutView(session) {
   ]);
 }
 
-/* ============================ launcher ============================ */
+/* ============================ Startbildschirm ============================ */
 
 function launcherView() {
   const done = store.state.sessions.filter((s) => s.finishedAt);
@@ -90,8 +90,8 @@ function launcherView() {
       if (s.dayId && !lastByDay.has(s.dayId)) lastByDay.set(s.dayId, s.startedAt);
     }
 
-    // With weekdays assigned, "up next" means what is on today. Without them it
-    // stays what it always was: whatever has gone longest untrained.
+    // Mit Wochentagen heißt "als Nächstes", was heute dran ist. Ohne bleibt es, was es
+    // immer war: das, was am längsten nicht trainiert wurde.
     const today = todaysDays(plan, done);
     const highlighted = new Set(today.days.map((d) => d.id));
 
@@ -145,20 +145,20 @@ function launcherView() {
   return root;
 }
 
-/* ========================= active workout ========================= */
+/* ========================= laufendes Training ========================= */
 
 function activeView(session) {
   const units = store.units();
   const root = el('div');
   const st = sessionStats(session);
 
-  // --- summary header ---
+  // --- Kopf mit Übersicht ---
   const elapsed = el('span.stat-val', { text: fmtDuration(st.durationMs) });
   const header = el('div.card', {}, [
     el('div.row.between', { style: { marginBottom: '12px' } }, [
-      // Renaming is on the name, not on a second button beside it. Two German
-      // words ("Pausieren", "Umbenennen") took most of a 375px row, which left
-      // the title wrapping over two lines and the start time over two more.
+      // Umbenannt wird über den Namen und nicht über einen zweiten Knopf daneben. Zwei
+      // deutsche Wörter ("Pausieren", "Umbenennen") haben den Großteil einer 375-px-Zeile
+      // belegt, der Titel brach auf zwei Zeilen um und die Startzeit auf zwei weitere.
       el('button.session-name', {
         onclick: () => renameSession(session),
         'aria-label': `${session.name}, ${t('train.rename')}`,
@@ -174,12 +174,12 @@ function activeView(session) {
         else { await store.pauseSession(session.id); rest.stop(); }
       } }, [t(session.pausedAt ? 'train.resume' : 'train.pause')]),
     ]),
-    // Compact, because this is the one screen where the header is not the point.
-    // At the full stat size these three tiles took 190px off an 812px phone and
-    // pushed the first weight field below the fold, so the screen you open to
-    // log a set opened on a summary of the set you have not logged yet. Same
-    // numbers, half the height, and "Volume kg" stops wrapping onto two lines
-    // while "Elapsed" and "Sets" stay on one.
+    // Kompakt, weil das der eine Screen ist, auf dem es nicht um den Kopf geht. In voller
+    // Größe haben diese drei Kacheln 190 px von einem 812-px-Handy genommen und das erste
+    // Gewichtsfeld unter den Rand geschoben. Der Screen, den man zum Eintragen öffnet, zeigte
+    // also zuerst eine Zusammenfassung des Satzes, den man noch nicht eingetragen hatte.
+    // Dieselben Zahlen, halbe Höhe, und "Volumen kg" bricht nicht mehr um, während "Dauer"
+    // und "Sätze" auf einer Zeile bleiben.
     el('div.stat-grid.compact', {}, [
       el('div.stat', {}, [elapsed, el('span.stat-key', { text: t('train.elapsed') })]),
       el('div.stat', {}, [el('span.stat-val', { text: String(st.sets) }), el('span.stat-key', { text: t('train.sets') })]),
@@ -191,13 +191,13 @@ function activeView(session) {
     el('b', { text: t('train.paused') }), el('span', { text: t('train.pausedBody') }),
   ]));
 
-  // Tick the elapsed clock without re-rendering the whole screen.
+  // Die Uhr weiterlaufen lassen, ohne den ganzen Screen neu zu zeichnen.
   const clockTimer = setInterval(() => {
     if (!document.body.contains(elapsed)) { clearInterval(clockTimer); return; }
     elapsed.textContent = fmtDuration(sessionStats(session).durationMs);
   }, 30000);
 
-  // --- exercises ---
+  // --- Übungen ---
   if (!session.entries.length) {
     root.append(emptyState(t('train.noExercises'), t('train.noExercisesHint')));
   }
@@ -205,7 +205,7 @@ function activeView(session) {
     root.append(exerciseBlock(session, entry, index));
   });
 
-  // --- actions ---
+  // --- Aktionen ---
   root.append(
     el('button.btn.ghost.full', {
       style: { marginTop: '4px' },
@@ -247,30 +247,30 @@ function exerciseBlock(session, entry, entryIndex) {
     ])
   );
 
-  // Everything the advice is built from: the whole log for this exercise, each
-  // session corrected for where in that session it happened, plus where in
-  // *this* session we are standing right now.
-  // What a blank RIR is worth. Zero while the column is on and the user simply
-  // left it empty would be a guess about that one set; the setting is a
-  // standing answer, and it is the only place the app is allowed to fill one in.
+  // Alles, woraus der Rat gebaut ist: das ganze Log zu dieser Übung, jede Einheit korrigiert
+  // um die Stelle, an der es in der Einheit passiert ist, und dazu die Stelle in DIESER
+  // Einheit, an der wir gerade stehen.
+  // Was ein leeres RIR wert ist. Null, während die Spalte an ist und der Nutzer sie nur
+  // leer gelassen hat, wäre eine Vermutung über genau diesen Satz. Die Einstellung ist eine
+  // feste Antwort, und nur dort darf die App eine einsetzen.
   const assumedRir = Number(store.state.settings.assumedRir) || 0;
   const rows = exerciseHistory(store.state.sessions, entry.exerciseId, store.state.exerciseById, {
     excludeSessionId: session.id,
     assumedRir,
-    // Pooled across the whole log, so an exercise that has only ever been
-    // trained from one position still gets a measured cost rather than a prior.
+    // Über das ganze Log gebündelt, damit auch eine Übung, die immer nur von einer Position
+    // aus trainiert wurde, gemessene Kosten bekommt statt einer Annahme.
     fallbackCost: pooledOrderCost(store.state.sessions, store.state.exerciseById, { assumedRir }),
   });
-  // `live`, because this session is a plan being carried out rather than a
-  // record of one that was: work still sitting above this card counts, and so
-  // does work already ticked off below it. See `priorWork`.
+  // `live`, weil diese Einheit ein Plan ist, der gerade umgesetzt wird, und keine
+  // Aufzeichnung eines vergangenen: Arbeit über dieser Karte zählt, und Arbeit darunter, die
+  // schon abgehakt ist, auch. Siehe `priorWork`.
   const prior = priorWork(session.entries, entryIndex, store.state.exerciseById, { live: true });
   const doneToday = entry.sets.filter(isCounted);
   const suggesting = store.state.settings.progressionSuggestions !== false;
 
-  // Once a set is on the board today, the live advice is the better number and
-  // the opening one is history. Two suggestions disagreeing on the same screen
-  // is worse than one, so only ever one of these is non-null.
+  // Sobald heute ein Satz auf dem Brett steht, ist der Live-Rat die bessere Zahl und der
+  // vom Anfang Geschichte. Zwei Vorschläge, die sich auf demselben Screen widersprechen,
+  // sind schlimmer als einer, deshalb ist immer nur einer davon nicht null.
   const step = store.machineStep(ex);
   const keepInRange = store.state.settings.strictRepRange === true;
   const opening = suggesting && !doneToday.length
@@ -280,10 +280,9 @@ function exerciseBlock(session, entry, entryIndex) {
       })
     : null;
 
-  // The live number. One completed set today outweighs four sessions of
-  // history, so from the moment set one is ticked off the advice comes from
-  // today's own effort, this lifter's own set-to-set drop-off, and the rep
-  // range.
+  // Die Live-Zahl. Ein abgeschlossener Satz von heute wiegt mehr als vier Einheiten
+  // Verlauf. Ab dem Moment, in dem Satz eins abgehakt ist, kommt der Rat also aus der
+  // heutigen Anstrengung, dem eigenen Nachlassen von Satz zu Satz und dem Wiederholungsbereich.
   const live = suggesting && doneToday.length
     ? nextSet(doneToday, rows, {
         exercise: ex, targetReps: entry.targetReps, units, barWeight: store.barWeight(), step,
@@ -291,13 +290,13 @@ function exerciseBlock(session, entry, entryIndex) {
       })
     : null;
 
-  // The single most useful line on the screen: what you did last time.
+  // Die nützlichste Zeile auf dem Screen: was man letztes Mal gemacht hat.
   //
-  // It is also the way into the three sessions before that. It used to be a
-  // flat panel with a separate "show the last 3 workouts" button underneath,
-  // which was one more full-width control in a stack of seven standing between
-  // the exercise's name and its first input field. The panel is the obvious
-  // thing to tap for more of the same, so it is the control.
+  // Sie ist auch der Weg zu den drei Einheiten davor. Früher war das eine flache Fläche mit
+  // einem eigenen Knopf "die letzten 3 Trainings zeigen" darunter, noch ein Knopf über die
+  // ganze Breite in einem Stapel von sieben zwischen dem Namen der Übung und ihrem ersten
+  // Eingabefeld. Die Fläche ist das Naheliegende zum Antippen, wenn man mehr davon will,
+  // also ist sie der Knopf.
   const last = lastPerformance(store.state.sessions, entry.exerciseId, session.id);
   const historyOn = store.state.settings.setHistory !== false;
   if (last) {
@@ -333,8 +332,8 @@ function exerciseBlock(session, entry, entryIndex) {
 
     const tip = opening;
     if (tip) {
-      // A bodyweight movement has no weight to name, so the same engine answer
-      // is read out as a rep target instead of a load.
+      // Eine Körpergewichtsübung hat kein Gewicht, das man nennen könnte, dieselbe Antwort
+      // der Berechnung wird also als Wiederholungsziel vorgelesen statt als Last.
       const headline = (bodyweightLoadMode(ex) === 'bodyweight'
         ? t('train.tip.bodyweight', { reps: tip.reps })
         : t(`train.tip.${tip.change}`, { weight: fmtWeight(tip.weight, units), reps: tip.reps }))
@@ -342,8 +341,8 @@ function exerciseBlock(session, entry, entryIndex) {
       block.append(reasonedSuggestion(entry.exerciseId, headline, describeReasons(tip.reasons, units)));
     }
   } else {
-    // No history to compare against, but the work standing in front of this
-    // exercise is still the reason today's numbers look the way they do.
+    // Kein Verlauf zum Vergleichen, aber die Arbeit vor dieser Übung ist trotzdem der
+    // Grund, warum die Zahlen heute so aussehen.
     block.append(el('div.small.faint', { style: { marginBottom: '10px' } }, [
       el('span', { text: t('train.firstTime') }),
       orderLabel(rows, prior, session, entryIndex),
@@ -370,26 +369,26 @@ function exerciseBlock(session, entry, entryIndex) {
     el('span', { text: '✓' }),
   ]));
 
-  // Whichever advice is current becomes the empty field's meaning: the number
-  // the screen just recommended has to be the number that gets logged when the
-  // set is ticked without typing, or the suggestion is decoration.
+  // Welcher Rat gerade gilt, der wird zur Bedeutung des leeren Felds: die Zahl, die der
+  // Screen gerade empfohlen hat, muss die Zahl sein, die eingetragen wird, wenn man ohne
+  // Tippen abhakt, sonst ist der Vorschlag nur Deko.
   const pendingIndex = entry.sets.findIndex((s) => s.type === 'working' && !s.done);
   const usable = bodyweightLoadMode(ex) !== 'bodyweight' && (live || opening);
-  // What today is worth, for any load the lifter cares to type rather than only
-  // for the one the app picked. Read per set position, because capacity falls
-  // through a session and a prediction pinned to set one is a rep out by set
-  // four. Null when there is no history and nothing logged yet, which is the
-  // honest answer on a movement's first ever appearance.
+  // Was heute drin ist, für jede Last, die man eintippen will, nicht nur für die, die die
+  // App gewählt hat. Nach Position des Satzes gelesen, weil die Leistung über eine Einheit
+  // nachlässt und eine Vorhersage für Satz eins bei Satz vier eine Wiederholung daneben
+  // liegt. null, wenn es keinen Verlauf gibt und noch nichts eingetragen ist, und das ist
+  // die ehrliche Antwort beim allerersten Auftauchen einer Übung.
   const estimator = (workingIndex) => capacityToday(doneToday, rows,
     { prior, setIndex: workingIndex, assumedRir });
-  // Logged one side at a time means the number on screen is one side's load.
-  // Two words, and without them the suggestion reads as double the weight.
+  // Seite für Seite eingetragen heißt, die Zahl auf dem Screen ist die Last einer Seite.
+  // Zwei Wörter, und ohne sie liest sich der Vorschlag wie das doppelte Gewicht.
   const perSide = entry.movementMode === 'unilateral';
 
   entry.sets.forEach((set, i) => {
     const forThis = usable && i === pendingIndex ? usable : null;
-    // The line only accompanies the live advice. The opening suggestion has
-    // already said its piece in full at the top of the block.
+    // Die Zeile gehört nur zum Live-Rat. Der Vorschlag vom Anfang hat oben im Block schon
+    // alles gesagt.
     if (forThis && live) block.append(nextSetLine(live, units, perSide));
     block.append(setRow(session, entry, set, i, last, ex, forThis, estimator));
   });
@@ -404,20 +403,20 @@ function exerciseBlock(session, entry, entryIndex) {
     }, [t('train.addSet')])
   );
 
-  // Below the sets, not above them. Seat height and stack step are things you
-  // note once and read back months later; they were a full-width button in a
-  // stack of seven controls standing between an exercise's name and the first
-  // field you have to type in, which is the wrong end of the card for a setting
-  // that changes about once a year.
+  // Unter den Sätzen, nicht darüber. Sitzhöhe und Schritt am Gewichtsblock notiert man
+  // einmal und liest sie Monate später nach. Früher war das ein Knopf über die ganze Breite
+  // in einem Stapel von sieben zwischen dem Namen der Übung und dem ersten Feld, in das man
+  // tippen muss, also das falsche Ende der Karte für eine Einstellung, die sich etwa einmal
+  // im Jahr ändert.
   //
-  // Guarded, because `append` is the DOM's and prints a null as the word.
+  // Abgesichert, weil `append` die vom DOM ist und null als Wort druckt.
   const machineLine = machineSetupLine(ex, units);
   if (machineLine) block.append(machineLine);
 
   return block;
 }
 
-/** The saved seat, backrest and stack step for a machine, or the offer to save one. */
+/** Gespeicherter Sitz, Lehne und Gewichtsschritt einer Maschine, oder das Angebot, sie zu speichern. */
 function machineSetupLine(ex, units) {
   if (!ex || !['Machine', 'Cable'].includes(ex.equipment)) return null;
   const setup = store.state.settings.machineSetups?.[ex.id];
@@ -444,9 +443,9 @@ function setRow(session, entry, set, index, last, ex, advice = null, estimator =
   const workingNo = entry.sets.slice(0, index + 1).filter((s) => s.type === 'working').length;
   const rirOn = store.state.settings.logRir !== false;
   const loadMode = bodyweightLoadMode(ex);
-  // The row that is up next gets a mark of its own. On a four-set exercise the
-  // rows are identical grey boxes, and after a rest timer the question "which
-  // one am I on" was answered by counting ticks.
+  // Die Zeile, die als Nächstes dran ist, bekommt eine eigene Markierung. Bei vier Sätzen
+  // sind die Zeilen gleiche graue Kästen, und nach einem Pausentimer wurde "bei welchem bin
+  // ich" durch Häkchenzählen beantwortet.
   const upNext = !set.done && set.type === 'working'
     && entry.sets.findIndex((row) => row.type === 'working' && !row.done) === index;
   const row = el('div.set-row'
@@ -455,8 +454,8 @@ function setRow(session, entry, set, index, last, ex, advice = null, estimator =
     + (upNext ? '.up-next' : '')
     + (set.type === 'warmup' ? '.warmup' : ''));
 
-  // The set number opens the quick menu: duplicate, warm-up and delete without
-  // hunting through the exercise-level menu.
+  // Die Satznummer öffnet das Schnellmenü: verdoppeln, Aufwärmsatz und löschen, ohne im
+  // Menü der Übung suchen zu müssen.
   row.append(
     el('button.set-no', {
       style: { background: 'none', border: 0 },
@@ -465,14 +464,14 @@ function setRow(session, entry, set, index, last, ex, advice = null, estimator =
     }, [set.type === 'warmup' ? t('train.warmupLetter') : String(workingNo)])
   );
 
-  // `last.sets` holds only the working sets from last time, so it has to be
-  // indexed by working-set number, not by row. Indexing by row meant that two
-  // warm-up sets shifted every placeholder two sets down the list — set 1 would
-  // suggest what you did on set 3.
-  // What an empty field means when it is ticked. The live advice wins where
-  // there is one: after a completed set it is a better answer than last week,
-  // and it has to be the same number the line above the row just printed or
-  // ticking would quietly log something else.
+  // `last.sets` enthält nur die Arbeitssätze vom letzten Mal, der Index muss also die
+  // Nummer des Arbeitssatzes sein, nicht die Zeile. Mit der Zeile als Index haben zwei
+  // Aufwärmsätze jeden Platzhalter um zwei Sätze nach unten verschoben, Satz 1 schlug vor,
+  // was man bei Satz 3 gemacht hatte.
+  // Was ein leeres Feld beim Abhaken bedeutet. Der Live-Rat gewinnt, wo es einen gibt: nach
+  // einem abgeschlossenen Satz ist er die bessere Antwort als letzte Woche, und er muss
+  // dieselbe Zahl sein, die die Zeile darüber gerade gedruckt hat, sonst würde das Abhaken
+  // still etwas anderes eintragen.
   const hint = set.type === 'warmup' || !last
     ? (advice ? { weight: advice.weight, reps: advice.reps } : null)
     : advice || last.sets[workingNo - 1] || last.sets[last.sets.length - 1];
@@ -489,7 +488,7 @@ function setRow(session, entry, set, index, last, ex, advice = null, estimator =
     'aria-label': t('train.col.reps'),
   }), { integer: true });
 
-  // Keystrokes persist quietly — a re-render here would kill the caret.
+  // Tastendrücke speichern still, ein Neuzeichnen würde hier den Cursor zerstören.
   weight.addEventListener('input', () => {
     set.weight = parseNumber(weight.value);
     if (loadMode === 'added') {
@@ -510,9 +509,9 @@ function setRow(session, entry, set, index, last, ex, advice = null, estimator =
     input.addEventListener('focus', () => input.select());
   });
 
-  // Reps in reserve. Optional by design — the rating never punishes a blank,
-  // it just says it cannot judge effort. A required field here would get filled
-  // in with noise, which is worse than nothing.
+  // Wiederholungen in Reserve. Mit Absicht freiwillig, die Bewertung bestraft ein leeres
+  // Feld nie, sie sagt nur, dass sie die Anstrengung nicht beurteilen kann. Ein Pflichtfeld
+  // würde mit Rauschen gefüllt, und das ist schlimmer als nichts.
   const rir = normaliseOnBlur(numberInput({
     class: 'rir',
     value: set.rir ?? '',
@@ -543,10 +542,9 @@ function setRow(session, entry, set, index, last, ex, advice = null, estimator =
       }, ['◉'])])
     : weight;
 
-  // What your own number is worth. The app used to answer this for exactly one
-  // load, the one it had chosen itself, and go quiet the moment somebody typed
-  // over it: precisely when a lifter is deciding something and would like a
-  // second opinion.
+  // Was die eigene Zahl wert ist. Früher hat die App das für genau eine Last beantwortet,
+  // die, die sie selbst gewählt hatte, und wurde still, sobald jemand sie überschrieben
+  // hat. Also genau dann, wenn man etwas entscheidet und eine zweite Meinung gebrauchen könnte.
   const estimate = el('div.set-estimate', { 'aria-live': 'polite' });
   const paintEstimate = () => repaintEstimate(estimate, {
     estimator, workingNo, set, loadMode,
@@ -563,22 +561,22 @@ function setRow(session, entry, set, index, last, ex, advice = null, estimator =
 }
 
 /**
- * The estimate under one set row, repainted on every keystroke.
+ * Die Schätzung unter einer Satzzeile, bei jedem Tastendruck neu gezeichnet.
  *
- * Two different questions, and which is being asked depends on what is already
- * on the row:
+ * Zwei verschiedene Fragen, und welche gestellt wird, hängt davon ab, was schon in der
+ * Zeile steht:
  *
- *  - **A weight and no reps.** "How many is that good for." This is the one the
- *    suggestion has always answered for its own load, made available for any.
- *  - **A weight and reps.** The lifter has answered the rep question
- *    themselves, so re-answering it would be the app arguing with a number
- *    somebody just typed. The open question is how close to the limit that
- *    puts them, so it flips to reserve.
+ *  - EIN GEWICHT UND KEINE WIEDERHOLUNGEN. "Wie viele gehen damit." Das hat der Vorschlag
+ *    schon immer für seine eigene Last beantwortet, jetzt geht es für jede.
+ *  - EIN GEWICHT UND WIEDERHOLUNGEN. Die Frage nach den Wiederholungen hat man selbst
+ *    beantwortet, sie noch einmal zu beantworten hieße, dass die App mit einer gerade
+ *    getippten Zahl streitet. Offen ist, wie nah man damit an der Grenze ist, also geht
+ *    es um die Reserve.
  *
- * Silent on a ticked set (it is a record, not a decision), on a warm-up (the
- * whole point is that it is submaximal), and whenever there is nothing to
- * predict from. Quiet is a valid answer here: a guess with no history behind it
- * is worse than no line at all.
+ * Still bei einem abgehakten Satz (das ist eine Aufzeichnung, keine Entscheidung), bei
+ * einem Aufwärmsatz (der soll ja nicht ans Maximum gehen) und immer dann, wenn es nichts
+ * gibt, woraus man vorhersagen könnte. Still ist hier eine gültige Antwort: eine Schätzung
+ * ohne Verlauf dahinter ist schlimmer als gar keine Zeile.
  */
 function repaintEstimate(node, { estimator, workingNo, set, loadMode, weight, reps, perSide }) {
   node.textContent = '';
@@ -589,14 +587,14 @@ function repaintEstimate(node, { estimator, workingNo, set, loadMode, weight, re
   const today = estimator(Math.max(0, workingNo - 1));
   if (!today?.capacity) return;
 
-  // Logged one side at a time, the row holds one side's load and the standards
-  // and the history are about the whole movement. Doubling would be worse than
-  // wrong on a machine, so a unilateral row simply says nothing.
+  // Seite für Seite eingetragen enthält die Zeile die Last einer Seite, die Standards und
+  // der Verlauf beziehen sich aber auf die ganze Bewegung. Verdoppeln wäre an einer
+  // Maschine schlimmer als falsch, eine einseitige Zeile sagt also einfach nichts.
   if (perSide) return;
 
-  // On a weighted pull-up or dip the load is the lifter plus the belt, which is
-  // what the history was built from, so the estimate has to ask the same
-  // question the log answers.
+  // Bei Klimmzügen oder Dips mit Zusatzgewicht ist die Last der Mensch plus Gürtel, und
+  // daraus ist der Verlauf gebaut. Die Schätzung muss also dieselbe Frage stellen, die das
+  // Log beantwortet.
   const load = loadMode === 'added'
     ? (Number(store.state.settings.bodyweight) || 0) + weight
     : weight;
@@ -605,8 +603,8 @@ function repaintEstimate(node, { estimator, workingNo, set, loadMode, weight, re
   if (reps > 0) {
     const left = predictReserve(today.capacity, load, reps);
     if (left === null || !Number.isFinite(left)) return;
-    // Below zero the honest reading is not "minus one in the tank", it is that
-    // the set is past what today looks good for.
+    // Unter null heißt die ehrliche Lesart nicht "minus eine im Tank", sondern dass der Satz
+    // über dem liegt, was heute gut aussieht.
     node.textContent = left < -0.5
       ? t('train.estimate.beyond')
       : t('train.estimate.reserve', { rir: fmtDecimal(Math.max(0, left)) });
@@ -619,8 +617,8 @@ function repaintEstimate(node, { estimator, workingNo, set, loadMode, weight, re
 }
 
 function unilateralSetRow(session, entry, set, index, last, ex, advice = null) {
-  // No estimate here on purpose: see repaintEstimate. The row holds one side's
-  // load and every number the engine has is about the whole movement.
+  // Hier absichtlich keine Schätzung, siehe repaintEstimate. Die Zeile hat die Last einer
+  // Seite, und jede Zahl der Berechnung bezieht sich auf die ganze Bewegung.
   const workingNo = entry.sets.slice(0, index + 1).filter((row) => row.type === 'working').length;
   const row = el('div.unilateral-set' + (set.done ? '.done' : '')
     + (set.type === 'warmup' ? '.warmup' : ''));
@@ -654,8 +652,8 @@ function unilateralSetRow(session, entry, set, index, last, ex, advice = null) {
         }
         set.leftWeight = weights[0]; set.rightWeight = weights[1];
         set.leftReps = Math.round(reps[0]); set.rightReps = Math.round(reps[1]);
-        // The conservative side feeds PRs and strength standards; volume uses
-        // both sides in models.setVolume.
+        // Die vorsichtige Seite geht in Rekorde und Kraftstandards, das Volumen nimmt in
+        // models.setVolume beide Seiten.
         set.weight = Math.min(...weights);
         set.reps = Math.min(set.leftReps, set.rightReps);
       }
@@ -695,28 +693,28 @@ function setMenu(session, entry, set, index) {
 }
 
 /**
- * Offer a warm-up, once, quietly.
+ * Einmal leise ein Aufwärmen anbieten.
  *
- * Only when there is a working weight to ramp towards and no warm-up already
- * logged — the offer disappears the moment it is taken or made unnecessary,
- * rather than sitting there for the rest of the session.
+ * Nur, wenn es ein Arbeitsgewicht gibt, auf das man hinaufgehen kann, und noch kein
+ * Aufwärmsatz eingetragen ist. Das Angebot verschwindet, sobald es angenommen oder
+ * überflüssig wird, statt für den Rest der Einheit herumzustehen.
  *
- * The label says "gym practice" because that is exactly what it is: no trial
- * establishes an optimal ramp, and this app does not print numbers whose origin
- * it cannot name. Two sets on a barbell lift, one on everything else.
+ * Die Beschriftung sagt "Praxis im Studio", weil es genau das ist: keine Studie legt eine
+ * beste Rampe fest, und diese App druckt keine Zahlen, deren Herkunft sie nicht nennen
+ * kann. Zwei Sätze bei einer Langhantelübung, einer bei allem anderen.
  */
 function warmupOffer(session, entry, ex, units, context = {}) {
-  // A two-column grid: see `.warmup-offer` and the note on the caveat below.
+  // Ein Raster mit zwei Spalten, siehe `.warmup-offer` und den Hinweis zur Einschränkung unten.
   const wrap = el('div.warmup-offer');
   if (ex?.equipment === 'Bodyweight') return wrap;
   if (entry.sets.some((s) => s.type === 'warmup')) return wrap;
-  // A warm-up you are offered after the first working set is already logged is
-  // an offer to warm up for work you have finished. The offer belongs to the
-  // moment before the exercise starts and nowhere else.
+  // Ein Aufwärmen, das einem angeboten wird, nachdem der erste Arbeitssatz schon
+  // eingetragen ist, ist ein Aufwärmen für Arbeit, die schon erledigt ist. Das Angebot
+  // gehört zum Moment vor der Übung und nirgendwo sonst hin.
   if (entry.sets.some(isCounted)) return wrap;
 
-  // What the working sets are aiming at: whatever is already typed in, else
-  // what the suggestion is built from.
+  // Worauf die Arbeitssätze zielen: was schon eingetippt ist, sonst das, woraus der
+  // Vorschlag gebaut ist.
   const planned = Math.max(0, ...entry.sets
     .filter((s) => s.type === 'working')
     .map((s) => Number(s.weight) || 0));
@@ -729,31 +727,31 @@ function warmupOffer(session, entry, ex, units, context = {}) {
     units, barWeight: store.barWeight(), step: context.step,
     targetReps: context.targetReps, warmedRegions: context.warmedRegions,
   });
-  // Nothing to offer is now a real answer rather than a gap: a muscle already
-  // trained this session does not need a second introduction, and the 2025
-  // crossover found no cost to skipping. Say so instead of falling silent.
+  // Nichts anzubieten ist jetzt eine echte Antwort und keine Lücke: ein Muskel, der in dieser
+  // Einheit schon trainiert wurde, braucht keine zweite Einführung, und die Crossover-Studie
+  // von 2025 fand keinen Nachteil, wenn man es weglässt. Das sagen, statt still zu werden.
   if (!sets.length) {
     return alreadyWarm(ex, context.warmedRegions)
       ? el('div.small.faint', { style: { marginBottom: '8px' }, text: t('train.warmupNotNeeded') })
       : wrap;
   }
 
-  // Two controls on one row rather than two rows, and the row is a grid so they
-  // cannot overlap. The previous version stacked them because both were
-  // inline-flex `.btn`s that fitted side by side on a 375px phone and then a
-  // negative margin dragged the caveat's 44px hit area sideways across the
-  // offer's, stealing taps meant for "add these sets". A grid with a fixed
-  // second column has no such freedom: each control owns its own box, and the
-  // caveat keeps a full 44px square to be tapped in.
+  // Zwei Knöpfe in einer Zeile statt in zwei, und die Zeile ist ein Raster, damit sie sich
+  // nicht überlappen können. Die Version davor hat sie gestapelt, weil beide
+  // inline-flex-`.btn`s waren, die auf einem 375-px-Handy nebeneinander passten, und dann
+  // hat ein negativer Rand die 44-px-Trefferfläche der Einschränkung seitlich über die des
+  // Angebots gezogen und Tipps für "diese Sätze hinzufügen" abgefangen. Ein Raster mit
+  // fester zweiter Spalte hat diese Freiheit nicht: jeder Knopf hat seinen eigenen Kasten,
+  // und die Einschränkung behält ein volles Quadrat von 44 px zum Antippen.
   //
-  // The caveat itself is a whole sentence about what the trials found, so it
-  // still belongs in the sheet it opens rather than above a working set.
+  // Die Einschränkung selbst ist ein ganzer Satz darüber, was die Studien gefunden haben,
+  // und gehört deshalb weiter in das Sheet, das sie öffnet, und nicht über einen Arbeitssatz.
   wrap.append(
     el('button.warmup-add', {
       onclick: async () => {
         await store.updateSession(session.id, () => {
-          // In front of the working sets, which is where they belong and where
-          // the set numbering expects them.
+          // Vor die Arbeitssätze, da gehören sie hin, und dort erwartet sie auch die
+          // Nummerierung der Sätze.
           entry.sets.unshift(...sets.map((s) => ({
             ...newSet(), weight: s.weight, reps: s.reps, type: 'warmup',
           })));
@@ -770,11 +768,11 @@ function warmupOffer(session, entry, ex, units, context = {}) {
 }
 
 /**
- * The suggestion, with its reasoning one tap away.
+ * Der Vorschlag, mit der Begründung einen Tipp entfernt.
  *
- * The verdict is three words and the reasoning is three lines, and both used to
- * be printed together above the set rows. Collapsed, the whole exercise card
- * fits on a phone screen with the first weight field visible.
+ * Das Urteil sind drei Wörter und die Begründung drei Zeilen, und früher standen beide
+ * zusammen über den Satzzeilen. Zugeklappt passt die ganze Übungskarte mit dem ersten
+ * Gewichtsfeld auf einen Handybildschirm.
  */
 function reasonedSuggestion(exerciseId, headline, reason) {
   const open = openReasons.has(exerciseId);
@@ -793,17 +791,17 @@ function reasonedSuggestion(exerciseId, headline, reason) {
   ]);
 }
 
-/* ======================= effort and progression ======================= */
+/* ======================= Anstrengung und Progression ======================= */
 
-/** "· 1–2 RIR" tail on the last-time line, when it was recorded. */
+/** Das Anhängsel "· 1-2 RIR" an der Zeile vom letzten Mal, wenn es festgehalten wurde. */
 function lastRirLabel(sets) {
   const vals = sets.map((s) => s.rir).filter((v) => v !== null && v !== undefined);
   if (!vals.length) return null;
   const lo = Math.min(...vals), hi = Math.max(...vals);
-  return el('span.small.faint', { text: `  ·  ${lo === hi ? lo : `${lo}–${hi}`} RIR` });
+  return el('span.small.faint', { text: `  ·  ${lo === hi ? lo : `${lo}-${hi}`} RIR` });
 }
 
-/** "Set 2: 100 kg × ~7" — the live suggestion, sitting on the set it is about. */
+/** "Satz 2: 100 kg × ~7", der Live-Vorschlag, direkt an dem Satz, um den es geht. */
 function nextSetLine(advice, units, perSide = false) {
   return el('div.suggest.next-set', {}, [
     el('b', { text: t('train.next.headline', {
@@ -818,15 +816,15 @@ function nextSetLine(advice, units, perSide = false) {
 }
 
 /**
- * The reasons behind a suggestion, in the order they matter.
+ * Die Gründe hinter einem Vorschlag, in der Reihenfolge, in der sie zählen.
  *
- * Three at most, and only because they are behind a tap. The verdict is three
- * words on the closed row; this is what opens underneath it when somebody wants
- * to know why, which is a different question with a different budget. Two was
- * the right answer while these were printed inline above the set rows.
+ * Höchstens drei, und nur, weil sie hinter einem Tipp liegen. Das Urteil sind drei Wörter
+ * in der zugeklappten Zeile, das hier klappt darunter auf, wenn jemand das Warum wissen
+ * will, und das ist eine andere Frage mit einem anderen Platzbudget. Zwei waren richtig,
+ * solange das direkt über den Satzzeilen stand.
  *
- * Every load in the params is formatted here rather than in the engine, which
- * deals in numbers and knows nothing about the unit the screen is showing.
+ * Jede Last in den Parametern wird hier formatiert und nicht in der Berechnung, die
+ * rechnet mit Zahlen und weiß nichts von der Einheit, die der Screen zeigt.
  */
 const REASON_LOADS = ['weight', 'from', 'perWeek'];
 
@@ -843,37 +841,37 @@ function describeReasons(reasons, units) {
 const round1 = (n) => Math.round(n * 10) / 10;
 
 /**
- * "6 sets of chest before this one" on the last-time line.
+ * "6 Sätze Brust vor dieser Übung" an der Zeile vom letzten Mal.
  *
- * The whole reason the correction exists is that it is invisible otherwise: the
- * lifter sees 100 × 8 last week and 95 × 8 today and reads a regression, when
- * what actually changed is that the bench was not free and the butterfly went
- * first. Naming it is half the value of measuring it.
+ * Die Korrektur gibt es nur, weil man sie sonst nicht sieht: man sieht letzte Woche
+ * 100 × 8 und heute 95 × 8 und liest einen Rückschritt, obwohl sich nur geändert hat,
+ * dass die Bank besetzt war und der Butterfly zuerst kam. Es zu benennen ist die Hälfte
+ * dessen, was das Messen wert ist.
  *
- * It has to name it *correctly*, and for a long time it did not. The number
- * printed was `prior.same`, the weighted overlap, rounded to a whole number:
- * three bench presses ahead of a triceps pushdown came out as 1.5 and the
- * screen said "2 sets for this muscle before this one", when nothing ahead of
- * it had trained triceps as its job. A count a lifter can disprove by looking
- * at their own screen destroys the credibility of every other number on it.
+ * Es muss RICHTIG benannt werden, und das war es lange nicht. Gedruckt wurde
+ * `prior.same`, die gewichtete Überschneidung, auf eine ganze Zahl gerundet: drei Sätze
+ * Bankdrücken vor Trizepsdrücken am Kabel ergaben 1,5, und der Screen sagte "2 Sätze für
+ * diesen Muskel davor", obwohl nichts davor den Trizeps als Aufgabe trainiert hatte. Eine
+ * Zahl, die man mit einem Blick auf den eigenen Screen widerlegen kann, zerstört die
+ * Glaubwürdigkeit jeder anderen Zahl darauf.
  *
- * So the printed count is `prior.direct`: whole sets from movements that lead
- * on the same muscle. The weighted figure still drives the arithmetic, where
- * fractions belong, and never reaches the page. And the muscle is named, so
- * "this muscle" is not something the reader has to work out.
+ * Gedruckt wird deshalb `prior.direct`: ganze Sätze aus Übungen, die denselben Muskel als
+ * Hauptmuskel haben. Der gewichtete Wert rechnet weiter mit, dort gehören Brüche hin, aber
+ * er landet nie auf der Seite. Und der Muskel wird genannt, damit man sich "diesen Muskel"
+ * nicht erst zusammenreimen muss.
  *
- * When the direct count has not changed but the exercise has clearly moved, the
- * line still says so, because the systemic cost of being an hour into a session
- * is real and OTHER_REGION is what charges for it. It just stops pretending
- * that work was for this muscle.
+ * Hat sich die direkte Zahl nicht geändert, die Übung aber deutlich ihren Platz, sagt die
+ * Zeile das trotzdem, weil die allgemeine Ermüdung nach einer Stunde Training echt ist und
+ * OTHER_REGION genau die berechnet. Sie tut nur nicht mehr so, als wäre die Arbeit für
+ * diesen Muskel gewesen.
  */
 function orderLabel(rows, prior, session, entryIndex) {
   const muscle = prior.regions.length ? tRegion(prior.regions[0]) : null;
   if (!muscle) return null;
 
-  // Nothing to compare against on the first outing, but "6 sets of chest come
-  // first" is worth saying on its own: it is the reason today's suggestion is
-  // what it is.
+  // Beim ersten Mal gibt es nichts zu vergleichen, aber "6 Sätze Brust kommen vorher" ist
+  // für sich schon eine Aussage wert: das ist der Grund, warum der Vorschlag heute so ist,
+  // wie er ist.
   if (!rows.length) {
     return prior.direct >= 2
       ? el('span.small', { style: { color: 'var(--text-dim)', display: 'block', marginTop: '2px' },
@@ -883,16 +881,15 @@ function orderLabel(rows, prior, session, entryIndex) {
 
   const was = rows[rows.length - 1].prior;
   const movedDirect = Math.abs(prior.direct - (was.direct ?? 0)) >= 1;
-  // Two increments of "everything else" before a move with no same-muscle work
-  // in it is worth a line. One set either way is noise.
+  // Zwei Schritte "alles andere" vor einer Übung ohne Arbeit für denselben Muskel sind eine
+  // Zeile wert. Ein Satz mehr oder weniger ist Rauschen.
   const movedOverall = Math.abs(prior.total - (was.total ?? 0)) >= 3;
   if (!movedDirect && !movedOverall) return null;
 
-  // Amber for the case that costs you something, and nothing louder than the
-  // rest of the line for the case that gives it back. Both used to be painted
-  // in the warning colour, so an exercise moved *earlier* in the session, a
-  // lifter arriving at it fresher than last week and therefore good news, was
-  // flagged on screen in the same colour as a problem.
+  // Bernstein für den Fall, der einen etwas kostet, und nichts Lauteres als der Rest der
+  // Zeile für den Fall, der es zurückgibt. Früher waren beide in der Warnfarbe gemalt. Eine
+  // Übung, die in der Einheit FRÜHER kam, also frischer als letzte Woche und damit eine gute
+  // Nachricht, war auf dem Screen genauso eingefärbt wie ein Problem.
   const later = movedDirect
     ? prior.direct > (was.direct ?? 0)
     : prior.total > (was.total ?? 0);
@@ -910,12 +907,12 @@ function orderLabel(rows, prior, session, entryIndex) {
   });
 }
 
-/** Where the warm-up numbers come from, and where they stop. */
+/** Woher die Zahlen fürs Aufwärmen kommen und wo sie aufhören. */
 function warmupEvidenceSheet() {
   const sources = [SOURCES.ribeiro2020, SOURCES.warmup2025];
   openSheet(t('train.warmupEvidenceTitle'), el('div', {}, [
-    // The one-line version, which used to sit above the set rows on the workout
-    // screen. It is the answer to the question this sheet is opened by.
+    // Die Kurzfassung, die früher im Training über den Satzzeilen stand. Sie beantwortet die
+    // Frage, mit der man dieses Sheet öffnet.
     el('div', { style: { fontWeight: '650', marginBottom: '8px' }, text: t('train.warmupCaveat') }),
     el('div.small.muted', { text: t('train.warmupEvidenceBody') }),
     ...sources.map((source) => el('div', { style: { marginTop: '14px' } }, [
@@ -932,15 +929,15 @@ function warmupEvidenceSheet() {
 }
 
 /**
- * Tick or untick a set.
+ * Einen Satz abhaken oder das Häkchen wegnehmen.
  *
- * Every change to the session happens inside the mutate callback, and nothing
- * is celebrated until the write comes back. `store.updateSession` takes its
- * undo snapshot at the moment it is called, so anything changed before the call
- * is a change it cannot roll back — this used to mutate first and pass an empty
- * callback, which quietly made the rollback a no-op on the one action that
- * matters most. Firing the PR toast and the rest timer first had the same
- * shape: a personal best announced for a set that never reached the disk.
+ * Jede Änderung an der Einheit passiert im mutate-Callback, und nichts wird gefeiert,
+ * bevor das Schreiben zurückkommt. `store.updateSession` macht seine Kopie zum
+ * Rückgängigmachen in dem Moment, in dem es aufgerufen wird. Alles, was vorher geändert
+ * wurde, kann es nicht zurückrollen. Früher wurde hier zuerst geändert und dann ein leerer
+ * Callback übergeben, das Zurückrollen tat also still nichts, und das bei der wichtigsten
+ * Aktion überhaupt. Den Rekord-Toast und den Pausentimer zuerst zu starten hatte dieselbe
+ * Form: ein Rekord, gefeiert für einen Satz, der nie auf der Platte ankam.
  */
 async function toggleDone(session, entry, set, weightInput, repsInput, hint, ex = null) {
   const turningOn = !set.done;
@@ -952,8 +949,8 @@ async function toggleDone(session, entry, set, weightInput, repsInput, hint, ex 
     if (loadMode !== 'external' && (!bodyweight || bodyweight <= 0)) {
       toast(t('train.bodyweightMissing')); return;
     }
-    // Empty fields fall back to the placeholder — repeating last week is the
-    // common case and shouldn't need typing.
+    // Leere Felder fallen auf den Platzhalter zurück. Die letzte Woche zu wiederholen ist der
+    // Normalfall und soll kein Tippen brauchen.
     const weight = loadMode === 'bodyweight' ? bodyweight
       : (set.weight === null || set.weight === undefined || weightInput.value === '')
         ? (hint ? hint.weight : null)
@@ -979,7 +976,7 @@ async function toggleDone(session, entry, set, weightInput, repsInput, hint, ex 
     }
     set.done = turningOn;
   });
-  if (!saved) return;   // rolled back, and the failure has already been reported
+  if (!saved) return;   // zurückgerollt, und der Fehler ist schon gemeldet
 
   if (fill) { weightInput.value = String(fill.weight); repsInput.value = String(fill.reps); }
   haptic(turningOn ? 12 : 6);
@@ -999,30 +996,29 @@ async function toggleDone(session, entry, set, weightInput, repsInput, hint, ex 
     if (set.type === 'working' && store.state.settings.autoStartRest) {
       rest.start(store.state.settings.restSeconds, {
         sound: store.state.settings.soundOnRestEnd !== false,
-        // This call is inside the tap that ticked the set off, which is the
-        // only place iOS lets playback begin. Starting the keeper anywhere
-        // later would be refused.
+        // Dieser Aufruf steckt in dem Tipp, der den Satz abgehakt hat, und nur dort lässt
+        // iOS eine Wiedergabe beginnen. Den Wachhalter später zu starten würde abgelehnt.
         background: store.state.settings.restBackgroundAudio !== false,
       });
     }
   }
 }
 
-/** Returns a message if this set just beat a stored best. */
+/** Gibt eine Meldung zurück, wenn dieser Satz gerade einen gespeicherten Bestwert geschlagen hat. */
 /**
- * Did this set just beat something?
+ * Hat dieser Satz gerade etwas geschlagen?
  *
- * The estimate is compared like with like. Epley climbs without limit in the
- * reps, so a set of twenty-five produces a bigger number than a heavy triple
- * whatever the lifter can actually do: 90 kg x 25 comes out at 165, which
- * "beats" a genuine 100 kg x 12, and the app fired a personal-best celebration
- * for a back-off set. The rank has refused to be built outside
- * THRESHOLDS.e1rmWindow since the window existed; this is the same rule, which
- * had simply never been carried across to the toast.
+ * Die Schätzung wird mit Gleichem verglichen. Epley steigt mit den Wiederholungen ohne
+ * Grenze, ein Satz mit fünfundzwanzig ergibt also eine größere Zahl als ein schweres
+ * Triple, egal was man wirklich kann: 90 kg x 25 ergibt 165 und "schlägt" echte
+ * 100 kg x 12, und die App hat für einen Back-off-Satz einen Rekord gefeiert. Der Rang
+ * lässt sich außerhalb von THRESHOLDS.e1rmWindow nicht mehr bauen, seit es das Fenster
+ * gibt. Das hier ist dieselbe Regel, sie war nur nie beim Toast angekommen.
  *
- * Two pools rather than one filter, so a lifter who only ever trains at fifteen
- * reps still has records — they are just records against their own high-rep
- * work instead of against a formula run somewhere it was never fitted.
+ * Zwei Töpfe statt eines Filters, damit jemand, der immer mit fünfzehn Wiederholungen
+ * trainiert, trotzdem Rekorde hat. Die gelten dann gegen die eigenen Sätze mit vielen
+ * Wiederholungen und nicht gegen eine Formel, die an einer Stelle läuft, für die sie nie
+ * gedacht war.
  */
 function checkPR(session, entry, set) {
   const units = store.units();
@@ -1038,11 +1034,11 @@ function checkPR(session, entry, set) {
       bestWeight = Math.max(bestWeight, effectiveSetWeight(prev));
     }
   }
-  if (!best.in && !best.out) return null;   // nothing to beat yet
+  if (!best.in && !best.out) return null;   // noch nichts zu schlagen
 
   const w = effectiveSetWeight(set);
-  // A heavier weight is a heavier weight, whatever the reps, so this side needs
-  // no window at all.
+  // Ein schwereres Gewicht ist ein schwereres Gewicht, egal bei wie vielen Wiederholungen,
+  // diese Seite braucht also kein Fenster.
   if (w > bestWeight) return t('train.pr.weight', { weight: fmtWeight(w, units) });
   const pool = withinE1rmWindow(set) ? 'in' : 'out';
   if (best[pool] && e1rm(w, set.reps) > best[pool]) return t('train.pr.e1rm');
@@ -1050,12 +1046,12 @@ function checkPR(session, entry, set) {
 }
 
 /**
- * What to hang on the bar for a given total.
+ * Was für ein Gesamtgewicht auf die Stange muss.
  *
- * Opens on the heaviest weight already written into this exercise, because that
- * is nearly always the number you are asking about. It reports the load it can
- * actually reach: the gym has no 0.5 kg discs, so a target it cannot hit says
- * so instead of printing a plate list that adds up to something else.
+ * Öffnet mit dem schwersten Gewicht, das bei dieser Übung schon eingetragen ist, weil das
+ * fast immer die Zahl ist, nach der man fragt. Es sagt, welche Last es wirklich erreicht:
+ * das Studio hat keine 0,5-kg-Scheiben, ein Ziel, das nicht geht, sagt das also, statt
+ * eine Scheibenliste zu drucken, die etwas anderes ergibt.
  */
 function plateSheet(entry, ex, initialWeight = null) {
   const units = store.units();
@@ -1100,7 +1096,7 @@ function plateSheet(entry, ex, initialWeight = null) {
   ]));
 }
 
-/* ============================ menus ============================ */
+/* ============================ Menüs ============================ */
 
 function exerciseMenu(session, entry, index, name) {
   const move = async (delta) => {
@@ -1155,8 +1151,8 @@ function exerciseMenu(session, entry, index, name) {
       closeSheet();
       toast(t(unilateral ? 'train.unilateralOn' : 'train.bilateralOn'));
     } }, [t(entry.movementMode === 'unilateral' ? 'train.useBilateral' : 'train.useUnilateral')]),
-    // Only for a loaded bar. On a machine "per side" means nothing, and on a
-    // dumbbell there is nothing to work out.
+    // Nur bei einer beladenen Stange. An einer Maschine heißt "pro Seite" nichts, und bei
+    // einer Kurzhantel gibt es nichts auszurechnen.
     ex && ex.equipment === 'Barbell'
       ? el('button.btn.ghost.full', {
           onclick: () => { closeSheet(); plateSheet(entry, ex); },
@@ -1188,19 +1184,19 @@ function machineSetupSheet(ex) {
   const backrest = field('backrest', t('train.machine.backrestPlaceholder'));
   const pad = field('pad', t('train.machine.padPlaceholder'));
   const note = field('note', t('train.machine.notePlaceholder'));
-  // The one number on this sheet, and the reason it is here: every weight
-  // suggestion the app makes moves in increments, and it used to assume 2.5 kg
-  // everywhere. A stack that goes up in fives cannot be asked for 102.5, so
-  // half the suggestions were weights the machine does not have.
+  // Die eine Zahl auf diesem Sheet und der Grund, warum es sie gibt: jeder Gewichtsvorschlag
+  // der App bewegt sich in Schritten, und früher wurden überall 2,5 kg angenommen. Ein
+  // Block in Fünferschritten kann keine 102,5 liefern, die Hälfte der Vorschläge waren also
+  // Gewichte, die die Maschine nicht hat.
   const stepInput = normaliseOnBlur(numberInput({
     decimal: true,
     value: saved.step ?? '',
     placeholder: String(defaultStep(ex, store.units())),
     'aria-label': t('train.machine.step'),
   }));
-  // The stack maximum belongs here too, not only behind an outlier warning:
-  // somebody who knows their gym should be able to write it down before the app
-  // has anything to complain about.
+  // Das Maximum des Gewichtsblocks gehört auch hierher und nicht nur hinter eine Warnung zu
+  // Ausreißern: wer sein Studio kennt, soll es aufschreiben können, bevor die App etwas zu
+  // beanstanden hat.
   const stackInput = normaliseOnBlur(numberInput({
     decimal: true, value: saved.stackMax ?? '', placeholder: t('home.rating.stackPlaceholder'),
     'aria-label': t('home.rating.stackMax', { units: store.units() }),
@@ -1221,10 +1217,10 @@ function machineSetupSheet(ex) {
     el('button.btn.primary.full', { onclick: async () => {
       const setups = { ...(store.state.settings.machineSetups || {}) };
       const step = parseNumber(stepInput.value);
-      // Spread what is already there. This sheet does not own the whole record:
-      // the load correction on Home writes loadFactor and stackMax into the same
-      // object, and rebuilding it from these four fields silently threw them
-      // away the next time somebody adjusted their seat height.
+      // Das Vorhandene übernehmen. Dieses Sheet besitzt nicht den ganzen Eintrag: die
+      // Lastkorrektur auf Home schreibt loadFactor und stackMax in dasselbe Objekt, und es aus
+      // diesen vier Feldern neu zu bauen hat beides still weggeworfen, sobald jemand das
+      // nächste Mal seine Sitzhöhe verstellt hat.
       const stackMax = parseNumber(stackInput.value);
       const next = { ...saved,
         seat: seat.value.trim(), backrest: backrest.value.trim(), pad: pad.value.trim(), note: note.value.trim(),
@@ -1245,7 +1241,7 @@ function machineSetupSheet(ex) {
   ]));
 }
 
-/** Demo frames + steps, one tap from the workout rather than cluttering it. */
+/** Bilder und Anleitung, einen Tipp vom Training entfernt, statt es vollzustellen. */
 function howToSheet(ex) {
   const body = el('div', {}, [
     exerciseArt(ex, { eager: true }),
@@ -1288,7 +1284,7 @@ function renameSession(session) {
   openSheet(t('train.renameTitle'), body);
 }
 
-/* ============================ finish ============================ */
+/* ============================ Abschluss ============================ */
 
 async function finishFlow(session) {
   const completed = session.entries.reduce((n, e) => n + e.sets.filter(isCounted).length, 0);
@@ -1321,8 +1317,8 @@ async function finishFlow(session) {
         closeSheet();
         await store.finishSession(session.id);
         rest.stop();
-        // The one moment worth not waiting for the routine interval: the phone
-        // is very often put away right here and not opened again for days.
+        // Der eine Moment, in dem sich Warten auf den normalen Takt nicht lohnt: genau hier wird
+        // das Handy sehr oft weggelegt und tagelang nicht mehr geöffnet.
         flushBackup();
         toast(t('train.savedToast'), 2400);
         navigate('calendar', session.id);

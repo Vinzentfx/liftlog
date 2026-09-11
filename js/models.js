@@ -1,11 +1,11 @@
-// Data model, seed library, and the derived-stat maths.
+// Datenmodell, mitgelieferte Bibliothek und die Rechnerei für abgeleitete Werte.
 
 import { THRESHOLDS } from './evidence.js';
 import { LIBRARY as LIBRARY_MAIN } from './exercise-library.js';
 import { LIBRARY_EXTRA } from './exercise-extra.js';
 import { CONTRIB, ANATOMY, benchmarkName } from './standards.js';
 
-// free-exercise-db catalogue plus the everkinetic exercises adopted for their art
+// Katalog von free-exercise-db plus die Übungen aus everkinetic, die wegen ihrer Bilder übernommen wurden
 const LIBRARY = [...LIBRARY_MAIN, ...LIBRARY_EXTRA];
 
 export const MUSCLES = [
@@ -14,13 +14,12 @@ export const MUSCLES = [
 ];
 
 /**
- * The newest weigh-in in a log, whatever order it is stored in.
+ * Das neueste Wiegen in einem Log, egal in welcher Reihenfolge es gespeichert ist.
  *
- * Pulled out of the store so it can be tested: the store keeps `bodyweight`
- * newest-first, but `logBodyweight` accepts a date, so a backdated correction
- * arrives after entries that are newer than it. "The last one written" is not
- * the same thing as "your weight now", and this app has a strength score
- * hanging off the difference.
+ * Aus dem Store herausgezogen, damit es testbar ist: der Store hält `bodyweight` mit dem
+ * neuesten zuerst, aber `logBodyweight` nimmt ein Datum an, eine nachträgliche Korrektur
+ * kommt also nach Einträgen, die neuer sind als sie. "Das zuletzt geschriebene" ist nicht
+ * dasselbe wie "dein Gewicht jetzt", und an diesem Unterschied hängt eine Stärkewertung.
  */
 export function latestWeight(log = []) {
   let best = null;
@@ -33,22 +32,23 @@ export function latestWeight(log = []) {
 }
 
 export const DEFAULT_SETTINGS = {
-  // Interface language. null follows the device, which is what a fresh install
-  // on a German phone should do without being asked.
+  // Sprache der Oberfläche. null folgt dem Gerät, so soll es eine frische Installation
+  // auf einem deutschen Handy halten, ohne dass man fragen muss.
   language: null,         // 'de' | 'en' | null
   theme: 'ocean',         // 'ocean' | 'violet' | 'emerald' | 'sunset'
   units: 'kg',            // 'kg' | 'lb'
   restSeconds: 180,
   autoStartRest: true,
   soundOnRestEnd: true,
-  // Hold an audio session open while a rest runs, so the chime still arrives
-  // when the phone has moved on to another app. Costs battery and takes over
-  // the media controls; switchable on its own, separate from the chime itself.
+  // Während einer Pause eine Audio-Sitzung offen halten, damit der Ton auch kommt, wenn
+  // das Handy schon bei einer anderen App ist. Kostet Akku und belegt die
+  // Mediensteuerung, deshalb eigener Schalter, getrennt vom Ton selbst.
   restBackgroundAudio: true,
   progressionSuggestions: true,
-  // Off, because it trades one honest answer for another rather than fixing a
-  // mistake: on, the rep range is respected and the load moves to keep it; off,
-  // the load is held through the normal set-to-set fade. See `keepInRange`.
+  // Aus, weil es eine ehrliche Antwort gegen eine andere tauscht und keinen Fehler
+  // behebt: an, wird der Wiederholungsbereich eingehalten und die Last bewegt sich
+  // dafür, aus, bleibt die Last über das normale Nachlassen von Satz zu Satz gleich.
+  // Siehe `keepInRange`.
   strictRepRange: false,
   warmupSuggestions: true,
   plateauHints: true,
@@ -56,50 +56,49 @@ export const DEFAULT_SETTINGS = {
   techniqueHints: true,
   plannedDuration: true,
   regenerationEnabled: false,
-  showRatings: true,      // strength tiers can be demotivating — let them be hidden
-  showStars: true,        // exercise/plan quality stars, separate from the tiers
-  logRir: true,           // reps-in-reserve column on the set row
-  // What a blank RIR means to the progression engine. Not zero: a blank has
-  // always meant "unknown", and quietly reading it as "taken to failure" made
-  // every suggestion for anyone who does not log RIR (or who has the column
-  // switched off entirely) systematically too light. It is an assumption, the
-  // engine says when it leaned on it, and nothing else in the app reads it:
-  // personal bests, ranks and charts stay on what was actually written down.
+  showRatings: true,      // Stärkestufen können demotivieren, also lassen sie sich ausblenden
+  showStars: true,        // Qualitätssterne für Übungen und Pläne, getrennt von den Stufen
+  logRir: true,           // Spalte für Wiederholungen in Reserve in der Satzzeile
+  // Was ein leeres RIR für die Progression bedeutet. Nicht null: leer hieß immer
+  // "unbekannt", und es still als "bis zum Versagen" zu lesen hat jeden Vorschlag für
+  // alle, die kein RIR eintragen (oder die Spalte ganz aus haben), systematisch zu leicht
+  // gemacht. Es ist eine Annahme, die Progression sagt, wenn sie sich darauf stützt, und
+  // sonst liest das niemand in der App: Rekorde, Ränge und Diagramme bleiben bei dem,
+  // was wirklich aufgeschrieben wurde.
   assumedRir: 1,
-  // Contribute rank scores to the anonymous distribution, and see where you sit
-  // in it. Off by default: it is the only setting that sends anything about
-  // training to a server that is not the user's own encrypted backup, even
-  // though what it sends is a bodyweight-normalised 0-100 with no lift weight,
-  // no repetitions and no identity attached.
-  // The "this lift does not belong" notice on a rank. On by default, because a
-  // machine several ranks clear of everything else is nearly always a counting
-  // problem and finding out silently costs somebody a wrong rank for months.
-  // Off is for the lifter who has already looked, decided the number is right,
-  // and does not want to be asked again.
+  // Rangwerte zur anonymen Verteilung beisteuern und sehen, wo man darin steht.
+  // Standardmäßig aus: das ist die einzige Einstellung, die etwas übers Training an einen
+  // Server schickt, der nicht die eigene verschlüsselte Sicherung ist, auch wenn das nur
+  // eine Zahl von 0 bis 100 relativ zum Körpergewicht ist, ohne Gewicht, ohne
+  // Wiederholungen und ohne Identität.
+  // Der Hinweis "diese Übung passt nicht dazu" an einem Rang. Standardmäßig an, weil eine
+  // Maschine, die mehrere Ränge über allem anderen liegt, fast immer ein Zählfehler ist,
+  // und es still herauszufinden kostet jemanden monatelang einen falschen Rang. Aus ist für
+  // alle, die schon nachgesehen haben, die Zahl für richtig halten und nicht wieder gefragt
+  // werden wollen.
   outlierHints: true,
   shareRankComparison: false,
-  // The last rank step this device celebrated. The rating is rebuilt from the
-  // whole log on every render, so there is no event to hang a celebration on
-  // and this is the event: a stored number that the computed one can overtake
-  // exactly once. Null means "never recorded", which is deliberately not the
-  // same as zero — see announceRankUp.
+  // Die letzte Rangstufe, die dieses Gerät gefeiert hat. Die Wertung wird bei jedem
+  // Zeichnen aus dem ganzen Log neu gebaut, es gibt also kein Ereignis, an dem man eine
+  // Feier aufhängen könnte, und das hier ist das Ereignis: eine gespeicherte Zahl, die die
+  // berechnete genau einmal überholen kann. null heißt "nie festgehalten", und das ist
+  // absichtlich nicht dasselbe wie null Punkte, siehe announceRankUp.
   lastSeenRankStep: null,
-  // What a newly added plan exercise starts at. 2 x 6-10 is the app's default
-  // for reasons documented in plan-builder.js, but it is a preference, not a
-  // finding — someone running 3 x 8-12 should not have to retype it every time.
+  // Womit eine neue Übung im Plan anfängt. 2 x 6-10 ist der Standard der App, aus Gründen,
+  // die in plan-builder.js stehen, aber es ist eine Vorliebe und kein Befund. Wer 3 x 8-12
+  // macht, soll das nicht jedes Mal neu eintippen müssen.
   defaultSets: 2,
   defaultReps: '6-10',
-  // What the empty bar weighs, for the plate maths. null means "the standard
-  // Olympic bar for the current unit" — a setting rather than a constant
-  // because training bars, women's bars and safety-squat bars all differ.
+  // Was die leere Stange wiegt, für die Scheibenrechnung. null heißt "die normale
+  // Olympia-Stange für die aktuelle Einheit". Eine Einstellung und keine Konstante, weil
+  // Trainingsstangen, Frauenstangen und Safety-Squat-Stangen alle verschieden sind.
   barWeight: null,
-  // What the calorie target is aimed at. Only ever three answers, because the
-  // rate that goes with each is a convention (0.25-0.5% of bodyweight a week)
-  // rather than something anyone has trialled at finer resolution.
+  // Worauf das Kalorienziel zielt. Nur drei Antworten, weil die Rate dazu eine übliche
+  // Festlegung ist (0,25 bis 0,5 % Körpergewicht pro Woche) und niemand sie feiner getestet hat.
   goal: 'hold',           // 'lose' | 'hold' | 'gain'
-  // Cloud backup. Off until someone turns it on and agrees to the wording, and
-  // the agreement itself is recorded on the server rather than here, so this is
-  // only the local switch. `state.enabled` in sync.js requires both.
+  // Cloud-Sicherung. Aus, bis jemand sie einschaltet und dem Text zustimmt. Die Zustimmung
+  // selbst wird auf dem Server festgehalten und nicht hier, das ist also nur der lokale
+  // Schalter. `state.enabled` in sync.js braucht beides.
   cloudEnabled: false,
   cloudLastSyncAt: null,
   cloudLastFingerprint: null,
@@ -107,16 +106,16 @@ export const DEFAULT_SETTINGS = {
   creatineReminderEnabled: false,
   creatineReminderTime: '19:00',
   creatineLastTakenDay: null,
-  // Profile. sex and bodyweight drive the strength standards; height is
-  // recorded for reference only and is deliberately not used in any rating
-  // (no published standard normalises by height).
+  // Profil. Geschlecht und Körpergewicht bestimmen die Kraftstandards. Die Größe wird nur
+  // zur Info festgehalten und absichtlich in keiner Wertung benutzt (kein veröffentlichter
+  // Standard rechnet mit der Größe).
   sex: null,              // 'male' | 'female' | null
   age: null,
   height: null,           // cm
   activePlanId: null,
 };
 
-/** name | muscle | equipment */
+/** Name | Muskel | Gerät */
 const SEED = [
   ['Barbell Bench Press', 'Chest', 'Barbell'],
   ['Incline Barbell Bench Press', 'Chest', 'Barbell'],
@@ -194,10 +193,10 @@ const SEED = [
   ['Ab Wheel Rollout', 'Core', 'Bodyweight'],
   ['Russian Twist', 'Core', 'Dumbbell'],
 
-  // Machine work. The imported catalogue is heavy on barbell, dumbbell and
-  // cable and thin on machines — 72 of 850 entries — which leaves anyone who
-  // trains in a machine-equipped gym typing their own. These carry hand-written
-  // anatomy from CONTRIB_EXTRA, and deliberately no strength standard.
+  // Arbeit an Maschinen. Der importierte Katalog hat viel Langhantel, Kurzhantel und Kabel
+  // und wenig Maschinen, 72 von 850 Einträgen. Wer in einem Studio mit Maschinen trainiert,
+  // tippt also seine eigenen. Diese hier haben von Hand geschriebene Anatomie aus
+  // CONTRIB_EXTRA und absichtlich keinen Kraftstandard.
   ['Machine Chest Press', 'Chest', 'Machine'],
   ['Incline Machine Press', 'Chest', 'Machine'],
   ['Machine Chest Fly', 'Chest', 'Machine'],
@@ -231,8 +230,8 @@ const SEED = [
   ['Machine Back Extension', 'Hamstrings', 'Machine'],
   ['Machine Crunch', 'Core', 'Machine'],
 
-  // Modern gym staples missing from both imported catalogues. These fill real
-  // programming gaps rather than adding near-duplicate grip variants.
+  // Übliche Übungen aus modernen Studios, die in beiden importierten Katalogen fehlen. Sie
+  // füllen echte Lücken beim Planen und sind keine fast gleichen Griffvarianten.
   ['Pendulum Squat', 'Quads', 'Machine'],
   ['Belt Squat', 'Quads', 'Machine'],
   ['Smith Machine Romanian Deadlift', 'Hamstrings', 'Machine'],
@@ -255,7 +254,7 @@ const SEED = [
   ['Seated Dip Machine', 'Triceps', 'Machine'],
 ];
 
-/** Coarse muscle -> body-map regions, for the curated seed entries. */
+/** Grobe Muskelgruppe -> Regionen der Muskelkarte, für die gepflegten Einträge. */
 const COARSE_REGIONS = {
   Chest: ['chest'], Back: ['lats'], Shoulders: ['delts-front'],
   Biceps: ['biceps'], Triceps: ['triceps'], Quads: ['quads'],
@@ -264,30 +263,30 @@ const COARSE_REGIONS = {
 };
 
 /**
- * Regions for an exercise the user typed in themselves. Coarse, but a coarse
- * answer is what makes a custom exercise visible at all: without regions it
- * contributes nothing to the muscle map, nothing to a plan's volume and scores
- * as a no-muscle movement in the exercise rating.
+ * Regionen für eine Übung, die der Nutzer selbst eingetippt hat. Grob, aber erst eine
+ * grobe Antwort macht eine eigene Übung überhaupt sichtbar: ohne Regionen trägt sie
+ * nichts zur Muskelkarte bei, nichts zum Volumen eines Plans und gilt in der
+ * Übungsbewertung als Bewegung ohne Muskeln.
  */
 export function regionsForMuscle(muscle) {
   return [...(COARSE_REGIONS[muscle] || [])];
 }
 
-/** Bumped whenever the bundled catalogue changes, to top up existing installs. */
+/** Wird erhöht, sobald sich der mitgelieferte Katalog ändert, damit bestehende Installationen auffüllen. */
 export const LIBRARY_VERSION = 11;
 
 /**
- * Bumped for one-off repairs to *stored* records, independently of the
- * catalogue. Separate from LIBRARY_VERSION on purpose: a data fix must run even
- * when the exercise list itself has not changed, and bumping the catalogue
- * version to trigger a migration would re-run the top-up for no reason.
+ * Wird für einmalige Reparaturen an GESPEICHERTEN Einträgen erhöht, unabhängig vom
+ * Katalog. Absichtlich getrennt von LIBRARY_VERSION: eine Datenreparatur muss auch dann
+ * laufen, wenn sich die Übungsliste nicht geändert hat, und die Katalogversion zu
+ * erhöhen, um eine Migration auszulösen, würde das Auffüllen umsonst noch einmal laufen lassen.
  */
 export const DATA_VERSION = 3;
 
 /**
- * The curated list first — the strength standards are keyed by those exact
- * names, so they stay canonical — then everything from the imported catalogue
- * whose name doesn't already exist.
+ * Erst die gepflegte Liste, weil die Kraftstandards genau an diesen Namen hängen und sie
+ * deshalb maßgeblich bleiben, dann alles aus dem importierten Katalog, dessen Name es
+ * noch nicht gibt.
  */
 const STOPWORDS = new Set(['with', 'the', 'a', 'on', 'and', 'to', 'of', 'for']);
 
@@ -302,14 +301,13 @@ function tokenSet(name) {
 }
 
 /**
- * Borrow *written steps only* from the closest catalogue entry, at a strict
- * threshold.
+ * Vom ähnlichsten Katalogeintrag NUR die Beschreibung leihen, mit strenger Schwelle.
  *
- * Anatomy is deliberately never borrowed. A fuzzy name match is good enough to
- * lend prose but not to assign muscles — an early version of this inferred
- * "Deadlift -> lats" and "Barbell Row -> front delts", which would quietly
- * corrupt the muscle map. Regions come from CONTRIB (hand-written, per lift)
- * or the coarse fallback, never from a guess.
+ * Anatomie wird absichtlich nie geliehen. Ein unscharfer Namensvergleich reicht, um Text
+ * zu leihen, aber nicht, um Muskeln zuzuordnen. Eine frühe Version hat daraus
+ * "Deadlift -> Latissimus" und "Barbell Row -> vordere Schulter" abgeleitet, und das hätte
+ * die Muskelkarte still verfälscht. Regionen kommen aus CONTRIB (von Hand, pro Übung)
+ * oder der groben Zuordnung, nie aus einer Vermutung.
  */
 function borrowInstructions(name) {
   if (MANUAL_INSTRUCTIONS[name]) return MANUAL_INSTRUCTIONS[name];
@@ -351,13 +349,13 @@ const MANUAL_INSTRUCTIONS = {
 };
 
 /**
- * Regions for a curated lift: the hand-written anatomy table first, coarse
- * fallback after.
+ * Regionen für eine gepflegte Übung: erst die von Hand geschriebene Anatomietabelle,
+ * danach die grobe Zuordnung.
  *
- * ANATOMY covers both benchmark lifts and the curated machine movements. Having
- * accurate regions and having a strength standard are separate questions, and
- * this only answers the first — see standards.js for why machines get one and
- * not the other.
+ * ANATOMY deckt die Referenzübungen und die gepflegten Maschinenübungen ab. Genaue
+ * Regionen zu haben und einen Kraftstandard zu haben sind zwei getrennte Fragen, und das
+ * hier beantwortet nur die erste. Warum Maschinen das eine bekommen und nicht das andere,
+ * steht in standards.js.
  */
 function regionsFor(name, muscle) {
   const contrib = ANATOMY[name];
@@ -379,13 +377,11 @@ export function seedExercises(uid) {
       name, muscle, equipment,
       primary, secondary,
       instructions: borrowInstructions(name),
-      // Curated lifts carry no mechanic flag of their own. Without this they
-      // score below imported variants in the plan generator, which is how a
-      // plan ends up recommending "Bodyweight Flyes" over the bench press.
-      // Benchmarks stay compound unconditionally: without an explicit flag they
-      // rank below obscure imported variants in the plan generator, which is
-      // how a plan once recommended "Bodyweight Flyes" over the bench press.
-      // Curated machine work gets the honest region-count rule instead.
+      // Gepflegte Übungen haben selbst keine Angabe zur Mechanik. Ohne das hier landen die
+      // Referenzübungen im Plan-Generator hinter seltenen importierten Varianten, und so hat
+      // ein Plan einmal "Bodyweight Flyes" statt Bankdrücken empfohlen. Referenzübungen
+      // gelten deshalb immer als Grundübung, die gepflegten Maschinenübungen bekommen die
+      // ehrliche Regel über die Anzahl der Regionen.
       mech: CONTRIB[name] ? 'compound' : (primary.length + secondary.length >= 3 ? 'compound' : 'isolation'),
       level: null,
       isCustom: false,
@@ -428,13 +424,13 @@ export function normName(name) {
 }
 
 /**
- * free-exercise-db files every deltoid movement under one "shoulders" bucket,
- * so reverse flyes and face pulls arrive tagged as *front* delts. Left alone
- * that leaves only two rear-delt exercises in the whole catalogue, which starves
- * the plan generator and makes the muscle map wrong.
+ * free-exercise-db legt jede Schulterübung in denselben Topf "shoulders", Reverse Flys und
+ * Face Pulls kommen also als VORDERE Schulter an. So gelassen gäbe es im ganzen Katalog
+ * nur zwei Übungen für die hintere Schulter, der Plan-Generator verhungert, und die
+ * Muskelkarte stimmt nicht.
  *
- * Matching on the movement name is crude but the names are unusually explicit
- * here — "Rear Delt Fly", "Reverse Machine Flyes", "Face Pull".
+ * Über den Namen abzugleichen ist grob, aber die Namen sind hier ungewöhnlich eindeutig:
+ * "Rear Delt Fly", "Reverse Machine Flyes", "Face Pull".
  */
 const REAR_DELT = /(rear[- ]?delt|reverse (machine )?(fly|flye)|rear (lateral|fly)|face pull|bent[- ]?over (lateral|reverse))/i;
 
@@ -445,7 +441,7 @@ export function refineRegions(name, primary = [], secondary = []) {
   return { primary: p, secondary: s };
 }
 
-// ---------- factories ----------
+// ---------- Fabriken ----------
 
 export function newSession(uid, {
   name = 'Workout', planId = null, dayId = null, entries = [], plannedDurationMs = null,
@@ -472,12 +468,12 @@ export function newEntry(exerciseId, sets = []) {
 }
 
 /**
- * One entry in your own food list.
+ * Ein Eintrag in der eigenen Lebensmittelliste.
  *
- * Deliberately source-agnostic: name, portion, protein, calories. An item typed
- * by hand, filled in from a barcode lookup, or drafted from a photo all end up
- * as the same record, so where the numbers came from never constrains what the
- * app can do with them. `source` is recorded for honesty, not for logic.
+ * Bewusst unabhängig von der Quelle: Name, Portion, Eiweiß, Kalorien. Von Hand getippt,
+ * aus einer Barcode-Abfrage gefüllt oder per Foto vorgeschlagen, am Ende ist es derselbe
+ * Datensatz, und woher die Zahlen kommen, schränkt nie ein, was die App damit machen kann.
+ * `source` wird aus Ehrlichkeit festgehalten, nicht für die Logik.
  */
 export function newFood(uid, {
   name, portion, portionGrams, protein, kcal,
@@ -487,25 +483,25 @@ export function newFood(uid, {
   return {
     id: uid('f_'),
     name: String(name).trim(),
-    portion: (portion || '1 Portion').trim(),   // human label: "100 g", "1 Scoop"
-    portionGrams: Number(portionGrams) || null, // optional, for scaling later
+    portion: (portion || '1 Portion').trim(),   // lesbare Angabe: "100 g", "1 Scoop"
+    portionGrams: Number(portionGrams) || null, // freiwillig, zum späteren Umrechnen
     protein: Math.max(0, Number(protein) || 0),
     kcal: Math.max(0, Number(kcal) || 0),
-    // Carbs, fat and fibre stay nullable, and null is not zero. A food logged
-    // before these fields existed, or typed off a label that only lists protein,
-    // genuinely has no value here — counting it as 0 g would quietly understate
-    // every day it appears in. The totals carry the gap instead.
+    // Kohlenhydrate, Fett und Ballaststoffe dürfen null sein, und null ist nicht 0 g. Ein
+    // Lebensmittel von vor diesen Feldern oder von einem Etikett, auf dem nur Eiweiß steht,
+    // hat hier wirklich keinen Wert. Es als 0 g zu zählen würde jeden Tag, an dem es
+    // vorkommt, still zu niedrig zeigen. Stattdessen tragen die Summen die Lücke mit.
     carbs: optionalGrams(carbs),
     fat: optionalGrams(fat),
     fibre: optionalGrams(fibre),
-    // Everything past the core five, so adding a nutrient never widens this
-    // record. Same rule inside: a key that is absent is unknown, not zero.
+    // Alles jenseits der fünf Grundwerte, damit ein neuer Nährstoff den Datensatz nie
+    // breiter macht. Innen gilt dieselbe Regel: ein fehlender Schlüssel ist unbekannt, nicht null.
     micros: micros && typeof micros === 'object' ? { ...micros } : {},
     fdcId,
     source,                                     // 'manual' | 'barcode' | 'photo'
-    // Kept so a second lookup of the same product answers from this list
-    // instead of the network, and so the portion can be re-scaled later without
-    // asking Open Food Facts again.
+    // Bleibt erhalten, damit eine zweite Abfrage desselben Produkts aus dieser Liste
+    // antwortet statt aus dem Netz, und damit sich die Portion später neu rechnen lässt,
+    // ohne Open Food Facts noch einmal zu fragen.
     barcode,
     per100,
     uses: 0,
@@ -514,16 +510,16 @@ export function newFood(uid, {
   };
 }
 
-/** Meal slots. Purely organisational — nothing in the app scores timing. */
+/** Tageszeiten für Mahlzeiten. Nur zum Ordnen, nichts in der App bewertet den Zeitpunkt. */
 export const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
 
-/** A portion actually eaten. Values are copied, not referenced — see store.js. */
+/** Eine wirklich gegessene Portion. Die Werte werden kopiert, nicht verwiesen, siehe store.js. */
 export function newMeal(uid, food, { amount = 1, day = dayKey(), at = Date.now(), slot = null } = {}) {
   const n = Number(amount) || 1;
   const scale = (v) => (v === null || v === undefined ? null : Math.round(v * n * 10) / 10);
   return {
     id: uid('m_'),
-    day,                       // 'YYYY-MM-DD', local
+    day,                       // 'YYYY-MM-DD', Ortszeit
     at,
     slot: MEAL_SLOTS.includes(slot) ? slot : slotFor(at),
     foodId: food.id,
@@ -543,12 +539,12 @@ export function newMeal(uid, food, { amount = 1, day = dayKey(), at = Date.now()
 }
 
 /**
- * A default slot from the clock, so logging stays one tap.
+ * Eine Tageszeit nach der Uhr als Standard, damit Eintragen ein Tipp bleibt.
  *
- * Boundaries are a convention about when people eat, nothing more — the app
- * never scores meal timing, because total daily intake matters far more than
- * distribution and the "anabolic window" is largely debunked. It is a way to
- * group a list, and every entry can be moved by hand.
+ * Die Grenzen sind eine Festlegung darüber, wann Leute essen, mehr nicht. Die App
+ * bewertet nie, wann gegessen wird, weil die Tagesmenge viel mehr zählt als die
+ * Verteilung und das "anabole Fenster" weitgehend widerlegt ist. Es ist nur eine Art,
+ * eine Liste zu gruppieren, und jeder Eintrag lässt sich von Hand verschieben.
  */
 export function slotFor(ts = Date.now()) {
   const h = new Date(ts).getHours();
@@ -565,12 +561,12 @@ const optionalGrams = (v) => {
 };
 
 /**
- * A saved meal: a name and the foods that make it up.
+ * Eine gespeicherte Mahlzeit: ein Name und die Lebensmittel, aus denen sie besteht.
  *
- * Items reference foods by id rather than snapshotting their values, unlike a
- * logged meal. The difference is deliberate: a logged meal is history and must
- * never change, but a template is a *recipe*, and correcting the protein on
- * your quark should carry into the next time you log breakfast.
+ * Die Einträge verweisen über die ID auf Lebensmittel und kopieren keine Werte, anders
+ * als eine eingetragene Mahlzeit. Das ist gewollt: eine eingetragene Mahlzeit ist Verlauf
+ * und darf sich nie ändern, eine Vorlage ist ein REZEPT, und korrigiert man das Eiweiß
+ * beim Quark, soll das beim nächsten eingetragenen Frühstück mitkommen.
  */
 export function newTemplate(uid, { name, items = [], slot = null }) {
   return {
@@ -586,7 +582,7 @@ export function newTemplate(uid, { name, items = [], slot = null }) {
   };
 }
 
-/** Local calendar day as 'YYYY-MM-DD'. Local, not UTC — a 23:00 snack is today. */
+/** Kalendertag in Ortszeit als 'YYYY-MM-DD'. Ortszeit, nicht UTC, ein Snack um 23 Uhr gehört zu heute. */
 export function dayKey(ts = Date.now()) {
   const d = new Date(ts);
   const pad = (n) => String(n).padStart(2, '0');
@@ -597,16 +593,16 @@ export function newSet(prev = null) {
   return {
     weight: prev ? prev.weight : null,
     reps: prev ? prev.reps : null,
-    // Reps in reserve. Deliberately NOT carried over from the previous set —
-    // weight and reps are a plan you repeat, effort is an observation you make
-    // after the fact, and pre-filling it would turn it into a default nobody
-    // corrects.
+    // Wiederholungen in Reserve. Absichtlich NICHT vom vorigen Satz übernommen: Gewicht und
+    // Wiederholungen sind ein Plan, den man wiederholt, die Anstrengung ist eine
+    // Beobachtung hinterher, und sie vorauszufüllen würde daraus einen Standardwert machen,
+    // den keiner korrigiert.
     rir: null,
     type: 'working',   // 'working' | 'warmup'
     done: false,
-    // Filled only when the exercise is logged one side at a time. `weight` and
-    // `reps` remain the weaker side so every existing strength calculation is
-    // conservative and old backups remain readable.
+    // Nur gefüllt, wenn die Übung Seite für Seite eingetragen wird. `weight` und `reps`
+    // bleiben die schwächere Seite, damit jede bestehende Kraftrechnung vorsichtig bleibt
+    // und alte Sicherungen lesbar bleiben.
     leftWeight: prev?.leftWeight ?? null,
     leftReps: prev?.leftReps ?? null,
     rightWeight: prev?.rightWeight ?? null,
@@ -614,11 +610,11 @@ export function newSet(prev = null) {
   };
 }
 
-// ---------- maths ----------
+// ---------- Rechnerei ----------
 
 const E1RM_WINDOW = THRESHOLDS.e1rmWindow;
 
-/** Epley estimated one-rep max. A single rep is just the weight itself. */
+/** Geschätztes 1RM nach Epley. Eine einzelne Wiederholung ist einfach das Gewicht selbst. */
 export function e1rm(weight, reps) {
   const w = Number(weight), r = Number(reps);
   if (!w || !r || r < 1) return 0;
@@ -634,25 +630,24 @@ const WEIGHTED_BODYWEIGHT = new Set([
   'Weighted Pull-Up', 'Weighted Chin-Up', 'Weighted Dip', 'Weighted Push-Up',
 ]);
 
-/** How the training screen should collect load for a movement. */
+/** Wie der Trainieren-Screen die Last für eine Bewegung abfragen soll. */
 export function bodyweightLoadMode(exercise) {
-  // The catalogue's equipment field is not always right about this: it files
-  // "Dips - Chest Version" under "Other". The rating already treats that lift
-  // as bodyweight plus anything added, and the screen has to collect the load
-  // the same way or the two disagree about what a set meant.
+  // Das Gerätefeld im Katalog stimmt dabei nicht immer: "Dips - Chest Version" steht unter
+  // "Other". Die Bewertung behandelt die Übung schon als Körpergewicht plus Zusatzgewicht,
+  // und der Screen muss die Last genauso abfragen, sonst sind sich beide uneins, was ein Satz bedeutet hat.
   const canonical = benchmarkName(exercise?.name);
   const bodyweightLift = exercise?.equipment === 'Bodyweight'
     || BODYWEIGHT_STRENGTH_LIFTS.has(canonical);
   if (!bodyweightLift) return 'external';
-  // Canonical on both sides. This line used to test the raw catalogue name
-  // while the line above it tested the aliased one, so a movement that reached
-  // the first check through an alias fell out of the second: "Weighted Pull
-  // Ups" was recognised as a bodyweight lift and then asked for the lifter's
-  // whole bodyweight instead of the plate hanging off their belt.
+  // Auf beiden Seiten die gleiche Form des Namens. Diese Zeile hat früher den rohen Namen aus
+  // dem Katalog geprüft, während die darüber den umbenannten geprüft hat. Eine Bewegung, die
+  // über einen anderen Namen durch die erste Prüfung kam, fiel bei der zweiten raus:
+  // "Weighted Pull Ups" wurde als Körpergewichtsübung erkannt und dann nach dem ganzen
+  // Körpergewicht gefragt statt nach der Scheibe am Gürtel.
   return WEIGHTED_BODYWEIGHT.has(canonical) ? 'added' : 'bodyweight';
 }
 
-/** Total moving load, retained per set so later bodyweight edits cannot rewrite history. */
+/** Die gesamte bewegte Last, pro Satz gespeichert, damit spätere Änderungen am Körpergewicht die Vergangenheit nicht umschreiben. */
 export function effectiveSetWeight(set) {
   return Number(set?.systemWeight ?? set?.weight) || 0;
 }
@@ -689,7 +684,7 @@ export function sessionStats(session) {
   return { volume, sets, reps, durationMs, exercises: session.entries.length };
 }
 
-/** Estimated plan duration: work, rests between sets, and exercise changes. */
+/** Geschätzte Dauer eines Plans: Arbeit, Pausen zwischen den Sätzen und Übungswechsel. */
 export function estimatePlanDuration(items, restSeconds = 180) {
   const rows = (items || []).filter(Boolean);
   const sets = rows.reduce((sum, item) => sum + Math.max(1, Number(item.targetSets) || 3), 0);
@@ -700,9 +695,8 @@ export function estimatePlanDuration(items, restSeconds = 180) {
 }
 
 /**
- * The most recent *completed* session that contains real work for this exercise.
- * This is what powers the "last time" line — the single most important number on
- * the logging screen.
+ * Die letzte ABGESCHLOSSENE Einheit mit echter Arbeit für diese Übung. Daraus kommt die
+ * Zeile "letztes Mal", die wichtigste Zahl auf dem Screen zum Eintragen.
  */
 export function lastPerformance(sessions, exerciseId, excludeSessionId = null) {
   for (const s of sessions) {
@@ -717,7 +711,7 @@ export function lastPerformance(sessions, exerciseId, excludeSessionId = null) {
   return null;
 }
 
-/** One point per session for a given exercise, oldest first. */
+/** Ein Punkt pro Einheit für eine Übung, die ältesten zuerst. */
 export function exerciseSeries(sessions, exerciseId) {
   const pts = [];
   for (const s of sessions) {
@@ -734,22 +728,22 @@ export function exerciseSeries(sessions, exerciseId) {
 export function startOfWeek(ts) {
   const d = new Date(ts);
   d.setHours(0, 0, 0, 0);
-  const dow = (d.getDay() + 6) % 7;   // Monday = 0
+  const dow = (d.getDay() + 6) % 7;   // Montag = 0
   d.setDate(d.getDate() - dow);
   return d.getTime();
 }
 
 /**
- * Working sets per muscle group, bucketed by ISO week.
- * Weekly set count is the metric that actually tracks hypertrophy stimulus.
+ * Arbeitssätze je Muskelgruppe, nach ISO-Woche gruppiert.
+ * Die Sätze pro Woche sind die Größe, die den Reiz für den Muskelaufbau wirklich abbildet.
  */
 export function weeklyMuscleSets(sessions, exerciseById, weeks = 8) {
   const buckets = [];
-  // Stepping by calendar days rather than subtracting 7 x 86400000: across a
-  // DST change a fixed-millisecond week is an hour off midnight, the bucket key
-  // stops matching startOfWeek() below, and a whole week of training silently
-  // vanishes from the chart. Twice a year, which is exactly often enough to be
-  // baffling and rare enough never to get reported.
+  // In Kalendertagen zurückgezählt statt 7 x 86400000 abzuziehen: über eine
+  // Zeitumstellung liegt eine Woche mit festen Millisekunden eine Stunde neben Mitternacht,
+  // der Schlüssel passt nicht mehr zu startOfWeek() unten, und eine ganze Trainingswoche
+  // verschwindet still aus dem Diagramm. Zweimal im Jahr, genau oft genug, um zu
+  // verwirren, und selten genug, dass es nie gemeldet wird.
   for (let i = weeks - 1; i >= 0; i--) {
     const d = new Date(startOfWeek(Date.now()));
     d.setDate(d.getDate() - i * 7);
@@ -774,7 +768,7 @@ export function weeklyMuscleSets(sessions, exerciseById, weeks = 8) {
   return buckets;
 }
 
-/** Best-ever e1RM, top weight and rep count per exercise. */
+/** Bestes e1RM, Höchstgewicht und Wiederholungen je Übung, aller Zeiten. */
 export function personalRecords(sessions, exerciseId) {
   let bestE1rm = null, bestWeight = null, bestReps = null, bestVolume = null;
   for (const s of sessions) {
@@ -796,8 +790,8 @@ export function personalRecords(sessions, exerciseId) {
 }
 
 /**
- * Best estimated 1RM ever achieved per exercise, keyed by exercise *name*
- * (the strength-standard tables are keyed by name, not id).
+ * Das beste geschätzte 1RM je Übung aller Zeiten, nach Übungs-NAME (die Tabellen der
+ * Kraftstandards hängen am Namen, nicht an der ID).
  * @returns {Map<string, number>}
  */
 const BODYWEIGHT_STRENGTH_LIFTS = new Set([
@@ -805,12 +799,12 @@ const BODYWEIGHT_STRENGTH_LIFTS = new Set([
 ]);
 
 /**
- * Is this set inside the range an estimated 1RM may be built from?
+ * Liegt dieser Satz in dem Bereich, aus dem ein geschätztes 1RM gebaut werden darf?
  *
- * See THRESHOLDS.e1rmWindow. The short version: prediction equations are
- * validated to about ten repetitions, and a set of twenty is an extrapolation
- * whatever formula is applied to it. Ranking somebody's quads on a twenty-rep
- * leg extension is the case this exists to stop.
+ * Siehe THRESHOLDS.e1rmWindow. Kurz gesagt: die Schätzformeln sind bis etwa zehn
+ * Wiederholungen geprüft, und ein Satz mit zwanzig ist eine Hochrechnung, egal welche
+ * Formel man darauf anwendet. Den Quadrizeps von jemandem anhand von zwanzig
+ * Beinstreckern einzustufen ist genau das, was das hier verhindern soll.
  */
 export function withinE1rmWindow(set) {
   const reps = Number(set?.reps) || 0;
@@ -818,25 +812,25 @@ export function withinE1rmWindow(set) {
 }
 
 /**
- * Best estimated 1RM per lift name, preferring sets the estimate is valid for.
+ * Bestes geschätztes 1RM je Übungsname, bevorzugt aus Sätzen, für die die Schätzung gilt.
  *
- * A set outside the window is used only when the lift has nothing else — losing
- * a rank entirely because somebody trains a machine at fifteen reps would be
- * worse than an honest estimate with a caveat on it. The names that needed the
- * fallback come back on the returned map's `extrapolated` property, so the
- * rating can carry the caveat through to the screen rather than dropping it.
+ * Ein Satz außerhalb des Bereichs wird nur benutzt, wenn die Übung sonst nichts hat. Einen
+ * Rang ganz zu verlieren, weil jemand eine Maschine mit fünfzehn Wiederholungen trainiert,
+ * wäre schlimmer als eine ehrliche Schätzung mit Hinweis. Die Namen, die den Rückfall
+ * gebraucht haben, stehen in der Eigenschaft `extrapolated` der Rückgabe, damit die
+ * Bewertung den Hinweis bis auf den Screen tragen kann, statt ihn zu verlieren.
  */
 export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
   const best = new Map();
   const outside = new Map();
-  // When each best was actually done.
+  // Wann jeder Bestwert wirklich gemacht wurde.
   //
-  // The rank is an all-time record and stays one: taking it away because it is
-  // old would delete something the lifter earned. But a record from three years
-  // ago described as "your strength" is not true either, so the date rides
-  // along on the map's `achievedAt` property and the screen can say how old it
-  // is. Kept as a property rather than changing the return type, which four
-  // call sites and the week card all read as a plain Map of numbers.
+  // Der Rang ist ein Rekord aller Zeiten und bleibt einer: ihn wegzunehmen, weil er alt
+  // ist, würde etwas löschen, das man sich verdient hat. Einen Rekord von vor drei Jahren
+  // "deine Stärke" zu nennen stimmt aber auch nicht. Das Datum kommt deshalb in der
+  // Eigenschaft `achievedAt` mit, und der Screen kann sagen, wie alt er ist. Als
+  // Eigenschaft und nicht als anderer Rückgabetyp, weil vier Aufrufer und die Wochenkarte
+  // das als einfache Map von Zahlen lesen.
   const achievedAt = new Map();
   const bodyweight = Number(profile?.bodyweight);
   for (const s of sessions) {
@@ -849,9 +843,9 @@ export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
         let est;
         if (BODYWEIGHT_STRENGTH_LIFTS.has(benchmarkName(ex.name)) && bodyweight > 0) {
           const added = Number(set.weight) || 0;
-          // Before loadMode existed the field was ambiguous: some people logged
-          // total bodyweight, others additional weight. A positive legacy value
-          // must not silently be counted twice and produce a false Elite score.
+          // Bevor es loadMode gab, war das Feld zweideutig: manche haben das ganze
+          // Körpergewicht eingetragen, andere nur das Zusatzgewicht. Ein positiver alter Wert
+          // darf nicht still doppelt gezählt werden und eine falsche Elite-Wertung ergeben.
           if (set.loadMode === 'bodyweight') est = e1rm(set.systemWeight || set.weight || bodyweight, set.reps);
           else {
             if (added > 0 && set.loadMode !== 'added') continue;
@@ -878,7 +872,7 @@ export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
   return best;
 }
 
-/** Least-squares fit over [x, y] pairs → { slope, intercept } or null. */
+/** Kleinste-Quadrate-Gerade über [x, y]-Paare -> { slope, intercept } oder null. */
 export function linearFit(points) {
   const n = points.length;
   if (n < 2) return null;

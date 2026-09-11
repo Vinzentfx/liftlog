@@ -1,8 +1,8 @@
-// DOM + formatting helpers shared by every screen.
+// Helfer für DOM und Formatierung, die jeder Screen benutzt.
 
 import { t, locale } from './i18n.js';
 
-/** el('div.card', {onclick}, [children]) */
+/** el('div.card', {onclick}, [Kinder]) */
 export function el(spec, props = {}, children = []) {
   const [tagPart, ...classes] = String(spec).split('.');
   const tag = tagPart || 'div';
@@ -33,17 +33,17 @@ export function el(spec, props = {}, children = []) {
 }
 
 /**
- * `parent.append(...)` with `el`'s rules about children.
+ * `parent.append(...)` mit den Regeln von `el` für Kinder.
  *
- * `el` skips a null child; the DOM's own `append` stringifies one, so a builder
- * that returns null on "nothing to show here" renders the word **null** on the
- * screen the moment somebody appends its result directly instead of listing it
- * as a child. That is not hypothetical: the strength card printed a literal
- * "null" under the lift list and again under the machine records for every
- * lifter with five lifts or fewer, because that is exactly when the "show all"
- * toggle has nothing to offer and says so by returning null.
+ * `el` überspringt ein null-Kind, das `append` des DOM macht daraus einen Text. Eine
+ * Funktion, die null für "hier gibt es nichts" zurückgibt, schreibt also das Wort
+ * NULL auf den Bildschirm, sobald jemand ihr Ergebnis direkt anhängt statt es als
+ * Kind aufzuführen. Das ist nicht ausgedacht: die Stärkekarte hat bei jedem mit fünf
+ * oder weniger Übungen ein wörtliches "null" unter die Liste geschrieben und noch
+ * einmal unter die Maschinenrekorde, weil der Schalter "alle zeigen" genau dann
+ * nichts anzubieten hat und das mit null sagt.
  *
- * Use this anywhere the child is the result of a call that may decline.
+ * Überall benutzen, wo das Kind aus einem Aufruf kommt, der auch ablehnen kann.
  */
 export function add(parent, ...children) {
   for (const child of children.flat()) {
@@ -63,7 +63,7 @@ const AUTH_ICONS = {
   note: ['M5 3h14v18H5z', 'M8 8h8', 'M8 12h8', 'M8 16h5'],
 };
 
-/** Consistent, touch-friendly field used by sign-in, sign-up and recovery. */
+/** Einheitliches, fingerfreundliches Feld für Anmelden, Registrieren und Wiederherstellen. */
 export function authField(label, input, { icon = 'email', note = null } = {}) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
@@ -95,10 +95,10 @@ function collapsedSections() {
 
 function saveCollapsedSections(sections) {
   try { localStorage.setItem(COLLAPSED_SECTIONS_KEY, JSON.stringify([...sections])); }
-  catch { /* private mode: collapsing still works until the next render */ }
+  catch { /* privater Modus: Einklappen geht trotzdem bis zum nächsten Zeichnen */ }
 }
 
-/** Make ordinary screen headings toggle the cards and rows below them. */
+/** Normale Überschriften klappen die Karten und Zeilen darunter ein und aus. */
 export function enableCollapsibleSections(root, route) {
   const saved = collapsedSections();
   const occurrences = new Map();
@@ -109,8 +109,8 @@ export function enableCollapsibleSections(root, route) {
 
     const content = [];
     for (let next = head.nextElementSibling; next; next = next.nextElementSibling) {
-      // A direct heading or a neighbouring wrapper beginning with a heading is
-      // a new section, not part of the current one.
+      // Eine direkte Überschrift oder eine benachbarte Hülle, die mit einer
+      // Überschrift anfängt, ist ein neuer Abschnitt und gehört nicht zum aktuellen.
       if (next.matches('.section-head')
           || next.firstElementChild?.matches('.section-head')) break;
       content.push(next);
@@ -149,16 +149,16 @@ export function enableCollapsibleSections(root, route) {
 }
 
 /**
- * A number field that accepts the separator the keyboard actually offers.
+ * Ein Zahlenfeld, das das Trennzeichen annimmt, das die Tastatur wirklich anbietet.
  *
- * `<input type="number">` only accepts a full stop, whatever the locale. On a
- * German phone the decimal key *is* a comma, so typing "82,5" leaves the digits
- * visible in the box while `.value` reads as the empty string — the app stored
- * nothing and said nothing. Mid-workout that is a lost set.
+ * `<input type="number">` nimmt nur einen Punkt, egal welche Sprache. Auf einem
+ * deutschen Handy IST die Dezimaltaste aber ein Komma. Wer "82,5" tippt, sieht die
+ * Ziffern im Feld, `.value` ist aber leer, die App hat nichts gespeichert und nichts
+ * gesagt. Mitten im Training ist das ein verlorener Satz.
  *
- * A text field with inputmode="decimal" keeps the numeric keypad on iOS, and
- * `parseNumber` takes either separator. The cost is losing the browser's own
- * min/step validation, which this app was already doing in JS anyway.
+ * Ein Textfeld mit inputmode="decimal" behält unter iOS die Zifferntastatur, und
+ * `parseNumber` nimmt beide Trennzeichen. Dafür fällt die Prüfung von min/step durch
+ * den Browser weg, die hat die App aber sowieso schon in JS gemacht.
  */
 export function numberInput({ decimal = false, ...props } = {}) {
   return el('input', {
@@ -171,7 +171,7 @@ export function numberInput({ decimal = false, ...props } = {}) {
   });
 }
 
-/** '82,5' and '82.5' both parse; anything else, including '', is null. */
+/** '82,5' und '82.5' gehen beide, alles andere, auch '', ist null. */
 export function parseNumber(value) {
   const raw = String(value ?? '').trim().replace(',', '.');
   if (!raw) return null;
@@ -180,10 +180,10 @@ export function parseNumber(value) {
 }
 
 /**
- * Rewrite a field to the canonical form of what it holds, on blur.
+ * Beim Verlassen ein Feld auf die saubere Form dessen bringen, was drinsteht.
  *
- * Without this a text-mode number field will happily keep showing "8o" while
- * the app has stored nothing — the old type="number" at least cleared itself.
+ * Ohne das zeigt ein Zahlenfeld im Textmodus fröhlich weiter "8o", während die App
+ * nichts gespeichert hat. Das alte type="number" hat sich wenigstens selbst geleert.
  */
 export function normaliseOnBlur(input, { integer = false } = {}) {
   input.addEventListener('blur', () => {
@@ -195,28 +195,29 @@ export function normaliseOnBlur(input, { integer = false } = {}) {
 
 export function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); return node; }
 
-// ---------- formatting ----------
+// ---------- Formatierung ----------
 
 /**
- * The decimal mark this language actually writes.
+ * Das Dezimalzeichen, das diese Sprache wirklich schreibt.
  *
- * German has read "6.1kg" and "1.8kg pro Woche" since the interface was
- * translated, because every number in the app went through `toFixed`, which
- * only knows the one separator. Display only: `parseNumber` still takes either,
- * and the value written back into an input field stays canonical, so nothing
- * that is stored or compared changes shape.
+ * Seit die Oberfläche übersetzt ist, stand auf Deutsch "6.1kg" und "1.8kg pro Woche",
+ * weil jede Zahl durch `toFixed` ging, und das kennt nur ein Trennzeichen. Nur für
+ * die Anzeige: `parseNumber` nimmt weiter beide, und der Wert, der zurück in ein Feld
+ * geschrieben wird, bleibt in der Standardform. Was gespeichert oder verglichen wird,
+ * ändert seine Form nicht.
  */
 const decimalMark = () => (1.1).toLocaleString(locale()).charAt(1);
 const localiseDecimal = (text) => text.replace('.', decimalMark());
 
 /**
- * A number for a human to read, in this language's notation.
+ * Eine Zahl zum Lesen für Menschen, in der Schreibweise dieser Sprache.
  *
- * Exported because `fmtWeight` and `fmtNum` are not the only places a decimal
- * reaches a screen: rates per week, percentages, litres, megabytes, star
- * averages and the chart axes all format their own, and every one of them read
- * "+2.6 kg/Woche" to a German. SVG path geometry deliberately does not come
- * through here — a `d` attribute is not prose and a comma in it is a bug.
+ * Exportiert, weil `fmtWeight` und `fmtNum` nicht die einzigen Stellen sind, an denen
+ * eine Dezimalzahl auf den Bildschirm kommt: Raten pro Woche, Prozente, Liter,
+ * Megabyte, Sterne-Durchschnitte und die Achsen der Diagramme formatieren alle
+ * selbst, und jede davon hat auf Deutsch "+2.6 kg/Woche" gezeigt. Die Geometrie von
+ * SVG-Pfaden geht bewusst NICHT hier durch, ein `d`-Attribut ist kein Text, und ein
+ * Komma darin ist ein Fehler.
  */
 export function fmtDecimal(value, digits = 1) {
   const n = Number(value) || 0;
@@ -236,13 +237,13 @@ export function fmtNum(v, digits = 0) {
 }
 
 /**
- * A volume total with its unit attached.
+ * Eine Volumensumme mit angehängter Einheit.
  *
- * `fmtNum` compacts anything over ten thousand to "12.9k", and every caller
- * then appended the unit straight onto it, which is how a session came out as
- * "12.9kkg". Volume is also the one figure in the app that reaches six digits,
- * so it gets thousands separators, and in kilos it becomes tonnes at the point
- * where the digits stop being readable as a weight.
+ * `fmtNum` kürzt alles über zehntausend auf "12.9k", und jeder Aufrufer hat die
+ * Einheit direkt dahinter gehängt, so kam eine Einheit als "12.9kkg" heraus. Volumen
+ * ist außerdem die einzige Zahl in der App, die sechsstellig wird. Sie bekommt also
+ * Tausendertrennzeichen und wird in Kilo zu Tonnen, sobald man die Ziffern nicht
+ * mehr als Gewicht lesen kann.
  */
 export function fmtVolume(v, units = 'kg') {
   const n = Math.round(Number(v) || 0);
@@ -265,7 +266,7 @@ export function fmtClock(seconds) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/** Dates follow the interface language, not the phone's. */
+/** Datumsangaben folgen der Sprache der Oberfläche, nicht der des Handys. */
 export function fmtDate(ts, opts = {}) {
   return new Date(ts).toLocaleDateString(locale(),
     { day: 'numeric', month: 'short', ...opts });
@@ -282,7 +283,7 @@ export function relDay(ts) {
   return fmtDate(ts, { year: days > 300 ? 'numeric' : undefined });
 }
 
-/** "80kg × 8, 8, 7" — compact enough to read mid-set. */
+/** "80kg × 8, 8, 7", kurz genug, um es mitten im Satz zu lesen. */
 export function setsSummary(sets, units) {
   if (!sets.length) return '';
   const groups = [];
@@ -295,16 +296,16 @@ export function setsSummary(sets, units) {
   return groups.map((g) => `${fmtWeight(g.w, units)} × ${g.reps.join(', ')}`).join('  ·  ');
 }
 
-// ---------- star ratings ----------
+// ---------- Sternebewertung ----------
 
-/** '★★★★☆' style string, halves shown as ½. */
+/** Text wie '★★★★☆', halbe Sterne als ½. */
 export function starString(stars) {
   const full = Math.floor(stars);
   const half = stars - full >= 0.5;
   return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(Math.max(0, 5 - full - (half ? 1 : 0)));
 }
 
-/** Screen readers get a number; sighted users get the stars. */
+/** Screenreader bekommen eine Zahl, alle anderen die Sterne. */
 export function starBadge(stars, { size = '13px', dim = false } = {}) {
   return el('span.stars', {
     style: {
@@ -319,7 +320,7 @@ export function starBadge(stars, { size = '13px', dim = false } = {}) {
   });
 }
 
-// ---------- feedback ----------
+// ---------- Rückmeldung ----------
 
 let toastTimer = null;
 export function toast(message, ms = 2000) {
@@ -330,7 +331,7 @@ export function toast(message, ms = 2000) {
   toastTimer = setTimeout(() => { node.hidden = true; }, ms);
 }
 
-/** A toast with one short-lived recovery action for accidental destructive taps. */
+/** Ein Toast mit einer kurzen Rückgängig-Aktion für versehentliches Löschen. */
 export function undoToast(message, undo, ms = 6000) {
   const node = $('#toast');
   const button = el('button.toast-action', { onclick: async () => {
@@ -345,10 +346,10 @@ export function undoToast(message, undo, ms = 6000) {
 }
 
 export function haptic(pattern = 8) {
-  if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch { /* unsupported */ } }
+  if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch { /* nicht unterstützt */ } }
 }
 
-// ---------- bottom sheet ----------
+// ---------- Sheet von unten ----------
 
 let sheetOnClose = null;
 
@@ -380,7 +381,7 @@ export function initSheet() {
   });
 }
 
-/** Promise-based confirm rendered in the sheet, so it matches the app. */
+/** Bestätigung als Promise im Sheet, damit sie zur App passt. */
 export function confirmSheet(title, message, { danger = true, confirmLabel = null } = {}) {
   return new Promise((resolve) => {
     let settled = false;
@@ -395,11 +396,11 @@ export function confirmSheet(title, message, { danger = true, confirmLabel = nul
   });
 }
 
-// ---------- misc ----------
+// ---------- Sonstiges ----------
 
 /**
- * Tappable row. Goes through one helper so every one of them carries an
- * accessible name — nested text alone leaves screen readers announcing "button".
+ * Antippbare Zeile. Läuft über einen Helfer, damit jede einen Namen für
+ * Screenreader hat. Nur verschachtelter Text lässt sie "Schaltfläche" vorlesen.
  */
 export function listItem({ title, sub, onclick, chev = '›', ariaLabel, style, right, lead }) {
   return el('button.list-item', {
@@ -422,13 +423,13 @@ export function emptyState(title, hint, action) {
 }
 
 /**
- * `plural(1, 'Satz', 'Sätze')` -> "1 Satz". One copy, so counts read the same
- * everywhere.
+ * `plural(1, 'Satz', 'Sätze')` -> "1 Satz". Nur eine Kopie, damit Anzahlen überall
+ * gleich klingen.
  *
- * Both words come from the caller, which is what makes it work in a language
- * whose plural is not "add an s". Where a count belongs to a noun the app says
- * often, prefer `tn(n, 'unit.set')` from i18n.js: the two forms live in the
- * string table and the parity test can see them.
+ * Beide Wörter kommen vom Aufrufer, deshalb funktioniert es auch in Sprachen, deren
+ * Mehrzahl nicht "ein s anhängen" ist. Gehört eine Anzahl zu einem Wort, das die App
+ * oft sagt, lieber `tn(n, 'unit.set')` aus i18n.js nehmen: dort stehen beide Formen
+ * in der Texttabelle, und der Test sieht sie.
  */
 export function plural(n, one, many = `${one}s`) {
   return `${n} ${n === 1 ? one : many}`;

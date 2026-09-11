@@ -1,30 +1,33 @@
-// Warm-up sets for the weight you are about to lift.
+// Aufwärmsätze für das Gewicht, das gleich kommt.
 //
-// This used to open by saying there is no evidence base for a warm-up ramp.
-// That was true of the *number* of sets and it is still mostly true, but it was
-// never true of the shape, and the shape the app suggested — roughly half for
-// five reps, then three-quarters for three — turns out to be the one arm of the
-// comparison that loses.
+// Früher stand hier am Anfang, dass es für eine Aufwärmrampe keine Studienlage
+// gibt. Für die ANZAHL der Sätze stimmte das und stimmt meistens immer noch, für
+// die Form aber nie. Und genau die Form, die die App vorgeschlagen hat (etwa die
+// Hälfte für fünf Wiederholungen, dann drei Viertel für drei), ist die Variante,
+// die im Vergleich verliert.
 //
-// What the trials actually say:
+// Was die Studien tatsächlich sagen:
 //
-//  * Ribeiro 2020 (SOURCES.ribeiro2020) put forty trained men through squat and
-//    bench at 80% of maximum after three different warm-ups: light only, heavy
-//    only, and light-then-heavy. Light only came last on both lifts. The heavy
-//    set was best on the squat, the progressive pair best on the bench. So the
-//    last warm-up set belongs *near* the working weight, not well below it.
+//  * Ribeiro 2020 (SOURCES.ribeiro2020) hat vierzig trainierte Männer Kniebeuge
+//    und Bankdrücken mit 80 % vom Maximum machen lassen, nach drei verschiedenen
+//    Aufwärmvarianten: nur leicht, nur schwer, erst leicht dann schwer. Nur leicht
+//    war bei beiden Übungen am schlechtesten. Bei der Kniebeuge war der schwere
+//    Satz am besten, beim Bankdrücken das Paar. Der letzte Aufwärmsatz gehört also
+//    NAHE an das Arbeitsgewicht, nicht weit darunter.
 //
-//  * A 2025 crossover in 29 trained lifters (SOURCES.warmup2025) compared no
-//    specific warm-up, one set of 3–4 at 75%, and two sets at 55% then 75%,
-//    at roughly 10RM loads. The differences were negligible in every direction,
-//    including between one set and two. More warm-up bought nothing.
+//  * Eine Crossover-Studie von 2025 mit 29 Trainierten (SOURCES.warmup2025) hat
+//    kein spezielles Aufwärmen, einen Satz mit 3 bis 4 Wiederholungen bei 75 % und
+//    zwei Sätze bei 55 % und 75 % verglichen, jeweils bei etwa 10RM. Die
+//    Unterschiede waren in jede Richtung verschwindend klein, auch zwischen einem
+//    und zwei Sätzen. Mehr Aufwärmen hat nichts gebracht.
 //
-// Put together: fewer sets, fewer reps, closer to the working weight. Which is
-// what this file now offers, and much less of it than it used to.
+// Zusammen heißt das: weniger Sätze, weniger Wiederholungen, näher am
+// Arbeitsgewicht. Genau das schlägt diese Datei jetzt vor, und deutlich weniger
+// davon als früher.
 //
-// What is still practice rather than finding: the three-set ramp for heavy
-// low-rep work. Both trials above tested moderate loads, so neither says
-// anything about a triple at 90%, and the app does not pretend otherwise.
+// Was weiterhin Praxis und kein Befund ist: die dreistufige Rampe für schwere
+// Arbeit mit wenigen Wiederholungen. Beide Studien haben mittlere Lasten
+// getestet, zu einem Triple bei 90 % sagen sie nichts, und die App tut auch nicht so.
 
 import { isBenchmark } from './standards.js';
 import { platePlan } from './plates.js';
@@ -33,56 +36,56 @@ import { THRESHOLDS } from './evidence.js';
 const TOP_SHARE = THRESHOLDS.warmupTopShare.value;
 
 /**
- * The ramp for an exercise, before any weights are worked out.
+ * Die Rampe für eine Übung, bevor Gewichte ausgerechnet werden.
  *
- * @returns [[share of working weight, reps]], lightest first
+ * @returns [[Anteil vom Arbeitsgewicht, Wiederholungen]], das leichteste zuerst
  */
 function ramp(exercise, { targetReps = 10, alreadyWarm = false } = {}) {
   const heavyBar = isBenchmark(exercise?.name) || exercise?.equipment === 'Barbell';
-  // Guarded against a nonsense target: a negative or zero rep goal used to
-  // fall into the heavy-single branch and offer a three-step ramp.
+  // Abgesichert gegen Unsinn: ein Wiederholungsziel von null oder weniger fiel
+  // früher in den Zweig für schwere Einzelwiederholungen und bekam drei Stufen.
   const parsed = Number(targetReps);
   const reps = Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
 
-  // Heavy, low-rep work. Not covered by either trial — see the header — so this
-  // stays the conventional three-step ramp, and the caveat in the UI says which
-  // half of the advice it belongs to.
+  // Schwer, wenige Wiederholungen. Deckt keine der beiden Studien ab (siehe oben),
+  // deshalb bleibt es bei der üblichen dreistufigen Rampe, und der Hinweis in der
+  // Oberfläche sagt, zu welcher Hälfte des Rats das gehört.
   if (heavyBar && reps <= 5) {
     return alreadyWarm ? [[0.65, 3], [0.85, 2]] : [[0.45, 5], [0.65, 3], [0.85, 2]];
   }
 
-  // Normal training loads on a bar: the progressive pair that won the bench
-  // comparison, collapsing to the single heavy set once the muscle has already
-  // done work this session.
+  // Normale Trainingslasten an der Stange: das Paar, das beim Bankdrücken gewonnen
+  // hat. Hat der Muskel in dieser Einheit schon gearbeitet, bleibt nur der eine
+  // schwere Satz.
   if (heavyBar && reps <= 15) {
     return alreadyWarm ? [[TOP_SHARE, 2]] : [[0.55, 4], [TOP_SHARE, 2]];
   }
 
-  // Everything else: machines, cables, dumbbells. Guided path, lighter load, and
-  // one set is as good as two. A muscle that has already been trained in this
-  // session does not need re-introducing to a pec deck.
+  // Alles andere: Maschinen, Kabel, Kurzhanteln. Geführte Bewegung, weniger Last,
+  // ein Satz reicht so gut wie zwei. Ein Muskel, der in dieser Einheit schon
+  // trainiert wurde, muss nicht noch einmal an die Butterfly-Maschine gewöhnt werden.
   if (alreadyWarm) return [];
   return reps <= 15 ? [[0.7, 3]] : [[0.6, 4]];
 }
 
 /**
- * How many warm-up sets an exercise gets, given its context.
+ * Wie viele Aufwärmsätze eine Übung in diesem Zusammenhang bekommt.
  *
- * Kept as an exported function because the count alone is what the plan editor
- * and the tests want to ask about.
+ * Eigene exportierte Funktion, weil der Plan-Editor und die Tests nur nach der
+ * Anzahl fragen wollen.
  */
 export function warmupCount(exercise, context = {}) {
   return ramp(exercise, context).length;
 }
 
 /**
- * Which of this exercise's muscles have already been worked today.
+ * Welche Muskeln dieser Übung heute schon gearbeitet haben.
  *
- * The point is not bookkeeping, it is that the second chest exercise of a
- * session does not need its own introduction: the tissue is warm, the joint has
- * moved, and the set that would have done that job has already happened. Only
- * primary regions count — a triceps that took half a set of incline press is
- * not a warmed triceps.
+ * Es geht nicht um Buchhaltung, sondern darum, dass die zweite Brustübung einer
+ * Einheit keine eigene Einführung braucht: das Gewebe ist warm, das Gelenk hat
+ * sich bewegt, und der Satz, der das erledigt hätte, ist schon passiert. Es zählen
+ * nur Hauptmuskeln. Ein Trizeps, der einen halben Satz Schrägbankdrücken
+ * abbekommen hat, ist kein aufgewärmter Trizeps.
  */
 export function alreadyWarm(exercise, warmedRegions) {
   if (!warmedRegions || !warmedRegions.size) return false;
@@ -90,13 +93,13 @@ export function alreadyWarm(exercise, warmedRegions) {
 }
 
 /**
- * The ramp itself, in weights you can load.
+ * Die Rampe selbst, in Gewichten, die man stecken kann.
  *
- * For a barbell that means real plates, via the same maths the plate calculator
- * uses, so a suggestion is never a weight the rack cannot make.
+ * Bei der Langhantel heißt das: echte Scheiben, mit derselben Rechnung wie der
+ * Scheibenrechner, damit nie ein Gewicht vorgeschlagen wird, das der Ständer nicht hergibt.
  *
- * @param context { targetReps, warmedRegions } — the session so far
- * @returns [{ weight, reps }], or [] when there is nothing worth ramping
+ * @param context { targetReps, warmedRegions }, die Einheit bis jetzt
+ * @returns [{ weight, reps }], oder [], wenn sich keine Rampe lohnt
  */
 export function warmupSets(exercise, workingWeight, {
   units = 'kg', barWeight = 20, targetReps = 10, warmedRegions = null, step: stackStep = null,
@@ -113,9 +116,9 @@ export function warmupSets(exercise, workingWeight, {
     const weight = barbell && !(Number(stackStep) > 0)
       ? loadable(raw, barWeight, units)
       : round(raw, units, stackStep);
-    // A warm-up heavier than the work, or lighter than the empty bar, is not a
-    // warm-up. Both happen at the bottom of the range — an empty bar already
-    // exceeds half of 30 kg.
+    // Ein Aufwärmsatz, der schwerer ist als die Arbeit oder leichter als die leere
+    // Stange, ist keiner. Beides passiert am unteren Ende, eine leere Stange ist
+    // schon mehr als die Hälfte von 30 kg.
     if (weight <= 0 || weight >= target) continue;
     if (out.some((s) => s.weight === weight)) continue;
     out.push({ weight, reps });
@@ -123,10 +126,10 @@ export function warmupSets(exercise, workingWeight, {
   return out;
 }
 
-/** Nearest weight the bar can actually hold, never above the asking figure. */
+/** Das nächste Gewicht, das die Stange wirklich tragen kann, nie über dem Wunsch. */
 function loadable(weight, barWeight, units) {
   const plan = platePlan(weight, barWeight, units);
-  if (!plan) return 0;                     // lighter than the bar itself
+  if (!plan) return 0;                     // leichter als die Stange selbst
   return plan.loaded > weight ? Math.max(barWeight, plan.loaded - step(units)) : plan.loaded;
 }
 

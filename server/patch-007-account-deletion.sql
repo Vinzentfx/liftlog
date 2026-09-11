@@ -1,7 +1,7 @@
--- Verify possession of the main-device capability before the Edge Function
--- uses Supabase Admin Auth to delete the identity. This function deliberately
--- performs no deletion itself, so a later Admin API failure cannot leave a
--- half-deleted account. Deleting auth.users then cascades to every LiftLog row.
+-- Prüft, ob die Berechtigung des Hauptgeräts vorliegt, bevor die Edge Function über Supabase
+-- Admin Auth die Identität löscht. Die Funktion löscht absichtlich selbst nichts, damit ein
+-- späterer Fehler in der Admin-API kein halb gelöschtes Konto hinterlassen kann. Das Löschen
+-- in auth.users entfernt dann kaskadierend jede Zeile von LiftLog.
 
 create or replace function public.authorize_account_deletion(owner_token text)
 returns boolean

@@ -1,5 +1,5 @@
--- Planned workout presence, multiple leaderboard views and private training
--- invitations. Apply after patch-008-social-hub.sql.
+-- Geplante Trainings sichtbar, mehrere Ansichten der Rangliste und private
+-- Trainingseinladungen. Nach patch-008-social-hub.sql einspielen.
 
 alter table public.social_weekly_stats add column if not exists planned_workout text
   check (char_length(planned_workout)<=160);

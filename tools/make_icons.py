@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate LiftLog app icons. Run: python3 tools/make_icons.py"""
+"""Erzeugt die App-Icons von LiftLog. Aufruf: python3 tools/make_icons.py"""
 from PIL import Image, ImageDraw
 from pathlib import Path
 
@@ -9,7 +9,7 @@ OUT = Path(__file__).resolve().parent.parent / "icons"
 
 
 def barbell(size: int, bg=BG, fg=FG, scale=1.0) -> Image.Image:
-    # 4x supersample, then downscale — gives clean edges without antialias flags.
+    # 4x überabtasten, dann verkleinern: saubere Kanten ohne Antialias-Schalter.
     s = size * 4
     img = Image.new("RGBA", (s, s), bg + (255,))
     d = ImageDraw.Draw(img)
@@ -22,11 +22,11 @@ def barbell(size: int, bg=BG, fg=FG, scale=1.0) -> Image.Image:
         )
 
     bar_h = s * 0.075 * k
-    rr(c, c, s * 0.60 * k, bar_h, bar_h / 2)                    # bar
+    rr(c, c, s * 0.60 * k, bar_h, bar_h / 2)                    # Stange
 
     for sign in (-1, 1):
-        rr(c + sign * s * 0.215 * k, c, s * 0.085 * k, s * 0.40 * k, s * 0.030 * k)  # inner plate
-        rr(c + sign * s * 0.315 * k, c, s * 0.070 * k, s * 0.25 * k, s * 0.026 * k)  # outer plate
+        rr(c + sign * s * 0.215 * k, c, s * 0.085 * k, s * 0.40 * k, s * 0.030 * k)  # innere Scheibe
+        rr(c + sign * s * 0.315 * k, c, s * 0.070 * k, s * 0.25 * k, s * 0.026 * k)  # äußere Scheibe
 
     return img.resize((size, size), Image.LANCZOS).convert("RGB")
 
@@ -35,7 +35,7 @@ def main() -> None:
     OUT.mkdir(exist_ok=True)
     for size in (180, 192, 512):
         barbell(size).save(OUT / f"icon-{size}.png")
-    # Maskable: same mark inset so Android's safe-zone crop can't clip it.
+    # Maskable: dasselbe Zeichen eingerückt, damit der Safe-Zone-Zuschnitt von Android es nicht abschneidet.
     barbell(512, scale=0.72).save(OUT / "icon-maskable-512.png")
     print("wrote:", ", ".join(sorted(p.name for p in OUT.glob("*.png"))))
 

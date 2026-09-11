@@ -1,5 +1,5 @@
-// Return only the public name and coordinates needed by the picker. The phone
-// never contacts Overpass directly and detailed OSM tags are not forwarded.
+// Gibt nur den öffentlichen Namen und die Koordinaten zurück, die die Auswahl
+// braucht. Das Handy fragt Overpass nie direkt, und genaue OSM-Tags werden nicht weitergegeben.
 export async function onRequestGet({ request }) {
   const url = new URL(request.url);
   const latitude = Number(url.searchParams.get('lat'));
@@ -9,9 +9,9 @@ export async function onRequestGet({ request }) {
     return Response.json({ error: 'Invalid location' }, { status: 400 });
   }
 
-  // Photon is a fast OSM search index and is a better fit for this tiny place
-  // lookup than running a live database query. Several common name fragments
-  // cover chains whose names do not contain the generic word "fitness".
+  // Photon ist ein schneller Suchindex für OSM und passt für diese kleine Ortssuche
+  // besser als eine Live-Abfrage an die Datenbank. Mehrere häufige Namensteile
+  // decken Ketten ab, deren Name das Wort "Fitness" gar nicht enthält.
   const photonTerms = ['fitness', 'gym80', 'fit x', 'easyfitness', 'all inclusive fitness'];
   const photonResults = await Promise.allSettled(photonTerms.map(async (term) => {
     const endpoint = new URL('https://photon.komoot.io/api/');
@@ -40,7 +40,7 @@ export async function onRequestGet({ request }) {
     return Response.json({ gyms: photonGyms }, { headers: { 'Cache-Control': 'public, max-age=1800' } });
   }
 
-  // Fallback for unnamed centres that a text index cannot find.
+  // Rückfall für Studios ohne Namen, die ein Textindex nicht findet.
   const south = (latitude - 0.035).toFixed(5), north = (latitude + 0.035).toFixed(5);
   const longitudeSpan = 0.035 / Math.max(Math.cos(latitude * Math.PI / 180), 0.25);
   const west = (longitude - longitudeSpan).toFixed(5), east = (longitude + longitudeSpan).toFixed(5);
@@ -53,7 +53,7 @@ export async function onRequestGet({ request }) {
         signal: AbortSignal.timeout(14000), cf: { cacheEverything: true, cacheTtl: 1800 },
       });
       if (response.ok) { data = await response.json(); break; }
-    } catch { /* Try the fallback instance. */ }
+    } catch { /* Die Ersatz-Instanz probieren. */ }
   }
   if (!data) return Response.json({ error: 'Gym lookup unavailable' }, { status: 502 });
 

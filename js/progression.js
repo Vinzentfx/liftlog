@@ -1,49 +1,47 @@
-// What to put on the bar next, and why.
+// Was als Nächstes auf die Stange kommt, und warum.
 //
-// The old version of this lived in one function on the training screen and
-// asked a single question: did every set last time clear the top of the rep
-// range? That rule is wrong in both directions at once. It refuses a weight
-// increase because set four dropped to seven reps — which is what set four is
-// *supposed* to do — and it has no idea whether the last session was your first
-// exercise of the day or your fifth. Two lifters with identical logs, one of
-// whom benched fresh and one of whom benched after nine sets of chest work, got
-// the same advice.
+// Die alte Version steckte in einer Funktion auf dem Trainieren-Screen und stellte eine
+// einzige Frage: haben letztes Mal alle Sätze das obere Ende des Wiederholungsbereichs
+// geschafft? Diese Regel ist in beide Richtungen gleichzeitig falsch. Sie verweigert mehr
+// Gewicht, weil Satz vier auf sieben Wiederholungen gefallen ist, und genau das SOLL Satz
+// vier tun. Und sie weiß nicht, ob die letzte Einheit die erste Übung des Tages war oder
+// die fünfte. Zwei Leute mit gleichem Log, einer hat frisch gedrückt und einer nach neun
+// Sätzen Brust, bekamen denselben Rat.
 //
-// What is here instead:
+// Was stattdessen hier steht:
 //
-//  1. Effort-adjusted load. A set is worth what it says plus what was left in
-//     reserve. Where RIR is missing the set is taken at face value, which is
-//     the same assumption the rest of the app makes and errs downwards.
+//  1. Last mit Anstrengung verrechnet. Ein Satz ist wert, was er sagt, plus das, was in
+//     Reserve blieb. Fehlt das RIR, zählt der Satz wie er ist. Das nimmt der Rest der App
+//     auch an, und es irrt nach unten.
 //
-//  2. A fatigue correction for where in the session the work happened, so every
-//     past session can be compared on the same footing. See `readiness`.
+//  2. Eine Korrektur der Ermüdung dafür, wo in der Einheit die Arbeit passiert ist, damit
+//     sich jede vergangene Einheit auf derselben Grundlage vergleichen lässt. Siehe `readiness`.
 //
-//  3. A trend across sessions rather than a verdict on the last one. Three
-//     sessions is the floor; below that the last session is all there is.
+//  3. Ein Verlauf über mehrere Einheiten statt eines Urteils über die letzte. Drei
+//     Einheiten sind die Untergrenze, darunter gibt es nur die letzte.
 //
-//  4. The first working set decides. Later sets fall off for reasons that have
-//     nothing to do with whether the weight was right, so they inform the
-//     *within-session* advice and never the between-session one.
+//  4. Der erste Arbeitssatz entscheidet. Spätere Sätze fallen aus Gründen ab, die nichts
+//     damit zu tun haben, ob das Gewicht passte. Sie fließen also in den Rat INNERHALB
+//     einer Einheit ein und nie in den zwischen Einheiten.
 //
-// Two constants below are priors rather than findings, and are marked as such.
-// Both are replaced by the lifter's own numbers as soon as there are enough of
-// them, which is the point: the prior only has to be right until it isn't
-// needed.
+// Zwei Konstanten unten sind Annahmen und keine Befunde und auch so markiert. Beide werden
+// durch die eigenen Zahlen ersetzt, sobald es genug davon gibt, und genau darum geht es:
+// die Annahme muss nur so lange stimmen, bis man sie nicht mehr braucht.
 
 import { e1rm, isCounted, effectiveSetWeight, linearFit, bodyweightLoadMode } from './models.js';
 import { platePlan } from './plates.js';
 import { anatomyOf, DIRECT_CONTRIBUTION } from './standards.js';
 
-/* ===================== effort ===================== */
+/* ===================== Anstrengung ===================== */
 
 /**
- * What a set says about maximum strength, counting what was left in reserve.
+ * Was ein Satz über die Maximalkraft sagt, mit dem gezählt, was in Reserve blieb.
  *
- * A set of 8 with 3 RIR is a set of 11 that stopped early, and treating it as
- * an 8 is why the old rule kept telling people to stay at a weight they were
- * nowhere near. Without RIR the set is taken as written — the same thing the
- * PR check, the charts and the strength ranks do, and it underestimates rather
- * than over, so nothing built on it ever suggests too much weight.
+ * Ein Satz mit 8 bei 3 RIR ist ein Satz mit 11, der früher aufgehört hat, und ihn als 8
+ * zu behandeln ist der Grund, warum die alte Regel Leute ständig bei einem Gewicht
+ * gelassen hat, von dem sie weit weg waren. Ohne RIR zählt der Satz so, wie er dasteht.
+ * Das machen auch Rekordprüfung, Diagramme und Stärkeränge, und es schätzt eher zu
+ * niedrig als zu hoch, nichts darauf Gebautes schlägt also je zu viel Gewicht vor.
  */
 export function effortE1rm(set, assumedRir = 0) {
   const weight = effectiveSetWeight(set);
@@ -52,66 +50,65 @@ export function effortE1rm(set, assumedRir = 0) {
   return e1rm(weight, reps + reserveOf(set, assumedRir));
 }
 
-/** Was effort actually recorded, or is the estimate resting on the assumption? */
+/** Wurde die Anstrengung wirklich festgehalten, oder hängt die Schätzung an der Annahme? */
 const hasEffort = (set) => set.rir !== null && set.rir !== undefined;
 
 /**
- * Reps left in reserve, logged or assumed.
+ * Wiederholungen in Reserve, eingetragen oder angenommen.
  *
- * The assumption is capped at 4 whatever the setting says: past that the number
- * stops being "how I train" and starts being a lever for making the app
- * recommend heavier weights, which is not what it is for.
+ * Die Annahme ist auf 4 gedeckelt, egal was die Einstellung sagt: darüber ist die Zahl
+ * nicht mehr "so trainiere ich", sondern ein Hebel, um der App schwerere Gewichte zu
+ * entlocken, und dafür ist sie nicht da.
  */
 const reserveOf = (set, assumedRir = 0) =>
   hasEffort(set) ? Math.max(0, Number(set.rir)) : Math.max(0, Math.min(4, Number(assumedRir) || 0));
 
-/* ===================== where in the session ===================== */
+/* ===================== wo in der Einheit ===================== */
 
 /**
- * The fatigue cost of a set already done, per set, before this exercise starts.
+ * Die Ermüdung durch einen schon gemachten Satz, pro Satz, bevor diese Übung anfängt.
  *
- * Priors, not findings. Pre-exhaustion work puts the cost of three isolation
- * sets on a following compound at roughly 5%, which is where SAME_REGION comes
- * from; OTHER is the much smaller systemic cost of simply having been in the
- * gym a while. Both are replaced by the lifter's own numbers in
- * `observedOrderCost` once there is enough spread in their log to measure it.
+ * Annahmen, keine Befunde. Vorermüdung kostet eine folgende Grundübung nach drei
+ * Isolationssätzen etwa 5 %, daher kommt SAME_REGION. OTHER sind die viel kleineren
+ * allgemeinen Kosten dafür, schon eine Weile im Studio zu sein. Beide werden in
+ * `observedOrderCost` durch die eigenen Zahlen ersetzt, sobald das Log genug Streuung hat,
+ * um es zu messen.
  */
 const SAME_REGION = 0.015;
 const OTHER_REGION = 0.003;
 
-/** However long the session, there is a floor under what is left. */
+/** Egal wie lang die Einheit, es gibt eine Untergrenze für das, was noch übrig ist. */
 const MAX_FATIGUE = 0.15;
 
 /**
- * How much of the same muscle two exercises share, 0–1.
+ * Wie viel vom selben Muskel sich zwei Übungen teilen, 0 bis 1.
  *
- * The old version read the catalogue's primary and secondary lists directly and
- * got two things wrong at once. It counted a hit against `primary.size`, so an
- * exercise the catalogue files under three muscles could never score more than
- * a third from any single one of them. And it never consulted ANATOMY, the
- * hand-graded table the rating engine has used for a year, so the *rest* of the
- * app knew that a chest-supported row is 1.0 trapezius and this did not.
+ * Die alte Version hat die Haupt- und Nebenlisten des Katalogs direkt gelesen und dabei
+ * zwei Dinge gleichzeitig falsch gemacht. Sie hat einen Treffer gegen `primary.size`
+ * gezählt, eine Übung, die der Katalog unter drei Muskeln führt, kam also von keinem
+ * einzelnen über ein Drittel hinaus. Und sie hat nie in ANATOMY geschaut, die von Hand
+ * bewertete Tabelle, die die Bewertung seit einem Jahr benutzt. Der REST der App wusste
+ * also, dass eine Rudermaschine mit Bruststütze 1,0 Trapez ist, diese Funktion nicht.
  *
- * The replacement asks the question the fatigue correction actually cares
- * about: of the muscles this exercise *leads* on, how much has already been
- * worked. Averaged over the leading regions only, weighted by how much the
- * earlier movement drives each of them.
+ * Der Ersatz stellt die Frage, um die es der Korrektur wirklich geht: von den Muskeln, die
+ * diese Übung ANFÜHRT, wie viel wurde schon gearbeitet. Gemittelt nur über die führenden
+ * Regionen, gewichtet danach, wie stark die frühere Bewegung jede davon antreibt.
  *
- *     share = Σ w_this(r) · w_earlier(r) / Σ w_this(r),  over r this one leads
+ *     Anteil = Σ w_diese(r) · w_frühere(r) / Σ w_diese(r),  über die r, die diese anführt
  *
- * Leading regions only, and that is load-bearing rather than tidiness. Summing
- * over *every* region an exercise touches puts the bench press's own front
- * delts and triceps in the denominator, so a butterfly before a bench comes out
- * at 0.48 instead of 1. Which is arguably a truer statement about total
- * muscular demand, and is the wrong number here: SAME_REGION is calibrated
- * against exactly that case at full weight, and halving the input while leaving
- * the cost alone would quietly halve a correction that was measured.
+ * Nur führende Regionen, und das trägt Last, es ist keine Ordnungsliebe. Über JEDE Region zu
+ * summieren, die eine Übung berührt, bringt die eigene vordere Schulter und den Trizeps
+ * vom Bankdrücken in den Nenner, ein Butterfly vor dem Bankdrücken käme dann auf 0,48
+ * statt 1. Das ist vielleicht die wahrere Aussage über die gesamte Muskelarbeit, hier aber
+ * die falsche Zahl: SAME_REGION ist genau an diesem Fall bei vollem Gewicht kalibriert,
+ * und den Eingang zu halbieren, während die Kosten gleich bleiben, würde eine gemessene
+ * Korrektur still halbieren.
  *
- * So a butterfly before a bench press still scores 1. A triceps pushdown before
- * it scores 0, correctly: the bench is not there to train triceps. And a bench
- * press before a pushdown now scores 0.55 rather than the old 0.5, because the
- * pushdown *is* there to train triceps and ANATOMY says how much of that a
- * bench does, where the catalogue could only say "secondary".
+ * Ein Butterfly vor dem Bankdrücken ergibt also weiter 1. Trizepsdrücken am Kabel davor
+ * ergibt 0, zu Recht: das Bankdrücken ist nicht zum Trizepstraining da. Und Bankdrücken
+ * vor Trizepsdrücken ergibt jetzt 0,55 statt früher 0,5, weil das Trizepsdrücken sehr wohl
+ * für den Trizeps da ist und ANATOMY sagt, wie viel davon das Bankdrücken leistet, wo der
+ * Katalog nur "Nebenmuskel" sagen konnte.
  */
 function overlap(exercise, earlier) {
   const mine = anatomyOf(exercise);
@@ -126,26 +123,25 @@ function overlap(exercise, earlier) {
 }
 
 /**
- * Does this earlier exercise *prioritise* what this one is here for?
+ * Setzt diese frühere Übung den SCHWERPUNKT auf das, wofür diese hier da ist?
  *
- * A separate question from `overlap`, and the reason it is separate is the line
- * the training screen puts on the page. "Sets for this muscle before this one"
- * has to be a count of sets somebody could point at, and a weighted overlap is
- * not: three bench presses before a pushdown came out as 1.5, printed as "2",
- * and the honest answer was that nothing before it had trained triceps as its
- * job. A number a lifter can disprove by looking at their own screen is worse
- * than no number.
+ * Eine andere Frage als `overlap`, und getrennt ist sie wegen der Zeile, die der
+ * Trainieren-Screen druckt. "Sätze für diesen Muskel davor" muss eine Zahl von Sätzen sein,
+ * auf die man zeigen kann, und eine gewichtete Überschneidung ist das nicht: drei Sätze
+ * Bankdrücken vor Trizepsdrücken ergaben 1,5, gedruckt als "2", und die ehrliche Antwort
+ * war, dass nichts davor den Trizeps als Aufgabe trainiert hatte. Eine Zahl, die man mit
+ * einem Blick auf den eigenen Screen widerlegen kann, ist schlimmer als keine.
  *
- * So this is deliberately binary and deliberately strict: the earlier movement
- * has to drive one of the regions this one leads on, at the same 0.8 the rating
- * engine uses to decide whether a lift can rank a muscle at all.
+ * Das hier ist also bewusst ja oder nein und bewusst streng: die frühere Bewegung muss eine
+ * der Regionen, die diese anführt, mit denselben 0,8 antreiben, ab denen die Bewertung
+ * einer Übung überhaupt zutraut, einen Muskel einzustufen.
  */
 function prioritisesSame(exercise, earlier) {
   const theirs = anatomyOf(earlier);
   return leadingRegions(exercise).some((region) => (theirs[region] || 0) >= DIRECT_CONTRIBUTION);
 }
 
-/** The regions an exercise actually leads on, strongest first. */
+/** Die Regionen, die eine Übung wirklich anführt, die stärkste zuerst. */
 export function leadingRegions(exercise) {
   return Object.entries(anatomyOf(exercise))
     .filter(([, weight]) => weight >= DIRECT_CONTRIBUTION)
@@ -153,55 +149,52 @@ export function leadingRegions(exercise) {
     .map(([region]) => region);
 }
 
-/** A set that is on the board for today but has not been ticked. */
+/** Ein Satz, der für heute auf dem Brett steht, aber nicht abgehakt ist. */
 const isPlanned = (set) => set.type === 'working' && !set.done;
 
 /**
- * The work standing between the start of a session and one of its exercises.
+ * Die Arbeit zwischen dem Anfang einer Einheit und einer ihrer Übungen.
  *
- * Two questions, not one, and which is being asked depends on whether the
- * session is over.
+ * Zwei Fragen, nicht eine, und welche gestellt wird, hängt davon ab, ob die Einheit vorbei ist.
  *
- * **A finished session** is a record. The only work that came before an
- * exercise is the work that was ticked off above it, and position is the only
- * account of the order there is — sets carry no timestamp. That is the default,
- * and `exerciseHistory` and `pooledOrderCost` both want exactly it.
+ * EINE ABGESCHLOSSENE EINHEIT ist eine Aufzeichnung. Die einzige Arbeit vor einer Übung
+ * ist die, die darüber abgehakt wurde, und die Position ist die einzige Auskunft über die
+ * Reihenfolge, die es gibt, Sätze haben keinen Zeitstempel. Das ist der Standard, und
+ * `exerciseHistory` und `pooledOrderCost` wollen genau das.
  *
- * **A session in progress** is a plan being executed, and the honest question is
- * *what will have happened by the time this exercise starts*. Two things the
- * positional rule gets wrong there:
+ * EINE LAUFENDE EINHEIT ist ein Plan, der gerade umgesetzt wird, und die ehrliche Frage ist,
+ * WAS PASSIERT SEIN WIRD, WENN DIESE ÜBUNG ANFÄNGT. Zwei Dinge macht die Regel nach Position
+ * dort falsch:
  *
- *  - Work sitting above this exercise that has not been done yet counted as
- *    nothing. Open a push day and the bench, third on the list behind six sets
- *    of flyes, was advised as though it were the first thing of the morning;
- *    do the flyes and the same suggestion quietly dropped by a rep. One
- *    exercise, two different numbers in one session, and the one shown first
- *    was the wrong one. In the order the lifter has arranged, that work is
- *    coming, so `live` counts it.
- *  - Work done *out of* order counted as nothing either. Jump to the last
- *    exercise, do it, then come back to the first, and the first was advised as
- *    fresh — despite three sets already behind it. Ticked is ticked, so `live`
- *    counts it wherever it sits on the list.
+ *  - Arbeit über dieser Übung, die noch nicht gemacht ist, zählte als nichts. Man öffnet
+ *    einen Push-Tag, und das Bankdrücken, drittes auf der Liste hinter sechs Sätzen Flys,
+ *    bekam einen Rat, als wäre es das Erste am Morgen. Macht man die Flys, fiel derselbe
+ *    Vorschlag still um eine Wiederholung. Eine Übung, zwei Zahlen in einer Einheit, und
+ *    die zuerst gezeigte war die falsche. In der Reihenfolge, die man selbst festgelegt
+ *    hat, kommt diese Arbeit, also zählt `live` sie.
+ *  - Arbeit AUSSER der Reihe zählte auch als nichts. Zur letzten Übung springen, sie machen,
+ *    dann zur ersten zurück, und die erste bekam einen Rat, als wäre man frisch, obwohl
+ *    schon drei Sätze hinter einem lagen. Abgehakt ist abgehakt, also zählt `live` es,
+ *    egal wo es auf der Liste steht.
  *
- * Moving an exercise up or down therefore changes its advice immediately, which
- * is the point: the arrangement on screen is the lifter saying what they intend
- * to do, and this is the engine taking them at their word.
+ * Eine Übung nach oben oder unten zu schieben ändert ihren Rat also sofort, und darum geht
+ * es: die Anordnung auf dem Screen ist das, was man vorhat, und die Berechnung nimmt einen
+ * beim Wort.
  *
- * `planned` comes back separately so the suggestion can say out loud how much
- * of the fatigue it is counting has not happened yet. A number a lifter cannot
- * account for is a number they stop trusting.
+ * `planned` kommt getrennt zurück, damit der Vorschlag laut sagen kann, wie viel der
+ * Ermüdung, die er zählt, noch gar nicht passiert ist. Einer Zahl, die man sich nicht
+ * erklären kann, traut man bald nicht mehr.
  *
- * `same` and `direct` count two different things and are not interchangeable.
- * `same` is the weighted overlap and it is what the fatigue arithmetic runs on,
- * because half a set of shared work really is half a set of shared work.
- * `direct` counts whole sets from movements that lead on the same muscle, and
- * it is the only one of the two fit to be printed as a number of sets. See
- * `prioritisesSame`.
+ * `same` und `direct` zählen zwei verschiedene Dinge und sind nicht austauschbar. `same`
+ * ist die gewichtete Überschneidung, damit rechnet die Ermüdung, denn ein halber Satz
+ * geteilter Arbeit ist wirklich ein halber Satz. `direct` zählt ganze Sätze aus Bewegungen,
+ * die denselben Muskel anführen, und nur das taugt, um als Zahl von Sätzen gedruckt zu
+ * werden. Siehe `prioritisesSame`.
  *
- * @param entries   the session's entries, in the order they will be performed
- * @param index     which entry is being asked about
- * @param byId      Map exerciseId -> exercise
- * @param live      true for the session in progress, false for a record
+ * @param entries   die Einträge der Einheit, in der Reihenfolge, in der sie gemacht werden
+ * @param index     um welchen Eintrag es geht
+ * @param byId      Map Übungs-ID -> Übung
+ * @param live      true für die laufende Einheit, false für eine Aufzeichnung
  * @returns { same, other, direct, total, warmedRegions, planned, regions }
  */
 export function priorWork(entries, index, byId, { live = false } = {}) {
@@ -215,9 +208,9 @@ export function priorWork(entries, index, byId, { live = false } = {}) {
     const earlier = byId.get(list[i].exerciseId);
     const sets = list[i].sets || [];
     const done = sets.filter(isCounted).length;
-    // Being warm is a fact about the body, not about a list. An exercise
-    // sitting above this one that nobody has started has warmed nothing, so
-    // only work actually performed reaches the warm-up offer.
+    // Warm zu sein ist eine Tatsache über den Körper, nicht über eine Liste. Eine Übung
+    // darüber, die noch keiner angefangen hat, hat nichts aufgewärmt, beim Angebot zum
+    // Aufwärmen zählt also nur Arbeit, die wirklich gemacht wurde.
     if (done) for (const region of earlier?.primary || []) warmedRegions.add(region);
 
     const ahead = live && i < index ? sets.filter(isPlanned).length : 0;
@@ -231,19 +224,19 @@ export function priorWork(entries, index, byId, { live = false } = {}) {
   }
   return {
     same, other, direct, total: same + other, warmedRegions, planned,
-    // What "this muscle" means for this exercise, so the screen can say the
-    // word instead of pointing at something the reader has to guess at.
+    // Was "dieser Muskel" für diese Übung heißt, damit der Screen das Wort sagen kann,
+    // statt auf etwas zu zeigen, das der Leser erraten muss.
     regions: leadingRegions(exercise),
   };
 }
 
 /**
- * The share of a fresh lifter's strength still available at this point.
+ * Der Anteil der frischen Kraft, der an dieser Stelle noch da ist.
  *
- * 1.0 for the first exercise of the day. The example this exists for: bench
- * first at 100 × 8 last week, bench after three sets of butterfly this week.
- * Same lifter, same strength, and without this correction the app would read
- * the second week as a regression and tell them to go backwards.
+ * 1,0 für die erste Übung des Tages. Das Beispiel, für das es das gibt: letzte Woche
+ * Bankdrücken als Erstes mit 100 × 8, diese Woche Bankdrücken nach drei Sätzen Butterfly.
+ * Derselbe Mensch, dieselbe Kraft, und ohne diese Korrektur würde die App die zweite Woche
+ * als Rückschritt lesen und sagen, man solle zurückgehen.
  */
 export function readiness({ same = 0, other = 0 } = {}, cost = null) {
   const perSame = cost?.same ?? SAME_REGION;
@@ -252,13 +245,12 @@ export function readiness({ same = 0, other = 0 } = {}, cost = null) {
 }
 
 /**
- * The order cost measured from the lifter's own log, or null.
+ * Die Kosten der Reihenfolge, gemessen aus dem eigenen Log, oder null.
  *
- * Split the sessions into the ones with little preceding same-muscle work and
- * the ones with a lot, and compare what they lifted. Only answered when the two
- * groups are genuinely different sessions — at least two each and a real gap
- * between them — because below that this is fitting a line to noise and the
- * prior is the better answer.
+ * Die Einheiten in die mit wenig vorheriger Arbeit am selben Muskel und die mit viel
+ * teilen und vergleichen, was dabei gehoben wurde. Nur beantwortet, wenn die beiden Gruppen
+ * wirklich verschiedene Einheiten sind, mindestens zwei pro Gruppe und ein echter Abstand
+ * dazwischen. Darunter passt man eine Linie an Rauschen an, und die Annahme ist die bessere Antwort.
  */
 export function observedOrderCost(rows) {
   const usable = rows.filter((r) => r.rawE1rm > 0);
@@ -279,31 +271,30 @@ export function observedOrderCost(rows) {
   if (!lightMean || gap <= 0) return null;
 
   const perSet = (1 - heavyMean / lightMean) / gap;
-  // Half the lifter, half the prior. A single unlucky session should move this
-  // a little and never invert it: a negative measurement means "no cost found",
-  // not "training tired makes you stronger".
+  // Halb eigene Zahl, halb Annahme. Eine einzelne Einheit mit Pech soll das ein bisschen
+  // bewegen und nie umdrehen: eine negative Messung heißt "keine Kosten gefunden", nicht
+  // "müde trainieren macht stärker".
   const blended = (Math.max(0, perSet) + SAME_REGION) / 2;
   return { same: Math.min(0.04, blended), other: OTHER_REGION, measured: true };
 }
 
 /**
- * The same measurement, pooled across every exercise in the log.
+ * Dieselbe Messung, über jede Übung im Log gebündelt.
  *
- * `observedOrderCost` can only answer once *one* exercise has been trained from
- * enough different positions, which for most people is months away and for some
- * never: if bench is always first and flyes are always fourth, that exercise
- * will never produce the spread it needs, however long the log gets.
+ * `observedOrderCost` kann erst antworten, wenn EINE Übung von genug verschiedenen
+ * Positionen aus trainiert wurde, und das ist für die meisten Monate entfernt und für
+ * manche nie: steht Bankdrücken immer zuerst und Flys immer an vierter Stelle, bekommt
+ * diese Übung nie die Streuung, die sie braucht, egal wie lang das Log wird.
  *
- * Pooling fixes the arithmetic rather than the training. Each exercise's
- * estimates are divided by that exercise's own mean first, so a 140 kg squat and
- * a 20 kg lateral raise contribute the same *shape* rather than the squat
- * drowning out the raise, and the light/heavy split then runs across everything
- * at once. It answers far sooner and is used only where the exercise's own
- * measurement cannot.
+ * Bündeln repariert die Rechnung, nicht das Training. Die Schätzungen jeder Übung werden
+ * zuerst durch den eigenen Mittelwert dieser Übung geteilt, eine Kniebeuge mit 140 kg und
+ * ein Seitheben mit 20 kg tragen also dieselbe FORM bei, statt dass die Kniebeuge das
+ * Seitheben übertönt. Die Teilung in leicht und schwer läuft dann über alles zugleich.
+ * Das antwortet viel früher und wird nur benutzt, wo die eigene Messung der Übung es nicht kann.
  *
- * Memoised, because the training screen asks once per exercise block and this
- * walks the whole log. The key is deliberately cheap and deliberately
- * conservative: a new finished session changes it, and nothing else needs to.
+ * Zwischengespeichert, weil der Trainieren-Screen einmal pro Übungsblock fragt und das hier
+ * durchs ganze Log läuft. Der Schlüssel ist absichtlich billig und absichtlich vorsichtig:
+ * eine neue abgeschlossene Einheit ändert ihn, und sonst muss das nichts.
  */
 let pooledCache = { key: null, value: null };
 
@@ -328,7 +319,7 @@ export function pooledOrderCost(sessions, byId, { minExercises = 3, minRows = 12
   const pooled = [];
   let exercises = 0;
   for (const list of byExercise.values()) {
-    if (list.length < 3) continue;      // one or two sessions say nothing about order
+    if (list.length < 3) continue;      // ein oder zwei Einheiten sagen nichts über die Reihenfolge
     const mean = list.reduce((n, r) => n + r.value, 0) / list.length;
     if (!mean) continue;
     exercises++;
@@ -342,20 +333,19 @@ export function pooledOrderCost(sessions, byId, { minExercises = 3, minRows = 12
   return value;
 }
 
-/* ===================== the log, comparable ===================== */
+/* ===================== das Log, vergleichbar gemacht ===================== */
 
 /**
- * Every past session of one exercise, corrected onto a common footing.
+ * Jede vergangene Einheit einer Übung, auf eine gemeinsame Grundlage korrigiert.
  *
- * `freshE1rm` is the number that makes sessions comparable: what the same work
- * would have been worth done first in the session. It is what the trend is
- * fitted on and what today's target is projected from.
+ * `freshE1rm` ist die Zahl, die Einheiten vergleichbar macht: was dieselbe Arbeit wert
+ * gewesen wäre, wenn sie als Erstes in der Einheit gemacht worden wäre. Daran wird der
+ * Verlauf angepasst, und daraus wird das Ziel für heute hochgerechnet.
  *
- * The returned array carries an `orderCost` property: the measured cost of
- * preceding work, the pooled `fallbackCost` when this exercise cannot produce
- * one on its own, or null when neither is available.
- * It hangs off the array rather than forcing every caller to unwrap a
- * `{ rows, orderCost }` pair for a value only two of them read.
+ * Das zurückgegebene Array hat eine Eigenschaft `orderCost`: die gemessenen Kosten der
+ * vorherigen Arbeit, das gebündelte `fallbackCost`, wenn diese Übung selbst keine Messung
+ * hergibt, oder null, wenn beides fehlt. Es hängt am Array, statt jeden Aufrufer zu zwingen,
+ * ein Paar `{ rows, orderCost }` auszupacken, für einen Wert, den nur zwei davon lesen.
  */
 export function exerciseHistory(sessions, exerciseId, byId,
   { excludeSessionId = null, limit = 8, fallbackCost = null, assumedRir = 0 } = {}) {
@@ -376,11 +366,10 @@ export function exerciseHistory(sessions, exerciseId, byId,
       position: index,
       sets,
       firstSet: sets[0],
-      // The weight the exercise *opened* on, which is the one a recommendation
-      // for the opening set has to be built from. Not the same thing as the
-      // heaviest set: plenty of people ramp across their working sets, and
-      // judging the reps of set one against the load of set three produced
-      // advice that was wrong by two increments every session.
+      // Das Gewicht, mit dem die Übung ANGEFANGEN hat. Daraus muss ein Rat für den ersten
+      // Satz gebaut werden. Das ist nicht dasselbe wie der schwerste Satz: viele steigern über
+      // ihre Arbeitssätze, und die Wiederholungen von Satz eins gegen die Last von Satz drei zu
+      // messen hat einen Rat ergeben, der jede Einheit um zwei Schritte daneben lag.
       openingWeight: effectiveSetWeight(sets[0]),
       topWeight: Math.max(...sets.map(effectiveSetWeight)),
       prior,
@@ -391,11 +380,10 @@ export function exerciseHistory(sessions, exerciseId, byId,
     if (rows.length >= limit) break;
   }
 
-  // Newest first on the way in, oldest first on the way out: everything below
-  // reads as a series.
+  // Rein kommt das Neueste zuerst, raus das Älteste zuerst: alles darunter liest es als Reihe.
   rows.reverse();
-  // This exercise's own measurement first, the pooled one when it cannot
-  // answer, and the prior when neither can.
+  // Zuerst die eigene Messung dieser Übung, die gebündelte, wenn die nicht antworten kann,
+  // und die Annahme, wenn keins von beiden geht.
   const cost = observedOrderCost(rows) || fallbackCost;
   for (const row of rows) {
     row.readiness = readiness(row.prior, cost);
@@ -406,11 +394,11 @@ export function exerciseHistory(sessions, exerciseId, byId,
 }
 
 /**
- * Fresh-equivalent strength projected to today.
+ * Frische Kraft, auf heute hochgerechnet.
  *
- * Three sessions before a line is drawn, and the line is capped: a fortnight of
- * good luck should not extrapolate into a weight nobody can lift. Without
- * enough points the last session stands on its own, which is what it is.
+ * Drei Einheiten, bevor eine Linie gezogen wird, und die Linie ist gedeckelt: zwei Wochen
+ * Glück sollen nicht zu einem Gewicht hochgerechnet werden, das niemand heben kann. Ohne
+ * genug Punkte steht die letzte Einheit für sich, und genau das ist sie auch.
  */
 export function projectFresh(rows, now = Date.now()) {
   if (!rows.length) return null;
@@ -425,7 +413,7 @@ export function projectFresh(rows, now = Date.now()) {
   const weeksSince = Math.min(3, (now - last.at) / (7 * 86400000));
   const projected = last.freshE1rm + fit.slope * weeksSince;
   return {
-    // Never more than 5% above what was actually done, whatever the fit says.
+    // Nie mehr als 5 % über dem, was wirklich gemacht wurde, egal was die Gerade sagt.
     value: Math.max(last.freshE1rm * 0.9, Math.min(last.freshE1rm * 1.05, projected)),
     slope: fit.slope,
     sessions: rows.length,
@@ -433,12 +421,12 @@ export function projectFresh(rows, now = Date.now()) {
 }
 
 /**
- * How much a set costs the ones after it, measured from this lifter.
+ * Wie viel ein Satz die folgenden kostet, gemessen an diesem Menschen.
  *
- * Every past session where two or more sets were logged says something about
- * this, and it is one of the few things in training that is genuinely personal:
- * some people lose two reps a set, some lose none. The 4% fallback is a prior
- * and is only used until three sessions exist.
+ * Jede vergangene Einheit mit zwei oder mehr eingetragenen Sätzen sagt etwas darüber, und
+ * das ist eine der wenigen Sachen im Training, die wirklich persönlich sind: manche
+ * verlieren zwei Wiederholungen pro Satz, manche keine. Der Rückfall ist eine Annahme und
+ * gilt nur, bis es drei Einheiten gibt.
  */
 export function setDecay(rows, assumedRir = 0) {
   const samples = [];
@@ -450,25 +438,25 @@ export function setDecay(rows, assumedRir = 0) {
       if (value) samples.push((1 - value / first) / (i + 1));
     });
   }
-  // Three per cent, not four. Four came out of nowhere in particular and cost
-  // more than a rep a set: predicting six for the second set of a session that
-  // opened with eight, when practically every log in the wild goes 8-7-6. Three
-  // reproduces that shape, and it only has to hold until two sessions of
-  // multi-set work exist, after which the lifter's own median replaces it.
+  // Drei Prozent, nicht vier. Vier kamen aus keiner bestimmten Quelle und haben mehr als eine
+  // Wiederholung pro Satz gekostet: sechs für den zweiten Satz einer Einheit vorhergesagt,
+  // die mit acht angefangen hat, obwohl praktisch jedes echte Log 8-7-6 geht. Drei bildet
+  // diese Form nach und muss nur halten, bis es zwei Einheiten mit mehreren Sätzen gibt,
+  // danach ersetzt sie der eigene Median.
   if (samples.length < 3) return { value: 0.03, measured: false };
   samples.sort((a, b) => a - b);
   const median = samples[Math.floor(samples.length / 2)];
   return { value: Math.max(0.005, Math.min(0.12, median)), measured: true };
 }
 
-/* ===================== rounding ===================== */
+/* ===================== Runden ===================== */
 
 export function parseReps(spec) {
   if (!spec) return null;
-  // "3x8" is three sets of eight, not a range of three to eight. Written that
-  // way it used to widen the target to 3–8, which made the engine chase eight
-  // reps as the *top* of a range whose bottom was three, and recommend weight
-  // increases off a set of three.
+  // "3x8" sind drei Sätze mit acht, kein Bereich von drei bis acht. So geschrieben hat es
+  // das Ziel früher auf 3-8 erweitert, die Berechnung jagte acht Wiederholungen als OBERES
+  // Ende eines Bereichs, dessen unteres Ende drei war, und empfahl mehr Gewicht nach einem
+  // Satz mit drei.
   const text = String(spec).replace(/^\s*\d+\s*[x×*]\s*/i, '');
   const nums = text.match(/\d+/g);
   if (!nums || !nums.length) return null;
@@ -478,18 +466,18 @@ export function parseReps(spec) {
 }
 
 /**
- * The smallest change worth making on this equipment.
+ * Die kleinste Änderung, die sich an diesem Gerät lohnt.
  *
- * `override` is the per-machine stack increment from the setup sheet, and it
- * wins where it exists: the equipment default is a guess about a frame nobody
- * has looked at, and the override is somebody who has.
+ * `override` ist der Gewichtsschritt pro Maschine aus dem Sheet zur Einstellung, und er
+ * gewinnt, wo es ihn gibt: der Standard fürs Gerät ist eine Vermutung über ein Gestell,
+ * das niemand angeschaut hat, der Override ist jemand, der es angeschaut hat.
  *
- * Five kilos, not 2.5. A pin stack goes up in fives almost everywhere, and on a
- * bar five kilos is one 2.5 disc per side, which is the jump people actually
- * make. Asking for 2.5 produced a stream of suggestions half a plate apart that
- * were either unavailable on the machine or too small to be worth reloading
- * for. Pounds were already at 5 and stay there. Dumbbells keep their small
- * step in both units: five in one hand is not a step, it is a different bell.
+ * Fünf Kilo, nicht 2,5. Ein Steckgewicht geht fast überall in Fünfern hoch, und an der
+ * Stange sind fünf Kilo eine 2,5er-Scheibe pro Seite, also der Sprung, den man wirklich
+ * macht. 2,5 zu verlangen ergab eine Reihe von Vorschlägen im Abstand einer halben
+ * Scheibe, die es an der Maschine nicht gab oder die zu klein waren, um dafür umzustecken.
+ * Pfund standen schon bei 5 und bleiben dort. Kurzhanteln behalten in beiden Einheiten ihren
+ * kleinen Schritt: fünf mehr in einer Hand sind kein Schritt, sondern eine andere Hantel.
  */
 export function loadStep(exercise, units, override = null) {
   if (Number(override) > 0) return Number(override);
@@ -498,15 +486,15 @@ export function loadStep(exercise, units, override = null) {
 }
 
 /**
- * A weight that can actually be made.
+ * Ein Gewicht, das sich wirklich zusammenstellen lässt.
  *
- * On a barbell that means real plates — a suggestion of 101 kg is a suggestion
- * to go and find a 0.5 kg disc. Everywhere else it is the nearest increment,
- * which on a pin stack is the only weight that exists at all.
+ * An der Langhantel heißt das echte Scheiben, ein Vorschlag von 101 kg ist ein Vorschlag,
+ * eine 0,5-kg-Scheibe suchen zu gehen. Überall sonst ist es der nächste Schritt, und an
+ * einem Steckgewicht ist das das einzige Gewicht, das es überhaupt gibt.
  */
 export function roundLoad(weight, exercise, { units = 'kg', barWeight = 20, step = null } = {}) {
-  // A pull-up weighs what the lifter weighs. There is no increment to land on,
-  // and rounding an 82 kg body to the nearest five turned it into 80.
+  // Ein Klimmzug wiegt, was der Mensch wiegt. Es gibt keinen Schritt, auf dem man landen
+  // könnte, und einen Körper mit 82 kg auf fünf zu runden hat daraus 80 gemacht.
   if (bodyweightLoadMode(exercise) === 'bodyweight') return weight;
   const increment = loadStep(exercise, units, step);
   if (exercise?.equipment !== 'Barbell' || Number(step) > 0) {
@@ -518,43 +506,42 @@ export function roundLoad(weight, exercise, { units = 'kg', barWeight = 20, step
 }
 
 /**
- * Reps a load is good for, given a capacity, leaving `reserve` in the tank.
+ * Wie viele Wiederholungen eine Last bei einer Leistung hergibt, mit `reserve` im Tank.
  *
- * The epsilon is not a rounding preference. Epley run forwards and then
- * backwards does not land where it started: 135 x 8 comes out of `e1rm` as
- * 170.99999999999997, and a bare floor turns the eight reps that were actually
- * performed into seven. Every "stay at the same weight, do one rep fewer"
- * suggestion this app ever printed came out of that missing bit, and so did
- * half the back-offs, because a rep lost here is a rep below the range there.
+ * Das Epsilon ist keine Rundungsvorliebe. Epley vorwärts und dann rückwärts landet nicht
+ * dort, wo es angefangen hat: 135 x 8 kommt aus `e1rm` als 170.99999999999997, und ein
+ * nacktes floor macht aus den acht wirklich gemachten Wiederholungen sieben. Jeder
+ * Vorschlag "gleiches Gewicht, eine Wiederholung weniger", den diese App je gedruckt hat,
+ * kam aus diesem fehlenden Bit, und die Hälfte der Rückschritte auch, weil eine hier
+ * verlorene Wiederholung dort eine unter dem Bereich ist.
  */
 const repsAt = (capacity, weight, reserve) => {
   if (!capacity || !weight) return 0;
-  // Nearest, not floor. Epley resolves about one rep per 3.3% of load, so a
-  // floor throws away half a rep on average and always in the same direction —
-  // and a prediction that is biased low every single time is exactly what makes
-  // an app feel like it is talking you out of your own training. Every decision
-  // built on this number carries its own margin (BACK_OFF_MARGIN), so the half
-  // rep of conservatism was never load-bearing anywhere it was used.
+  // Runden, nicht abschneiden. Epley löst etwa eine Wiederholung pro 3,3 % Last auf, floor
+  // wirft also im Schnitt eine halbe Wiederholung weg, und zwar immer in dieselbe Richtung.
+  // Eine Vorhersage, die jedes Mal nach unten verzerrt ist, ist genau das, was eine App so
+  // wirken lässt, als rede sie einem das eigene Training aus. Jede Entscheidung, die auf
+  // dieser Zahl aufbaut, hat ihren eigenen Puffer (BACK_OFF_MARGIN), die halbe Wiederholung
+  // Vorsicht hat also nirgends, wo sie benutzt wurde, etwas getragen.
   return Math.round(30 * (capacity / weight - 1) - reserve);
 };
 
-/** The load that lands on a rep target with `reserve` left over. */
+/** Die Last, die mit `reserve` übrig auf einem Wiederholungsziel landet. */
 const loadFor = (capacity, reps, reserve) => capacity / (1 + (reps + reserve) / 30);
 
 /**
- * The reserve the lifter's own opening sets carry.
+ * Die Reserve, mit der die eigenen ersten Sätze gemacht werden.
  *
- * This is the number that makes a prediction comparable with the log it was
- * built from, and getting it wrong is what produced the complaint this rewrite
- * started from. `rawE1rm` reads a past set as `reps + reserve`; predicting at
- * any *other* reserve therefore answers a different question than the one the
- * history asked. Aimed at a fixed one-in-reserve, as it used to be, the engine
- * read 135 x 8 and replied "135 x 7" — arithmetically consistent, and read by
- * everybody who saw it as an instruction to get weaker.
+ * Diese Zahl macht eine Vorhersage mit dem Log vergleichbar, aus dem sie gebaut ist, und
+ * sie falsch zu haben hat genau die Beschwerde erzeugt, mit der dieser Umbau angefangen
+ * hat. `rawE1rm` liest einen vergangenen Satz als `reps + reserve`. Mit einer ANDEREN
+ * Reserve vorherzusagen beantwortet also eine andere Frage als die, die der Verlauf
+ * gestellt hat. Mit fest einer Wiederholung in Reserve, wie früher, las die Berechnung
+ * 135 x 8 und antwortete "135 x 7". Rechnerisch stimmig, und von jedem, der es sah, als
+ * Aufforderung gelesen, schwächer zu werden.
  *
- * Logged reserves win. Where the column is empty the standing assumption from
- * settings is used, which is the same value the history was read with, so the
- * round trip closes exactly.
+ * Eingetragene Reserven gewinnen. Wo die Spalte leer ist, gilt die feste Annahme aus den
+ * Einstellungen, derselbe Wert, mit dem der Verlauf gelesen wurde, der Kreis schließt sich also genau.
  */
 function openingReserve(rows, assumedRir = 0) {
   const logged = rows.map((r) => r.firstSet).filter(hasEffort).map((s) => Math.max(0, Number(s.rir)));
@@ -564,64 +551,64 @@ function openingReserve(rows, assumedRir = 0) {
 }
 
 /**
- * How far under the bottom of the range a load has to land before it comes off.
+ * Wie weit unter dem unteren Ende des Bereichs eine Last landen muss, bevor sie runtergeht.
  *
- * Two reps, and the reason it is not zero is hysteresis. Fatigue corrections,
- * Epley's slack and a rounded plate all move the estimate by around a rep, so a
- * threshold sitting exactly on the range boundary flips between "hold" and
- * "back off" on noise. That is what turned 135 x 8 into "back off to 130 x 7":
- * three sets of flyes beforehand cost 4.5%, the estimate crossed the line by a
- * fraction of a rep, and the suggestion changed the weight over it.
+ * Zwei Wiederholungen, und dass es nicht null sind, ist Hysterese. Korrekturen der
+ * Ermüdung, der Spielraum bei Epley und eine gerundete Scheibe bewegen die Schätzung alle
+ * um etwa eine Wiederholung. Eine Schwelle genau auf der Grenze des Bereichs springt also
+ * wegen Rauschen zwischen "halten" und "zurück". Genau so wurde aus 135 x 8 "zurück auf
+ * 130 x 7": drei Sätze Flys vorher kosteten 4,5 %, die Schätzung rutschte um einen
+ * Bruchteil einer Wiederholung über die Linie, und der Vorschlag hat deshalb das Gewicht geändert.
  *
- * A step back is a real event. It should need a real reason.
+ * Ein Schritt zurück ist ein echtes Ereignis. Er sollte einen echten Grund brauchen.
  */
 const BACK_OFF_MARGIN = 2;
 
 
-/* ===================== what today is worth ===================== */
+/* ===================== was heute drin ist ===================== */
 
 /**
- * Reps a given load is good for right now, or null when nothing can be said.
+ * Wie viele Wiederholungen eine Last gerade hergibt, oder null, wenn sich nichts sagen lässt.
  *
- * The engine has always been able to answer this: it is the same call that
- * turns a suggested weight into "x 7". It was simply not reachable from
- * outside, so the number only ever appeared next to a weight the app had
- * chosen. Type your own weight in and the screen went quiet, which is exactly
- * the moment a lifter is deciding something and would like a second opinion.
+ * Das konnte die Berechnung schon immer: es ist derselbe Aufruf, der aus einem
+ * vorgeschlagenen Gewicht "x 7" macht. Er war nur von außen nicht erreichbar, die Zahl
+ * stand also nur neben einem Gewicht, das die App gewählt hatte. Eigenes Gewicht
+ * eingetippt, und der Screen wurde still, genau in dem Moment, in dem man etwas
+ * entscheidet und eine zweite Meinung gebrauchen könnte.
  */
 export const predictReps = (capacity, weight, reserve = 0) =>
   (!capacity || !weight ? null : Math.max(0, repsAt(capacity, weight, reserve)));
 
 /**
- * The other direction: reps typed in, effort implied.
+ * Die andere Richtung: Wiederholungen eingetippt, Anstrengung folgt daraus.
  *
- * Deliberately *not* the same question. Once a rep count is on the row, "how
- * many could you do" has been answered by the lifter, and the open question is
- * how close to the limit that puts them. Answering with a rep prediction there
- * would be the app arguing with a number somebody just typed.
+ * Absichtlich NICHT dieselbe Frage. Steht eine Wiederholungszahl in der Zeile, hat man "wie
+ * viele gehen" selbst beantwortet, offen ist, wie nah man damit an der Grenze ist. Dort mit
+ * einer Vorhersage von Wiederholungen zu antworten hieße, dass die App mit einer gerade
+ * getippten Zahl streitet.
  */
 export const predictReserve = (capacity, weight, reps) =>
   (!capacity || !weight || !reps ? null : 30 * (capacity / weight - 1) - reps);
 
 /**
- * Fresh-equivalent capacity today, and the reserve it is quoted at.
+ * Die frische Leistung heute und die Reserve, mit der sie angegeben ist.
  *
- * One reader for both halves of the session, because the two halves disagree
- * about where the number comes from and the screen must not.
+ * Ein Leser für beide Hälften der Einheit, weil die beiden sich uneins sind, woher die
+ * Zahl kommt, und der Screen darf das nicht sein.
  *
- * **Nothing logged yet**: the projection from past sessions, discounted for the
- * work standing in front of this exercise. Exactly what `openingSet` builds on,
- * which is why moving an exercise up the list moves this too.
+ * NOCH NICHTS EINGETRAGEN: die Hochrechnung aus vergangenen Einheiten, abgezogen die
+ * Arbeit vor dieser Übung. Genau darauf baut `openingSet`, deshalb bewegt sich das hier
+ * auch, wenn man eine Übung in der Liste nach oben schiebt.
  *
- * **Something logged today**: today's own sets, read back to fresh. One
- * completed set says more about today than four sessions of history do, and
- * from that point the history only contributes the set-to-set drop-off.
+ * HEUTE SCHON ETWAS EINGETRAGEN: die eigenen Sätze von heute, auf frisch zurückgerechnet.
+ * Ein abgeschlossener Satz sagt mehr über heute als vier Einheiten Verlauf, und ab da
+ * trägt der Verlauf nur noch das Nachlassen von Satz zu Satz bei.
  *
- * `setIndex` is which working set the answer is for, counted from zero, because
- * capacity falls through a session and a prediction pinned to set one is wrong
- * by a rep or more by set four.
+ * `setIndex` sagt, für welchen Arbeitssatz die Antwort ist, ab null gezählt, weil die
+ * Leistung über eine Einheit nachlässt und eine Vorhersage für Satz eins bei Satz vier
+ * eine Wiederholung oder mehr daneben liegt.
  *
- * @returns { capacity, reserve, live } or null
+ * @returns { capacity, reserve, live } oder null
  */
 export function capacityToday(doneSets, rows, {
   prior = null, setIndex = null, assumedRir = 0, now = Date.now(),
@@ -646,14 +633,14 @@ export function capacityToday(doneSets, rows, {
   return { capacity: fresh * left(at), reserve, live: false };
 }
 
-/* ===================== between sessions ===================== */
+/* ===================== zwischen den Einheiten ===================== */
 
 /**
- * What to open with today.
+ * Womit man heute anfängt.
  *
- * @param rows      exerciseHistory output, oldest first
+ * @param rows      Ergebnis von exerciseHistory, das Älteste zuerst
  * @param options   { exercise, targetReps, rule, units, barWeight, prior, now }
- * @returns { weight, reps, change, reasons, confidence } or null
+ * @returns { weight, reps, change, reasons, confidence } oder null
  */
 export function openingSet(rows, {
   exercise = null, targetReps = null, rule = 'double', units = 'kg', barWeight = 20,
@@ -671,9 +658,9 @@ export function openingSet(rows, {
   const today = readiness(prior || { same: 0, other: 0 }, rows.orderCost);
   const capacity = projected.value * today;
 
-  // Predictions are made at the effort the lifter actually trains at, so that
-  // "same weight, same day" predicts the reps that were actually logged rather
-  // than one fewer. See `openingReserve`.
+  // Vorhergesagt wird bei der Anstrengung, mit der man wirklich trainiert, damit "gleiches
+  // Gewicht, gleicher Tag" die Wiederholungen vorhersagt, die wirklich eingetragen wurden,
+  // und nicht eine weniger. Siehe `openingReserve`.
   const reserve = openingReserve(rows, assumedRir);
   const predict = (load) => repsAt(capacity, load, reserve);
 
@@ -682,39 +669,39 @@ export function openingSet(rows, {
   const firstReserve = reserveOf(last.firstSet, assumedRir);
   const reserveLogged = hasEffort(last.firstSet);
 
-  // The rule the user actually asked for: the *first* working set clearing the
-  // target is enough. Sets three and four falling off is fatigue, not a verdict
-  // on the weight, and holding progression hostage to them is why this used to
-  // recommend the same number for months.
+  // Die Regel, um die gebeten wurde: es reicht, wenn der ERSTE Arbeitssatz das Ziel schafft.
+  // Dass Satz drei und vier nachlassen, ist Ermüdung und kein Urteil über das Gewicht, und
+  // den Fortschritt an ihnen festzuhalten ist der Grund, warum früher monatelang dieselbe
+  // Zahl empfohlen wurde.
   //
-  // "Clearing" counts what was left in reserve. Seven reps with three in the
-  // tank is a set of ten that stopped early, and a lifter who stops early does
-  // not need the weight kept where it is — they need it moved.
+  // "Schaffen" zählt mit, was in Reserve blieb. Sieben Wiederholungen mit drei im Tank sind
+  // ein Satz mit zehn, der früher aufgehört hat, und wer früher aufhört, braucht nicht
+  // dasselbe Gewicht, sondern ein anderes.
   const firstCapable = firstReps + firstReserve;
   const clearedTarget = firstCapable >= range.high;
   const falling = projected.slope !== null && projected.slope < -0.5;
 
-  // A movement whose load is the lifter's own body has no weight progression to
-  // offer, and pretending otherwise produced the worst suggestion in the app:
-  // ten pull-ups against a 6-10 target were answered with "aim for 6". The
-  // engine had taken the `up` branch, added an increment to the *bodyweight*,
-  // and honestly reported the reps that a 90 kg body would get — so the one
-  // session that cleared the range was the one told to do four fewer reps.
+  // Eine Bewegung, deren Last der eigene Körper ist, hat keine Gewichtssteigerung zu bieten,
+  // und so zu tun, als ob, ergab den schlechtesten Vorschlag der App: zehn Klimmzüge bei
+  // einem Ziel von 6-10 wurden mit "Ziel 6" beantwortet. Die Berechnung war in den Zweig
+  // `up` gegangen, hatte dem KÖRPERGEWICHT einen Schritt draufgelegt und ehrlich die
+  // Wiederholungen gemeldet, die ein Körper mit 90 kg schaffen würde. Die eine Einheit, die
+  // den Bereich geschafft hat, sollte also vier Wiederholungen weniger machen.
   //
-  // Nobody adds eight kilos to themselves on purpose. On these the rep range's
-  // ceiling is a milestone rather than a wall: clear it and the ask simply keeps
-  // climbing, and the reason points at the weighted variant for anyone who
-  // would rather add a belt than keep adding reps.
+  // Niemand legt sich absichtlich acht Kilo zu. Bei diesen Übungen ist das obere Ende des
+  // Bereichs ein Meilenstein und keine Wand: geschafft, und das Ziel steigt einfach weiter.
+  // Die Begründung verweist auf die Variante mit Zusatzgewicht, für alle, die lieber einen
+  // Gürtel umschnallen, als weiter Wiederholungen anzuhängen.
   const ownBodyweight = bodyweightLoadMode(exercise) === 'bodyweight';
 
-  // Order. Reported before anything else because it is the one the lifter can
-  // see on their own screen and would otherwise read as a regression.
+  // Reihenfolge. Vor allem anderen gemeldet, weil man das auf dem eigenen Screen sehen kann
+  // und es sonst als Rückschritt lesen würde.
   const orderShift = today - last.readiness;
   if (Math.abs(orderShift) >= 0.01) {
-    // How much of what it is counting has not happened yet. A lifter looking at
-    // a rep target a rep lower than last week deserves to be told that the
-    // reason is six sets they can still see sitting above this card, unticked,
-    // and that moving the exercise up would change the answer.
+    // Wie viel von dem, was gezählt wird, noch gar nicht passiert ist. Wer ein Ziel eine
+    // Wiederholung unter letzter Woche sieht, soll erfahren, dass der Grund sechs Sätze
+    // sind, die noch unabgehakt über dieser Karte stehen, und dass sich die Antwort ändert,
+    // wenn man die Übung nach oben schiebt.
     const ahead = Math.round(prior?.planned || 0);
     reasons.push({
       key: orderShift < 0 ? (ahead > 0 ? 'laterPlanned' : 'later') : 'earlier',
@@ -728,23 +715,22 @@ export function openingSet(rows, {
   const fresherOrEqual = orderShift >= -0.005;
 
   /**
-   * What to ask for at a weight that is staying where it is.
+   * Was man bei einem Gewicht verlangt, das bleibt, wo es ist.
    *
-   * Double progression, written out: the load holds and the rep target goes up
-   * by one until the top of the range is reached. That "+1" is the whole
-   * mechanism, and the old version did not have it — it printed a raw model
-   * estimate, which at an unchanged weight is by construction *last time's
-   * number*, so the screen said "hold" and then asked for exactly what had
-   * already been done, or less. Nothing about that tells a lifter what would
-   * count as a good session.
+   * Doppelte Progression, ausgeschrieben: die Last bleibt, und das Wiederholungsziel steigt
+   * um eins, bis das obere Ende des Bereichs erreicht ist. Dieses "+1" ist der ganze
+   * Mechanismus, und die alte Version hatte ihn nicht. Sie druckte eine rohe Schätzung des
+   * Modells, und die ist bei gleichem Gewicht per Konstruktion DIE ZAHL VOM LETZTEN MAL.
+   * Der Screen sagte also "halten" und verlangte dann genau das, was schon gemacht war,
+   * oder weniger. Nichts davon sagt einem, was eine gute Einheit wäre.
    *
-   * Three things bound the ask. It never exceeds the top of the range, because
-   * that is where the weight goes up instead. It does not add the rep while the
-   * trend is going backwards, because asking for more on the way down is how a
-   * suggestion loses its credibility. And when today is measurably less fresh
-   * than the session it is being compared with, the *rep target* absorbs that
-   * rather than the weight: three sets of flyes beforehand cost about a rep,
-   * and saying so is far more use than quietly taking 5 kg off the bar.
+   * Drei Dinge begrenzen die Forderung. Sie geht nie über das obere Ende des Bereichs,
+   * dort steigt stattdessen das Gewicht. Sie legt keine Wiederholung drauf, solange der
+   * Verlauf rückwärts geht, denn auf dem Weg nach unten mehr zu verlangen kostet einen
+   * Vorschlag seine Glaubwürdigkeit. Und wenn heute messbar weniger frisch ist als die
+   * Einheit, mit der verglichen wird, fängt das WIEDERHOLUNGSZIEL das auf und nicht das
+   * Gewicht: drei Sätze Flys vorher kosten etwa eine Wiederholung, und das zu sagen ist
+   * viel nützlicher, als still 5 kg von der Stange zu nehmen.
    */
   const holdAsk = () => {
     const stretch = falling ? firstReps : Math.min(range.high, firstReps + 1);
@@ -756,39 +742,39 @@ export function openingSet(rows, {
 
   let weight, reps, change;
   const holdLoad = roundLoad(last.openingWeight, exercise, { units, barWeight, step: stackStep });
-  // Where the load would have to be for the bottom of the range to be reachable
-  // today. Only consulted once something has said the current load is not.
+  // Wo die Last liegen müsste, damit heute das untere Ende des Bereichs erreichbar ist. Wird
+  // nur gefragt, wenn etwas gesagt hat, dass die aktuelle Last es nicht ist.
   const wantedForRange = loadFor(capacity, range.low, reserve);
   const predictedHere = predict(last.openingWeight);
   const shortOfRange = predictedHere < range.low;
-  // A back-off needs the load to miss the range by a margin, not by a rounding
-  // error — or the trend to be going backwards and the range genuinely out of
-  // reach. Either way it also has to actually buy a lighter bar: see below.
+  // Ein Schritt zurück braucht eine Last, die den Bereich um einen Puffer verfehlt und nicht
+  // um einen Rundungsfehler, oder einen Verlauf, der rückwärts geht, und einen Bereich, der
+  // wirklich außer Reichweite ist. So oder so muss er auch wirklich eine leichtere Stange
+  // bringen, siehe unten.
   //
-  // `keepInRange` is the lifter saying they would rather the rep range were
-  // respected than the load were held: under it the margin goes away and any
-  // shortfall moves the weight. That is a real preference and not a better
-  // answer — the margin exists because a rep of slack is inside the noise of
-  // the estimate, and without it the suggestion will chase that noise up and
-  // down. Off by default for exactly that reason.
+  // `keepInRange` heißt, dass man lieber den Wiederholungsbereich eingehalten sieht als die
+  // Last gehalten: dann fällt der Puffer weg, und jede Lücke bewegt das Gewicht. Das ist eine
+  // echte Vorliebe und keine bessere Antwort. Den Puffer gibt es, weil eine Wiederholung
+  // Spielraum im Rauschen der Schätzung liegt, und ohne ihn jagt der Vorschlag dieses
+  // Rauschen rauf und runter. Genau deshalb standardmäßig aus.
   const tooHeavy = keepInRange
     ? shortOfRange
     : predictedHere <= range.low - BACK_OFF_MARGIN || (falling && shortOfRange);
 
-  /** A load, rounded, and then nudged down if the rounding lost the range. */
+  /** Eine Last, gerundet und dann nach unten geschoben, falls das Runden den Bereich verloren hat. */
   const landInRange = (want) => {
     const rounded = roundLoad(want, exercise, { units, barWeight, step: stackStep });
     if (!keepInRange || repsAt(capacity, rounded, reserve) >= range.low) return rounded;
-    // roundLoad rounds to nearest, so it can round *up* past the load the range
-    // needs. Under a setting whose whole promise is the range, that has to come
-    // back down a step rather than quietly miss by one rep.
+    // roundLoad rundet zum nächsten Wert und kann also über die Last hinaus AUFrunden, die
+    // der Bereich braucht. Unter einer Einstellung, deren ganzes Versprechen der Bereich
+    // ist, muss das einen Schritt zurück, statt still um eine Wiederholung zu verfehlen.
     return roundLoad(rounded - step, exercise, { units, barWeight, step: stackStep });
   };
 
   if (rule === 'reps') {
-    // Rep progression holds the load by definition. The old version scaled it
-    // by today's fatigue, which is a weight change under the one rule that
-    // exists to not make weight changes.
+    // Progression über Wiederholungen hält die Last per Definition. Die alte Version hat sie
+    // mit der Ermüdung von heute skaliert, also eine Gewichtsänderung unter genau der Regel,
+    // die es gibt, um keine Gewichtsänderungen zu machen.
     weight = holdLoad;
     reps = holdAsk();
     change = 'hold';
@@ -796,8 +782,8 @@ export function openingSet(rows, {
   } else if (ownBodyweight) {
     weight = last.openingWeight;
     reps = clearedTarget
-      // Past the top of the range, where the range stops applying: one more
-      // than was actually done, and no ceiling.
+      // Über dem oberen Ende des Bereichs, wo der Bereich nicht mehr gilt: eine mehr als
+      // wirklich gemacht, und keine Decke.
       ? Math.max(range.high, firstReps + (falling || !fresherOrEqual ? 0 : 1))
       : holdAsk();
     if (!fresherOrEqual) reps = Math.min(reps, Math.max(1, predict(last.openingWeight)));
@@ -806,11 +792,11 @@ export function openingSet(rows, {
       ? { key: 'bodyweightClimb', params: { reps: firstReps, ask: reps, high: range.high } }
       : { key: 'buildReps', params: { reps: firstReps, ask: reps, high: range.high } });
   } else if (rule === 'weight' || (clearedTarget && !falling)) {
-    // Up. Bounded on both sides: at least one increment so the suggestion is
-    // actually a change, at most three so a single very good session cannot
-    // fling the weight somewhere the lifter has never been — and never more
-    // than a tenth of the load, because three increments of a 2 kg dumbbell
-    // step is a 60% jump on a 10 kg bell and an 8% one on a 75 kg bar.
+    // Hoch. Nach beiden Seiten begrenzt: mindestens ein Schritt, damit der Vorschlag wirklich
+    // eine Änderung ist, höchstens drei, damit eine einzige sehr gute Einheit das Gewicht
+    // nicht irgendwohin schleudert, wo man nie war. Und nie mehr als ein Zehntel der Last,
+    // weil drei Schritte bei einer 2-kg-Kurzhantel ein Sprung von 60 % auf eine 10-kg-Hantel
+    // sind und von 8 % auf eine 75-kg-Stange.
     const ceiling = Math.min(last.openingWeight + step * 3, last.openingWeight * 1.1);
     weight = roundLoad(
       Math.max(last.openingWeight + step, Math.min(Math.max(ceiling, last.openingWeight + step), wantedForRange)),
@@ -819,11 +805,10 @@ export function openingSet(rows, {
     if (weight <= last.openingWeight) {
       weight = roundLoad(last.openingWeight + step, exercise, { units, barWeight, step: stackStep });
     }
-    // Honestly, not hopefully. A heavier bar buys fewer reps — that is what
-    // makes it heavier — and clamping the answer up into the rep range printed
-    // "60 kg x 10 → 65 kg x 10", which is two sessions of progress claimed in
-    // one line. What it can do is fall to the bottom of the range and no
-    // further, which is what the increment was sized for.
+    // Ehrlich, nicht hoffnungsvoll. Eine schwerere Stange bringt weniger Wiederholungen, das
+    // macht sie schwerer. Die Antwort in den Bereich hochzudrücken hat "60 kg x 10 -> 65 kg
+    // x 10" gedruckt, also zwei Einheiten Fortschritt in einer Zeile behauptet. Was sie darf,
+    // ist bis zum unteren Ende des Bereichs zu fallen und nicht weiter, dafür ist der Schritt bemessen.
     reps = Math.min(range.high, Math.max(1, predict(weight)));
     change = 'up';
     reasons.unshift(rule === 'weight'
@@ -831,8 +816,8 @@ export function openingSet(rows, {
       : firstReps >= range.high
         ? { key: 'clearedFirstSet', params: { reps: firstReps, high: range.high, from: last.openingWeight } }
         : {
-            // Say which it was. A weight increase built on an assumption the
-            // user never made should announce itself as one.
+            // Sagen, was es war. Eine Gewichtssteigerung, die auf einer Annahme beruht, die der
+            // Nutzer nie gemacht hat, soll sich auch so ankündigen.
             key: reserveLogged ? 'easyFirstSet' : 'assumedFirstSet',
             params: { reps: firstReps, rir: firstReserve, capable: firstCapable },
           });
@@ -849,18 +834,18 @@ export function openingSet(rows, {
         params: { low: range.low, from: last.openingWeight, reps: predictedHere },
       });
     } else {
-      // Hold. Which of the three things is happening gets its own sentence,
-      // because "stay at 135" for a good session, a tired session and a stalled
-      // one are three different pieces of advice that happen to share a number.
+      // Halten. Welches der drei Dinge gerade passiert, bekommt einen eigenen Satz, denn
+      // "bleib bei 135" nach einer guten, einer müden und einer stagnierenden Einheit sind drei
+      // verschiedene Ratschläge, die zufällig dieselbe Zahl haben.
       weight = holdLoad;
       reps = holdAsk();
       change = 'hold';
       reasons.unshift(!fresherOrEqual
         ? { key: 'holdTired', params: { reps: firstReps, ask: reps, from: last.openingWeight } }
-        // "One more rep" is the double-progression case and only that case. Where
-        // the projection or a fresher slot in the session says there is more than
-        // one rep in hand, the ask is bigger and calling it "one more" is simply
-        // false: it printed "last time was 12, one rep more: 15".
+        // "Eine Wiederholung mehr" ist der Fall der doppelten Progression und nur der. Wo die
+        // Hochrechnung oder ein frischerer Platz in der Einheit mehr als eine Wiederholung
+        // Luft zeigt, ist die Forderung größer, und "eine mehr" zu sagen ist schlicht falsch:
+        // da stand "letztes Mal 12, eine mehr: 15".
         : reps > firstReps + 1
           ? { key: 'stretchReps', params: { reps: firstReps, ask: reps, high: range.high } }
           : reps > firstReps
@@ -869,22 +854,21 @@ export function openingSet(rows, {
     }
   }
 
-  // A last guard, not a policy. Every branch above already reports what it
-  // predicts; this only catches a rep count that would print as zero. The range
-  // ceiling is skipped for a bodyweight movement, which is the one case where
-  // going past the top of the range is the whole progression.
+  // Eine letzte Absicherung, keine Regel. Jeder Zweig oben meldet schon, was er vorhersagt,
+  // das hier fängt nur eine Wiederholungszahl ab, die als null gedruckt würde. Die Decke des
+  // Bereichs fällt bei einer Körpergewichtsübung weg, dem einen Fall, in dem über das obere
+  // Ende hinaus zu gehen die ganze Progression ist.
   reps = Math.max(1, ownBodyweight ? reps : Math.min(range.high, reps));
 
-  // The trend line, when it is saying anything at all. A slope past half a kilo
-  // a week in either direction is a direction; anything under that is a flat
-  // line with noise on it, and this used to call a *falling* one "flat" because
-  // the only two keys it had were up and not-up.
+  // Die Verlaufslinie, wenn sie überhaupt etwas sagt. Eine Steigung über ein halbes Kilo
+  // pro Woche in eine Richtung ist eine Richtung, alles darunter ist eine flache Linie mit
+  // Rauschen. Früher hieß hier auch eine FALLENDE "flach", weil es nur die zwei Schlüssel
+  // hoch und nicht-hoch gab.
   if (projected.slope !== null && Math.abs(projected.slope) >= 0.5) {
     reasons.push({
       key: projected.slope > 0 ? 'trendUp' : 'trendSlipping',
-      // A number, not a pre-formatted string: the engine has no idea whether
-      // the screen is showing kilos or pounds, and "climbing 1.8 a week" with
-      // no unit on it was the reader's problem to solve.
+      // Eine Zahl, kein fertiger Text: die Berechnung weiß nicht, ob der Screen Kilo oder
+      // Pfund zeigt, und "steigt 1.8 pro Woche" ohne Einheit war das Problem des Lesers.
       params: { perWeek: Math.abs(projected.slope), sessions: projected.sessions },
     });
   } else if (projected.sessions >= 3) {
@@ -902,18 +886,17 @@ export function openingSet(rows, {
   };
 }
 
-/* ===================== inside a session ===================== */
+/* ===================== innerhalb einer Einheit ===================== */
 
 /**
- * What to put on for the next set, given how the ones before it went today.
+ * Was man für den nächsten Satz auflegt, je nachdem, wie die davor heute liefen.
  *
- * This is the number the old app never had. It knew what you did last week and
- * said nothing at all once the session started, which is exactly when the
- * information is best: one completed set today says more about today than four
- * sessions of history do.
+ * Das ist die Zahl, die die alte App nie hatte. Sie wusste, was man letzte Woche gemacht
+ * hat, und sagte nichts mehr, sobald die Einheit anfing, genau dann, wenn die Information
+ * am besten ist: ein abgeschlossener Satz heute sagt mehr über heute als vier Einheiten Verlauf.
  *
- * @param doneSets  the working sets already completed today, in order
- * @param rows      exerciseHistory output, for the personal set-to-set decay
+ * @param doneSets  die heute schon abgeschlossenen Arbeitssätze, in Reihenfolge
+ * @param rows      Ergebnis von exerciseHistory, für das eigene Nachlassen von Satz zu Satz
  */
 export function nextSet(doneSets, rows, {
   exercise = null, targetReps = null, units = 'kg', barWeight = 20, step: stackStep = null,
@@ -928,57 +911,55 @@ export function nextSet(doneSets, rows, {
   const lastWeight = effectiveSetWeight(done[done.length - 1]);
   if (!lastWeight) return null;
 
-  // The share of a fresh lifter still there for the set at position `i`, zero
-  // being the opener. Floored, because a long enough session would otherwise
-  // arithmetic its way down to nothing.
+  // Der Anteil der frischen Kraft, der für den Satz an Position `i` noch da ist, null ist
+  // der erste. Mit Untergrenze, sonst würde eine lange genug Einheit rechnerisch bei null landen.
   const left = (i) => Math.max(0.6, 1 - decay.value * i);
 
-  // Today's capacity, read back to fresh from *every* set already done and not
-  // only from the first one. Reading it off set one alone assumes set one was
-  // the hardest, which is true when the sets descend and false the moment
-  // somebody ramps: opening 60 x 10 and then putting 100 on the bar used to
-  // leave the engine estimating the rest of the session off the 60.
+  // Die Leistung von heute, aus JEDEM schon gemachten Satz auf frisch zurückgerechnet und
+  // nicht nur aus dem ersten. Nur Satz eins zu lesen nimmt an, dass Satz eins der schwerste
+  // war. Das stimmt, wenn die Sätze fallen, und ist falsch, sobald jemand steigert: mit 60 x
+  // 10 anfangen und dann 100 auflegen hat die Berechnung früher den Rest der Einheit von den
+  // 60 aus schätzen lassen.
   const capacityFresh = Math.max(...done.map((set, i) => effortE1rm(set, assumedRir) / left(i)));
   if (!capacityFresh) return null;
   const capacity = capacityFresh * left(done.length);
 
-  // Predicted at the effort this lifter actually stops at, for the same reason
-  // the between-session advice does: a lifter who logs 2 RIR on every set is
-  // not asking to be told the number that would take them to failure.
+  // Vorhergesagt bei der Anstrengung, bei der dieser Mensch wirklich aufhört, aus demselben
+  // Grund wie beim Rat zwischen den Einheiten: wer bei jedem Satz 2 RIR einträgt, will nicht
+  // die Zahl hören, die ihn ans Versagen bringen würde.
   const reserve = openingReserve(rows || [], assumedRir);
 
   const holdReps = repsAt(capacity, lastWeight, reserve);
   const recent = done[done.length - 1];
-  // Same reading as between sessions: reps plus reserve is what the set was
-  // actually worth. Two clear of the top of the range means the weight is
-  // light, and the set about to be done should not repeat that. Judged on the
-  // set just finished rather than only on the opener — a third set that still
-  // has two in the tank is a *stronger* signal than a first one, and the old
-  // version could only ever act on set one.
+  // Dieselbe Lesart wie zwischen den Einheiten: Wiederholungen plus Reserve ist das, was der
+  // Satz wirklich wert war. Zwei über dem oberen Ende heißt, das Gewicht ist leicht, und der
+  // nächste Satz soll das nicht wiederholen. Beurteilt am gerade fertigen Satz und nicht nur
+  // am ersten: ein dritter Satz mit noch zwei im Tank ist ein STÄRKERES Signal als ein
+  // erster, und die alte Version konnte nur auf Satz eins reagieren.
   const blewPast = Number(recent.reps) + reserveOf(recent, assumedRir) >= range.high + 2;
 
-  // The weight that would land the next set on the bottom of the range.
+  // Das Gewicht, mit dem der nächste Satz am unteren Ende des Bereichs landen würde.
   const wanted = loadFor(capacity, range.low, reserve);
 
-  // Reps falling away set by set is what sets do, so by default a step down has
-  // to buy something real — two increments' worth — before the bar is touched.
+  // Dass die Wiederholungen von Satz zu Satz nachlassen, machen Sätze nun mal. Standardmäßig
+  // muss ein Schritt nach unten also etwas Echtes bringen, zwei Schritte wert, bevor die
+  // Stange angefasst wird.
   //
-  // Under `keepInRange` the lifter has said the opposite: they would rather the
-  // range held and the load moved. Then any shortfall is enough, as long as one
-  // step actually fixes it. This is the setting's whole purpose, and the case
-  // it exists for is the fourth set of a heavy exercise, where holding the
-  // weight honestly predicts two reps, or one.
+  // Mit `keepInRange` sagt man das Gegenteil: lieber soll der Bereich halten und die Last
+  // sich bewegen. Dann reicht jede Lücke, solange ein Schritt sie wirklich schließt. Dafür
+  // ist die Einstellung da, und der Fall, für den es sie gibt, ist der vierte Satz einer
+  // schweren Übung, bei dem das Gewicht zu halten ehrlich zwei Wiederholungen vorhersagt, oder eine.
   const dropsFar = wanted <= lastWeight - step * 2;
-  // Not "is the range more than a step away" but "would a step fix it". The
-  // first question refuses the drop whenever the load the range needs sits a
-  // hair above one increment down — 130.7 against a 130 that reaches the range
-  // perfectly well — and that is precisely the set this setting is for.
+  // Nicht "ist der Bereich mehr als einen Schritt entfernt", sondern "würde ein Schritt ihn
+  // schließen". Die erste Frage verweigert den Schritt, sobald die Last, die der Bereich
+  // braucht, knapp über einem Schritt nach unten liegt (130,7 gegen eine 130, die den
+  // Bereich wunderbar erreicht), und genau das ist der Satz, für den die Einstellung da ist.
   const oneStepDown = Math.max(step, lastWeight - step);
   const dropsAtAll = holdReps < range.low
     && oneStepDown < lastWeight
     && repsAt(capacity, oneStepDown, reserve) > holdReps;
 
-  /** A load, rounded, nudged down if rounding to nearest lost the range. */
+  /** Eine Last, gerundet und nach unten geschoben, falls das Runden den Bereich verloren hat. */
   const landInRange = (want) => {
     const rounded = roundLoad(Math.max(step, want), exercise, { units, barWeight, step: stackStep });
     if (!keepInRange || repsAt(capacity, rounded, reserve) >= range.low) return rounded;
@@ -991,17 +972,17 @@ export function nextSet(doneSets, rows, {
     change = 'up';
     key = 'setTooLight';
   } else if (keepInRange ? dropsAtAll : dropsFar) {
-    // The lighter of what the range asks for and one increment down, so the
-    // step is never smaller than a step and never bigger than it needs to be.
+    // Das Leichtere von dem, was der Bereich verlangt, und einem Schritt nach unten. So ist
+    // der Schritt nie kleiner als ein Schritt und nie größer als nötig.
     weight = landInRange(keepInRange ? Math.min(wanted, oneStepDown) : wanted);
     change = 'down';
     key = 'dropToRange';
   }
 
-  // Reported as predicted, not as hoped: a later set that lands under the range
-  // is information, and rounding it up into the range would be a lie told to
-  // make a number look tidy. The ceiling is only there so a very light set does
-  // not print a rep count nobody is going to do.
+  // Gemeldet wie vorhergesagt, nicht wie erhofft: ein späterer Satz, der unter dem Bereich
+  // landet, ist eine Information, und ihn in den Bereich hochzurunden wäre eine Lüge, damit
+  // eine Zahl ordentlich aussieht. Die Decke gibt es nur, damit ein sehr leichter Satz keine
+  // Wiederholungszahl druckt, die niemand machen wird.
   const reps = Math.min(range.high, Math.max(1, repsAt(capacity, weight, reserve)));
   return {
     setNumber: done.length + 1,

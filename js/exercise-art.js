@@ -1,8 +1,8 @@
-// Exercise illustration: two frames (start / end) where everkinetic has art for
-// the movement, falling back to the muscle map otherwise.
+// Bilder zu den Übungen: zwei Phasen (Start und Ende), wo everkinetic Zeichnungen
+// für die Bewegung hat, sonst die Muskelkarte.
 //
-// The source art is black line work on transparency, so it is inverted to white
-// in CSS rather than being re-rendered — see .exercise-art img in styles.css.
+// Die Vorlagen sind schwarze Linien auf transparentem Grund. Sie werden per CSS
+// auf Weiß invertiert statt neu gerendert, siehe .exercise-art img in styles.css.
 
 import { el } from './ui.js';
 import { EXERCISE_IMAGES } from './exercise-images.js';
@@ -16,12 +16,12 @@ export function hasArt(exercise) {
 }
 
 /**
- * A 44px start-frame for a list row.
+ * Startbild in 44 px für eine Listenzeile.
  *
- * Every row gets a slot whether or not there is art, because half a list with
- * thumbnails and half without is worse to scan than either. Where the movement
- * has no illustration the slot carries its initial, which still gives the eye
- * something fixed to run down.
+ * Jede Zeile bekommt einen Platz, egal ob es ein Bild gibt. Eine Liste, in der
+ * die Hälfte Vorschaubilder hat und die andere nicht, liest sich schlechter als
+ * beides. Ohne Zeichnung steht dort der Anfangsbuchstabe, dann hat das Auge
+ * trotzdem etwas Festes, an dem es entlanglaufen kann.
  */
 export function exerciseThumb(exercise) {
   const slug = exercise && EXERCISE_IMAGES[normName(exercise.name)];
@@ -37,8 +37,8 @@ export function exerciseThumb(exercise) {
     width: 40, height: 40,
   });
   const wrap = el('span.ex-thumb', { 'aria-hidden': 'true' }, [img]);
-  // The images are runtime-cached rather than precached, so a first view while
-  // offline has to degrade to the letter instead of a broken frame.
+  // Die Bilder werden erst beim Ansehen gecacht, nicht vorab. Wer offline zum
+  // ersten Mal draufschaut, bekommt deshalb den Buchstaben statt eines kaputten Rahmens.
   img.addEventListener('error', () => {
     wrap.classList.add('is-letter');
     wrap.replaceChildren(String(exercise?.name || '?').trim().charAt(0).toUpperCase());
@@ -47,8 +47,8 @@ export function exerciseThumb(exercise) {
 }
 
 /**
- * @param {object} exercise  library row
- * @param {object} opts      { eager } — eager only for the one on screen
+ * @param {object} exercise  Zeile aus der Bibliothek
+ * @param {object} opts      { eager }, eager nur für die eine, die gerade zu sehen ist
  */
 export function exerciseArt(exercise, opts = {}) {
   const slug = exercise && EXERCISE_IMAGES[normName(exercise.name)];
@@ -60,9 +60,9 @@ export function exerciseArt(exercise, opts = {}) {
   const frame = (n, label) => {
     const img = el('img', {
       src: `${BASE}${slug}_${n}.webp`,
-      alt: `${exercise.name} — ${label} position`,
-      // Images live outside the precache; the runtime cache picks them up on
-      // first view, so a missed one must not leave a broken box behind.
+      alt: `${exercise.name}, ${label} position`,
+      // Die Bilder liegen außerhalb des Vorab-Caches und kommen beim ersten Ansehen
+      // dazu. Fehlt eins, darf kein kaputter Kasten stehen bleiben.
       loading: opts.eager ? 'eager' : 'lazy',
       decoding: 'async',
       width: 320,

@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 93" role="img" aria-label="Front view muscle map">
   <!--
-    GENERATED — rebuild with tools/build_bodymap.py
+    ERZEUGT, neu bauen mit tools/build_bodymap.py
 
-    Muscle paths from body-muscles (https://github.com/vulovix/body-muscles),
-    licensed Apache-2.0. Its ~90 fine-grained muscles are collapsed onto the 15
-    regions the rating engine scores.
+    Muskelpfade aus body-muscles (https://github.com/vulovix/body-muscles),
+    Lizenz Apache-2.0. Die rund 90 feinen Muskeln sind auf die 15 Regionen
+    zusammengelegt, die die Bewertung benutzt.
 
-    Contract the app relies on:
-      * every muscle shape carries class="muscle" and data-region="<key>"
-      * non-muscle anatomy carries class="body-base"
-      * do not set fill on .muscle shapes — the app colours them by rating
+    Worauf sich die App verlässt:
+      * jede Muskelform hat class="muscle" und data-region="<key>"
+      * alles, was kein Muskel ist, hat class="body-base"
+      * kein fill auf .muscle setzen, die App färbt nach Bewertung
   -->
   <g class="body-base">
     <path d="m 11.671635,6.3585449 -0.0482,-2.59085 4.20648,-2.46806 4.42769,2.95361 -0.0405,1.94408 0.24197,-3.34467 -2.03129,-2.31103004 -2.84508,-0.51629 -2.20423,0.52915 -1.9363,2.63077004 z"/>

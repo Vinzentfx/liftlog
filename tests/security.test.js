@@ -104,8 +104,8 @@ test('blocked devices stay blocked and disappear from the visible device list', 
   assert.match(sync, /current\?\.status === 'revoked'[\s\S]*DEVICE_REVOKED/);
   assert.match(sync, /matching\?\.status === 'revoked'[\s\S]*DEVICE_REVOKED/);
   assert.match(account, /activeDevices = devices\.filter\(\(d\) => d\.status !== 'revoked'\)[\s\S]*activeDevices\.map/);
-  // Native replaceChildren stringifies null, unlike our el() helper. Omitting
-  // the optional heading entirely prevents a visible "null" below the list.
+  // Das native replaceChildren macht aus null einen Text, anders als unser el(). Die
+  // optionale Überschrift ganz wegzulassen verhindert ein sichtbares "null" unter der Liste.
   assert.match(account, /\.\.\.\(blockedDevices\.length \? \[el\('div\.section-head'/);
   assert.doesNotMatch(account, /blockedDevices\.length \? el\('div\.section-head'[\s\S]{0,150}: null/);
 });
@@ -329,8 +329,8 @@ test('the social hub is opt-in and exposes no social tables directly', async () 
 
 test('the rank ladder reports a drop as plainly as a climb', async () => {
   const home = await read('js/screens/home.js');
-  // A scoreboard that only ever announces good news is a scoreboard nobody
-  // believes, so both directions have to survive a refactor.
+  // Eine Anzeigetafel, die nur gute Nachrichten verkündet, glaubt niemand. Beide Richtungen
+  // müssen also einen Umbau überleben.
   assert.match(home, /recentRankChange[\s\S]*home\.rating\.rankUp[\s\S]*home\.rating\.rankDown/);
   assert.match(home, /rankDownWhy/, 'and a demotion says it may just be bodyweight');
 });
@@ -346,8 +346,8 @@ test('the warm-up offer disappears once the exercise has started', async () => {
 test('every weight the app suggests can be made on the equipment it names', async () => {
   const progression = await read('js/progression.js');
   const warmup = await read('js/warmup.js');
-  // A pin stack has no 102.5, and a bar has no 0.5 kg disc. Both routes have to
-  // stay in roundLoad / loadable rather than drifting back to bare arithmetic.
+  // Ein Steckgewicht hat keine 102,5 und eine Stange keine 0,5-kg-Scheibe. Beide Wege müssen
+  // in roundLoad und loadable bleiben und dürfen nicht zurück zu nackter Rechnerei driften.
   assert.match(progression, /export function roundLoad[\s\S]*platePlan/);
   assert.match(progression, /loadStep\(exercise, units, override = null\)/);
   assert.match(warmup, /step: stackStep/);
@@ -355,9 +355,9 @@ test('every weight the app suggests can be made on the equipment it names', asyn
 
 test('machine-only training reaches both combined strength and personal progress maps', async () => {
   const home = await read('js/screens/home.js');
-  // Machines and cables both, now that a cable stack is ranked like any other:
-  // ratedMachineNames is the single gate, so this checks the gate rather than a
-  // string comparison that used to live inline here.
+  // Maschinen und Kabel, jetzt, wo ein Kabelblock wie jeder andere eingestuft wird:
+  // ratedMachineNames ist das eine Tor, das hier prüft also das Tor und keinen Textvergleich,
+  // der früher direkt hier stand.
   assert.match(home, /ratedMachineNames\(store\.state\.exercises\)[\s\S]*buildRating\(best, settings, \{\s*machineNames/);
   assert.match(home, /regionProgress\(done[\s\S]*home\.map\.progressNote/);
   assert.match(home, /home\.rating\.machineEstimated[\s\S]*home\.rating\.machineCommunity/);
@@ -418,16 +418,16 @@ test('offline updates cannot activate a partial JavaScript deployment', async ()
   const worker = await read('sw.js');
   const html = await read('index.html');
   const bootstrap = await read('js/bootstrap.js');
-  // Still one atomic addAll over the whole shell: a rejected install is retried,
-  // where a per-file loop would leave half a deployment cached and bootable.
+  // Weiterhin ein atomares addAll über die ganze Hülle: eine abgelehnte Installation wird
+  // wiederholt, eine Schleife pro Datei ließe einen halben Deploy im Cache und startbar zurück.
   assert.match(worker, /addAll\(SHELL\.map/);
   assert.doesNotMatch(worker, /precache miss/);
-  // The bulk data tables live in their own cache so a shell bump does not cost
-  // every client another 840 KB. Two properties keep that honest: activate must
-  // spare that cache, and install must only fetch what is genuinely absent.
+  // Die großen Datentabellen liegen in einem eigenen Cache, damit ein neuer Stand der Hülle
+  // nicht jedes Gerät noch einmal 840 KB kostet. Zwei Eigenschaften halten das ehrlich:
+  // activate muss diesen Cache verschonen, und install darf nur holen, was wirklich fehlt.
   assert.match(worker, /k !== CACHE && k !== DATA_CACHE/);
   assert.match(worker, /const missing = DATA\.filter\([\s\S]{0,120}addAll\(missing/);
-  // strings.js changes constantly and must never drift into the data cache.
+  // strings.js ändert sich ständig und darf nie in den Daten-Cache rutschen.
   const dataList = worker.split('const DATA = [')[1].split('];')[0];
   assert.doesNotMatch(dataList, /strings\.js/);
   for (const file of ['exercise-library', 'brand-library', 'food-library']) {
@@ -436,8 +436,8 @@ test('offline updates cannot activate a partial JavaScript deployment', async ()
       new RegExp(file), `${file} must not also sit in the shell`);
   }
   assert.match(html, /js\/bootstrap\.js[\s\S]*js\/app\.js/);
-  // The reload itself now waits for the workout to end; that it still happens
-  // is what this case is about.
+  // Das Neuladen wartet jetzt aufs Ende des Trainings. Dass es trotzdem passiert, darum geht
+  // es in diesem Fall.
   assert.match(bootstrap, /controllerchange[\s\S]*reloadWhenIdle/);
   assert.match(bootstrap, /location\.reload\(\)/);
 });
@@ -490,13 +490,13 @@ test('private social groups and PR reactions stay behind narrow RPCs', async () 
 test('a load correction survives the other sheet that writes the same record', async () => {
   const train = await read('js/screens/train.js');
   const home = await read('js/screens/home.js');
-  // Two sheets write machineSetups[exId]: the machine setup on Train and the
-  // load correction on Home. Whichever saves second must not rebuild the record
-  // from its own fields, or it drops the other one's.
+  // Zwei Sheets schreiben machineSetups[exId]: die Maschineneinstellung beim Trainieren und die
+  // Lastkorrektur auf Home. Wer als Zweites speichert, darf den Eintrag nicht aus den eigenen
+  // Feldern neu bauen, sonst verschwindet der des anderen.
   assert.match(train, /const next = \{ \.\.\.saved,/);
   assert.match(home, /const next = \{ \.\.\.\(setups\[ex\.id\] \|\| \{\}\) \}/);
 
-  // And the correction changes how the number is read, never the log.
+  // Und die Korrektur ändert, wie die Zahl gelesen wird, nie das Log.
   assert.match(home, /loadFactors\[ex\.name\] = Number\(setup\.loadFactor\)/);
   assert.doesNotMatch(home, /set\.weight\s*[*/]=/);
 });
@@ -506,21 +506,21 @@ test('the rank-up celebration fires on a real step and respects reduced motion',
   const art = await read('js/rank-art.js');
   const css = await read('css/styles.css');
 
-  // Number(null) is 0 and finite, so a null check through Number() reads a
-  // device that has never stored a step as "was on step 0" and congratulates
-  // every existing user on first launch. It has to be checked by identity.
+  // Number(null) ist 0 und endlich. Eine Prüfung auf null über Number() liest ein Gerät, das
+  // nie eine Stufe gespeichert hat, als "war auf Stufe 0" und gratuliert jedem bestehenden
+  // Nutzer beim ersten Start. Es muss über die Identität geprüft werden.
   assert.match(home, /seen === null \|\| seen === undefined/);
-  // A drop stores silently. Being told you went down is the banner's job.
+  // Ein Abstieg wird still gespeichert. Einen Abstieg zu melden ist Sache des Banners.
   assert.match(home, /if \(rank\.step <= from\)[\s\S]*return;/);
 
   assert.match(art, /prefers-reduced-motion: reduce/);
   assert.match(art, /if \(still\) overlay\.classList\.add\('still'\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*rank-up-overlay/);
 
-  // Nothing is fetched to draw a badge: the artwork is paths in the module, so
-  // it works offline and there is no third party to credit or to outlive. The
-  // only URL allowed anywhere in the file is the SVG namespace, and the only
-  // other mentions are the licences in the header explaining what was not used.
+  // Für ein Abzeichen wird nichts geladen: die Zeichnung sind Pfade im Modul, sie geht also
+  // offline, und es gibt keinen Dritten, dem man danken muss oder der vor der App
+  // verschwindet. Die einzige erlaubte URL in der Datei ist der SVG-Namensraum, und die
+  // einzigen anderen Erwähnungen sind die Lizenzen im Kopf, der erklärt, was nicht benutzt wurde.
   assert.doesNotMatch(art, /\bfetch\(/);
   const urls = [...art.matchAll(/https?:\/\/[^\s'"`)]+/g)].map((m) => m[0])
     .filter((url) => url !== 'http://www.w3.org/2000/svg');
@@ -535,40 +535,40 @@ test('the rank comparison is an aggregate, opt-in, and withdrawable', async () =
 
   assert.match(sql, /rank_observations enable row level security/i);
   assert.match(sql, /revoke all on table public\.rank_observations from anon,authenticated/i);
-  // Ten other people before a single number comes back, and never the asker's
-  // own row: a percentile of one is a description of a person.
+  // Zehn andere Leute, bevor überhaupt eine Zahl zurückkommt, und nie die eigene Zeile: ein
+  // Perzentil aus einer Person ist eine Beschreibung dieser Person.
   assert.match(sql, /stats\.n >= 10/);
   assert.match(sql, /o\.user_id <> auth\.uid\(\)/);
   assert.match(sql, /has_active_access/);
-  // No path that hands back a row, an id, or an ordering.
+  // Kein Weg, der eine Zeile, eine ID oder eine Reihenfolge zurückgibt.
   assert.doesNotMatch(sql, /returns setof public\.rank_observations/i);
   assert.doesNotMatch(sql, /order by score desc/i);
   assert.match(sql, /function public\.forget_rank_scores/);
   assert.match(sql, /delete from public\.rank_observations where user_id = auth\.uid\(\)/);
-  // Revoking from PUBLIC is not enough on Supabase: its default privileges
-  // grant EXECUTE on every new function directly to anon, and a revoke from
-  // PUBLIC does not remove a grant made to a role.
+  // Von PUBLIC zu entziehen reicht bei Supabase nicht: die Standardrechte geben EXECUTE für
+  // jede neue Funktion direkt an anon, und ein Entzug von PUBLIC nimmt kein Recht weg, das
+  // einer Rolle gegeben wurde.
   assert.match(sql, /revoke execute on function public\.share_rank_scores\(jsonb\) from anon/);
   assert.match(sql, /revoke execute on function public\.forget_rank_scores\(\) from anon/);
 
-  // Off unless switched on, and switching it off withdraws rather than pauses.
+  // Aus, bis man es einschaltet, und Ausschalten zieht zurück, statt nur zu pausieren.
   assert.match(models, /shareRankComparison: false/);
-  // The outlier notice can be silenced, and silencing it hides the notice
-  // rather than stopping the detection: the rank must not change because
-  // somebody switched off a hint.
+  // Der Hinweis auf Ausreißer lässt sich abschalten, und dann wird der Hinweis versteckt und
+  // nicht die Erkennung angehalten: der Rang darf sich nicht ändern, weil jemand einen Tipp
+  // ausgeschaltet hat.
   assert.match(models, /outlierHints: true/);
   assert.match(home, /if \(settings\.outlierHints === false\) return null;/);
-  // Machines and cables only. Every cause the sheet explains is about how a
-  // machine reports load, so offering "count half of it" for a barbell squat
-  // would be an offer to make the log wrong.
+  // Nur Maschinen und Kabel. Jede Ursache, die das Sheet erklärt, betrifft, wie eine Maschine
+  // Last anzeigt. "Die Hälfte zählen" bei einer Kniebeuge mit der Langhantel wäre ein
+  // Angebot, das Log falsch zu machen.
   assert.match(home, /if \(!lift\.machine\) return null;/);
   const standards = await read('js/standards.js');
   assert.doesNotMatch(standards, /outlierHints/);
   assert.match(home, /if \(rankSyncing \|\| !settings\.shareRankComparison/);
   assert.match(settings, /forgetRankScores/);
 
-  // Only benchmark names leave the device. A custom exercise name would be a
-  // population of one, and the name would be the identifying part of it.
+  // Nur Namen von Referenzübungen verlassen das Gerät. Der Name einer eigenen Übung wäre eine
+  // Gruppe aus einer Person, und der Name wäre das, woran man sie erkennt.
   assert.match(home, /if \(!isBenchmark\(lift\.name\)/);
 });
 
@@ -594,27 +594,27 @@ test('one-workout restore decrypts the backup but imports only the selected sess
 
 test('a running rest timer survives the page going away', async () => {
   const rest = await read('js/rest.js');
-  // iOS discards a backgrounded PWA whenever it wants the memory, and a
-  // service-worker update reloads the page outright. Both used to take the
-  // timer with them, in the middle of the minute it exists for.
+  // iOS wirft eine PWA im Hintergrund weg, wann immer es Speicher braucht, und ein Update des
+  // Service Workers lädt die Seite einfach neu. Beides hat früher den Timer mitgenommen,
+  // mitten in der Minute, für die es ihn gibt.
   assert.match(rest, /localStorage\.setItem\(STATE_KEY/);
   assert.match(rest, /function restore\(\)[\s\S]*localStorage\.getItem\(STATE_KEY\)/);
   assert.match(rest, /export function init\(\)[\s\S]*restore\(\);/);
-  // A deadline already in the past is dropped rather than completed: a chime
-  // for a rest that ended twenty minutes ago is noise.
+  // Ein Ende, das schon vorbei ist, wird verworfen statt abgeschlossen: ein Ton für eine
+  // Pause, die vor zwanzig Minuten zu Ende war, ist Lärm.
   assert.match(rest, /deadline <= Date\.now\(\)[\s\S]*removeItem\(STATE_KEY\)[\s\S]*return;/);
   assert.match(rest, /export function (start|stop|extend)[\s\S]*persist\(\)/);
 });
 
 test('the rest timer reaches its own deadline while the page is not painting', async () => {
   const rest = await read('js/rest.js');
-  // requestAnimationFrame does not run at all while a page is hidden, so the
-  // countdown froze wherever it stood and the chime waited until you looked at
-  // the screen again, which is the one moment it is not needed.
+  // requestAnimationFrame läuft bei einer versteckten Seite gar nicht, der Countdown blieb
+  // also stehen, wo er war, und der Ton wartete, bis man wieder auf den Bildschirm schaute,
+  // genau der eine Moment, in dem man ihn nicht braucht.
   assert.doesNotMatch(rest, /(?:request|cancel)AnimationFrame\(/);
   assert.match(rest, /timer = setTimeout\(tick, 200\)/);
   assert.match(rest, /function stop\(\)[\s\S]*clearTimeout\(timer\)/);
-  // And a chime that is minutes late is noise about something already on screen.
+  // Und ein Ton, der Minuten zu spät kommt, ist Lärm über etwas, das schon auf dem Screen steht.
   assert.match(rest, /ANNOUNCE_GRACE_MS/);
   assert.match(rest, /remainingMs > -ANNOUNCE_GRACE_MS\)\s*\{\s*haptic/);
 });
@@ -622,15 +622,15 @@ test('the rest timer reaches its own deadline while the page is not painting', a
 test('a service-worker update waits for the workout to finish before reloading', async () => {
   const bootstrap = await read('js/bootstrap.js');
   const store = await read('js/store.js');
-  // The sets are safe in IndexedDB either way. The rest timer, a half-typed
-  // weight and your place on the screen are not.
+  // Die Sätze liegen so oder so sicher in IndexedDB. Der Pausentimer, ein halb eingetipptes
+  // Gewicht und die Stelle auf dem Bildschirm nicht.
   assert.match(bootstrap, /controllerchange[\s\S]*reloadWhenIdle\(\)/);
   assert.match(bootstrap, /if \(!workoutOpen\(\)\)[\s\S]*location\.reload\(\)/);
   assert.match(bootstrap, /setTimeout\(reloadWhenIdle/);
-  // Bootstrap must keep importing nothing: it has to run when the module graph
-  // is only half-cached, which is the case it exists for.
+  // Bootstrap darf weiterhin nichts importieren: es muss laufen, wenn der Modulbaum nur halb
+  // im Cache ist, und genau für diesen Fall gibt es das.
   assert.doesNotMatch(bootstrap, /^\s*import\s/m);
-  // A session nobody ever closed is not a workout in progress.
+  // Eine Einheit, die nie beendet wurde, ist kein laufendes Training.
   assert.match(bootstrap, /STALE_WORKOUT_MS/);
   assert.match(store, /localStorage\.setItem\(WORKOUT_OPEN_KEY, String\(open\.startedAt\)\)/);
   for (const caller of ['startSession', 'finishSession', 'discardSession']) {
@@ -641,10 +641,9 @@ test('a service-worker update waits for the workout to finish before reloading',
 
 test('the social screen can report a failed load instead of spinning forever', async () => {
   const users = await read('js/screens/users.js');
-  // Without `!problem` the failed load starts another one on the very render
-  // that was meant to report it, so `unavailable()` was unreachable and the
-  // screen stayed on the spinner: no error, no retry, not even after leaving
-  // the tab and coming back.
+  // Ohne `!problem` startet ein fehlgeschlagenes Laden im selben Zeichnen, das es melden
+  // sollte, gleich das nächste. `unavailable()` war also nicht erreichbar, und der Screen blieb
+  // beim Ladekreis: kein Fehler, kein Wiederholen, nicht einmal nach einem Tabwechsel.
   assert.match(users, /if \(!hub && !loading && !problem\) loadHub\(\);/);
   assert.match(users, /if \(problem && !hub\) return unavailable\(problem\);/);
   assert.match(users, /function unavailable[\s\S]*onclick: loadHub/);
@@ -653,14 +652,14 @@ test('the social screen can report a failed load instead of spinning forever', a
 test('a second device pulls newer cloud training without having changed anything', async () => {
   const sync = await read('js/sync.js');
   const onAppOpen = sync.match(/export async function onAppOpen[\s\S]*?\n\}/)?.[0] || '';
-  // The fingerprint answers "has this device changed since it last pushed",
-  // which is a different question from "is the server ahead of this device".
-  // Only the first one used to get asked, so a phone that just sat there never
-  // picked up what the other phone had logged.
+  // Der Fingerabdruck beantwortet "hat sich dieses Gerät seit dem letzten Upload geändert",
+  // und das ist eine andere Frage als "ist der Server weiter als dieses Gerät". Früher wurde
+  // nur die erste gestellt, ein Handy, das nur dalag, hat also nie mitbekommen, was auf dem
+  // anderen eingetragen wurde.
   assert.match(onAppOpen, /pullIfNewer\(\)[\s\S]*cloudLastFingerprint === fingerprint/);
   assert.match(sync, /export async function pullIfNewer[\s\S]*mergeDetailed[\s\S]*importData/);
-  // It merges rather than replaces: this runs by itself on launch, so it must
-  // not be able to drop a session that only exists on this device.
+  // Es führt zusammen statt zu ersetzen: das läuft von selbst beim Start und darf keine
+  // Einheit verlieren können, die es nur auf diesem Gerät gibt.
   const pull = sync.match(/export async function pullIfNewer[\s\S]*?\n\}\n/)?.[0] || '';
   assert.match(pull, /store\.activeSession\(\)/, 'a workout in progress is not rewritten underneath itself');
   assert.match(pull, /if \(!mine \|\| !tookLocal\)[\s\S]*cloudLastFingerprint/,
@@ -670,9 +669,9 @@ test('a second device pulls newer cloud training without having changed anything
 
 test('online maintenance does not re-render the screen when nothing changed', async () => {
   const sync = await read('js/sync.js');
-  // `load()` writes the same eight values back every minute and the subscriber
-  // is a full re-render, so the Train screen was torn down mid-workout once a
-  // minute, taking the focused input and the caret with it.
+  // `load()` schreibt jede Minute dieselben acht Werte zurück, und der Abonnent zeichnet alles
+  // neu. Der Trainieren-Screen wurde also mitten im Training einmal pro Minute abgerissen,
+  // mitsamt dem Feld, in dem man tippte, und dem Cursor.
   assert.match(sync, /function set\(patch\)[\s\S]*if \(same\(state\[key\], value\)\) continue;[\s\S]*if \(changed\) emit\(\);/);
 });
 
@@ -680,17 +679,17 @@ test('automatic backups reach the server at the moments that matter', async () =
   const sync = await read('js/sync.js');
   const app = await read('js/app.js');
   const train = await read('js/screens/train.js');
-  // Every version is a full snapshot and the server keeps only the last few, so
-  // uploading once a minute through a long workout would push every rollback
-  // point out of reach by the time it ended.
+  // Jede Version ist ein vollständiger Stand, und der Server behält nur die letzten paar.
+  // Einmal pro Minute durch ein langes Training hochzuladen würde jeden Punkt zum
+  // Zurückgehen verdrängen, bevor es vorbei ist.
   assert.match(sync, /AUTO_BACKUP_MIN_GAP_MS/);
   assert.match(sync, /!immediate && last && Date\.now\(\) - last < AUTO_BACKUP_MIN_GAP_MS/);
   assert.match(app, /export function flushBackup[\s\S]*immediate: true/);
   assert.match(app, /pagehide', flushBackup/);
   assert.match(app, /visibilityState === 'visible'\) runCloudMaintenance\(\);[\s\S]*else flushBackup\(\)/);
   assert.match(train, /store\.finishSession\(session\.id\);[\s\S]*flushBackup\(\)/);
-  // Finishing a workout during an already-running routine check must not lose
-  // the immediate request and fall back to the five-minute cadence.
+  // Ein Training während einer laufenden normalen Prüfung zu beenden darf die sofortige
+  // Anfrage nicht verlieren und auf den Fünf-Minuten-Takt zurückfallen.
   assert.match(app, /if \(cloudMaintenanceRunning\)[\s\S]*if \(immediate\) cloudMaintenanceImmediatePending = true/);
   assert.match(app, /if \(cloudMaintenanceImmediatePending\)[\s\S]*runCloudMaintenance\(\{ immediate: true \}\)/);
 });
@@ -713,18 +712,18 @@ test('the invite rate limits survive the attempt they are counting', async () =>
   const cloud = await read('js/cloud.js');
   const claim = sql.match(/create or replace function public\.claim_invite[\s\S]*?\$\$;/)?.[0] || '';
   const ownership = sql.match(/create or replace function public\.claim_ownership[\s\S]*?\$\$;/)?.[0] || '';
-  // `raise exception` aborts the transaction the RPC runs in, which rolled back
-  // the counter row the same function had written one line earlier. Ten
-  // attempts an hour was ten attempts a second.
+  // `raise exception` bricht die Transaktion ab, in der die RPC läuft, und hat damit die
+  // Zählerzeile zurückgerollt, die dieselbe Funktion eine Zeile vorher geschrieben hatte. Aus
+  // zehn Versuchen pro Stunde wurden zehn Versuche pro Sekunde.
   assert.doesNotMatch(claim, /raise exception/i);
   assert.doesNotMatch(ownership, /raise exception/i);
   assert.match(claim, /return 'INVITE_INVALID'/);
   assert.match(ownership, /return 'RECOVERY_WRONG'/);
-  // Changing the return type is not something `create or replace` will do.
+  // Den Rückgabetyp zu ändern macht `create or replace` nicht mit.
   assert.match(sql, /drop function if exists public\.claim_invite\(text\)/i);
   assert.match(sql, /drop function if exists public\.claim_ownership\(text, uuid, text\)/i);
-  // A server still on the void-returning version answers null and has already
-  // raised for anything that went wrong, so null has to mean success.
+  // Ein Server mit der alten Version ohne Rückgabewert antwortet null und hat bei jedem
+  // Problem schon geworfen, null muss also Erfolg heißen.
   assert.match(cloud, /status === null \|\| status === undefined \|\| status === 'OK'/);
   assert.match(cloud, /claimInvite[\s\S]*statusOrThrow\(status, 'INVITE_INVALID'\)/);
   assert.match(cloud, /claimOwnership[\s\S]*statusOrThrow\(status, 'RECOVERY_WRONG'\)/);
@@ -732,15 +731,15 @@ test('the invite rate limits survive the attempt they are counting', async () =>
 
 test('guessing an invite code is bounded across accounts, not per account', async () => {
   const sql = await read('server/patch-014-invite-hardening.sql');
-  // Signing up is open and an account costs nothing, so a per-account counter
-  // is not a limit at all: one attempt per throwaway account never reaches it.
+  // Registrieren ist offen und ein Konto kostet nichts, ein Zähler pro Konto ist also gar
+  // keine Grenze: ein Versuch pro Wegwerfkonto erreicht ihn nie.
   assert.match(sql, /invite_guard enable row level security/i);
   assert.match(sql, /revoke all on table public\.invite_guard from anon, authenticated/i);
   const claim = sql.match(/create or replace function public\.claim_invite[\s\S]*?\$\$;/)?.[0] || '';
   assert.match(claim, /invites_locked\(\)[\s\S]*consume_security_attempt/,
     'the shared cap is checked before the per-account one, which cannot stop this');
   assert.match(claim, /claimed_code is null[\s\S]*note_invite_failure/);
-  // Codes people choose are worth about twenty bits. These are worth seventy-eight.
+  // Selbst gewählte Codes sind etwa zwanzig Bit wert. Diese sind achtundsiebzig wert.
   assert.match(sql, /gen_random_bytes\(16\)/);
   assert.match(sql, /revoke all on function public\.new_invite\(text\) from public, anon, authenticated/i);
   assert.doesNotMatch(sql, /grant execute on function public\.new_invite/i);
@@ -754,27 +753,27 @@ test('the background chime is a separate switch that costs nothing when off', as
   const html = await read('index.html');
   const headers = await read('_headers');
 
-  // Its own setting, not folded into the chime and not into the timer.
+  // Eine eigene Einstellung, nicht in den Ton und nicht in den Timer gesteckt.
   assert.match(models, /restBackgroundAudio: true/);
   assert.match(settings, /restBackgroundAudio', bgAudioToggle\.checked/);
   assert.match(settings, /checkRow\(bgAudioToggle, t\('settings\.restBackgroundAudio'\)/);
   assert.match(train, /sound: store\.state\.settings\.soundOnRestEnd !== false,\s*[\s\S]{0,220}background: store\.state\.settings\.restBackgroundAudio !== false/);
 
-  // Off means no media element at all: no battery, no media controls.
+  // Aus heißt gar kein Medienelement: kein Akku, keine Mediensteuerung.
   assert.match(rest, /keepAlive = background && withSound/);
   assert.match(rest, /function startKeeper\(\)\s*\{\s*if \(!keepAlive \|\| keeper\) return;/);
-  // Playback can only begin inside the tap that logged the set.
+  // Abspielen darf nur innerhalb des Tipps beginnen, der den Satz eingetragen hat.
   assert.match(rest, /export function start[\s\S]{0,600}startKeeper\(\);/);
   assert.match(rest, /function stop\(\)[\s\S]{0,200}stopKeeper\(\)/);
-  // In the background the AudioContext is suspended, so the element that is
-  // already playing has to carry the chime.
+  // Im Hintergrund ist der AudioContext angehalten, das Element, das schon spielt, muss also
+  // den Ton übernehmen.
   assert.match(rest, /if \(sound && !keeperChime\(\)\) chime\(\);/);
-  // A reload has no gesture to start from, so it must not pretend otherwise.
+  // Ein Neuladen hat keine Nutzeraktion, von der aus es starten könnte, und darf nicht so tun.
   assert.match(rest, /function restore\(\)[\s\S]{0,1200}keepAlive = false;/);
-  // Both tracks are generated, so the "no audio asset to cache" rule holds.
+  // Beide Spuren werden erzeugt, die Regel "keine Audiodatei zum Cachen" hält also.
   assert.match(rest, /data:audio\/wav;base64/);
   assert.doesNotMatch(await read('sw.js'), /\.(mp3|wav|m4a|ogg)/);
-  // ...which means the CSP has to allow a data: URI as media, in both places.
+  // ...und deshalb muss die CSP eine data:-URI als Medium erlauben, an beiden Stellen.
   assert.match(html, /media-src 'self' data:/);
   assert.match(headers, /media-src 'self' data:/);
 });
@@ -794,29 +793,29 @@ test('duplicating cannot claim success when another workout is active', async ()
 });
 
 test('the repository never ships the public preview', async () => {
-  // Committed as true, this would drop the invite gate and switch off cloud
-  // backup for every friend on the next deploy. Only the Pages workflow flips
-  // it, and only in the copy it publishes.
+  // Als true eingecheckt würde das beim nächsten Deploy für jeden Freund die Einladungssperre
+  // abschalten und die Cloud-Sicherung ausschalten. Nur der Pages-Workflow dreht es um, und
+  // nur in der Kopie, die er veröffentlicht.
   const { DEMO } = await import('../js/demo.js');
   assert.equal(DEMO, false);
-  // app.js imports the flag, so a phone offline needs it in the shell too.
+  // app.js importiert die Markierung, ein Handy ohne Netz braucht sie also auch in der Hülle.
   const shell = (await read('sw.js')).split('const SHELL = [')[1].split('\n];')[0];
   assert.match(shell, /'\.\/js\/demo\.js'/);
-  // The published copy must not be able to reach the real project at all.
+  // Die veröffentlichte Kopie darf das echte Projekt überhaupt nicht erreichen können.
   const pages = await read('.github/workflows/pages.yml');
   assert.match(pages, /export const DEMO = true;/);
   assert.match(pages, /sed -i .*supabase/, 'the workflow strips the Supabase host from the CSP');
 });
 
 test('the preview worker clears the old app and never answers a request', async () => {
-  // Code only: the header explains, in words, the very calls it avoids.
+  // Nur Code: der Kopf erklärt in Worten genau die Aufrufe, die vermieden werden.
   const worker = (await read('tools/preview-sw.js')).replace(/^\s*\/\/.*$/gm, '');
   assert.match(worker, /skipWaiting\(\)/);
   assert.match(worker, /caches\.delete/);
   assert.match(worker, /\.navigate\(/);
   assert.doesNotMatch(worker, /addEventListener\('fetch'/);
-  // claim() would take over a first visit too, and then the navigate() above
-  // would reload a page that is already current.
+  // claim() würde auch einen ersten Besuch übernehmen, und dann würde navigate() oben eine
+  // Seite neu laden, die schon aktuell ist.
   assert.doesNotMatch(worker, /clients\.claim\(/);
   assert.match(await read('.github/workflows/pages.yml'), /cp tools\/preview-sw\.js _site\/sw\.js/);
 });

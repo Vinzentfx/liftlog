@@ -1,17 +1,16 @@
-// Are things still moving?
+// Geht es noch voran?
 //
-// This is the app's closest thing to a deload feature, and it deliberately
-// stops short of being one. There is no good evidence for a scheduled deload:
-// the practice is near-universal in training culture and thin in the
-// literature, with no trial establishing when one is due, how long it should
-// last, or that taking one beats simply carrying on. Inventing "week 7, drop to
-// 60%" would be exactly the invented precision this app refuses everywhere else.
+// Das ist das, was in der App einer Deload-Funktion am nächsten kommt, und es
+// hört bewusst davor auf. Für eine eingeplante Deload-Woche gibt es keine guten
+// Belege: im Training macht das fast jeder, in der Forschung ist es dünn, und
+// keine Studie sagt, wann eine fällig ist, wie lange sie dauern soll oder ob sie
+// besser ist als einfach weiterzumachen. "Woche 7, runter auf 60 %" zu erfinden
+// wäre genau die ausgedachte Genauigkeit, die die App sonst überall ablehnt.
 //
-// So it reports, and does not prescribe. Every line it produces is a fact about
-// the user's own log: how many of their tracked lifts have stopped climbing,
-// what their volume has done, and whether the sets have been getting harder.
-// What to do about that is a training decision, and it stays with the person
-// doing the training.
+// Es wird also berichtet und nichts vorgeschrieben. Jede Zeile ist eine Tatsache
+// aus dem eigenen Log: wie viele der verfolgten Übungen nicht mehr steigen, was
+// das Volumen gemacht hat und ob die Sätze schwerer geworden sind. Was man daraus
+// macht, ist eine Trainingsentscheidung, und die trifft, wer trainiert.
 
 import { t } from './i18n.js';
 import { fmtDecimal } from './ui.js';
@@ -22,18 +21,18 @@ import { FLAT_BAND } from './region-progress.js';
 
 const WEEK = 7 * 86400000;
 
-/** How many lifts must have a usable trend before any of this means anything. */
+/** Wie viele Übungen einen brauchbaren Verlauf haben müssen, bevor das hier etwas bedeutet. */
 const MIN_TRACKED = 3;
 
 /**
- * @returns null when there is not enough history to say anything, else
+ * @returns null, wenn es zu wenig Verlauf gibt, sonst
  *   { tracked, stalled, falling, names, sets: {recent, earlier},
  *     rir: {recent, earlier, sets} | null, weeks }
  */
 export function stallReport(sessions, exerciseById, { weeks = 6, now = Date.now() } = {}) {
   const lifts = movers(sessions, exerciseById, { sinceWeeks: weeks, now })
-    // Percent per week, so a 2 kg/week climb on a 40 kg lift is not called the
-    // same thing as 2 kg/week on a 140 kg one.
+    // Prozent pro Woche, damit +2 kg pro Woche bei 40 kg nicht dasselbe heißt wie
+    // +2 kg pro Woche bei 140 kg.
     .map((m) => ({ ...m, pctPerWeek: m.first > 0 ? (m.perWeek / m.first) * 100 : 0 }));
 
   if (lifts.length < MIN_TRACKED) return null;
@@ -46,14 +45,14 @@ export function stallReport(sessions, exerciseById, { weeks = 6, now = Date.now(
     tracked: lifts.length,
     stalled: stalledLifts.length,
     falling,
-    // Worst first — if the list is trimmed, keep the ones that moved least.
+    // Die schlechtesten zuerst. Wird die Liste gekürzt, bleiben die, die sich am wenigsten bewegt haben.
     names: stalledLifts.sort((a, b) => a.pctPerWeek - b.pctPerWeek).map((m) => m.ex.name),
     sets: setsTrend(sessions, exerciseById, now),
     rir: rirTrend(sessions, exerciseById, now),
   };
 }
 
-/** Working sets in the last three weeks against the three before them. */
+/** Arbeitssätze der letzten drei Wochen gegen die drei davor. */
 function setsTrend(sessions, exerciseById, at = Date.now()) {
   const now = startOfWeek(at);
   const sum = (fromWeeksAgo, toWeeksAgo) => {
@@ -68,11 +67,11 @@ function setsTrend(sessions, exerciseById, at = Date.now()) {
 }
 
 /**
- * Mean reps in reserve, recent against earlier.
+ * Durchschnittliche Wiederholungen in Reserve, neuere gegen ältere.
  *
- * Only reported when both halves have enough rated sets to compare — a mean over
- * two logged sets is noise, and this whole module exists to avoid presenting
- * noise as a signal.
+ * Nur, wenn beide Hälften genug bewertete Sätze zum Vergleichen haben. Ein
+ * Mittelwert über zwei Sätze ist Rauschen, und dieses Modul gibt es gerade, um
+ * Rauschen nicht als Signal zu verkaufen.
  */
 function rirTrend(sessions, exerciseById, at = Date.now()) {
   const now = startOfWeek(at);
@@ -98,8 +97,8 @@ function weekAgo(from, n) {
 }
 
 /**
- * The report as sentences. Facts only — no recommendation, and no adjective
- * that implies one ("too much", "overreached", "time to").
+ * Der Bericht als Sätze. Nur Tatsachen, keine Empfehlung und kein Adjektiv, das
+ * eine nahelegt ("zu viel", "übertrieben", "Zeit für").
  */
 export function describeStall(report) {
   if (!report) return [];

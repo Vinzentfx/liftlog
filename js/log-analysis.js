@@ -1,12 +1,12 @@
-// What you actually trained, counted exactly the way a plan is counted.
+// Was wirklich trainiert wurde, genauso gezählt wie ein Plan.
 //
-// The Workload chart on Home used to count raw working sets against the coarse
-// muscle labels ("Chest", "Back"), while the plan rating counted fractional sets
-// across the 15 body-map regions. Two different numbers for the same thing: the
-// plan would say "Lats 12" and the chart would say "Back 8", and nothing in the
-// app admitted they were measuring differently. Everything here uses the plan's
-// convention — primary muscles get the full set, secondary muscles half of one
-// (SOURCES.pelland2026) — so "planned" and "done" are finally comparable.
+// Das Belastungsdiagramm auf Home hat früher rohe Arbeitssätze gegen die groben
+// Muskelnamen gezählt ("Brust", "Rücken"), die Planbewertung dagegen anteilige
+// Sätze über die 15 Regionen der Muskelkarte. Zwei Zahlen für dieselbe Sache: der
+// Plan sagte "Latissimus 12", das Diagramm "Rücken 8", und nirgends stand, dass
+// verschieden gemessen wird. Hier gilt überall die Zählweise des Plans:
+// Hauptmuskeln bekommen den ganzen Satz, Nebenmuskeln einen halben
+// (SOURCES.pelland2026). "Geplant" und "gemacht" lassen sich jetzt vergleichen.
 
 import { t } from './i18n.js';
 import { startOfWeek, isCounted } from './models.js';
@@ -16,24 +16,24 @@ import { THRESHOLDS } from './evidence.js';
 const INDIRECT = THRESHOLDS.indirectSetWeight.value;
 
 /**
- * One week of finished sessions.
+ * Eine Woche abgeschlossener Einheiten.
  *
- * @param sessions  all sessions, any order
- * @param byId      Map exerciseId -> exercise
- * @param weekStart ms timestamp of the Monday to report on
+ * @param sessions  alle Einheiten, Reihenfolge egal
+ * @param byId      Map Übungs-ID -> Übung
+ * @param weekStart Zeitstempel (ms) des Montags, um den es geht
  */
 export function analyseWeek(sessions, byId, weekStart = startOfWeek(Date.now())) {
-  const volume = {};       // region -> fractional sets
-  const frequency = {};    // region -> sessions touching it
-  const peakSession = {};  // region -> most fractional sets in one session
+  const volume = {};       // Region -> anteilige Sätze
+  const frequency = {};    // Region -> Einheiten, die sie treffen
+  const peakSession = {};  // Region -> meiste anteilige Sätze in einer Einheit
   let totalSets = 0;
   let longSets = 0;
   let workouts = 0;
 
-  // Effort. Counted over working sets only — a warm-up with 8 in reserve is not
-  // a data point about how hard you trained.
+  // Anstrengung. Gezählt werden nur Arbeitssätze, ein Aufwärmsatz mit 8 in Reserve
+  // sagt nichts darüber, wie hart trainiert wurde.
   let rirLogged = 0;
-  let rirHard = 0;     // 0-2 reps in reserve
+  let rirHard = 0;     // 0 bis 2 Wiederholungen in Reserve
   let rirSum = 0;
 
   for (const s of sessions) {
@@ -90,10 +90,10 @@ export function analyseWeek(sessions, byId, weekStart = startOfWeek(Date.now()))
 }
 
 /**
- * Done versus planned, per muscle. `plan` is an analysePlan() result, or null
- * when there is no active plan — then the ACSM weekly floor is the target.
+ * Gemacht gegen geplant, je Muskel. `plan` ist ein Ergebnis von analysePlan()
+ * oder null, wenn kein Plan aktiv ist, dann gilt die ACSM-Untergrenze pro Woche.
  *
- * @returns rows sorted worst-shortfall first
+ * @returns Zeilen, die mit dem größten Rückstand zuerst
  */
 export function compareToPlan(week, plan) {
   const floor = THRESHOLDS.weeklyFloor.value;
@@ -106,7 +106,7 @@ export function compareToPlan(week, plan) {
   for (const r of regions) {
     const done = week.volume[r] || 0;
     const target = plan ? (plan.volume[r] || 0) : floor;
-    // Muscles neither trained nor planned are noise, not a shortfall.
+    // Muskeln, die weder trainiert noch geplant sind, sind Rauschen und kein Rückstand.
     if (!done && !target) continue;
     rows.push({
       region: r,
@@ -120,17 +120,18 @@ export function compareToPlan(week, plan) {
 }
 
 /**
- * Consecutive weeks, ending at `at`, with at least one finished workout.
+ * Wochen am Stück bis `at` mit mindestens einem abgeschlossenen Training.
  *
- * The week containing `at` is allowed to be empty without breaking the run —
- * without that grace every streak reads 0 until the first session of the week,
- * which is exactly when you least want to be told you have none.
+ * Die Woche, in der `at` liegt, darf leer sein, ohne die Serie zu brechen. Ohne
+ * diese Kulanz stünde jede Serie bis zum ersten Training der Woche auf 0, also
+ * genau dann, wenn man am wenigsten hören will, dass man keine hat.
  *
- * Stepping back with setDate rather than subtracting 7 x 86400000: across a DST
- * change a fixed-millisecond week lands an hour off midnight, the key stops
- * matching startOfWeek(), and the streak silently collapses to 1 twice a year.
- * The weekly charts were fixed for this; the two copies of this function on Home
- * and Progress were not, which is why there is now one copy here.
+ * Zurückgezählt wird mit setDate statt 7 x 86400000 abzuziehen: über eine
+ * Zeitumstellung landet eine Woche mit festen Millisekunden eine Stunde neben
+ * Mitternacht, der Schlüssel passt nicht mehr zu startOfWeek(), und die Serie
+ * fällt zweimal im Jahr still auf 1. In den Wochendiagrammen war das behoben, in
+ * den beiden Kopien dieser Funktion auf Home und Fortschritt nicht. Deshalb gibt
+ * es jetzt nur noch diese eine hier.
  */
 export function weekStreak(sessions, at = Date.now()) {
   const weeks = new Set(
@@ -150,14 +151,14 @@ function previousWeek(weekStart) {
 }
 
 /**
- * Is the week on track *so far*?
+ * Liegt die Woche BIS JETZT im Plan?
  *
- * Judging Tuesday against a full week's target would mark every week red until
- * Sunday, which is a scoreboard nobody reads twice. Progress is measured against
- * how much of the plan you have got through: two of five days done means you are
- * expected to be about 40% of the way there.
+ * Den Dienstag an einem ganzen Wochenziel zu messen würde jede Woche bis Sonntag
+ * rot anzeigen, und so eine Anzeige schaut man sich kein zweites Mal an. Gemessen
+ * wird deshalb daran, wie weit man im Plan ist: zwei von fünf Tagen erledigt heißt,
+ * man sollte etwa bei 40 % sein.
  *
- * @param plannedDays how many sessions the active plan has, or 0 without one
+ * @param plannedDays wie viele Einheiten der aktive Plan hat, 0 ohne Plan
  */
 export function weekVerdict(week, rows, plannedDays = 0) {
   if (!week.workouts) return { headline: t('weekVerdict.nothing'), tone: 'faint', behind: [], pace: 0 };
@@ -178,8 +179,8 @@ export function weekVerdict(week, rows, plannedDays = 0) {
         ? t('weekVerdict.hit', {
             hit: withTarget.filter((r) => r.ratio >= 1).length, total: withTarget.length,
           })
-        // Without a plan there is no session count to be part-way through, and
-        // "2 of ? sessions in" reads like a bug, so say only what is known.
+        // Ohne Plan gibt es keine Anzahl an Einheiten, bei der man mittendrin sein
+        // könnte, und "2 von ? Einheiten" sieht aus wie ein Fehler. Also nur sagen, was man weiß.
         : plannedDays
           ? t('weekVerdict.onPaceWithPlan', {
               onTrack: onTrack.length, total: withTarget.length,

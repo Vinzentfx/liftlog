@@ -1,19 +1,19 @@
-// Plan blueprints and the exercise picker that fills them.
+// Plan-Vorlagen und die Übungsauswahl, die sie füllt.
 //
-// A blueprint describes a day as muscle *slots* rather than fixed exercise
-// names: "Push = 3 chest, 2 front delt, 2 triceps". Every slot is one exercise
-// at SETS_PER_EXERCISE sets, which is what makes "more exercises, fewer sets
-// each" the default rather than something you have to assemble by hand.
+// Eine Vorlage beschreibt einen Tag als Muskel-PLÄTZE statt fester Übungsnamen:
+// "Push = 3 Brust, 2 vordere Schulter, 2 Trizeps". Jeder Platz ist eine Übung mit
+// SETS_PER_EXERCISE Sätzen. Dadurch ist "mehr Übungen, weniger Sätze pro Übung"
+// der Normalfall und nichts, was man sich von Hand zusammenbauen muss.
 //
-// Slot counts are chosen so each muscle lands in the 10-20 weekly set range at
-// 2x frequency — see js/plan-rating.js for why those are the targets.
+// Die Anzahl der Plätze ist so gewählt, dass jeder Muskel bei zweimal pro Woche
+// auf 10 bis 20 Sätze kommt. Warum das die Ziele sind, steht in js/plan-rating.js.
 
 import { rateExercise } from './exercise-rating.js';
 import { isBenchmark } from './standards.js';
 
-// Fallbacks, not policy. The user can change both in Settings; these are what a
-// blueprint uses when nobody has said otherwise, and the reasoning for the
-// numbers is in the slot-count comment above.
+// Rückfallwerte, keine Vorgabe. Beides lässt sich in den Einstellungen ändern.
+// Das hier nimmt eine Vorlage, wenn niemand etwas anderes gesagt hat, die
+// Begründung für die Zahlen steht im Kommentar zu den Plätzen oben.
 export const SETS_PER_EXERCISE = 2;
 export const REP_TARGET = '6-10';
 
@@ -25,8 +25,8 @@ export const PLAN_BLUEPRINTS = [
     recommended: true,
     days: [
       { name: 'Push',  slots: [['chest', 3], ['delts-front', 2], ['triceps', 2]] },
-      // Rear delts get 2 slots here and 2 on Upper: pressing loads the front
-      // head heavily as a secondary, so the rear needs direct work to keep up.
+      // Hintere Schulter bekommt hier 2 Plätze und 2 im Oberkörpertag: Drücken
+      // belastet den vorderen Kopf stark mit, der hintere braucht also eigene Arbeit.
       { name: 'Pull',  slots: [['lats', 3], ['delts-rear', 2], ['biceps', 2], ['abs', 1]] },
       { name: 'Legs',  slots: [['quads', 3], ['hamstrings', 2], ['glutes', 1], ['calves', 2]] },
       { name: 'Upper', slots: [['chest', 2], ['lats', 2], ['delts-rear', 2], ['biceps', 1], ['triceps', 1]] },
@@ -39,8 +39,8 @@ export const PLAN_BLUEPRINTS = [
     blurb: 'blueprint.fullSplit',
     perWeek: 2,
     days: [
-      // Halved versus a once-weekly plan — this cycle runs twice, so the slot
-      // counts here are per session, not per week.
+      // Halbiert gegenüber einem Plan für einmal pro Woche. Dieser Zyklus läuft
+      // zweimal, die Plätze hier gelten also pro Einheit und nicht pro Woche.
       { name: 'Push', slots: [['chest', 3], ['delts-front', 1], ['triceps', 1]] },
       { name: 'Pull', slots: [['lats', 3], ['delts-rear', 1], ['biceps', 1]] },
       { name: 'Legs', slots: [['quads', 2], ['hamstrings', 2], ['glutes', 1], ['calves', 1], ['abs', 1]] },
@@ -71,24 +71,25 @@ export const PLAN_BLUEPRINTS = [
 ];
 
 /**
- * Rank candidates for one muscle slot.
+ * Kandidaten für einen Muskelplatz sortieren.
  *
- * Favourites win outright — if the user has starred a movement they will
- * actually do it, which beats any score. After that it's exercise quality, then
- * a nudge toward starting with a compound.
+ * Favoriten gewinnen immer: wer eine Übung markiert hat, macht sie auch, und das
+ * schlägt jede Wertung. Danach kommt die Qualität der Übung, dann ein kleiner
+ * Schubs dahin, mit einer Grundübung anzufangen.
  */
 /**
- * Movements the catalogue files under a muscle but which are mobility drills,
- * warm-ups or explosive lifts — fine to log, wrong to auto-prescribe as a
- * hypertrophy set. Caught by name because the source data has no reliable flag
- * for it once the category field is dropped.
+ * Bewegungen, die der Katalog unter einem Muskel führt, die aber Mobility,
+ * Aufwärmen oder Explosivübungen sind. Eintragen ist in Ordnung, automatisch als
+ * Hypertrophie-Satz vorschlagen nicht. Erkannt am Namen, weil die Quelldaten ohne
+ * das Kategoriefeld kein verlässliches Merkmal dafür haben.
  */
 export const NOT_FOR_SLOTS = /(circle|balance board|bosu|stretch|warm[- ]?up|foam roll|mobility|\bclean\b|\bsnatch\b|\bjerk\b|\bjump|\bhop\b|plyo|wall sit|breathing|muscle up|\bsprint\b|\bdrill\b|\bchair\b|\bthrow\b|sled|\bdrag\b|\bcuban\b|rotation|isometric|\bneck\b)/i;
 
 /**
- * Best unused movement for a muscle. Exported so the plan doctor fills a gap
- * with exactly the exercise the generator would have picked — a plan that gets
- * repaired by hand and one that gets generated should not disagree.
+ * Die beste noch nicht benutzte Übung für einen Muskel. Exportiert, damit der
+ * Plan-Doktor eine Lücke mit genau der Übung füllt, die der Generator gewählt
+ * hätte. Ein Plan, der von Hand repariert wird, und einer, der erzeugt wird,
+ * sollen sich nicht widersprechen.
  */
 export function pickForRegion(region, exercises, { used = new Set(), preferCompound = false } = {}) {
   const ranked = rankFor(region, exercises, { used, preferCompound });
@@ -105,28 +106,28 @@ function rankFor(region, exercises, { used, preferCompound }) {
     const rating = rateExercise(ex);
     let score = rating ? rating.stars : 2;
     if (ex.favourite) score += 10;
-    // Your own rating outranks the evidence one, and it can veto: a movement
-    // you scored 1 or 2 stars is one that hurts, that your gym does not have,
-    // or that you simply will not do. The best exercise you skip is worth zero.
+    // Die eigene Bewertung zählt mehr als die aus den Studien und kann ein Veto
+    // einlegen: eine Übung mit 1 oder 2 Sternen tut weh, fehlt im Studio oder wird
+    // einfach nicht gemacht. Die beste Übung, die man auslässt, ist nichts wert.
     if (ex.myRating) score += (ex.myRating - 3) * 2.5;
-    // Benchmark lifts are the movements with published standards and the most
-    // coaching material. The bonus has to stay large: the rating scores what a
-    // movement *is*, and by that measure "Chair Squat" and "Lunge Sprint" —
-    // catalogue oddities tagged Machine — score as well as a hack squat. Only
-    // this bonus keeps a generated plan built out of movements that exist in
-    // real gyms.
+    // Referenzübungen sind die mit veröffentlichten Standards und dem meisten
+    // Anleitungsmaterial. Der Bonus muss groß bleiben: die Bewertung benotet, was
+    // eine Bewegung IST, und danach schneiden "Chair Squat" und "Lunge Sprint"
+    // (Ausreißer im Katalog, als Maschine markiert) so gut ab wie eine Hackenschmidt-
+    // Kniebeuge. Nur dieser Bonus sorgt dafür, dass ein erzeugter Plan aus Übungen
+    // besteht, die es in echten Studios gibt.
     if (isBenchmark(ex.name)) score += 3;
-    // A movement the length-bias rules recognise is a movement the app can
-    // reason about — and in practice that set is the staples, not the 900
-    // catalogue oddities.
+    // Eine Bewegung, die die Regeln zur Muskellänge kennen, ist eine, über die die
+    // App etwas sagen kann. In der Praxis sind das die Standardübungen und nicht die
+    // 900 Ausreißer im Katalog.
     if (rating && rating.length.classified) score += 1;
-    // Obscure one-off variants shouldn't outrank a staple just because the
-    // catalogue tagged them compound.
+    // Seltene Einzelvarianten sollen eine Standardübung nicht überholen, nur weil
+    // der Katalog sie als Grundübung markiert hat.
     if (!ex.instructions || ex.instructions.length < 2) score -= 1.5;
     if (preferCompound && ex.mech === 'compound') score += 1.5;
     if (!preferCompound && ex.mech === 'isolation') score += 0.5;
-    // A movement with no written steps and no art is a poor thing to hand
-    // someone who has never done it.
+    // Eine Bewegung ohne Beschreibung und ohne Bild taugt schlecht für jemanden,
+    // der sie noch nie gemacht hat.
     if (!(ex.instructions || []).length) score -= 0.5;
 
     out.push({ ex, score });
@@ -135,11 +136,11 @@ function rankFor(region, exercises, { used, preferCompound }) {
 }
 
 /**
- * Fill a blueprint with real exercises.
+ * Eine Vorlage mit echten Übungen füllen.
  *
- * @param blueprint  a PLAN_BLUEPRINTS entry
- * @param exercises  the full library
- * @param opts       { empty } — true returns the day layout with no exercises
+ * @param blueprint  ein Eintrag aus PLAN_BLUEPRINTS
+ * @param exercises  die ganze Bibliothek
+ * @param opts       { empty }, bei true kommt der Tagesaufbau ohne Übungen zurück
  */
 export function buildPlanDays(blueprint, exercises, { empty = false, sets = SETS_PER_EXERCISE, reps = REP_TARGET } = {}) {
   if (empty) {
@@ -147,13 +148,13 @@ export function buildPlanDays(blueprint, exercises, { empty = false, sets = SETS
       id: uid(),
       name: d.name,
       items: [],
-      // kept so the empty plan can still tell you what it expects
+      // bleibt stehen, damit der leere Plan trotzdem sagt, was er erwartet
       target: d.slots.map(([region, n]) => ({ region, slots: n })),
     }));
   }
 
-  // Used across the whole plan so the same movement doesn't appear on two days
-  // — variety is the point of the slot system.
+  // Gilt für den ganzen Plan, damit dieselbe Übung nicht an zwei Tagen auftaucht.
+  // Um die Abwechslung geht es bei den Plätzen ja.
   const used = new Set();
 
   return blueprint.days.map((day) => {
@@ -161,9 +162,9 @@ export function buildPlanDays(blueprint, exercises, { empty = false, sets = SETS
     for (const [region, count] of day.slots) {
       for (let i = 0; i < count; i++) {
         let ranked = rankFor(region, exercises, { used, preferCompound: i === 0 });
-        // Some regions have a very small pool (rear delts especially). Rather
-        // than silently dropping the slot — which quietly under-trains that
-        // muscle — allow a repeat once the unused candidates run out.
+        // Manche Regionen haben nur wenige Übungen (vor allem die hintere Schulter).
+        // Statt den Platz still wegzulassen, wodurch der Muskel zu wenig bekommt,
+        // darf sich eine Übung wiederholen, wenn die unbenutzten ausgehen.
         if (!ranked.length) ranked = rankFor(region, exercises, { used: new Set(), preferCompound: false });
         const pick = ranked[0];
         if (!pick) continue;

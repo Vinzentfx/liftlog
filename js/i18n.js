@@ -1,18 +1,19 @@
-// Interface language. The tables live in strings.js; this is the lookup.
+// Sprache der Oberfläche. Die Tabellen stehen in strings.js, hier wird nachgeschlagen.
 //
-// Why a table and not German in place: the app is used by a German group, but
-// the wording of a good deal of this app *is* the app — the stall report, the
-// deload note, the "not recorded" rules. Keeping both languages side by side in
-// one file makes it visible when one of them drifts, and a parity test in
-// tests/i18n.test.js fails the moment a key exists in one language only. A
-// silent fallback to English is the failure mode this design is guarding
-// against, so the fallback is loud: it warns, and the test goes red.
+// Warum eine Tabelle und nicht einfach alles auf Deutsch: die App wird von einer
+// deutschen Gruppe benutzt, aber bei vielem hier ist die Formulierung selbst das
+// Wichtige, etwa beim Stillstandsbericht, beim Hinweis zur Deload-Woche oder bei
+// den Regeln zu "nicht eingetragen". Stehen beide Sprachen nebeneinander in einer
+// Datei, sieht man, wenn eine davon abdriftet, und ein Test in tests/i18n.test.js
+// schlägt fehl, sobald ein Schlüssel nur in einer Sprache existiert. Ein stiller
+// Rückfall auf Englisch ist genau das, was verhindert werden soll. Deshalb ist der
+// Rückfall laut: er warnt, und der Test wird rot.
 //
-// Exercise names, exercise instructions and the food libraries are NOT
-// translated. They are generated data files (free-exercise-db, USDA FoodData
-// Central, Open Food Facts) with no German source, and the exercise name is
-// also the key `plan-share.js` resolves a shared plan by — translating it would
-// break every link between two installs.
+// Übungsnamen, Anleitungen und die Lebensmittel werden NICHT übersetzt. Das sind
+// erzeugte Datendateien (free-exercise-db, USDA FoodData Central, Open Food Facts)
+// ohne deutsche Quelle. Der Übungsname ist außerdem der Schlüssel, über den
+// `plan-share.js` einen geteilten Plan auflöst. Ihn zu übersetzen würde jeden Link
+// zwischen zwei Installationen kaputtmachen.
 
 import { STRINGS } from './strings.js';
 
@@ -26,7 +27,7 @@ const FALLBACK = 'en';
 
 let current = 'en';
 
-/** 'de' | 'en' | null → a language that exists. null/'auto' follows the device. */
+/** 'de' | 'en' | null -> eine Sprache, die es gibt. null oder 'auto' folgt dem Gerät. */
 export function resolveLanguage(pref) {
   if (pref && STRINGS[pref]) return pref;
   const device = typeof navigator === 'undefined'
@@ -36,18 +37,18 @@ export function resolveLanguage(pref) {
 
 export const language = () => current;
 
-/** BCP-47 tag for Intl. Dates follow the interface, not the phone. */
+/** BCP-47-Tag für Intl. Datumsangaben folgen der Oberfläche, nicht dem Handy. */
 export const locale = () => LOCALES[current] || LOCALES[FALLBACK];
 
 /**
- * Deliberately re-applies even when the language has not changed: boot resolves
- * to the same language the module starts on more often than not, and an early
- * return there would leave the static markup in index.html untranslated.
+ * Wendet absichtlich auch dann neu an, wenn sich die Sprache nicht geändert hat:
+ * beim Start kommt meistens dieselbe Sprache heraus, mit der das Modul anfängt,
+ * und ein frühes return würde das feste Markup in index.html unübersetzt lassen.
  */
 export function setLanguage(pref) {
   current = resolveLanguage(pref);
-  // Guarded so the string tables can be exercised from a test runner, which is
-  // the only way the German wording rules get checked at all.
+  // Abgesichert, damit die Tabellen auch aus einem Testlauf heraus benutzt werden
+  // können. Nur so werden die Regeln für die deutschen Texte überhaupt geprüft.
   if (typeof document !== 'undefined') {
     document.documentElement.lang = current;
     applyStatic();
@@ -55,8 +56,8 @@ export function setLanguage(pref) {
   return current;
 }
 
-// Warned-about keys, so a missing string in a re-rendering screen does not
-// print sixty times a minute and bury everything else in the console.
+// Schlüssel, vor denen schon gewarnt wurde. Sonst meldet ein Screen, der ständig
+// neu zeichnet, einen fehlenden Text sechzigmal pro Minute und die Konsole ist voll.
 const warned = new Set();
 
 function lookup(key) {
@@ -81,24 +82,24 @@ export function t(key, params) {
 }
 
 /**
- * Count-aware lookup: `tn(2, 'unit.set')` reads `unit.set.one` / `unit.set.other`
- * and fills `{n}`.
+ * Nachschlagen mit Anzahl: `tn(2, 'unit.set')` liest `unit.set.one` bzw.
+ * `unit.set.other` und setzt `{n}` ein.
  *
- * Only two forms, which covers both languages here — German pluralises like
- * English for every noun this app says out loud. A language with more forms
- * would need this to grow; nothing is pretending otherwise.
+ * Nur zwei Formen. Das reicht für beide Sprachen hier, weil Deutsch bei allen
+ * Wörtern, die die App benutzt, wie Englisch pluralisiert. Eine Sprache mit mehr
+ * Formen bräuchte mehr, das ist bewusst nicht eingebaut.
  */
 export function tn(n, key, params) {
   return fill(lookup(`${key}.${n === 1 ? 'one' : 'other'}`), { n, ...params });
 }
 
 /**
- * Values that are stored in English and only translated on the way to the screen.
+ * Werte, die auf Englisch gespeichert und erst auf dem Weg zum Bildschirm übersetzt werden.
  *
- * `exercise.muscle` is 'Chest' on disk, in a shared plan link and in an export,
- * and it stays that way: these turn it into a label without touching the value.
- * An unknown value falls through to itself, which is what a custom exercise
- * from an older install needs.
+ * `exercise.muscle` ist 'Chest' auf der Platte, in einem geteilten Plan-Link und
+ * im Export, und das bleibt so: die Funktionen machen daraus eine Beschriftung,
+ * ohne den Wert anzufassen. Ein unbekannter Wert kommt unverändert zurück, das
+ * braucht eine eigene Übung aus einer älteren Installation.
  */
 export const tMuscle = (value) => lookupOrSelf('muscle', value);
 export const tEquipment = (value) => lookupOrSelf('equipment', value);
@@ -113,12 +114,11 @@ function lookupOrSelf(namespace, value) {
 }
 
 /**
- * Translate the markup that is in index.html rather than built by a screen:
- * the tab bar, the rest bar, the sheet's close button.
+ * Das Markup übersetzen, das in index.html steht und nicht von einem Screen gebaut
+ * wird: Tab-Leiste, Pausenleiste, Schließen-Knopf im Sheet.
  *
- * `data-i18n` sets text, `data-i18n-aria` sets the accessible name. Elements
- * carrying either are re-read on every language change, so the switch takes
- * effect without a reload.
+ * `data-i18n` setzt den Text, `data-i18n-aria` den Namen für Screenreader. Beide
+ * werden bei jedem Sprachwechsel neu gelesen, der Wechsel greift also ohne Neuladen.
  */
 export function applyStatic(root = document) {
   for (const node of root.querySelectorAll('[data-i18n]')) {

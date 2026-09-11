@@ -1,5 +1,5 @@
-// Single source of truth. Screens read `state` and call actions; actions persist
-// to IndexedDB and notify subscribers.
+// Die eine Quelle für alles. Screens lesen `state` und rufen Aktionen auf, die Aktionen
+// speichern in IndexedDB und geben den Abonnenten Bescheid.
 
 import * as idb from './db.js';
 import {
@@ -13,18 +13,18 @@ import { DEFAULT_BAR } from './plates.js';
 import { t } from './i18n.js';
 
 /**
- * Every write goes through this wrapper, so a failed one can never be silent.
+ * Jedes Schreiben geht durch diese Hülle, damit ein fehlgeschlagenes nie still bleibt.
  *
- * The failure mode it exists for: an action changes `state` first and persists
- * afterwards, which is what keeps the UI instant. If the write then fails —
- * quota exhausted, the origin evicted, private browsing — the screen shows a
- * set as logged that never reached the disk, and it disappears at the next
- * launch. Silent data loss that looks like success is the worst thing a
- * training log can do, so the failure is recorded on `state.storageError`,
- * every subscriber is notified, and the error still propagates to the caller.
+ * Der Fall, für den es sie gibt: eine Aktion ändert zuerst `state` und speichert danach,
+ * dadurch bleibt die Oberfläche sofort. Scheitert das Schreiben dann (Kontingent voll,
+ * Herkunft gelöscht, privates Surfen), zeigt der Screen einen Satz als eingetragen, der
+ * nie auf der Platte ankam, und beim nächsten Start ist er weg. Stiller Datenverlust, der
+ * wie Erfolg aussieht, ist das Schlimmste, was ein Trainingslog tun kann. Der Fehler
+ * landet deshalb in `state.storageError`, jeder Abonnent bekommt Bescheid, und der
+ * Fehler geht trotzdem weiter an den Aufrufer.
  *
- * Reads are passed through untouched; a failed read already shows up as a
- * screen that will not load.
+ * Lesen läuft unverändert durch. Ein fehlgeschlagenes Lesen fällt schon als Screen auf,
+ * der nicht lädt.
  */
 const db = {
   ...idb,
@@ -37,16 +37,16 @@ const db = {
 async function guard(run) {
   try {
     const out = await run();
-    // A write that works clears the warning — no point nagging about a full
-    // disk after the user has freed some.
+    // Ein Schreiben, das klappt, löscht die Warnung. Wer Platz geschaffen hat, muss nicht
+    // weiter von einer vollen Platte hören.
     if (state.storageError) { state.storageError = null; emit(); }
     return out;
   } catch (err) {
     console.error('[liftlog] write failed', err);
     state.storageError = {
       at: Date.now(),
-      // Safari reports a full quota under two different names depending on
-      // version; both mean "delete something or export".
+      // Safari meldet ein volles Kontingent je nach Version unter zwei verschiedenen
+      // Namen. Beide heißen "etwas löschen oder exportieren".
       quota: !!err && (err.name === 'QuotaExceededError' || err.code === 22),
       message: (err && err.message) || String(err),
     };
@@ -59,18 +59,18 @@ export const state = {
   ready: false,
   exercises: [],
   plans: [],
-  sessions: [],       // newest first, includes the in-progress one
-  bodyweight: [],     // newest first
-  foods: [],          // the user's own food list
-  water: [],          // one row per day: { day, ml }
-  templates: [],      // saved meals: a name and a list of foods
-  meals: [],          // newest first
+  sessions: [],       // die neuesten zuerst, die laufende gehört dazu
+  bodyweight: [],     // die neuesten zuerst
+  foods: [],          // die eigene Lebensmittelliste
+  water: [],          // eine Zeile pro Tag: { day, ml }
+  templates: [],      // gespeicherte Mahlzeiten: ein Name und eine Liste von Lebensmitteln
+  meals: [],          // die neuesten zuerst
   settings: { ...DEFAULT_SETTINGS },
-  // key -> when it was last changed on this device. Only the sync merge reads
-  // it; everything else wants the plain values above.
+  // Schlüssel -> wann er auf diesem Gerät zuletzt geändert wurde. Nur das Zusammenführen
+  // bei der Synchronisation liest das, alles andere will die einfachen Werte oben.
   settingsUpdatedAt: {},
   exerciseById: new Map(),
-  // Set by `guard` when a write fails; cleared by the next one that works.
+  // Setzt `guard`, wenn ein Schreiben scheitert, das nächste erfolgreiche löscht es.
   storageError: null,
 };
 
@@ -84,8 +84,8 @@ function reindex() {
   state.sessions.sort((a, b) => b.startedAt - a.startedAt);
   state.bodyweight.sort((a, b) => b.date - a.date);
   state.meals.sort((a, b) => b.at - a.at);
-  // Most-eaten first: the list you pick from should put your staples on top,
-  // because 95% of what anyone eats is the same 30 things.
+  // Das meistgegessene zuerst: die Liste, aus der man auswählt, soll die Klassiker oben
+  // haben, denn 95 % von dem, was jemand isst, sind dieselben 30 Dinge.
   state.foods.sort((a, b) => (b.uses || 0) - (a.uses || 0) || a.name.localeCompare(b.name));
   state.templates.sort((a, b) => (b.uses || 0) - (a.uses || 0) || a.name.localeCompare(b.name));
 }
@@ -112,9 +112,9 @@ export async function load() {
   state.water = water;
   state.templates = templates;
   state.settings = { ...DEFAULT_SETTINGS };
-  // When each setting was last changed, so a merge can tell a fresh local edit
-  // from a stale remote one. Kept beside the values rather than inside them:
-  // every screen reads state.settings as a plain object of values.
+  // Wann jede Einstellung zuletzt geändert wurde, damit das Zusammenführen eine frische
+  // lokale Änderung von einer alten der Gegenseite unterscheiden kann. Neben den Werten und
+  // nicht darin: jeder Screen liest state.settings als einfaches Objekt mit Werten.
   state.settingsUpdatedAt = {};
   for (const row of settingsRows) {
     state.settings[row.key] = row.value;
@@ -127,15 +127,15 @@ export async function load() {
     await db.put(db.STORES.settings, { key: 'libraryVersion', value: LIBRARY_VERSION });
     state.settings.libraryVersion = LIBRARY_VERSION;
   } else if ((state.settings.libraryVersion || 1) < LIBRARY_VERSION) {
-    // Existing install: top up with catalogue entries it doesn't have yet.
-    // Matched by name so nothing the user edited or logged against is touched.
+    // Vorhandene Installation: mit Katalogeinträgen auffüllen, die sie noch nicht hat. Über
+    // den Namen abgeglichen, damit nichts angefasst wird, was der Nutzer bearbeitet oder benutzt hat.
     const have = new Set(state.exercises.map((e) => normName(e.name)));
     const added = seedExercises(db.uid).filter((e) => !have.has(normName(e.name)));
     if (added.length) {
       state.exercises.push(...added);
       await db.putMany(db.STORES.exercises, added);
     }
-    // Backfill body-map regions on the original curated rows.
+    // Die Regionen der Muskelkarte bei den ursprünglich gepflegten Zeilen nachtragen.
     const missing = state.exercises.filter((e) => !e.primary);
     if (missing.length) {
       const byName = new Map(seedExercises(db.uid).map((e) => [normName(e.name), e]));
@@ -161,20 +161,20 @@ export async function load() {
 }
 
 /**
- * One-off repairs to stored records.
+ * Einmalige Reparaturen an gespeicherten Einträgen.
  *
- * v2 — exercises with no body-map regions. Anything the user created themselves
- * was stored without `primary`/`secondary` at all, and the catalogue top-up only
- * ever fixed rows it could match against the bundled seed by name — a custom
- * exercise matches nothing and was left with an empty array. The effect was
- * silent and total: no colour on the muscle map, no volume in a plan's rating,
- * and a zero-muscle score in the exercise rating. Fixed at creation time now;
- * this repairs what is already stored.
+ * v2: Übungen ohne Regionen auf der Muskelkarte. Alles, was der Nutzer selbst angelegt
+ * hat, wurde ganz ohne `primary`/`secondary` gespeichert, und das Auffüllen aus dem
+ * Katalog hat nur Zeilen repariert, die es über den Namen gefunden hat. Eine eigene
+ * Übung passt zu nichts und blieb mit einem leeren Array stehen. Die Folge war still und
+ * vollständig: keine Farbe auf der Muskelkarte, kein Volumen in der Planbewertung und
+ * null Muskeln in der Übungsbewertung. Beim Anlegen ist das inzwischen behoben, das hier
+ * repariert, was schon gespeichert ist.
  *
- * v3 — repair catalogue metadata: Bodyweight Flyes used rolling EZ-bars as
- * handles and was incorrectly filtered/scored as a barbell exercise; imported
- * instruction headings also appeared as literal HTML text. Hip adduction gets
- * its real target region instead of an empty muscle map.
+ * v3: Katalogdaten reparieren. Bodyweight Flyes benutzen rollende SZ-Stangen als Griffe
+ * und wurden fälschlich als Langhantelübung gefiltert und bewertet, außerdem standen
+ * importierte Überschriften aus den Anleitungen als wörtliches HTML da. Die
+ * Hüftadduktion bekommt ihre richtige Zielregion statt einer leeren Muskelkarte.
  */
 async function migrate() {
   const from = Number(state.settings.dataVersion) || 1;
@@ -186,12 +186,12 @@ async function migrate() {
 
     for (const ex of state.exercises) {
       if ((ex.primary || []).length) continue;
-      // Catalogue entries get their curated regions back; anything else falls to
-      // the coarse muscle mapping, which is rough but is the difference between
-      // counting and not counting at all.
+      // Katalogeinträge bekommen ihre gepflegten Regionen zurück, alles andere fällt auf die
+      // grobe Zuordnung über die Muskelgruppe. Die ist ungenau, aber der Unterschied zwischen
+      // mitzählen und gar nicht mitzählen.
       const match = seedByName.get(normName(ex.name));
       const primary = match && match.primary.length ? match.primary : regionsForMuscle(ex.muscle);
-      if (!primary.length) continue;      // "Other" genuinely has no region
+      if (!primary.length) continue;      // "Other" hat wirklich keine Region
 
       ex.primary = primary;
       ex.secondary = match ? match.secondary : [];
@@ -251,33 +251,32 @@ export function installationId() {
 const WORKOUT_OPEN_KEY = 'liftlog.workoutOpen';
 
 /**
- * Publish "a workout is open" outside the module graph.
+ * "Ein Training ist offen" außerhalb des Modulbaums bekannt machen.
  *
- * The reader is `js/bootstrap.js`, which decides whether a service-worker
- * update may reload the page, and which deliberately imports nothing so it can
- * still run when the module graph is half-cached. localStorage is the only
- * channel both ends can reach, and the value is the session's start time so a
- * reader can tell an actual workout from one nobody ever closed.
+ * Gelesen wird das von `js/bootstrap.js`. Das entscheidet, ob ein Update des Service
+ * Workers die Seite neu laden darf, und importiert absichtlich nichts, damit es auch
+ * läuft, wenn der Modulbaum nur halb im Cache ist. localStorage ist der einzige Kanal,
+ * den beide Enden erreichen, und der Wert ist die Startzeit der Einheit, damit ein Leser
+ * ein echtes Training von einem unterscheiden kann, das nie beendet wurde.
  *
- * Called at the four points where the answer can change, not from `emit`: this
- * is a synchronous write and `emit` fires on every logged set.
+ * Aufgerufen an den vier Stellen, an denen sich die Antwort ändern kann, nicht aus `emit`:
+ * das ist ein synchrones Schreiben, und `emit` feuert bei jedem eingetragenen Satz.
  */
 function markWorkoutOpen() {
   const open = activeSession();
   try {
     if (open) localStorage.setItem(WORKOUT_OPEN_KEY, String(open.startedAt));
     else localStorage.removeItem(WORKOUT_OPEN_KEY);
-  } catch { /* private mode: updates reload exactly as they did before */ }
+  } catch { /* privater Modus: Updates laden genauso neu wie früher */ }
 }
 
 /**
- * How long a workout has been open, past the point where it is plausible.
+ * Wie lange ein Training offen ist, über den Punkt hinaus, an dem das noch glaubhaft ist.
  *
- * Nothing ever closes a session by itself, and `startSession` hands back the
- * open one rather than starting a second — which is right during a workout and
- * wrong three days later, when it quietly means you cannot start anything and
- * the elapsed clock reads 72h. Twelve hours is not a rule about training, just
- * longer than any session anyone actually does.
+ * Nichts beendet eine Einheit von selbst, und `startSession` gibt die offene zurück, statt
+ * eine zweite anzufangen. Während eines Trainings ist das richtig, drei Tage später falsch,
+ * dann heißt es still, dass man nichts anfangen kann und die Uhr 72 h zeigt. Zwölf Stunden
+ * sind keine Trainingsregel, nur länger als jede Einheit, die wirklich jemand macht.
  */
 export const STALE_SESSION_HOURS = 12;
 
@@ -290,7 +289,7 @@ export function staleSession() {
 
 export const units = () => state.settings.units;
 
-/** What a newly added plan exercise starts at. Settings first, app default after. */
+/** Womit eine neu hinzugefügte Übung im Plan anfängt. Erst die Einstellungen, danach der Standard der App. */
 export const defaultSets = () => {
   const n = Number(state.settings.defaultSets);
   return Number.isFinite(n) && n >= 1 && n <= 20 ? n : SETS_PER_EXERCISE;
@@ -298,30 +297,30 @@ export const defaultSets = () => {
 export const defaultReps = () =>
   (state.settings.defaultReps || '').trim() || REP_TARGET;
 
-/** Quality stars are hidden separately from the strength tiers — different things. */
+/** Die Qualitätssterne werden getrennt von den Stärkestufen ausgeblendet, das sind verschiedene Dinge. */
 export const starsShown = () => state.settings.showStars !== false;
 
-/** The bar the plate maths assumes, falling back to the standard for the unit. */
+/** Die Stange, von der die Scheibenrechnung ausgeht, sonst der Standard für die Einheit. */
 export const barWeight = () => {
   const set = Number(state.settings.barWeight);
   return set > 0 ? set : DEFAULT_BAR[units()] ?? DEFAULT_BAR.kg;
 };
 
 /**
- * The smallest change this machine can actually make, if the user has said.
+ * Der kleinste Schritt, den diese Maschine wirklich kann, falls der Nutzer ihn angegeben hat.
  *
- * Saved per exercise on the machine-setup sheet, because it is a fact about one
- * frame in one gym rather than a preference: a stack that goes up in fives
- * cannot be asked for 102.5, and every weight suggestion in the app is a
- * multiple of something. Returns null when nothing was set, and the caller
- * falls back to the equipment default.
+ * Pro Übung im Sheet zur Maschineneinstellung gespeichert, weil das eine Tatsache über
+ * ein Gerät in einem Studio ist und keine Vorliebe: ein Block in Fünferschritten kann
+ * keine 102,5 liefern, und jeder Gewichtsvorschlag in der App ist ein Vielfaches von
+ * etwas. Gibt null zurück, wenn nichts eingestellt ist, dann nimmt der Aufrufer den
+ * Standard für das Gerät.
  */
 export const machineStep = (exercise) => {
   const step = Number(state.settings.machineSetups?.[exercise?.id]?.step);
   return step > 0 ? step : null;
 };
 
-// ---------- settings ----------
+// ---------- Einstellungen ----------
 
 export async function setSetting(key, value) {
   const updatedAt = Date.now();
@@ -331,15 +330,15 @@ export async function setSetting(key, value) {
   emit();
 }
 
-// ---------- exercises ----------
+// ---------- Übungen ----------
 
 export async function addExercise({ name, muscle, equipment }) {
   const ex = {
     id: db.uid('ex_'),
     name: name.trim(), muscle, equipment: equipment || 'Other',
-    // Without these a custom exercise is invisible to everything that matters:
-    // it colours no muscle on the map, adds no volume to a plan's rating, and
-    // scores as a movement that trains nothing.
+    // Ohne das ist eine eigene Übung für alles Wichtige unsichtbar: sie färbt keinen Muskel
+    // auf der Karte, bringt kein Volumen in die Planbewertung und gilt als Bewegung, die
+    // nichts trainiert.
     primary: regionsForMuscle(muscle),
     secondary: [],
     instructions: [],
@@ -361,7 +360,7 @@ export async function toggleFavourite(id) {
   return ex.favourite;
 }
 
-/** Favourites first, then the caller's own order. */
+/** Favoriten zuerst, danach die Reihenfolge des Aufrufers. */
 export function favouriteFirst(list) {
   return [...list].sort((a, b) => (b.favourite ? 1 : 0) - (a.favourite ? 1 : 0));
 }
@@ -369,10 +368,10 @@ export function favouriteFirst(list) {
 export async function updateExercise(id, patch) {
   const ex = state.exerciseById.get(id);
   if (!ex) return null;
-  // Moving an exercise to another muscle group has to move its body-map regions
-  // with it, or the map and every volume count keep answering for the old one.
-  // Only on an actual change: the curated entries have hand-written regions from
-  // CONTRIB that are far better than the coarse mapping.
+  // Wer eine Übung in eine andere Muskelgruppe verschiebt, muss ihre Regionen auf der Karte
+  // mitnehmen, sonst antworten Karte und jede Volumenzählung weiter für die alte. Nur bei
+  // einer echten Änderung: die gepflegten Einträge haben von Hand geschriebene Regionen
+  // aus CONTRIB, die viel besser sind als die grobe Zuordnung.
   const movedGroup = patch.muscle && patch.muscle !== ex.muscle;
   Object.assign(ex, patch);
   if (movedGroup) {
@@ -384,7 +383,7 @@ export async function updateExercise(id, patch) {
   return ex;
 }
 
-/** Personal 1–5 rating, or 0 to clear it. Separate from the evidence rating. */
+/** Eigene Bewertung 1 bis 5, oder 0 zum Löschen. Getrennt von der Bewertung aus den Studien. */
 export async function setMyRating(id, value) {
   const ex = state.exerciseById.get(id);
   if (!ex) return null;
@@ -404,9 +403,9 @@ export async function deleteExercise(id) {
   state.exercises = state.exercises.filter((e) => e.id !== id);
   await db.remove(db.STORES.exercises, id);
   if (removed) await recordDeletion('exercises', id, removed.updatedAt || removed.createdAt);
-  // And from plans. This was missing: the delete dialog promised it, the plan
-  // screen rendered an empty row where the exercise had been, and the plan
-  // rating quietly counted a slot that trained nothing.
+  // Und aus den Plänen. Das fehlte: der Dialog zum Löschen hat es versprochen, der
+  // Plan-Screen zeigte eine leere Zeile, wo die Übung gewesen war, und die Planbewertung
+  // hat still einen Platz mitgezählt, der nichts trainiert.
   for (const p of state.plans) {
     let touched = false;
     for (const day of p.days || []) {
@@ -419,13 +418,13 @@ export async function deleteExercise(id) {
   reindex(); emit();
 }
 
-/** How many plan days reference an exercise — for an honest delete warning. */
+/** In wie vielen Plantagen eine Übung vorkommt, für eine ehrliche Warnung beim Löschen. */
 export function planUsageCount(id) {
   return state.plans.reduce((n, p) =>
     n + (p.days || []).filter((d) => d.items.some((i) => i.exerciseId === id)).length, 0);
 }
 
-// ---------- plans ----------
+// ---------- Pläne ----------
 
 export function activePlan() {
   const id = state.settings.activePlanId;
@@ -433,9 +432,9 @@ export function activePlan() {
 }
 
 /**
- * Build a plan from a blueprint.
- * @param opts { empty } — true keeps the day layout but adds no exercises,
- *   so the user fills it in themselves.
+ * Einen Plan aus einer Vorlage bauen.
+ * @param opts { empty }, bei true bleibt der Aufbau der Tage, aber ohne Übungen,
+ *   die trägt man selbst ein.
  */
 export async function createPlanFromBlueprint(blueprint, { empty = false } = {}) {
   const days = buildPlanDays(blueprint, state.exercises, {
@@ -449,7 +448,7 @@ export async function createPlanFromBlueprint(blueprint, { empty = false } = {})
     name: blueprint.name,
     presetKey: blueprint.key || null,
     repTarget: defaultReps(),
-    // how many times the whole cycle runs per week — the rating scales by this
+    // wie oft der ganze Zyklus pro Woche läuft, die Bewertung rechnet damit
     perWeek: blueprint.perWeek || 1,
     days,
     createdAt: Date.now(),
@@ -494,12 +493,12 @@ export async function savePlan(plan) {
 }
 
 /**
- * Materialise a plan that arrived over a share link.
+ * Einen Plan anlegen, der über einen Link zum Teilen gekommen ist.
  *
- * Exercises are matched by normalised name against the existing library, and
- * anything missing is created as a custom entry — with regions from its muscle
- * group, so a shared plan never leaves silent holes in the muscle map or the
- * volume count the way an exercise without regions would.
+ * Übungen werden über den normalisierten Namen mit der vorhandenen Bibliothek
+ * abgeglichen, was fehlt, wird als eigene Übung angelegt, mit Regionen aus seiner
+ * Muskelgruppe. So hinterlässt ein geteilter Plan nie stille Lücken in der Muskelkarte
+ * oder in der Volumenzählung, wie es eine Übung ohne Regionen täte.
  *
  * @returns {{plan:object, created:string[]}}
  */
@@ -507,8 +506,8 @@ export async function importSharedPlan(shared) {
   const byName = new Map(state.exercises.map((e) => [normName(e.name), e]));
   const created = [];
 
-  // One pass to create everything missing, so the day mapping below can assume
-  // every name resolves.
+  // Ein Durchgang legt alles Fehlende an, damit die Zuordnung der Tage unten davon
+  // ausgehen kann, dass jeder Name gefunden wird.
   for (const day of shared.days) {
     for (const item of day.items) {
       const key = normName(item.name);
@@ -547,8 +546,8 @@ export async function importSharedPlan(shared) {
 
   state.plans.push(plan);
   await db.put(db.STORES.plans, plan);
-  // Deliberately not made active: importing someone's plan is browsing, not
-  // committing to it. The plan screen offers the switch.
+  // Absichtlich nicht aktiv geschaltet: den Plan von jemandem zu importieren ist Stöbern,
+  // keine Entscheidung. Der Plan-Screen bietet den Wechsel an.
   emit();
   return { plan, created };
 }
@@ -565,7 +564,7 @@ export async function deletePlan(id) {
   }
 }
 
-// ---------- sessions ----------
+// ---------- Einheiten ----------
 
 async function persistSession(session) {
   session.updatedAt = Date.now();
@@ -577,7 +576,7 @@ export async function startSession({ planId = null, dayId = null, name } = {}) {
   const existing = activeSession();
   if (existing) return existing;
 
-  // A session is either seeded from a plan day or started empty.
+  // Eine Einheit entsteht entweder aus einem Plantag oder startet leer.
   let items = null;
   let label = null;
 
@@ -591,9 +590,9 @@ export async function startSession({ planId = null, dayId = null, name } = {}) {
     const sets = [];
     const target = Math.max(1, Number(item.targetSets) || 3);
     for (let i = 0; i < target; i++) sets.push(newSet());
-    // targetReps travels with the entry so the logging screen can tell you
-    // whether you cleared the range — without it the progression suggestion has
-    // nothing to compare against.
+    // targetReps kommt mit dem Eintrag mit, damit der Screen zum Eintragen sagen kann, ob
+    // der Bereich geschafft ist. Ohne das hat der Vorschlag zur Progression nichts zum
+    // Vergleichen.
     return {
       ...newEntry(item.exerciseId, sets),
       note: item.note || '',
@@ -606,8 +605,8 @@ export async function startSession({ planId = null, dayId = null, name } = {}) {
   const session = newSession(db.uid, {
     planId,
     dayId,
-    // Translated at creation time, then it is data like any other name the
-    // user could have typed. A later language switch does not rewrite history.
+    // Beim Anlegen übersetzt, danach sind es Daten wie jeder andere Name, den der Nutzer
+    // hätte tippen können. Ein späterer Sprachwechsel schreibt die Vergangenheit nicht um.
     name: name || label || t('train.quickWorkout'),
     entries,
     plannedDurationMs: items ? estimatePlanDuration(items, state.settings.restSeconds) : null,
@@ -649,21 +648,20 @@ export async function resumeSession(id) {
 }
 
 /**
- * Mutate the live session and persist it, or leave no trace of the attempt.
+ * Die laufende Einheit ändern und speichern, oder keine Spur des Versuchs hinterlassen.
  *
- * This is the one path where optimism is not affordable: it runs on every
- * completed set, mid-workout, and a set that looks logged but was never written
- * is worse than one that visibly failed — you would only find out weeks later,
- * with no way to reconstruct it. So the session is copied first and put back if
- * the write fails, which makes the screen agree with the disk again. The copy
- * is a JSON round trip on purpose: these records are plain data by definition
- * (they are also what the backup file contains), so it is exact, and it needs
- * no support for structuredClone.
+ * Das ist der eine Weg, auf dem man sich Optimismus nicht leisten kann: er läuft bei
+ * jedem abgeschlossenen Satz, mitten im Training, und ein Satz, der eingetragen aussieht,
+ * aber nie geschrieben wurde, ist schlimmer als einer, der sichtbar gescheitert ist. Man
+ * merkt es erst Wochen später und kann ihn nicht mehr rekonstruieren. Die Einheit wird
+ * also zuerst kopiert und zurückgelegt, wenn das Schreiben scheitert, dann stimmen
+ * Bildschirm und Platte wieder überein. Die Kopie geht absichtlich über JSON: diese
+ * Einträge sind per Definition einfache Daten (sie stehen auch so in der
+ * Sicherungsdatei), die Kopie ist also exakt und braucht kein structuredClone.
  *
- * The contract that makes this work: `mutate` must contain *every* change. A
- * caller that edits the session first and then calls this with an empty
- * callback gets a snapshot of the already-changed session, and the rollback
- * silently does nothing.
+ * Die Abmachung, damit das funktioniert: `mutate` muss JEDE Änderung enthalten. Ein
+ * Aufrufer, der die Einheit vorher ändert und das hier dann mit leerem Callback aufruft,
+ * bekommt eine Kopie der schon geänderten Einheit, und das Zurückrollen macht still nichts.
  */
 export async function updateSession(id, mutate) {
   const index = state.sessions.findIndex((x) => x.id === id);
@@ -675,8 +673,8 @@ export async function updateSession(id, mutate) {
   try {
     await persistSession(s);
   } catch {
-    // guard() has already recorded the failure and notified; this only undoes
-    // the optimistic change so the UI stops claiming the set was saved.
+    // guard() hat den Fehler schon festgehalten und Bescheid gegeben. Das hier macht nur die
+    // optimistische Änderung rückgängig, damit die Oberfläche nicht mehr behauptet, der Satz sei gespeichert.
     state.sessions[index] = before;
     emit();
     return null;
@@ -685,8 +683,8 @@ export async function updateSession(id, mutate) {
 }
 
 /**
- * Persist without notifying subscribers. Used for keystroke-level edits — a
- * re-render mid-typing would blow away the focused input and the caret.
+ * Speichern ohne den Abonnenten Bescheid zu geben. Für Änderungen bei jedem Tastendruck,
+ * ein Neuzeichnen mitten im Tippen würde das Feld und den Cursor zerstören.
  */
 export async function saveSessionQuiet(session) {
   session.updatedAt = Date.now();
@@ -696,7 +694,7 @@ export async function saveSessionQuiet(session) {
 export async function finishSession(id) {
   const s = state.sessions.find((x) => x.id === id);
   if (!s) return null;
-  // Drop empty sets and exercises so history stays clean.
+  // Leere Sätze und Übungen weglassen, damit der Verlauf sauber bleibt.
   s.entries = s.entries
     .map((e) => ({ ...e, sets: e.sets.filter((st) => st.done && Number(st.reps) > 0) }))
     .filter((e) => e.sets.length > 0);
@@ -744,7 +742,7 @@ async function recordDeletion(collection, id, rowUpdatedAt = 0) {
   await db.put(db.STORES.settings, { key: 'syncDeletions', value: deletions });
 }
 
-// ---------- nutrition ----------
+// ---------- Ernährung ----------
 
 export async function addFood(fields) {
   const food = newFood(db.uid, fields);
@@ -769,13 +767,13 @@ export async function deleteFood(id) {
   state.foods = state.foods.filter((f) => f.id !== id);
   await db.remove(db.STORES.foods, id);
   if (removed) await recordDeletion('foods', id, removed.updatedAt || removed.createdAt);
-  // Logged meals deliberately survive. They carry their own copy of the name
-  // and numbers (see newMeal), so deleting a food edits your list, never your
-  // history — the same rule the exercise library follows for logged sessions.
+  // Eingetragene Mahlzeiten bleiben absichtlich stehen. Sie haben ihre eigene Kopie von
+  // Name und Zahlen (siehe newMeal). Ein Lebensmittel zu löschen ändert also die eigene
+  // Liste, nie den Verlauf, dieselbe Regel wie in der Übungsbibliothek bei eingetragenen Einheiten.
   emit();
 }
 
-/** Log a portion. Values are snapshotted so editing the food never rewrites the past. */
+/** Eine Portion eintragen. Die Werte werden kopiert, damit eine Änderung am Lebensmittel nie die Vergangenheit umschreibt. */
 export async function logMeal(foodId, { amount = 1, day = dayKey(), at = Date.now(), slot = null } = {}) {
   const food = state.foods.find((f) => f.id === foodId);
   if (!food) return null;
@@ -801,14 +799,14 @@ export async function deleteMeal(id) {
   emit();
 }
 
-/** Move a logged portion between slots, or change how much of it there was. */
+/** Eine eingetragene Portion in eine andere Tageszeit schieben oder ändern, wie viel es war. */
 export async function updateMeal(id, patch) {
   const meal = state.meals.find((m) => m.id === id);
   if (!meal) return null;
 
   if (patch.amount !== undefined) {
-    // Rescale from the per-portion values rather than the current totals, so
-    // repeated edits cannot drift.
+    // Aus den Werten pro Portion neu rechnen und nicht aus den aktuellen Summen, damit
+    // mehrere Änderungen nicht auseinanderdriften.
     const factor = (Number(patch.amount) || 1) / (meal.amount || 1);
     for (const key of ['protein', 'kcal', 'carbs', 'fat', 'fibre']) {
       if (meal[key] !== null && meal[key] !== undefined) {
@@ -831,11 +829,12 @@ export async function updateMeal(id, patch) {
 }
 
 /**
- * Copy every portion from one day onto another.
+ * Jede Portion von einem Tag auf einen anderen kopieren.
  *
- * The meals are copied as they were logged, not re-derived from the food list —
- * a day you repeat should be the day you actually ate, even if you have edited
- * the food since. Returns how many were copied.
+ * Die Mahlzeiten werden so kopiert, wie sie eingetragen wurden, und nicht neu aus der
+ * Lebensmittelliste abgeleitet. Ein wiederholter Tag soll der Tag sein, der wirklich
+ * gegessen wurde, auch wenn man das Lebensmittel inzwischen geändert hat. Gibt zurück,
+ * wie viele kopiert wurden.
  */
 export async function copyDay(fromDay, toDay = dayKey()) {
   const source = mealsOn(fromDay);
@@ -845,7 +844,7 @@ export async function copyDay(fromDay, toDay = dayKey()) {
     ...m,
     id: db.uid('m_'),
     day: toDay,
-    // Same time of day, new date, so the order and the slots survive.
+    // Gleiche Tageszeit, neues Datum, damit Reihenfolge und Tageszeiten erhalten bleiben.
     at: shiftToDay(m.at, toDay),
     updatedAt: Date.now(),
   }));
@@ -862,14 +861,14 @@ function shiftToDay(at, day) {
   return new Date(y, m - 1, d, from.getHours(), from.getMinutes()).getTime();
 }
 
-// ---------- saved meals ----------
+// ---------- gespeicherte Mahlzeiten ----------
 
 /**
- * Save a combination of foods under a name.
+ * Eine Kombination von Lebensmitteln unter einem Namen speichern.
  *
- * Stores food *ids*, not values, unlike a logged meal. A logged meal is history
- * and must never move; a saved meal is a recipe, so correcting the protein on
- * your quark should carry into the next breakfast you log from it.
+ * Speichert Lebensmittel-IDS und keine Werte, anders als eine eingetragene Mahlzeit. Die
+ * ist Verlauf und darf sich nie bewegen, eine gespeicherte Mahlzeit ist ein Rezept.
+ * Korrigiert man das Eiweiß beim Quark, soll das beim nächsten Frühstück daraus mitkommen.
  */
 export async function saveTemplate({ name, items, slot = null, id = null }) {
   const existing = id && state.templates.find((t) => t.id === id);
@@ -894,11 +893,11 @@ export async function deleteTemplate(id) {
 }
 
 /**
- * Log every food in a saved meal.
+ * Jedes Lebensmittel einer gespeicherten Mahlzeit eintragen.
  *
- * A food deleted since the template was saved is skipped and counted rather
- * than logged as a blank — the same rule the rest of the app follows for
- * references that no longer resolve. The caller can then say so.
+ * Ein Lebensmittel, das seit dem Speichern gelöscht wurde, wird übersprungen und gezählt,
+ * statt leer eingetragen zu werden. Dieselbe Regel wie überall in der App bei Verweisen,
+ * die ins Leere zeigen. Der Aufrufer kann das dann sagen.
  */
 export async function logTemplate(id, { day = dayKey(), slot = null } = {}) {
   const template = state.templates.find((t) => t.id === id);
@@ -918,15 +917,15 @@ export async function logTemplate(id, { day = dayKey(), slot = null } = {}) {
   return { logged, missing, name: template.name };
 }
 
-// ---------- water ----------
+// ---------- Wasser ----------
 
-/** Millilitres drunk on a day, 0 when nothing is recorded. */
+/** Milliliter an einem Tag, 0, wenn nichts eingetragen ist. */
 export function waterOn(day = dayKey()) {
   const row = state.water.find((w) => w.day === day);
   return row ? row.ml : 0;
 }
 
-/** Add (or subtract) millilitres. Never goes below zero. */
+/** Milliliter hinzufügen (oder abziehen). Geht nie unter null. */
 export async function addWater(ml, day = dayKey()) {
   const next = Math.max(0, waterOn(day) + (Number(ml) || 0));
   const row = { day, ml: next, updatedAt: Date.now() };
@@ -948,7 +947,7 @@ export function mealsOn(day = dayKey()) {
   return state.meals.filter((m) => m.day === day).sort((a, b) => a.at - b.at);
 }
 
-// ---------- bodyweight ----------
+// ---------- Körpergewicht ----------
 
 export async function logBodyweight(weight, date = Date.now()) {
   const day = new Date(date); day.setHours(12, 0, 0, 0);
@@ -961,18 +960,18 @@ export async function logBodyweight(weight, date = Date.now()) {
   else state.bodyweight.push(rec);
   await db.put(db.STORES.bodyweight, rec);
 
-  // Keep the profile figure in step with the log.
+  // Das Gewicht im Profil im Gleichschritt mit dem Log halten.
   //
-  // The app has two bodyweights and used to keep them in step in exactly one
-  // place, the profile form. Everything bodyweight-relative reads the profile
-  // one: the strength score on Home, the strength tier of every lift, the
-  // protein band, and through it the calorie and carb targets. The weekly
-  // strength history and the maintenance estimate read the log. So weighing in
-  // from the Progress screen moved one number and not the other, and the two
-  // then quietly disagreed for as long as you never opened Settings.
+  // Die App hat zwei Körpergewichte und hat sie früher an genau einer Stelle
+  // abgeglichen, im Profilformular. Alles, was am Körpergewicht hängt, liest das aus dem
+  // Profil: die Stärkewertung auf Home, die Stärkestufe jeder Übung, der Eiweißbereich
+  // und darüber die Ziele für Kalorien und Kohlenhydrate. Der wöchentliche Stärkeverlauf
+  // und die Schätzung des Bedarfs lesen das Log. Wer sich im Fortschritt-Screen gewogen
+  // hat, hat also die eine Zahl bewegt und die andere nicht, und beide waren still
+  // uneins, solange man die Einstellungen nicht geöffnet hat.
   //
-  // Only the newest entry counts, because `date` is editable: correcting last
-  // Tuesday's weigh-in must not become "your weight now".
+  // Nur der neueste Eintrag zählt, weil sich `date` ändern lässt: das Wiegen vom letzten
+  // Dienstag zu korrigieren darf nicht "dein Gewicht jetzt" werden.
   const latest = latestWeight(state.bodyweight);
   if (latest !== null && latest !== Number(state.settings.bodyweight)) {
     await setSetting('bodyweight', latest);
@@ -990,15 +989,15 @@ export async function deleteBodyweight(id) {
   emit();
 }
 
-// ---------- backup ----------
+// ---------- Sicherung ----------
 
 /**
- * Whether it is time to nag about a backup, and why.
+ * Ob es Zeit ist, an eine Sicherung zu erinnern, und warum.
  *
- * The export has always existed; what was missing was the reminder. On an
- * installed home-screen web app the data is reasonably safe from eviction —
- * what it is not safe from is deleting the app, losing the phone, or a restore
- * going sideways, and none of those give you a warning first.
+ * Den Export gab es schon immer, was gefehlt hat, war die Erinnerung. In einer
+ * installierten Web-App auf dem Homescreen sind die Daten vor dem automatischen Löschen
+ * ziemlich sicher. Nicht sicher sind sie davor, dass man die App löscht, das Handy
+ * verliert oder eine Wiederherstellung schiefgeht, und bei nichts davon gibt es vorher eine Warnung.
  */
 export const BACKUP_AFTER_WORKOUTS = 10;
 export const BACKUP_AFTER_DAYS = 28;
@@ -1046,30 +1045,30 @@ export async function importData(payload, { replace = true } = {}) {
   if (!payload || payload.format !== 'liftlog-backup') {
     throw new Error('Not a LiftLog backup file.');
   }
-  // Check the whole file before erasing anything. A restore wipes every store
-  // and then writes, so a payload that passes the format check but carries a
-  // truncated or wrong-typed body used to leave you with neither the backup nor
-  // what you had. Cheap to verify, impossible to undo.
+  // Die ganze Datei prüfen, bevor irgendetwas gelöscht wird. Eine Wiederherstellung leert
+  // jeden Store und schreibt dann. Eine Datei, die die Formatprüfung besteht, aber einen
+  // abgeschnittenen oder falsch getypten Inhalt hat, hat einem früher weder die Sicherung
+  // noch den alten Stand gelassen. Billig zu prüfen, unmöglich rückgängig zu machen.
   const lists = ['exercises', 'plans', 'sessions', 'bodyweight', 'foods', 'meals', 'water', 'templates', 'deletions'];
   for (const key of lists) {
     if (payload[key] !== undefined && !Array.isArray(payload[key])) {
-      throw new Error(`This backup is damaged — "${key}" is not a list.`);
+      throw new Error(`This backup is damaged: "${key}" is not a list.`);
     }
   }
   if (payload.settings !== undefined && (typeof payload.settings !== 'object' || payload.settings === null)) {
-    throw new Error('This backup is damaged — its settings are unreadable.');
+    throw new Error('This backup is damaged: its settings are unreadable.');
   }
   if (payload.settingsUpdatedAt !== undefined
       && (typeof payload.settingsUpdatedAt !== 'object' || payload.settingsUpdatedAt === null
           || Array.isArray(payload.settingsUpdatedAt))) {
-    throw new Error('This backup is damaged — its settings are unreadable.');
+    throw new Error('This backup is damaged: its settings are unreadable.');
   }
   if (!lists.some((key) => (payload[key] || []).length)) {
-    throw new Error('This backup is empty — nothing would be restored.');
+    throw new Error('This backup is empty: nothing would be restored.');
   }
 
-  // IndexedDB would reject a missing key only after the old log had already
-  // been touched. Validate every record and bound hostile/corrupt files first.
+  // IndexedDB würde einen fehlenden Schlüssel erst ablehnen, wenn das alte Log schon
+  // angefasst ist. Deshalb erst jeden Eintrag prüfen und kaputte oder böswillige Dateien begrenzen.
   const keyFor = {
     exercises: 'id', plans: 'id', sessions: 'id', bodyweight: 'id',
     foods: 'id', meals: 'id', water: 'day', templates: 'id', deletions: 'id',
@@ -1079,16 +1078,16 @@ export async function importData(payload, { replace = true } = {}) {
   for (const key of lists) {
     for (const [index, row] of (payload[key] || []).entries()) {
       if (!row || typeof row !== 'object' || Array.isArray(row)) {
-        throw new Error(`This backup is damaged — "${key}" item ${index + 1} is invalid.`);
+        throw new Error(`This backup is damaged: "${key}" item ${index + 1} is invalid.`);
       }
       const recordKey = row[keyFor[key]];
       if ((typeof recordKey !== 'string' && typeof recordKey !== 'number') || String(recordKey).length > 256) {
-        throw new Error(`This backup is damaged — "${key}" item ${index + 1} has no valid key.`);
+        throw new Error(`This backup is damaged: "${key}" item ${index + 1} has no valid key.`);
       }
       if (key === 'deletions') {
         const allowed = ['exercises', 'plans', 'sessions', 'bodyweight', 'foods', 'meals', 'water', 'templates'];
         if (!allowed.includes(row.collection) || !Number.isFinite(Number(row.deletedAt))) {
-          throw new Error(`This backup is damaged — deletion ${index + 1} is invalid.`);
+          throw new Error(`This backup is damaged: deletion ${index + 1} is invalid.`);
         }
       }
     }
@@ -1100,20 +1099,20 @@ export async function importData(payload, { replace = true } = {}) {
     if (!key || key.length > 128) throw new Error('This backup contains an invalid setting name.');
   }
 
-  // Carry the per-key times through a restore, or the first merge after it
-  // would treat every setting as undated and fall back to remote-wins.
+  // Die Zeitpunkte je Schlüssel durch die Wiederherstellung mitnehmen, sonst hielte das
+  // erste Zusammenführen danach jede Einstellung für undatiert und fiele auf "Gegenseite gewinnt" zurück.
   const times = payload.settingsUpdatedAt || {};
   const settingRows = Object.entries(settings).map(([key, value]) =>
     (times[key] ? { key, value, updatedAt: times[key] } : { key, value }));
   if (replace) {
-    // Everything except this device's own crypto keys.
+    // Alles außer den eigenen Kryptoschlüsseln dieses Geräts.
     //
-    // `keys` holds the device identity for the cloud backup: its keypair, and
-    // the id the server knows it by. Those are properties of the phone, not of
-    // the log, and a backup never contains them. Wiping them here meant that
-    // restoring from the cloud destroyed the very thing that had just decrypted
-    // the download: the device came back as a stranger, could no longer unwrap
-    // its own data key, and had to be approved again or recovered.
+    // `keys` enthält die Identität des Geräts für die Cloud-Sicherung: sein Schlüsselpaar
+    // und die ID, unter der der Server es kennt. Das sind Eigenschaften des Handys, nicht
+    // des Logs, und keine Sicherung enthält sie. Sie hier zu löschen hieß, dass eine
+    // Wiederherstellung aus der Cloud genau das zerstört hat, was den Download gerade
+    // entschlüsselt hatte: das Gerät kam als Fremder zurück, konnte seinen eigenen
+    // Datenschlüssel nicht mehr auspacken und musste neu freigegeben oder wiederhergestellt werden.
     await db.replaceBackupData({
       [db.STORES.exercises]: payload.exercises || [],
       [db.STORES.plans]: payload.plans || [],
@@ -1128,10 +1127,10 @@ export async function importData(payload, { replace = true } = {}) {
     await load();
     return;
   }
-  // `plans` was missing from both sides of this until now: exportData never
-  // wrote it and importData never read it, so restoring a backup silently
-  // dropped every training plan. Older backup files simply have no `plans` key
-  // and fall through to the empty array.
+  // `plans` fehlte bis jetzt auf beiden Seiten: exportData hat es nie geschrieben und
+  // importData nie gelesen, eine Wiederherstellung hat also still jeden Trainingsplan
+  // verloren. Ältere Sicherungsdateien haben einfach keinen `plans`-Schlüssel und landen
+  // beim leeren Array.
   await Promise.all([
     db.putMany(db.STORES.exercises, payload.exercises || []),
     db.putMany(db.STORES.plans, payload.plans || []),

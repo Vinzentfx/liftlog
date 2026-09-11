@@ -1,4 +1,4 @@
-// Exercise picker — shared by the active workout, the plan editor and the library.
+// Übungsauswahl, gemeinsam für das laufende Training, den Plan-Editor und die Bibliothek.
 
 import { el, openSheet, closeSheet, toast, listItem } from './ui.js';
 import { exerciseThumb } from './exercise-art.js';
@@ -7,14 +7,14 @@ import { MUSCLES } from './models.js';
 import { exerciseSearchScore } from './exercise-search.js';
 import * as store from './store.js';
 
-// Must cover every value the bundled catalogue uses. It didn't: opening Edit on
-// a Kettlebell or Bands exercise fell through to the first option, so pressing
-// Save silently retagged it as a barbell movement.
+// Muss jeden Wert abdecken, den der mitgelieferte Katalog benutzt. Das tat es
+// nicht: Bearbeiten bei einer Kettlebell- oder Band-Übung fiel auf die erste
+// Option zurück, und Speichern hat sie still zur Langhantel-Übung gemacht.
 const EQUIPMENT = ['Barbell', 'Dumbbell', 'Cable', 'Machine', 'Bodyweight', 'Kettlebell', 'Bands', 'Other'];
 
 /**
  * @param {(exercise) => void} onPick
- * @param {string[]} exclude  exercise ids already in the list
+ * @param {string[]} exclude  IDs der Übungen, die schon in der Liste sind
  */
 export function pickExercise(onPick, exclude = []) {
   const excluded = new Set(exclude);
@@ -25,7 +25,7 @@ export function pickExercise(onPick, exclude = []) {
     autocomplete: 'off', autocorrect: 'off', spellcheck: 'false',
   });
 
-  // The filter holds the stored English value; only the chip is translated.
+  // Im Filter steht der gespeicherte englische Wert, übersetzt wird nur der Chip.
   let muscleFilter = 'All';
 
   const chips = el('div.row', {
@@ -65,7 +65,7 @@ export function pickExercise(onPick, exclude = []) {
       );
     }
 
-    // Favourites float to the top of whatever the filters left.
+    // Favoriten wandern an den Anfang von dem, was die Filter übrig lassen.
     for (const ex of store.favouriteFirst(matches)) {
       const already = excluded.has(ex.id);
       const row = listItem({
@@ -99,10 +99,10 @@ export function pickExercise(onPick, exclude = []) {
   ]));
 }
 
-/** Create-exercise form. Also used standalone from the Library screen. */
+/** Formular für eine eigene Übung. Wird auch allein aus der Bibliothek benutzt. */
 export function newExerciseForm(prefillName = '', onCreated = null, existing = null) {
   const name = el('input', { type: 'text', value: existing ? existing.name : prefillName, placeholder: t('picker.namePlaceholder') });
-  // `value` stays the English catalogue term; only the visible label is translated.
+  // `value` bleibt der englische Katalogbegriff, übersetzt wird nur die Beschriftung.
   const muscle = el('select', {}, MUSCLES.map((m) =>
     el('option', { value: m, selected: existing ? existing.muscle === m : m === 'Chest' }, [tMuscle(m)])));
   const equipment = el('select', {}, EQUIPMENT.map((eq) =>

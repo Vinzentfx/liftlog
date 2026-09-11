@@ -1,6 +1,6 @@
-// Hand-rolled SVG charts. No library, so nothing to fetch and nothing to break
-// offline. Charts render at measured pixel width (rather than a scaled viewBox)
-// so axis text stays at its intended size instead of stretching with the card.
+// Selbstgebaute SVG-Diagramme. Keine Bibliothek, also nichts zu laden und nichts, was
+// offline kaputtgeht. Gezeichnet wird in der gemessenen Pixelbreite (statt einer
+// skalierten viewBox), damit die Achsenbeschriftung ihre Größe behält und nicht mit der Karte gestreckt wird.
 
 import { el } from './ui.js';
 import { t, tn, locale } from './i18n.js';
@@ -17,14 +17,14 @@ function svgEl(tag, attrs = {}) {
   return node;
 }
 
-/** Re-render on width change; charts are measured, not scaled. */
+/** Bei geänderter Breite neu zeichnen, Diagramme werden gemessen und nicht skaliert. */
 /**
- * Gradient ids have to be unique per document, and a screen can hold four
- * charts. A counter is enough and keeps the markup readable.
+ * Die IDs der Verläufe müssen im Dokument eindeutig sein, und ein Screen kann vier
+ * Diagramme haben. Ein Zähler reicht und hält das Markup lesbar.
  */
 let gradSeq = 0;
 
-/** Top-lit vertical fill, the same accent ramp the meter bars use. */
+/** Von oben beleuchtete senkrechte Füllung, dieselbe Farbskala wie bei den Balken. */
 function barGradient() {
   const id = `bar-grad-${++gradSeq}`;
   const defs = svgEl('defs');
@@ -50,9 +50,9 @@ function responsive(build, height) {
     host.replaceChildren(build(w, height));
   };
 
-  // Paint synchronously so a chart always exists in the DOM, even when the page
-  // is backgrounded and requestAnimationFrame never fires. The observer below
-  // corrects the width once the node is laid out for real.
+  // Sofort zeichnen, damit es das Diagramm immer im DOM gibt, auch wenn die Seite im
+  // Hintergrund ist und requestAnimationFrame nie feuert. Der Observer unten
+  // korrigiert die Breite, sobald der Knoten wirklich gelayoutet ist.
   paint();
   requestAnimationFrame(paint);
   if (typeof ResizeObserver !== 'undefined') {
@@ -79,10 +79,10 @@ function niceTicks(min, max, count = 4) {
 }
 
 /**
- * Single-series line chart over time.
- * Identity never rides on colour here — one series, named by the caption.
+ * Liniendiagramm mit einer Reihe über die Zeit.
+ * Die Zuordnung hängt hier nie an der Farbe, es gibt eine Reihe, benannt in der Beschriftung.
  *
- * @param {{x:number,y:number}[]} points  x is a timestamp
+ * @param {{x:number,y:number}[]} points  x ist ein Zeitstempel
  * @param {object} opts  { height, format, xFormat, showTrend, showArea, caption }
  */
 export function lineChart(points, opts = {}) {
@@ -90,10 +90,10 @@ export function lineChart(points, opts = {}) {
     height = 190, format = (v) => String(Math.round(v)),
     xFormat = (ts) => new Date(ts).toLocaleDateString(locale(), { day: 'numeric', month: 'short' }),
     showTrend = false, showArea = true, caption = null,
-    // Only a stack of charts that claims to share one timeline needs these: it
-    // has to pass the same gutters to every chart in the stack, or the x-axes
-    // are off by the few pixels the two components happen to differ by, and the
-    // claim is false. Everything else takes the defaults.
+    // Nur ein Stapel von Diagrammen, der behauptet, eine gemeinsame Zeitachse zu
+    // haben, braucht das: er muss jedem Diagramm dieselben Ränder geben, sonst liegen
+    // die x-Achsen um die paar Pixel daneben, in denen sich die beiden Komponenten
+    // zufällig unterscheiden, und die Behauptung stimmt nicht. Alles andere nimmt die Standardwerte.
     padL = 34, padR = 10, xLabels = true,
   } = opts;
 
@@ -111,11 +111,11 @@ export function lineChart(points, opts = {}) {
     });
 
     if (data.length < 2) {
-      // Node.append returns undefined — unlike appendChild — so reading a
-      // property off it threw, and this whole branch crashed the screen instead
-      // of drawing the placeholder it was written to draw. Callers should
-      // generally say something more useful than an empty plot area; this is
-      // the fallback for the ones that don't.
+      // Node.append gibt undefined zurück, anders als appendChild. Eine Eigenschaft
+      // davon zu lesen hat also geworfen, und statt des Platzhalters, für den der
+      // Zweig geschrieben wurde, ist der ganze Screen abgestürzt. Aufrufer sollten
+      // meistens etwas Nützlicheres sagen als eine leere Fläche, das hier ist der
+      // Rückfall für die, die es nicht tun.
       const label = svgEl('text', {
         x: W / 2, y: H / 2, class: 'axis', 'text-anchor': 'middle',
       });
@@ -127,14 +127,14 @@ export function lineChart(points, opts = {}) {
     const xs = data.map((p) => p.x), ys = data.map((p) => p.y);
     const xMin = Math.min(...xs), xMax = Math.max(...xs);
     let yMin = Math.min(...ys), yMax = Math.max(...ys);
-    // Never start a magnitude axis mid-air without headroom; pad by 8%.
+    // Eine Größenachse nie ohne Luft mitten in der Höhe anfangen lassen, 8 % Rand.
     const padY = (yMax - yMin) * 0.12 || Math.max(1, yMax * 0.05);
     yMin = Math.max(0, yMin - padY); yMax = yMax + padY;
 
     const sx = (x) => padL + (xMax === xMin ? plotW / 2 : ((x - xMin) / (xMax - xMin)) * plotW);
     const sy = (y) => padT + plotH - ((y - yMin) / (yMax - yMin || 1)) * plotH;
 
-    // --- recessive grid + y labels ---
+    // --- dezentes Raster und y-Beschriftung ---
     for (const tick of niceTicks(yMin, yMax, 4)) {
       const y = sy(tick);
       svg.append(svgEl('line', { class: 'grid', x1: padL, x2: W - padR, y1: y, y2: y }));
@@ -143,7 +143,7 @@ export function lineChart(points, opts = {}) {
       svg.append(label);
     }
 
-    // --- x labels: first and last only, so they can't collide ---
+    // --- x-Beschriftung: nur erste und letzte, dann können sie sich nicht überlappen ---
     if (xLabels) [[data[0], 'start'], [data[data.length - 1], 'end']].forEach(([p, anchor]) => {
       const label = svgEl('text', {
         class: 'axis', x: anchor === 'start' ? padL : W - padR,
@@ -180,12 +180,12 @@ export function lineChart(points, opts = {}) {
 
     svg.append(svgEl('path', { class: 'line', d: path }));
 
-    // Markers only when they can breathe (>= 8px apart per the mark spec).
+    // Punkte nur, wenn sie Platz haben (laut Vorgabe mindestens 8 px Abstand).
     if (plotW / data.length >= 8) {
       data.forEach((p) => svg.append(svgEl('circle', { class: 'dot', cx: sx(p.x), cy: sy(p.y), r: 3.5 })));
     }
 
-    // --- crosshair + tooltip ---
+    // --- Fadenkreuz und Tooltip ---
     const cross = svgEl('line', { class: 'cross', y1: padT, y2: padT + plotH, x1: 0, x2: 0, opacity: 0 });
     const focus = svgEl('circle', { class: 'dot', r: 5, cx: 0, cy: 0, opacity: 0 });
     svg.append(cross, focus);
@@ -209,7 +209,7 @@ export function lineChart(points, opts = {}) {
         document.createTextNode(nearest.tip || format(nearest.y)),
         el('small', { text: xFormat(nearest.x) })
       );
-      // Keep the tip inside the card.
+      // Den Tooltip innerhalb der Karte halten.
       tip.style.left = `${Math.max(38, Math.min(W - 38, cx))}px`;
       tip.style.top = `${cy}px`;
     };
@@ -235,8 +235,8 @@ export function lineChart(points, opts = {}) {
 }
 
 /**
- * Vertical bar chart. Bars are anchored to the baseline with 4px rounded tops
- * and a 2px surface gap between neighbours.
+ * Säulendiagramm. Die Säulen stehen auf der Grundlinie, oben 4 px abgerundet, und
+ * zwischen Nachbarn liegen 2 px Abstand.
  *
  * @param {{label:string,value:number,dim?:boolean}[]} bars
  */
@@ -277,7 +277,7 @@ export function barChart(bars, opts = {}) {
     }
 
     const slot = plotW / bars.length;
-    const gap = 2;                                    // surface gap between bars
+    const gap = 2;                                    // Abstand zwischen den Säulen
     const bw = Math.max(4, Math.min(22, slot - gap - 2));
     const r = Math.min(4, bw / 2);
 
@@ -291,14 +291,14 @@ export function barChart(bars, opts = {}) {
       const h = Math.max(b.value > 0 ? 2 : 0, padT + plotH - y);
 
       if (h > 0) {
-        // Rounded top, square bottom — the bar stays anchored to the baseline.
+        // Oben rund, unten gerade, die Säule steht fest auf der Grundlinie.
         const d = `M${x},${y + h} L${x},${y + r} Q${x},${y} ${x + r},${y} L${x + bw - r},${y} Q${x + bw},${y} ${x + bw},${y + r} L${x + bw},${y + h} Z`;
         const bar = svgEl('path', { class: `bar${b.dim ? ' dim' : ''}`, d, fill: grad.fill });
         svg.append(bar);
       }
 
-      // The last bar is the one the caption is talking about ("this is the
-      // current week"), and it is the only value worth reading without a tap.
+      // Um die letzte Säule geht es in der Beschriftung ("das ist die aktuelle Woche"),
+      // und sie ist der einzige Wert, den man ohne Tippen lesen sollte.
       if (i === bars.length - 1 && b.value > 0) {
         const value = svgEl('text', {
           class: 'bar-value', x: x + bw / 2, y: Math.max(padT - 1, y - 5), 'text-anchor': 'middle',
@@ -344,8 +344,8 @@ export function barChart(bars, opts = {}) {
 }
 
 /**
- * Horizontal magnitude bars. Identity comes from the row label, so a single
- * hue is correct here — no categorical palette needed.
+ * Waagerechte Balken für Größen. Die Zuordnung kommt aus der Zeilenbeschriftung,
+ * eine einzige Farbe ist hier also richtig, eine Farbpalette braucht es nicht.
  */
 export function hBars(rows, opts = {}) {
   const { format = (v) => String(Math.round(v)) } = opts;
@@ -361,22 +361,22 @@ export function hBars(rows, opts = {}) {
   ));
 }
 
-/** Sequential single-hue calendar heatmap — light→dark, never a rainbow. */
+/** Kalender-Heatmap in einer Farbe, von hell nach dunkel, nie ein Regenbogen. */
 export function heatmap(days, weeks = 18) {
   const byDay = new Map(days.map((d) => [d.key, d.value]));
   const cells = [];
 
   const end = new Date(); end.setHours(0, 0, 0, 0);
-  // Wind back to the most recent Sunday so columns are whole weeks.
+  // Zurück zum letzten Sonntag, damit die Spalten ganze Wochen sind.
   end.setDate(end.getDate() + (6 - ((end.getDay() + 6) % 7)));
   const start = new Date(end);
   start.setDate(start.getDate() - weeks * 7 + 1);
 
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    // dayKey, not toISOString. `d` is local midnight, and east of UTC local
-    // midnight is still yesterday in UTC, so every cell was keyed one day early
-    // while the tooltip printed the correct local date. The colours ended up a
-    // day to the right of the workouts that produced them.
+    // dayKey, nicht toISOString. `d` ist Mitternacht in Ortszeit, und östlich von UTC
+    // ist Mitternacht in Ortszeit in UTC noch gestern. Jede Zelle hatte also einen Tag
+    // zu früh als Schlüssel, während der Tooltip das richtige Datum zeigte. Die Farben
+    // landeten einen Tag rechts neben den Trainings, von denen sie kamen.
     const key = dayKey(d.getTime());
     const v = byDay.get(key) || 0;
     const level = v === 0 ? 0 : v <= 8 ? 1 : v <= 16 ? 2 : 3;

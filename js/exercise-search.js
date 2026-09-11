@@ -1,5 +1,5 @@
-// Accent-, punctuation- and language-tolerant exercise search shared by both
-// catalogue screens. The aliases are intentionally small and predictable.
+// Suche nach Übungen für beide Katalog-Screens. Akzente, Satzzeichen und Sprache
+// sind egal. Die Liste der Synonyme ist mit Absicht klein und vorhersehbar.
 const ALIASES = {
   klimmzug: 'pull up', klimmzuge: 'pull up', klimmzuege: 'pull up', pullup: 'pull up',
   liegestutz: 'push up', liegestutze: 'push up', liegestuetz: 'push up', liegestuetze: 'push up', pushup: 'push up',
@@ -29,7 +29,7 @@ export function exerciseSearchScore(exercise, query) {
   if (haystack.includes(q)) return 60;
   const words = q.split(' ').filter(Boolean);
   if (words.every((word) => haystack.includes(word))) return 40;
-  // A one-character typo should not hide an otherwise exact exercise name.
+  // Ein Tippfehler von einem Zeichen soll eine sonst exakte Übung nicht verstecken.
   if (q.length >= 5 && distanceAtMostOne(name, q)) return 20;
   return 0;
 }

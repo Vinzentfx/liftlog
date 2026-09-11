@@ -1,20 +1,21 @@
-// Searching the bundled generic-food library.
+// Suche in der mitgelieferten Bibliothek allgemeiner Lebensmittel.
 //
-// This exists because Open Food Facts cannot be searched by name from a
-// browser. Its free-text service (search.openfoodfacts.org) sends no
-// access-control-allow-origin header, so the request never leaves; its
-// api/v2/search accepts a `search_terms` parameter and then ignores it,
-// answering with the whole database in arbitrary order — a search box wired to
-// that would look like it worked and return nonsense. Both were checked against
-// the barcode endpoint, which does send the header and does still work.
+// Die gibt es, weil sich Open Food Facts vom Browser aus nicht nach Namen
+// durchsuchen lässt. Die Freitextsuche (search.openfoodfacts.org) schickt keinen
+// access-control-allow-origin-Header, die Anfrage geht also nie raus. api/v2/search
+// nimmt einen `search_terms`-Parameter an und ignoriert ihn dann, zurück kommt die
+// ganze Datenbank in beliebiger Reihenfolge. Ein Suchfeld daran sähe aus, als
+// würde es funktionieren, und liefert Unsinn. Beides wurde gegen den Barcode-
+// Endpunkt geprüft, der den Header schickt und weiterhin funktioniert.
 //
-// So generic foods ship with the app, from USDA FoodData Central, which is
-// public domain and can therefore be redistributed — unlike OFF's ODbL data,
-// where a bundled dump would be a derived database with share-alike duties.
-// The happy side effect is that search works in flight mode.
+// Allgemeine Lebensmittel kommen deshalb mit der App mit, aus USDA FoodData
+// Central. Das ist gemeinfrei und darf weitergegeben werden, anders als die
+// ODbL-Daten von OFF, bei denen ein mitgelieferter Auszug eine abgeleitete
+// Datenbank mit Share-Alike-Pflichten wäre. Nebenbei funktioniert die Suche so
+// auch im Flugmodus.
 //
-// Branded products stay on the barcode path. This library is the raw
-// ingredients a meal is built from.
+// Markenprodukte bleiben beim Barcode. Diese Bibliothek sind die Grundzutaten,
+// aus denen eine Mahlzeit besteht.
 
 import { FOOD_LIBRARY } from './food-library.js';
 import { BRAND_LIBRARY } from './brand-library.js';
@@ -32,14 +33,15 @@ const GERMAN_ALIASES = new Map([
 ]);
 
 /**
- * Both libraries at once, generic first.
+ * Beide Bibliotheken auf einmal, allgemeine zuerst.
  *
- * Generic entries lead because they are measured — USDA analysed the food —
- * while a branded row is whatever a contributor typed off a packet. When both
- * could answer "chicken", the measured one should be the first offer.
+ * Allgemeine Einträge stehen vorne, weil sie gemessen sind (USDA hat das
+ * Lebensmittel analysiert), während eine Markenzeile das ist, was jemand von
+ * einer Packung abgetippt hat. Können beide "Hähnchen" beantworten, soll das
+ * Gemessene zuerst kommen.
  *
- * Every result carries `kind`, and the UI keeps them visibly apart. A number's
- * provenance is part of the number here.
+ * Jedes Ergebnis hat ein `kind`, und die Oberfläche hält beide sichtbar
+ * auseinander. Woher eine Zahl kommt, gehört hier zur Zahl dazu.
  */
 export function searchFoods(query, { limit = 25 } = {}) {
   const original = String(query || '').trim().toLowerCase();
@@ -65,10 +67,10 @@ export function searchFoods(query, { limit = 25 } = {}) {
     if (score !== null) out.push({ kind: 'generic', score, entry: food, name: food.name });
   }
   for (const product of BRAND_LIBRARY) {
-    // Brand counts as searchable text: "milka" should find its products even
-    // when the brand is not repeated in the product name.
+    // Die Marke zählt als durchsuchbarer Text: "milka" soll die Produkte auch
+    // finden, wenn die Marke nicht noch einmal im Produktnamen steht.
     const score = rank(`${product.name} ${product.brand || ''}`);
-    // + 100 keeps generics ahead of brands at equal quality of match.
+    // + 100 hält allgemeine Einträge bei gleich guter Übereinstimmung vor den Marken.
     if (score !== null && nutritionLooksPlausible(product.per100)) {
       out.push({ kind: 'brand', score: score + 100, entry: product, name: product.name });
     }
@@ -79,7 +81,7 @@ export function searchFoods(query, { limit = 25 } = {}) {
     .slice(0, limit);
 }
 
-/** Generic library only — kept for callers that want the measured rows. */
+/** Nur die allgemeine Bibliothek, für Aufrufer, die die gemessenen Zeilen wollen. */
 export function searchLibrary(query, limit = 25) {
   return searchFoods(query, { limit })
     .filter((r) => r.kind === 'generic')
@@ -87,11 +89,12 @@ export function searchLibrary(query, limit = 25) {
 }
 
 /**
- * A library entry scaled to a portion, in the shape store.addFood expects.
+ * Ein Eintrag aus der Bibliothek, auf eine Portion gerechnet, in der Form, die
+ * store.addFood erwartet.
  *
- * Everything the source has is carried across, core values flat and the rest
- * under `micros`. Anything the source lacks stays absent rather than becoming
- * zero — a food with no vitamin D figure has unknown vitamin D.
+ * Alles, was die Quelle hat, wird übernommen: Grundwerte flach, der Rest unter
+ * `micros`. Was die Quelle nicht hat, bleibt weg und wird nicht zu null. Ein
+ * Lebensmittel ohne Angabe zu Vitamin D hat unbekanntes Vitamin D.
  */
 export function toFoodFields(entry, grams) {
   const factor = (Number(grams) || 0) / 100;
@@ -101,8 +104,8 @@ export function toFoodFields(entry, grams) {
     portionGrams: Math.round(grams),
     source: 'library',
     micros: {},
-    // Kept so the portion can be re-scaled later without re-deriving it, the
-    // same way the barcode path keeps its per-100 g basis.
+    // Bleibt erhalten, damit die Portion später neu gerechnet werden kann, genau
+    // wie der Barcode-Weg seine Basis pro 100 g behält.
     per100: { ...entry.per100 },
     fdcId: entry.fdcId,
   };
@@ -117,12 +120,12 @@ export function toFoodFields(entry, grams) {
     else fields.micros[n.key] = value;
   }
 
-  // Protein is the one field the rest of the app assumes exists.
+  // Eiweiß ist das einzige Feld, von dem der Rest der App annimmt, dass es existiert.
   if (fields.protein === undefined) fields.protein = 0;
   return fields;
 }
 
-/** How many of the library's nutrients this entry actually carries. */
+/** Wie viele der Nährwerte aus der Bibliothek dieser Eintrag wirklich hat. */
 export function coverage(entry) {
   const known = NUTRIENTS.filter((n) => entry.per100[n.key] !== undefined && entry.per100[n.key] !== null);
   return { known: known.length, total: NUTRIENTS.length };

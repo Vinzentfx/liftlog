@@ -1,9 +1,8 @@
-// The receiving end of a shared plan link.
+// Die Empfängerseite eines geteilten Plan-Links.
 //
-// Shows exactly what the link contains and what importing would change before
-// anything is written — including how many exercises would be added to the
-// library, because that is a side effect you should see coming rather than
-// discover afterwards.
+// Zeigt genau, was im Link steckt und was der Import ändern würde, bevor irgendetwas
+// geschrieben wird. Auch, wie viele Übungen die Bibliothek dazubekäme, denn diese
+// Nebenwirkung soll man kommen sehen und nicht hinterher entdecken.
 
 import { el, toast, emptyState } from '../ui.js';
 import * as store from '../store.js';
@@ -54,7 +53,7 @@ function preview(shared) {
     ])
   );
 
-  // What the import would do to the library, stated before it happens.
+  // Was der Import mit der Bibliothek macht, gesagt, bevor es passiert.
   out.push(el('div.section-head', {}, [el('h2', { text: t('share.whatChanges') })]));
   out.push(
     el('div.card', {}, [
@@ -73,7 +72,7 @@ function preview(shared) {
     ])
   );
 
-  // The plan itself.
+  // Der Plan selbst.
   for (const day of shared.days) {
     out.push(el('div.section-head', {}, [
       el('h2', { text: day.name + (Number.isInteger(day.weekday) ? ` · ${weekdayShort(day.weekday)}` : '') }),

@@ -1,14 +1,14 @@
-// "Same muscle, better position" — alternatives for a movement you already do.
+// "Gleicher Muskel, bessere Position": Alternativen zu einer Übung, die man schon macht.
 //
-// This is the one place where the length-bias classifier earns its keep as
-// advice rather than as a score. Swapping a pushdown for an overhead extension
-// costs nothing, changes no set count, and is the cheapest improvement the
-// evidence supports (SOURCES.wolf2025).
+// Hier ist der Klassifikator für die Muskellänge einmal ein Rat und keine Note.
+// Pushdowns gegen Überkopf-Strecken zu tauschen kostet nichts, ändert keine
+// Satzzahl und ist die billigste Verbesserung, die die Studienlage hergibt
+// (SOURCES.wolf2025).
 //
-// A swap is only offered when it is clearly better, not merely different:
-// higher rated, or equally rated but loading the muscle at a longer length.
-// Shuffling exercises for the sake of it is the failure mode the variation
-// literature warns about.
+// Vorgeschlagen wird nur, was klar besser ist und nicht bloß anders: höher
+// bewertet, oder gleich bewertet, aber mit mehr Last in der Dehnung. Übungen nur
+// um des Wechselns willen zu tauschen ist genau der Fehler, vor dem die Studien
+// zur Übungsvariation warnen.
 
 import { rateExercise } from './exercise-rating.js';
 import { NOT_FOR_SLOTS } from './plan-builder.js';
@@ -17,25 +17,25 @@ import { tRegion, t } from './i18n.js';
 const BIAS_RANK = { short: 0, mixed: 1, long: 2 };
 
 /**
- * On star count alone a swap has to be a full star better. Half a star is
- * inside the noise of a weighted heuristic, and without this the app cheerfully
- * proposes replacing a back squat with "Lying Machine Squat" — which the rating
- * genuinely scores higher, because a machine removes the balance component it
- * docks the barbell for.
+ * Nur nach Sternen muss ein Tausch einen ganzen Stern besser sein. Ein halber
+ * liegt im Rauschen einer gewichteten Faustregel, und ohne diese Grenze schlägt
+ * die App fröhlich vor, Kniebeugen durch "Lying Machine Squat" zu ersetzen. Die
+ * bekommt tatsächlich mehr Sterne, weil die Maschine das Gleichgewicht abnimmt,
+ * für das die Langhantel Abzug bekommt.
  */
 const MIN_STAR_GAIN = 1;
 
 /**
- * Catalogue oddities are verbose ("Biceps Curl with Overhead Extension using
- * Dumbbells on Stability Ball"); the movements anyone actually programmes are
- * short. A crude filter, but it is the difference between advice and noise.
+ * Die Ausreißer im Katalog haben lange Namen ("Biceps Curl with Overhead Extension
+ * using Dumbbells on Stability Ball"), die Übungen, die wirklich jemand plant,
+ * kurze. Ein grober Filter, aber er macht den Unterschied zwischen Rat und Rauschen.
  */
 const MAX_WORDS = 6;
 
 /**
- * @param ex         the exercise to replace
- * @param exercises  the full library
- * @param limit      how many to return
+ * @param ex         die Übung, die ersetzt werden soll
+ * @param exercises  die ganze Bibliothek
+ * @param limit      wie viele zurückkommen
  * @returns [{ ex, stars, reason }]
  */
 export function suggestSwaps(ex, exercises, limit = 3) {
@@ -49,9 +49,9 @@ export function suggestSwaps(ex, exercises, limit = 3) {
     if (cand.id === ex.id) continue;
     if (NOT_FOR_SLOTS.test(cand.name)) continue;
     if (cand.name.trim().split(/\s+/).length > MAX_WORDS) continue;
-    // Must train the same muscle as its own main job, not as a bystander.
+    // Muss denselben Muskel als Hauptaufgabe trainieren, nicht nur nebenbei.
     if (!(cand.primary || []).some((r) => targets.has(r))) continue;
-    // You rated it badly; do not hand it back as an improvement.
+    // Selbst schlecht bewertet: dann nicht als Verbesserung zurückgeben.
     if (cand.myRating && cand.myRating <= 2) continue;
 
     const r = rateExercise(cand);
@@ -60,7 +60,7 @@ export function suggestSwaps(ex, exercises, limit = 3) {
     const betterPosition = BIAS_RANK[r.length.bias] > BIAS_RANK[mine.length.bias];
     const betterStars = r.stars >= mine.stars + MIN_STAR_GAIN;
     if (!betterStars && !betterPosition) continue;
-    // A candidate the classifier does not recognise is not evidence of anything.
+    // Was der Klassifikator nicht kennt, beweist nichts.
     if (betterPosition && !r.length.classified) continue;
 
     let reason;
@@ -76,8 +76,8 @@ export function suggestSwaps(ex, exercises, limit = 3) {
       ex: cand,
       stars: r.stars,
       reason,
-      // Position beats stars: it is the finding with evidence behind it, where
-      // the star total is a weighted opinion about several properties at once.
+      // Die Position zählt mehr als die Sterne: dafür gibt es Belege, die Sterne
+      // sind eine gewichtete Meinung über mehrere Eigenschaften zugleich.
       sort: (betterPosition ? 10 : 0) + r.stars + (cand.favourite ? 3 : 0) + (cand.myRating ? cand.myRating - 3 : 0),
     });
   }
@@ -87,7 +87,7 @@ export function suggestSwaps(ex, exercises, limit = 3) {
     .slice(0, limit);
 }
 
-/** Which criterion the alternative actually wins on, for an honest one-liner. */
+/** Worin die Alternative wirklich besser ist, für eine ehrliche Zeile. */
 function topGain(mine, theirs) {
   let best = null, gap = 0;
   for (let i = 0; i < theirs.criteria.length; i++) {
@@ -102,7 +102,7 @@ function topGain(mine, theirs) {
     : t('swaps.higherOverall');
 }
 
-/** Muscles a swap would cover, for the sheet subtitle. */
+/** Welche Muskeln ein Tausch abdeckt, für die Unterzeile im Sheet. */
 export function targetLabel(ex) {
   return (ex.primary || []).map(tRegion).join(', ');
 }

@@ -1,43 +1,43 @@
-// Daily targets and totals.
+// Tagesziele und Summen.
 //
-// Scope note, because this is the part that usually metastasises. Protein and
-// calories are the two that carry a claim of their own: protein has a
-// defensible hypertrophy number, and calories decide whether you gain or lose.
+// Ein Wort zum Umfang, weil gerade dieser Teil gern ausufert. Eiweiß und Kalorien sind
+// die beiden, die eine eigene Aussage tragen: für Eiweiß gibt es eine vertretbare Zahl
+// zum Muskelaufbau, und die Kalorien entscheiden, ob man zu- oder abnimmt.
 //
-// Carbs and fat do get targets now (macroTargets below), and it is worth being
-// precise about why that is not a contradiction. There is no evidence-based
-// macro *ratio* — "40/30/30" is folklore with a decimal point, and this file
-// will not print one. What there is, is an evidence-based *order*: calories,
-// then protein, then a fat floor, then carbohydrate as the remainder. Those
-// numbers are arithmetic on the user's own measured calorie figure, not a rule
-// about proportions, and the UI says so.
+// Kohlenhydrate und Fett bekommen inzwischen auch Ziele (macroTargets unten), und es
+// lohnt sich, genau zu sagen, warum das kein Widerspruch ist. Es gibt kein belegtes
+// VERHÄLTNIS der Makros, "40/30/30" ist Folklore mit Komma, und diese Datei gibt keins
+// aus. Was es gibt, ist eine belegte REIHENFOLGE: Kalorien, dann Eiweiß, dann eine
+// Untergrenze für Fett, dann Kohlenhydrate als Rest. Diese Zahlen sind Rechnerei auf
+// der eigenen gemessenen Kalorienzahl und keine Regel über Anteile, und die Oberfläche
+// sagt das auch.
 //
-// Fibre and water show a reference line with a source and a caveat, and are
-// never scored against training. Still no micronutrient targets, and still no
-// "you should eat X" that cannot name where X came from.
+// Ballaststoffe und Wasser zeigen eine Bezugslinie mit Quelle und Einschränkung und
+// werden nie gegen das Training bewertet. Weiterhin keine Ziele für Mikronährstoffe
+// und kein "du solltest X essen", bei dem nicht klar ist, woher X kommt.
 //
-// Everything past protein is optional throughout. A protein-only log is a
-// complete log here — it answers the question the training data can actually be
-// compared against, and a day with no carbs recorded says so rather than
-// pretending the number is zero.
+// Alles nach dem Eiweiß ist überall freiwillig. Ein Log nur mit Eiweiß ist hier ein
+// vollständiges Log: es beantwortet die Frage, mit der sich die Trainingsdaten wirklich
+// vergleichen lassen, und ein Tag ohne Kohlenhydrate sagt das, statt so zu tun, als
+// wäre die Zahl null.
 
 import { THRESHOLDS } from './evidence.js';
 import { t } from './i18n.js';
 import { dayKey, linearFit } from './models.js';
 
 /**
- * Daily protein target as a range, from bodyweight.
+ * Tagesziel für Eiweiß als Bereich, aus dem Körpergewicht.
  *
- * A range rather than a number on purpose: 1.6 g/kg is the headline breakpoint,
- * its own confidence interval reaches 2.2, and later work argues the breakpoint
- * may not exist at all (SOURCES.protein2018). Printing a single number would be
- * inventing a precision the literature does not have.
+ * Mit Absicht ein Bereich und keine Zahl: 1,6 g/kg ist der bekannte Knickpunkt, sein
+ * eigenes Konfidenzintervall reicht bis 2,2, und neuere Arbeiten zweifeln, ob es den
+ * Knickpunkt überhaupt gibt (SOURCES.protein2018). Eine einzelne Zahl zu drucken wäre
+ * eine Genauigkeit, die die Literatur nicht hat.
  */
 export function proteinTarget(settings) {
   const bw = Number(settings?.bodyweight) || 0;
   if (!bw) return null;
-  // The standards are kg-based; a pound-entering user still has a kg bodyweight
-  // underneath, so convert rather than silently scoring against the wrong unit.
+  // Die Standards rechnen in kg. Wer in Pfund einträgt, hat darunter trotzdem ein
+  // Körpergewicht in kg, also umrechnen statt still mit der falschen Einheit zu werten.
   const kg = settings.units === 'lb' ? bw * 0.45359237 : bw;
   const { low, high } = THRESHOLDS.proteinPerKg;
   return {
@@ -48,13 +48,14 @@ export function proteinTarget(settings) {
 }
 
 /**
- * Everything the app can hold about a food, in the order it reads on a label.
+ * Alles, was die App über ein Lebensmittel festhalten kann, in der Reihenfolge wie auf
+ * einem Etikett.
  *
- * `core` values live directly on a food or meal record because every screen
- * touches them; the rest live in a `micros` object, so adding a nutrient never
- * widens the record schema. Units come from USDA FoodData Central rather than
- * being assumed here — milligrams and micrograms are easy to confuse and both
- * get printed next to a number.
+ * Die `core`-Werte stehen direkt am Datensatz eines Lebensmittels oder einer Mahlzeit,
+ * weil jeder Screen sie braucht. Der Rest steht in einem `micros`-Objekt, ein neuer
+ * Nährstoff macht das Schema also nicht breiter. Die Einheiten kommen aus USDA FoodData
+ * Central und werden hier nicht angenommen. Milligramm und Mikrogramm verwechselt man
+ * leicht, und beide stehen neben einer Zahl.
  */
 export const NUTRIENTS = [
   { key: 'kcal',        label: 'nutrient.kcal',             unit: 'kcal', core: true },
@@ -78,7 +79,7 @@ export const NUTRIENTS = [
 
 export const CORE_KEYS = NUTRIENTS.filter((n) => n.core).map((n) => n.key);
 
-/** One nutrient off a food or meal, wherever it is stored. null means unknown. */
+/** Ein Nährstoff eines Lebensmittels oder einer Mahlzeit, wo auch immer er steht. null heißt unbekannt. */
 export function nutrientOf(record, key) {
   if (!record) return null;
   const value = CORE_KEYS.includes(key) ? record[key] : (record.micros || {})[key];
@@ -86,15 +87,16 @@ export function nutrientOf(record, key) {
 }
 
 /**
- * Totals for one day's meals.
+ * Summen für die Mahlzeiten eines Tages.
  *
- * Protein and calories are always present. Carbs, fat and fibre are not: a food
- * typed off a label that only lists protein, or added before those fields
- * existed, has null there — and null is not zero. Summing it as zero would make
- * a day look lower in carbs the more incompletely it was logged, which is the
- * exact opposite of useful. So each of those carries a count of how many items
- * had nothing to contribute, and the UI can say "of 6 items, 2 have no carbs
- * recorded" instead of printing a total that quietly means less than it looks.
+ * Eiweiß und Kalorien sind immer da, Kohlenhydrate, Fett und Ballaststoffe nicht: ein
+ * Lebensmittel von einem Etikett, auf dem nur Eiweiß steht, oder eins von vor diesen
+ * Feldern hat dort null, und null ist nicht null Gramm. Es als null zu summieren würde
+ * einen Tag umso ärmer an Kohlenhydraten aussehen lassen, je unvollständiger er
+ * eingetragen ist, also genau das Gegenteil von nützlich. Jeder dieser Werte trägt
+ * deshalb mit, wie viele Einträge nichts beitragen konnten, und die Oberfläche kann
+ * "bei 2 von 6 Einträgen fehlen die Kohlenhydrate" sagen, statt eine Summe zu drucken,
+ * die still weniger bedeutet, als sie aussieht.
  */
 export function dayTotals(meals) {
   const out = {
@@ -118,9 +120,8 @@ export function dayTotals(meals) {
   out.kcal = Math.round(out.kcal);
   for (const key of ['carbs', 'fat', 'fibre']) out[key] = Math.round(out[key]);
 
-  // Same rule, applied to everything: a total plus a count of the items that had
-  // nothing to contribute, so "12 mg iron" can never quietly mean "12 mg from
-  // the two items that happened to know, out of nine".
+  // Dieselbe Regel für alles: eine Summe plus die Zahl der Einträge ohne Beitrag, damit
+  // "12 mg Eisen" nie still "12 mg aus den zwei Einträgen, die es wussten, von neun" heißt.
   out.all = {};
   for (const n of NUTRIENTS) {
     let sum = 0, missing = 0, known = 0;
@@ -140,11 +141,11 @@ export function dayTotals(meals) {
 }
 
 /**
- * The day's calories split by where they came from, for the macro bar.
+ * Die Kalorien des Tages nach Herkunft aufgeteilt, für den Makro-Balken.
  *
- * Atwater factors: 4 kcal/g for protein and carbohydrate, 9 for fat. Returns
- * null when too much is unrecorded to draw an honest split — a bar with a third
- * of the day missing is a picture of the logging, not of the eating.
+ * Atwater-Faktoren: 4 kcal/g für Eiweiß und Kohlenhydrate, 9 für Fett. Gibt null
+ * zurück, wenn zu viel fehlt, um ehrlich aufzuteilen. Ein Balken, dem ein Drittel des
+ * Tages fehlt, ist ein Bild vom Eintragen und nicht vom Essen.
  */
 export function energySplit(totals) {
   if (!totals.items) return null;
@@ -165,13 +166,13 @@ export function energySplit(totals) {
       carbs: parts.carbs / sum,
       fat: parts.fat / sum,
     },
-    // What the macros add up to, which is not always what the label said.
+    // Was die Makros ergeben, und das ist nicht immer, was auf dem Etikett stand.
     fromMacros: Math.round(sum),
   };
 }
 
 /**
- * Fibre and water references. Neither is a training number, and both say so.
+ * Bezugswerte für Ballaststoffe und Wasser. Beides ist keine Trainingszahl, und beides sagt das auch.
  */
 export function fibreTarget() {
   return THRESHOLDS.fibrePerDay.value;
@@ -182,29 +183,28 @@ export function waterTarget(settings) {
   return Math.round(ml);
 }
 
-/** Where a day's protein sits against the target band. */
+/** Wo das Eiweiß eines Tages im Zielbereich liegt. */
 export function proteinVerdict(protein, target) {
   if (!target) return { state: 'unknown', text: t('verdict.noTarget') };
-  // "128 g short of 128" is technically true and reads like a bug.
+  // "128 g von 128 fehlen" stimmt zwar, sieht aber aus wie ein Fehler.
   if (!protein) return { state: 'under', text: t('verdict.target', { low: target.low, high: target.high }) };
   if (protein >= target.low && protein <= target.high) {
     return { state: 'hit', text: t('verdict.inRange', { low: target.low, high: target.high }) };
   }
   if (protein > target.high) {
-    // Not a warning. Above the band is not a mistake — the band's upper edge is
-    // where the evidence stops, not where harm starts.
+    // Keine Warnung. Über dem Bereich ist kein Fehler, die obere Kante ist da, wo die
+    // Belege aufhören, nicht wo Schaden anfängt.
     return { state: 'over', text: t('verdict.above', { high: target.high }) };
   }
   return { state: 'under', text: t('verdict.short', { gap: target.low - protein, low: target.low }) };
 }
 
 /**
- * Protein hit rate over a window of days, and the average.
+ * Wie oft das Eiweiß über eine Reihe von Tagen getroffen wurde, und der Durchschnitt.
  *
- * Days with nothing logged are excluded rather than counted as zero — an
- * unlogged day is missing data, not a day you ate no protein, and averaging in
- * zeroes would make a week of good eating with two forgotten days look like a
- * failure.
+ * Tage ohne Einträge fallen raus, statt als null zu zählen. Ein nicht eingetragener Tag
+ * ist fehlende Information und kein Tag ohne Eiweiß, und Nullen mitzurechnen würde eine
+ * gute Woche mit zwei vergessenen Tagen wie ein Scheitern aussehen lassen.
  */
 export function proteinHistory(meals, days = 14, endTs = Date.now()) {
   const byDay = new Map();
@@ -231,14 +231,13 @@ export function proteinHistory(meals, days = 14, endTs = Date.now()) {
 
 
 /**
- * Bodyweight direction over a window, as %/week — the number that actually says
- * whether you are in a surplus or a deficit.
+ * Richtung des Körpergewichts über einen Zeitraum, in % pro Woche. Diese Zahl sagt
+ * wirklich, ob man im Überschuss oder im Defizit ist.
  *
- * Reported as a rate rather than a total because that is how it is judged:
- * roughly 0.25–0.5% of bodyweight per week is the usual range for gaining or
- * losing without carrying more fat or losing more muscle than you meant to.
- * That range is training-practice convention, not a meta-analysis, and the UI
- * says so.
+ * Als Rate und nicht als Summe, weil man es so beurteilt: etwa 0,25 bis 0,5 %
+ * Körpergewicht pro Woche ist der übliche Bereich, um zu- oder abzunehmen, ohne mehr
+ * Fett anzusetzen oder mehr Muskeln zu verlieren als gewollt. Der Bereich ist übliche
+ * Trainingspraxis und keine Metaanalyse, und die Oberfläche sagt das.
  */
 export function weightTrend(bodyweightLog, weeks = 4) {
   const since = Date.now() - weeks * 7 * 86400000;
@@ -261,30 +260,31 @@ export function weightTrend(bodyweightLog, weeks = 4) {
 }
 
 /**
- * Maintenance calories, measured rather than predicted.
+ * Wartungskalorien, gemessen statt vorhergesagt.
  *
- * Every app that shows this number computes it from a formula — Mifflin-St Jeor
- * and an activity multiplier picked off a dropdown. That is a population
- * average dressed up as a personal figure, and the activity multiplier is a
- * guess about your own life that you are asked to make before you have any data.
+ * Jede App, die diese Zahl zeigt, rechnet sie mit einer Formel aus: Mifflin-St Jeor und
+ * ein Aktivitätsfaktor aus einer Liste. Das ist ein Bevölkerungsdurchschnitt, der sich
+ * als persönliche Zahl verkleidet, und der Aktivitätsfaktor ist eine Schätzung über das
+ * eigene Leben, die man abgeben soll, bevor es irgendwelche Daten gibt.
  *
- * This does it the other way round, from two things actually measured: what you
- * logged, and what the scale did. If intake averaged 2,600 kcal while you gained
- * 0.2 kg a week, maintenance was about 2,380. The arithmetic is simple; the
- * honesty is in refusing to run it on thin data, so it returns null unless the
- * window is genuinely logged and the scale genuinely moved across it.
+ * Hier läuft es andersherum, aus zwei Dingen, die wirklich gemessen wurden: was man
+ * eingetragen hat und was die Waage gemacht hat. Lag das Essen im Schnitt bei 2.600 kcal
+ * und man hat 0,2 kg pro Woche zugenommen, lag der Bedarf bei etwa 2.380. Die Rechnung
+ * ist einfach, die Ehrlichkeit steckt darin, sie bei dünnen Daten nicht zu machen. Sie
+ * gibt null zurück, solange der Zeitraum nicht wirklich eingetragen ist und sich die
+ * Waage darin nicht wirklich bewegt hat.
  *
- * What it cannot correct for: under-logging, which is systematic and large in
- * every validation study going. If you log 80% of what you eat, this reads 20%
- * low — and it will still be a better guide than a formula, because it is at
- * least anchored to your own weight.
+ * Was sie nicht ausgleichen kann: zu wenig Eingetragenes, und das ist in jeder
+ * Validierungsstudie systematisch und groß. Wer 80 % von dem einträgt, was er isst,
+ * bekommt hier 20 % zu wenig. Besser als eine Formel ist es trotzdem, weil es
+ * wenigstens am eigenen Gewicht hängt.
  */
 export function maintenanceEstimate(meals, bodyweightLog, { days = 28, endTs = Date.now() } = {}) {
   const history = proteinHistory(meals, days, endTs);
   const withCalories = history.filter((d) => d.logged && d.kcal > 0);
 
-  // Two separate bars: enough days to average, and enough of the window to
-  // trust that average as "what you eat" rather than "what you remembered".
+  // Zwei getrennte Hürden: genug Tage für einen Durchschnitt, und genug vom Zeitraum,
+  // damit man dem Durchschnitt als "was du isst" traut und nicht als "woran du gedacht hast".
   const MIN_DAYS = 14;
   const MIN_SHARE = 0.6;
   if (withCalories.length < MIN_DAYS || withCalories.length / days < MIN_SHARE) {
@@ -300,8 +300,8 @@ export function maintenanceEstimate(meals, bodyweightLog, { days = 28, endTs = D
   const spanDays = (points[points.length - 1].date - points[0].date) / 86400000;
   if (spanDays < MIN_DAYS) return { ok: false, reason: 'span', spanDays: Math.round(spanDays) };
 
-  // Fitted rather than first-to-last: two weigh-ins can differ by a kilo of
-  // water and gut content, and a line through all of them is far less jumpy.
+  // Eine Gerade durch alle statt erster gegen letzter Wert: zwei Wiegungen können sich
+  // um ein Kilo Wasser und Darminhalt unterscheiden, eine Linie durch alle springt viel weniger.
   const fit = linearFit(points.map((b) => [(b.date - points[0].date) / 86400000, b.weight]));
   if (!fit) return { ok: false, reason: 'weight', logged: points.length };
 
@@ -321,38 +321,37 @@ export function maintenanceEstimate(meals, bodyweightLog, { days = 28, endTs = D
 }
 
 /**
- * Daily targets for everything, derived in the order that actually decides them.
+ * Tagesziele für alles, abgeleitet in der Reihenfolge, die sie wirklich bestimmt.
  *
- * There is no evidence-based macro *ratio*. "40/30/30" is folklore with a
- * decimal point, and an app that hands one out is inventing precision. But
- * there is an evidence-based *order*, and it is the one any competent coach
- * uses:
+ * Ein belegtes VERHÄLTNIS der Makros gibt es nicht. "40/30/30" ist Folklore mit Komma,
+ * und eine App, die so etwas ausgibt, erfindet Genauigkeit. Eine belegte REIHENFOLGE
+ * gibt es aber, und die nimmt jeder vernünftige Trainer:
  *
- *   1. Energy decides the direction — gaining, holding or losing.
- *   2. Protein has its own band, from bodyweight, independent of the rest.
- *   3. Fat has a floor worth respecting: below about 20% of energy you are
- *      cutting into essential fatty acids and fat-soluble vitamins.
- *   4. Carbohydrate is what is left. Not a target in its own right — the
- *      remainder, which is exactly what it is in practice.
+ *   1. Die Energie bestimmt die Richtung: zunehmen, halten oder abnehmen.
+ *   2. Eiweiß hat seinen eigenen Bereich, aus dem Körpergewicht, unabhängig vom Rest.
+ *   3. Für Fett gibt es eine Untergrenze, die man ernst nehmen sollte: unter etwa 20 %
+ *      der Energie geht es an essenzielle Fettsäuren und fettlösliche Vitamine.
+ *   4. Kohlenhydrate sind der Rest. Kein eigenes Ziel, sondern das, was übrig bleibt,
+ *      und genau das sind sie in der Praxis auch.
  *
- * So the carb and fat numbers here are arithmetic on the user's own calorie
- * target, not a ratio pulled out of the air. Inside the fat range nothing
- * distinguishes one point from another, and the UI says that rather than
- * pretending the midpoint is special.
+ * Die Zahlen für Kohlenhydrate und Fett sind hier also Rechnerei auf dem eigenen
+ * Kalorienziel und kein Verhältnis aus der Luft. Innerhalb des Fettbereichs
+ * unterscheidet sich kein Punkt vom anderen, und die Oberfläche sagt das, statt die
+ * Mitte besonders wirken zu lassen.
  *
- * Returns null when the calorie target cannot be known — which is most of the
- * chain, because it rests on the measured maintenance estimate.
+ * Gibt null zurück, wenn sich das Kalorienziel nicht bestimmen lässt. Das betrifft
+ * den größten Teil der Kette, weil sie auf der gemessenen Schätzung des Bedarfs aufbaut.
  */
 export function macroTargets(settings, maintenance) {
   const protein = proteinTarget(settings);
   if (!maintenance || !maintenance.ok) {
     return { ok: false, reason: 'maintenance', protein };
   }
-  // The chain is calories, then protein, then a fat floor, then carbs as the
-  // remainder. Without a protein band there is no remainder to take, and the
-  // carb figure would quietly hand protein's whole share to carbohydrate. The
-  // two can disagree because maintenance comes from the weigh-in log and the
-  // band comes from the profile setting; only the profile form writes both.
+  // Die Kette ist Kalorien, dann Eiweiß, dann die Untergrenze für Fett, dann
+  // Kohlenhydrate als Rest. Ohne Eiweißbereich gibt es keinen Rest, und die Zahl für
+  // Kohlenhydrate würde still den ganzen Anteil vom Eiweiß übernehmen. Beides kann
+  // auseinanderlaufen, weil der Bedarf aus dem Wiegelog und der Bereich aus dem Profil
+  // kommt. Nur das Profilformular schreibt beides.
   if (!protein) {
     return { ok: false, reason: 'bodyweight', protein: null };
   }
@@ -361,8 +360,8 @@ export function macroTargets(settings, maintenance) {
   const kg = settings?.units === 'lb' ? bw * 0.45359237 : bw;
   const goal = ['gain', 'lose'].includes(settings?.goal) ? settings.goal : 'hold';
 
-  // The rate is a share of bodyweight per week, converted to a daily energy
-  // offset through the same 7,700 kcal/kg the maintenance estimate uses.
+  // Die Rate ist ein Anteil vom Körpergewicht pro Woche und wird über dieselben
+  // 7.700 kcal/kg, die die Schätzung des Bedarfs nimmt, in einen Tagesabstand umgerechnet.
   const { low, high } = THRESHOLDS.weeklyChangePct;
   const rate = goal === 'hold' ? 0 : (low + high) / 2;
   const perDay = (kg * rate * THRESHOLDS.kcalPerKg.value) / 7;
@@ -373,9 +372,9 @@ export function macroTargets(settings, maintenance) {
     high: Math.round((kcal * THRESHOLDS.fatShare.high) / 9),
   };
 
-  // Carbs are the remainder, so the range runs the other way: most carbs when
-  // fat sits at its floor. Protein's midpoint is used, because a range on both
-  // sides would produce a carb window too wide to act on.
+  // Kohlenhydrate sind der Rest, der Bereich läuft also andersherum: die meisten
+  // Kohlenhydrate, wenn das Fett an der Untergrenze liegt. Beim Eiweiß wird die Mitte
+  // genommen, weil ein Bereich auf beiden Seiten ein Fenster ergäbe, mit dem man nichts anfangen kann.
   const proteinKcal = protein ? ((protein.low + protein.high) / 2) * 4 : 0;
   const carbs = {
     low: Math.max(0, Math.round((kcal - proteinKcal - fat.high * 9) / 4)),
@@ -401,7 +400,7 @@ export const GOALS = [
   { key: 'gain', label: 'goal.gain', blurb: 'goal.gainBlurb' },
 ];
 
-/** Plain-language read on the weight trend, given what the user is trying to do. */
+/** Die Gewichtsentwicklung in Worten, gemessen an dem, was man vorhat. */
 export function trendVerdict(trend) {
   if (!trend) return { state: 'unknown', text: t('verdict.noTrend') };
   const pct = trend.pctPerWeek;

@@ -1,4 +1,4 @@
-// Progress — training overview, plus a per-exercise drill-down.
+// Fortschritt: Überblick übers Training und die Ansicht einer einzelnen Übung.
 
 import {
   el, fmtNum, fmtDecimal, fmtVolume, fmtWeight, fmtDate, relDay, emptyState,
@@ -19,9 +19,9 @@ import { TIERS, DIVISIONS, BAND, tierIndex, tierOf, rankOf, hasProfile } from '.
 import { exerciseHistory, pooledOrderCost } from '../progression.js';
 
 /**
- * The per-machine load corrections, same shape buildRating wants. Duplicated
- * from Home rather than imported: importing a screen from a screen is how this
- * app has previously ended up with two of them loading each other.
+ * Die Lastkorrekturen je Maschine, in der Form, die buildRating will. Aus Home kopiert
+ * statt importiert: Screens gegenseitig zu importieren hat in dieser App schon einmal
+ * dazu geführt, dass zwei sich gegenseitig geladen haben.
  */
 function machineCorrections(settings, exerciseById) {
   const loadFactors = {}, stackMax = {};
@@ -39,15 +39,15 @@ import { navigate } from '../app.js';
 import { timeline, timelineReady, MIN_LOGGED_DAYS } from '../timeline.js';
 import { t, tn, tMuscle, tEquipment, tTier } from '../i18n.js';
 
-let metric = 'e1rm';      // per-exercise chart, remembered across renders
-let workMetric = 'sets';  // weekly workload chart
+let metric = 'e1rm';      // Diagramm je Übung, bleibt über das Neuzeichnen hinweg
+let workMetric = 'sets';  // Diagramm der Wochenbelastung
 
 export default function renderProgress({ param, actions }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
   return param ? exerciseView(param) : overview();
 }
 
-/* =========================== overview =========================== */
+/* =========================== Überblick =========================== */
 
 function overview() {
   const units = store.units();
@@ -58,14 +58,14 @@ function overview() {
     return emptyState(t('progress.empty'), t('progress.emptyHint'));
   }
 
-  // --- headline numbers ---
+  // --- Kennzahlen oben ---
   const weekStart = startOfWeek(Date.now());
   const thisWeek = done.filter((s) => s.startedAt >= weekStart);
   const weekSets = thisWeek.reduce((n, s) => n + s.entries.reduce((m, e) => m + e.sets.filter(isCounted).length, 0), 0);
 
-  // Lifetime tonnage is not a training metric — it never tells you what to do
-  // next. It is here because watching it climb is the thing that keeps people
-  // opening the app in month four.
+  // Die Tonnage insgesamt ist keine Trainingsgröße, sie sagt nie, was als Nächstes
+  // kommt. Sie steht hier, weil man ihr gern beim Steigen zusieht, und genau das
+  // bringt Leute dazu, die App auch im vierten Monat noch zu öffnen.
   const lifetime = done.reduce((n, s) =>
     n + s.entries.reduce((m, e) => m + entryStats(e).volume, 0), 0);
 
@@ -89,7 +89,7 @@ function overview() {
       [t('progress.shareWeek')])
   );
 
-  // --- per-exercise entry point (the thing people actually want) ---
+  // --- Einstieg zu den einzelnen Übungen (das, was man eigentlich will) ---
   root.append(el('div.section-head', {}, [el('h2', { text: t('progress.exerciseProgress') })]));
   root.append(
     el('button.btn.primary.full', {
@@ -109,24 +109,24 @@ function overview() {
     )));
   }
 
-  // --- strength over time ---
+  // --- Stärke über die Zeit ---
   root.append(strengthSection(done));
 
-  // --- what's moving ---
+  // --- was sich bewegt ---
   root.append(moversSection(done, units));
 
-  // --- is it still moving at all ---
+  // --- geht es überhaupt noch voran ---
   root.append(stallSection(done));
 
-  // --- eating and training on one axis ---
+  // --- Essen und Training auf einer Achse ---
   root.append(timelineSection(units));
 
-  // --- weekly volume of work ---
+  // --- Arbeit pro Woche ---
   const buckets = weeklyMuscleSets(done, store.state.exerciseById, 10);
   root.append(el('div.section-head', {}, [el('h2', { text: t('progress.weeklyWorkload') })]));
   root.append(workloadSection(done, units));
 
-  // --- muscle split over the last 4 weeks ---
+  // --- Verteilung auf die Muskeln in den letzten 4 Wochen ---
   const recent = buckets.slice(-4);
   const byMuscle = {};
   for (const b of recent) {
@@ -148,11 +148,11 @@ function overview() {
     );
   }
 
-  // --- consistency ---
+  // --- Regelmäßigkeit ---
   root.append(el('div.section-head', {}, [el('h2', { text: t('progress.consistency') })]));
   const dayMap = new Map();
   for (const s of done) {
-    // Local, to match the cell keys the heatmap builds from local midnight.
+    // Ortszeit, passend zu den Zellschlüsseln, die die Heatmap aus Mitternacht in Ortszeit baut.
     const key = dayKey(s.startedAt);
     const n = s.entries.reduce((m, e) => m + e.sets.filter(isCounted).length, 0);
     dayMap.set(key, (dayMap.get(key) || 0) + n);
@@ -163,13 +163,13 @@ function overview() {
       el('div.legend', {}, [
         el('span', {}, [el('b', { style: { background: 'var(--line-soft)' } }), t('plans.rest')]),
         el('span', {}, [el('b', { style: { background: 'color-mix(in srgb, var(--accent) 38%, var(--line-soft))' } }), t('progress.heat18')]),
-        el('span', {}, [el('b', { style: { background: 'color-mix(in srgb, var(--accent) 70%, var(--line-soft))' } }), '9–16']),
+        el('span', {}, [el('b', { style: { background: 'color-mix(in srgb, var(--accent) 70%, var(--line-soft))' } }), '9-16']),
         el('span', {}, [el('b', { style: { background: 'var(--accent)' } }), '17+']),
       ]),
     ])
   );
 
-  // --- bodyweight ---
+  // --- Körpergewicht ---
   root.append(el('div.section-head', {}, [
     el('h2', { text: t('home.bodyweight.title') }),
     el('button.btn.quiet.sm', { onclick: bodyweightForm }, [t('progress.logShort')]),
@@ -208,17 +208,16 @@ function overview() {
 }
 
 /**
- * What to show instead of a chart with one dot on it.
+ * Was statt eines Diagramms mit einem einzigen Punkt kommt.
  *
- * A single-point plot looks like a finished thing that happens to be empty, and
- * it wastes the one number there actually is. So the number gets the space, and
- * the missing part is stated rather than drawn: a trend needs a second session,
- * and that is a fact about the data, not a failure of the screen.
+ * Ein Diagramm mit einem Punkt sieht aus wie etwas Fertiges, das zufällig leer ist,
+ * und verschenkt die eine Zahl, die es gibt. Also bekommt die Zahl den Platz, und was
+ * fehlt, wird gesagt statt gezeichnet: ein Verlauf braucht eine zweite Einheit, das ist
+ * eine Tatsache über die Daten und kein Versagen des Screens.
  *
- * Zero points is a different sentence. It does not mean "nothing logged" — the
- * session list below will be full — it means this particular metric came out at
- * zero every time, which is what a bodyweight movement does to volume and to an
- * estimated 1RM.
+ * Null Punkte ist ein anderer Satz. Das heißt nicht "nichts eingetragen", die Liste
+ * darunter ist voll. Es heißt, dass diese eine Größe jedes Mal null ergeben hat, und
+ * genau das macht eine Körpergewichtsübung mit Volumen und geschätztem 1RM.
  */
 function thinChart(points, m, units) {
   if (!points.length) {
@@ -237,13 +236,12 @@ function thinChart(points, m, units) {
 }
 
 /**
- * Every note ever written against this exercise, newest first.
+ * Jede Notiz, die je zu dieser Übung geschrieben wurde, die neuesten zuerst.
  *
- * The notes were always there — one per exercise per session — but there was
- * nowhere to read them back, so "what did I decide about deadlifts?" had no
- * answer despite the data sitting in the log. This is the cheapest possible
- * feature: no new storage, no new writes, just the thing already recorded,
- * gathered up.
+ * Die Notizen gab es schon immer, eine pro Übung und Einheit, man konnte sie nur nirgends
+ * nachlesen. "Was hatte ich mir beim Kreuzheben überlegt?" hatte keine Antwort, obwohl
+ * die Daten im Log standen. Billiger geht eine Funktion nicht: kein neuer Speicher, kein
+ * neues Schreiben, nur das, was schon festgehalten ist, eingesammelt.
  */
 function noteHistory(exerciseId) {
   const wrap = el('div');
@@ -284,13 +282,13 @@ function noteHistory(exerciseId) {
   return wrap;
 }
 
-/* ===================== strength over time ===================== */
+/* ===================== Stärke über die Zeit ===================== */
 
 /**
- * The overall strength score as it stood each week, not as it stands today.
+ * Die Gesamtstärke, wie sie jede Woche stand, nicht wie sie heute steht.
  *
- * This is the chart the app was missing: every other number here measures work
- * done, which is an input. This one measures what came out of it.
+ * Das ist das Diagramm, das der App gefehlt hat: jede andere Zahl hier misst geleistete
+ * Arbeit, also den Einsatz. Diese misst, was dabei herausgekommen ist.
  */
 function strengthSection(done) {
   const wrap = el('div');
@@ -332,9 +330,9 @@ function strengthSection(done) {
         })),
         {
           caption: t('progress.strengthCaption', { lifts: tn(last.lifts, 'unit.lift') }),
-          // Rank names up the axis, not the 0-100. The number is what the line
-          // is drawn from and it is no longer what anybody is shown: "Diamant"
-          // and "Meister" say what 44 and 56 never did.
+          // Rangnamen an der Achse, nicht 0 bis 100. Aus der Zahl wird die Linie gezeichnet,
+          // gezeigt wird sie niemandem mehr: "Diamant" und "Meister" sagen, was 44 und 56
+          // nie gesagt haben.
           format: (v) => tTier(tierOf(v).key, { short: true }),
           showTrend: true,
           height: 190,
@@ -355,17 +353,15 @@ function strengthSection(done) {
           }),
         }),
       ]),
-      // The tier thresholds are the thing people actually want to know their
-      // distance from, and reading them off an unlabelled y-axis is guesswork.
-      // Bands are 100/TIERS.length points wide — see BAND and tierIndex() in
-      // standards.js. Not every band: twelve of them printed as
-      // "Chl 75 · Imm 83 · Rad 92" is a line nobody reads. The two ends and the
-      // one that matters, which is the next one.
+      // Die Grenzen der Stufen sind das, wovon man seinen Abstand wissen will, und sie
+      // von einer unbeschrifteten y-Achse abzulesen ist Raterei. Eine Stufe ist
+      // 100/TIERS.length Punkte breit, siehe BAND und tierIndex() in standards.js. Nicht
+      // jede Stufe: zwölf davon als "Chl 75 · Imm 83 · Rad 92" liest niemand. Die beiden
+      // Enden und die, auf die es ankommt, also die nächste.
       //
-      // The count is passed in rather than written into the sentence. It said
-      // "nine ranks" for as long as there have been twelve, because the ladder
-      // grew and the string did not; the comment above it had already been
-      // corrected to twelve and the line under it still said nine.
+      // Die Anzahl wird übergeben und steht nicht fest im Satz. Da stand "neun Ränge",
+      // solange es zwölf gibt, weil die Leiter gewachsen ist und der Text nicht. Der
+      // Kommentar darüber war schon auf zwölf korrigiert, die Zeile darunter sagte noch neun.
       el('div.small.faint', { style: { marginTop: '6px' },
         text: t('progress.tierBands', {
           ranks: TIERS.length,
@@ -379,11 +375,11 @@ function strengthSection(done) {
 }
 
 /**
- * How far to the next step, in the units the chart is drawn in.
+ * Wie weit es bis zur nächsten Stufe ist, in den Einheiten, in denen das Diagramm gezeichnet ist.
  *
- * The next *division* rather than the next rank: on a 27-step ladder the rank
- * above can be ten points away, and a distance that far off does not read as a
- * thing you are close to.
+ * Die nächste DIVISION, nicht der nächste Rang: auf einer Leiter mit 27 Stufen kann der
+ * Rang darüber zehn Punkte entfernt sein, und so ein Abstand fühlt sich nicht nach
+ * "fast da" an.
  */
 function nextTierNote(score) {
   const rank = rankOf(score);
@@ -397,17 +393,17 @@ function nextTierNote(score) {
   });
 }
 
-/* ===================== movers ===================== */
+/* ===================== was sich bewegt ===================== */
 
-/** Which lifts are climbing, and which have not moved in months. */
+/** Welche Übungen steigen und welche sich seit Monaten nicht bewegt haben. */
 /**
- * The closest this app comes to telling you to take a lighter week — which is
- * to say, not very close. It states what your own log shows and stops there.
+ * Näher kommt die App nicht an "mach mal eine leichtere Woche", also nicht besonders
+ * nah. Sie sagt, was das eigene Log zeigt, und hört dort auf.
  *
- * Deloads are near-universal in practice and thinly evidenced in the
- * literature: no trial establishes when one is due, how long it should last, or
- * that taking one beats carrying on. A rule here would be invented precision,
- * so the card carries facts and says out loud that the decision is yours.
+ * Deload-Wochen macht in der Praxis fast jeder, in der Literatur sind sie dünn belegt:
+ * keine Studie sagt, wann eine fällig ist, wie lange sie dauern soll oder dass sie
+ * besser ist als weiterzumachen. Eine Regel hier wäre ausgedachte Genauigkeit, die
+ * Karte zeigt also Tatsachen und sagt laut, dass die Entscheidung bei einem selbst liegt.
  */
 function stallSection(done) {
   const wrap = el('div');
@@ -487,25 +483,25 @@ function moversSection(done, units) {
   return wrap;
 }
 
-/* ===================== eating next to training ===================== */
+/* ===================== Essen neben dem Training ===================== */
 
 /**
- * The two halves of the app on one set of week buckets.
+ * Die zwei Hälften der App in denselben Wochen.
  *
- * Three charts rather than one with three series: they measure different things
- * in different units, and a shared y-axis would either flatten the bodyweight
- * line into a straight edge or blow the calorie bars off the top. What makes it
- * one timeline is the x-axis, which is why all three are handed the same
- * gutters and only the bottom one carries the dates.
+ * Drei Diagramme statt einem mit drei Reihen: sie messen Verschiedenes in verschiedenen
+ * Einheiten, und eine gemeinsame y-Achse würde entweder die Gewichtslinie zu einer
+ * geraden Kante plattdrücken oder die Kalorienbalken oben hinausschießen. Eine
+ * Zeitleiste wird es durch die x-Achse. Deshalb bekommen alle drei dieselben Ränder und
+ * nur das unterste trägt die Daten.
  *
- * Intake is bars, because a week nobody logged has to look empty. Bodyweight is
- * a line, because weigh-ins are points in time and the app already reads them
- * that way everywhere else.
+ * Das Essen sind Balken, weil eine Woche ohne Einträge leer aussehen muss. Das
+ * Körpergewicht ist eine Linie, weil Wiegen Zeitpunkte sind und die App sie überall
+ * sonst schon so liest.
  *
- * What the card refuses to do is say why. Three lines moving together is not
- * evidence that one moved another, and with one person and no control there is
- * no version of this screen that could be. So it describes, and the note at the
- * bottom says plainly that the reading is yours to make.
+ * Was die Karte verweigert, ist ein Warum. Drei Linien, die sich zusammen bewegen,
+ * beweisen nicht, dass die eine die andere bewegt hat, und mit einer Person ohne
+ * Vergleich kann das keine Version dieses Screens. Also beschreibt sie, und der Hinweis
+ * unten sagt klar, dass die Deutung bei einem selbst liegt.
  */
 function timelineSection(units) {
   const wrap = el('div');
@@ -516,7 +512,7 @@ function timelineSection(units) {
   }, { weeks: 12 });
 
   if (!timelineReady(data)) {
-    // Nothing to show is worth saying once, quietly, with what is missing.
+    // Gibt es nichts zu zeigen, einmal leise sagen, was fehlt.
     if (!store.state.meals.length) return wrap;
     wrap.append(el('div.section-head', {}, [el('h2', { text: t('timeline.title') })]));
     wrap.append(el('div.card', {}, [
@@ -533,7 +529,7 @@ function timelineSection(units) {
   const label = (w) => t('home.workload.weekOf', { date: fmtDate(w.week) });
   const shortLabel = (w, i) => (i === rows.length - 1 ? t('home.workload.now') : fmtDate(w.week));
 
-  // The same gutters for every chart in the stack; see charts.js.
+  // Dieselben Ränder für jedes Diagramm im Stapel, siehe charts.js.
   const AXIS = { padL: 34, padR: 10 };
 
   const kcalBars = rows.map((w, i) => ({
@@ -566,9 +562,9 @@ function timelineSection(units) {
   wrap.append(el('div.section-head', {}, [el('h2', { text: t('timeline.title') })]));
   wrap.append(
     el('div.card', {}, [
-      // The caption is the chart's own label and its accessible name, so there
-      // is no second heading above it. Writing one anyway printed every row
-      // title twice.
+      // Die Beschriftung ist das eigene Label des Diagramms und sein Name für Screenreader,
+      // darüber steht also keine zweite Überschrift. Mit einer hat jede Zeile ihren Titel
+      // doppelt gezeigt.
       barChart(kcalBars, {
         ...AXIS, xLabels: false, height: 120, everyNthLabel: 3,
         format: (v) => (v >= 1000 ? `${fmtDecimal(v / 1000)}k` : String(Math.round(v))),
@@ -598,17 +594,17 @@ function timelineSection(units) {
   return wrap;
 }
 
-/* ===================== workload ===================== */
+/* ===================== Belastung ===================== */
 
 /**
- * The same weeks, three ways. Sets is the metric the plan rating cares about,
- * tonnage is the one that answers "how much did I move", and reps is what
- * changes first when you are progressing inside a rep range.
+ * Dieselben Wochen, auf drei Arten. Sätze sind das, worauf die Planbewertung schaut,
+ * Tonnage beantwortet "wie viel habe ich bewegt", und Wiederholungen ändern sich
+ * zuerst, wenn man innerhalb eines Wiederholungsbereichs vorankommt.
  */
 function workloadSection(done, units) {
   const host = el('div');
-  // Tonnage runs into five digits fast, and the y-axis gutter is 30px — hence
-  // the compact axis format rather than a thousands-separated number.
+  // Die Tonnage wird schnell fünfstellig, und der Rand der y-Achse ist 30 px breit.
+  // Deshalb das kurze Achsenformat statt einer Zahl mit Tausendertrennung.
   const compact = (v) => (v >= 10000 ? `${Math.round(v / 1000)}k` : v >= 1000 ? `${fmtDecimal(v / 1000)}k` : String(Math.round(v)));
 
   const WORK = {
@@ -659,7 +655,7 @@ function workloadSection(done, units) {
   return host;
 }
 
-/* ======================= exercise drill-down ======================= */
+/* ======================= einzelne Übung ======================= */
 
 function exerciseView(exerciseId) {
   const units = store.units();
@@ -680,10 +676,10 @@ function exerciseView(exerciseId) {
 
   const series = exerciseSeries(store.state.sessions, exerciseId);
 
-  // The same sessions with the order effect taken out. A lift that moved from
-  // first to fifth in a session drops a few percent for reasons that have
-  // nothing to do with getting weaker, and on a twelve-week chart that reads as
-  // a plateau. See js/progression.js for what is being corrected and how much.
+  // Dieselben Einheiten ohne den Effekt der Reihenfolge. Eine Übung, die in einer
+  // Einheit von Platz eins auf Platz fünf rückt, verliert ein paar Prozent aus Gründen,
+  // die nichts mit Schwächerwerden zu tun haben, und auf einem Diagramm über zwölf Wochen
+  // sieht das wie ein Plateau aus. Was korrigiert wird und wie stark, steht in js/progression.js.
   const assumedRir = Number(store.state.settings.assumedRir) || 0;
   const corrected = exerciseHistory(store.state.sessions, exerciseId, store.state.exerciseById, {
     limit: 500,
@@ -704,7 +700,7 @@ function exerciseView(exerciseId) {
     return root;
   }
 
-  // --- PRs ---
+  // --- Rekorde ---
   const prs = personalRecords(store.state.sessions, exerciseId);
   root.append(
     el('div.stat-grid.compact', { style: { marginBottom: '4px' } }, [
@@ -723,7 +719,7 @@ function exerciseView(exerciseId) {
     ].filter(Boolean))
   );
 
-  // --- metric switch ---
+  // --- Umschalter für die Größe ---
   const METRICS = {
     e1rm:   { label: t('progress.metric.e1rm'), noun: t('progress.metric.e1rmNoun'), pick: (p) => p.e1rm,
               caption: t('progress.metric.e1rmCaption') },
@@ -778,10 +774,9 @@ function exerciseView(exerciseId) {
     );
   }
 
-  // Trend readout — plain language beats making the user squint at a slope.
-  // Repainted with the chart rather than built once: it names the metric it is
-  // talking about, and switching to a different one used to leave the old name
-  // sitting under the new line.
+  // Verlauf in Worten, Klartext ist besser, als den Nutzer eine Steigung erraten zu lassen.
+  // Mit dem Diagramm neu gezeichnet statt einmal gebaut: der Text nennt die Größe, um die
+  // es geht, und nach dem Umschalten stand früher noch der alte Name unter der neuen Linie.
   const tailHost = el('div');
 
   function paintTail() {
@@ -809,7 +804,7 @@ function exerciseView(exerciseId) {
 
   root.append(noteHistory(exerciseId));
 
-  // --- session table (the accessible alternative to reading the chart) ---
+  // --- Tabelle der Einheiten (die barrierefreie Alternative zum Diagramm) ---
   root.append(el('div.section-head', {}, [el('h2', { text: t('progress.everySession') })]));
   for (const p of [...series].reverse()) {
     root.append(listItem({
@@ -822,7 +817,7 @@ function exerciseView(exerciseId) {
   return root;
 }
 
-/* ============================ helpers ============================ */
+/* ============================ Helfer ============================ */
 
 function mostTrained(sessions, limit) {
   const counts = new Map();

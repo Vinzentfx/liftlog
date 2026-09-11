@@ -1,11 +1,11 @@
 /**
- * Demo data generator — 14 weeks of a 3-day split with progressive overload
- * and a deliberate plateau around week 8, so the charts have something to show.
+ * Erzeugt Beispieldaten: 14 Wochen mit einem Dreier-Split, steigenden Gewichten und
+ * einem absichtlichen Plateau um Woche 8, damit die Diagramme etwas zeigen.
  *
- * Usage: open LiftLog, open the browser console, paste this whole file, hit enter.
- * To remove it afterwards: Settings (⚙) → Erase all data.
+ * So geht's: LiftLog öffnen, die Browser-Konsole öffnen, die ganze Datei einfügen,
+ * Enter. Wieder weg damit: Einstellungen (⚙), Alle Daten löschen.
  *
- * This is a dev/demo tool. It is not loaded by the app.
+ * Ein Werkzeug zum Entwickeln und Vorführen, die App lädt es nicht.
  */
 (async () => {
   const db = await import('/js/db.js');
@@ -39,7 +39,7 @@
       const weeksIn = WEEKS - 1 - w;
 
       const entries = day.items.map(([name, base, inc]) => {
-        // linear gains, then a plateau after week 8
+        // gleichmäßig mehr, nach Woche 8 ein Plateau
         const progress = weeksIn > 8 ? 8 + (weeksIn - 8) * 0.35 : weeksIn;
         const weight = Math.round((base + progress * inc) * 2) / 2;
         const sets = [];
@@ -77,10 +77,10 @@
   }
   await db.putMany(db.STORES.bodyweight, bw);
 
-  // The `routines` store was dropped in DB v4 (see js/db.js), so this used to
-  // throw on `db.STORES.routines` being undefined and the seeder never reached
-  // the reload below. Plans replaced routines; a demo plan is left out on
-  // purpose, because plan-builder.js generates a better one than a fixture.
+  // Den `routines`-Store gibt es seit DB v4 nicht mehr (siehe js/db.js). Früher ist
+  // das hier an `db.STORES.routines` gleich undefined gescheitert, und der Seeder kam
+  // nie beim Neuladen unten an. Pläne haben die Routinen ersetzt, einen Beispielplan
+  // gibt es absichtlich nicht, plan-builder.js erzeugt einen besseren als jede Vorlage.
 
   await store.load();
   console.log(`Seeded ${sessions.length} workouts and ${bw.length} bodyweight entries.`);

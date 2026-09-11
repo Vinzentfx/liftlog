@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
 """
-Regenerates js/food-library.js from USDA FoodData Central.
+Erzeugt js/food-library.js neu aus USDA FoodData Central.
 
-Why USDA and not Open Food Facts, which the app already talks to: licensing and
-CORS, in that order.
+Warum USDA und nicht Open Food Facts, mit dem die App schon redet: Lizenz und CORS, in
+dieser Reihenfolge.
 
-  * Licensing. OFF is ODbL — bundling a dump of it would make this a derived
-    database with share-alike obligations. FoodData Central's Foundation Foods
-    and SR Legacy are works of the US federal government and are in the public
-    domain, so they can simply be shipped.
-  * CORS. OFF's free-text search lives on search.openfoodfacts.org, which sends
-    no access-control-allow-origin header, so a browser cannot call it at all.
-    Its api/v2/search accepts a `search_terms` parameter and then *ignores* it,
-    returning the whole database in arbitrary order — which looks like a working
-    search and is worse than none. The barcode endpoint does send the header,
-    which is why that half of the integration works and stays.
+  * Lizenz. OFF steht unter ODbL, einen Abzug davon mitzuliefern würde eine abgeleitete
+    Datenbank mit Share-alike-Pflichten ergeben. Foundation Foods und SR Legacy aus
+    FoodData Central sind Werke der US-Bundesregierung und gemeinfrei, man kann sie also
+    einfach mitliefern.
+  * CORS. Die Freitextsuche von OFF liegt auf search.openfoodfacts.org, und das schickt
+    keinen access-control-allow-origin-Header, ein Browser kann sie also gar nicht
+    aufrufen. api/v2/search nimmt einen Parameter `search_terms` an und *ignoriert* ihn
+    dann, zurück kommt die ganze Datenbank in beliebiger Reihenfolge. Das sieht aus wie eine
+    funktionierende Suche und ist schlimmer als keine. Der Barcode-Endpunkt schickt den
+    Header, deshalb funktioniert diese Hälfte der Anbindung und bleibt.
 
-Bundling also happens to fit the app better: search works in flight mode, which
-is where the app is supposed to work.
+Mitliefern passt außerdem besser zur App: die Suche geht im Flugmodus, und genau da soll die
+App funktionieren.
 
     python3 tools/build_foods.py
 
-Reads the SR Legacy bulk CSV rather than the FDC search API: the API needs a key
-(DEMO_KEY is rate-limited to the point of uselessness — it 429s within a dozen
-requests) and the bulk file needs nothing. It is cached under tools/.cache, so
-the download happens once.
+Liest die Sammel-CSV von SR Legacy statt der Such-API von FDC: die API braucht einen
+Schlüssel (DEMO_KEY ist so stark begrenzt, dass er nutzlos ist, nach einem Dutzend Anfragen
+kommt 429), die Sammeldatei braucht nichts. Sie wird unter tools/.cache zwischengespeichert,
+der Download passiert also einmal.
 """
 import csv
 import io
@@ -40,10 +40,10 @@ OUT = ROOT / "js" / "food-library.js"
 CACHE = ROOT / "tools" / ".cache"
 DATASET = "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_sr_legacy_food_csv_2018-04.zip"
 
-# Generic staples, not brands — a brand belongs to the barcode path. The query
-# is what gets sent to FDC; the label is what the app shows.
+# Grundnahrungsmittel, keine Marken. Eine Marke gehört auf den Barcode-Weg. Die Anfrage geht
+# an FDC, das Label zeigt die App.
 STAPLES = [
-    # --- protein: meat, fish, eggs ---
+    # --- Eiweiß: Fleisch, Fisch, Eier ---
     ("Chicken breast, raw", "chicken breast boneless skinless raw"),
     ("Chicken thigh, raw", "chicken thigh meat only raw"),
     ("Turkey breast, raw", "turkey breast raw"),
@@ -58,7 +58,7 @@ STAPLES = [
     ("Prawns, raw", "shrimp raw"),
     ("Egg, whole, raw", "egg whole raw fresh"),
     ("Egg white, raw", "egg white raw fresh"),
-    # --- protein: dairy ---
+    # --- Eiweiß: Milchprodukte ---
     ("Cottage cheese, 1% fat", "cheese cottage lowfat 1% milkfat"),
     ("Greek yoghurt, plain, low fat", "yogurt greek plain lowfat"),
     ("Yoghurt, plain, whole", "yogurt plain whole milk"),
@@ -70,7 +70,7 @@ STAPLES = [
     ("Cheese, parmesan", "cheese parmesan grated"),
     ("Cream cheese", "cheese cream"),
     ("Butter", "butter salted"),
-    # --- protein: plant ---
+    # --- Eiweiß: pflanzlich ---
     ("Tofu, firm", "tofu firm prepared with calcium sulfate"),
     ("Tempeh", "tempeh"),
     ("Lentils, cooked", "lentils mature seeds cooked boiled without salt"),
@@ -79,7 +79,7 @@ STAPLES = [
     ("Kidney beans, cooked", "beans kidney red mature seeds cooked boiled"),
     ("Edamame, cooked", "edamame frozen prepared"),
     ("Whey protein powder", "whey protein powder isolate"),
-    # --- carbs: grains ---
+    # --- Kohlenhydrate: Getreide ---
     ("Oats, dry", "oats"),
     ("Rice, white, cooked", "rice white long grain regular cooked"),
     ("Rice, brown, cooked", "rice brown long grain cooked"),
@@ -93,11 +93,11 @@ STAPLES = [
     ("Bulgur, cooked", "bulgur cooked"),
     ("Cornflakes", "cereals ready-to-eat corn flakes"),
     ("Tortilla, wheat", "tortillas flour shelf stable"),
-    # --- carbs: starchy veg ---
+    # --- Kohlenhydrate: stärkehaltiges Gemüse ---
     ("Potato, boiled", "potatoes boiled cooked without skin flesh"),
     ("Sweet potato, baked", "sweet potato cooked baked in skin flesh"),
     ("Corn, sweet, cooked", "corn sweet yellow cooked boiled drained"),
-    # --- vegetables ---
+    # --- Gemüse ---
     ("Broccoli, raw", "broccoli raw"),
     ("Spinach, raw", "spinach raw"),
     ("Kale, raw", "kale raw"),
@@ -113,7 +113,7 @@ STAPLES = [
     ("Peas, cooked", "peas green frozen cooked boiled drained"),
     ("Lettuce", "lettuce romaine raw"),
     ("Avocado", "avocados raw all commercial varieties"),
-    # --- fruit ---
+    # --- Obst ---
     ("Banana", "bananas raw"),
     ("Apple", "apples raw with skin"),
     ("Orange", "oranges raw all commercial varieties"),
@@ -126,7 +126,7 @@ STAPLES = [
     ("Kiwi", "kiwifruit green raw"),
     ("Dates, dried", "dates medjool"),
     ("Raisins", "raisins seedless"),
-    # --- fats, nuts, seeds ---
+    # --- Fette, Nüsse, Samen ---
     ("Almonds", "nuts almonds"),
     ("Walnuts", "nuts walnuts english"),
     ("Cashews", "nuts cashew nuts raw"),
@@ -138,7 +138,7 @@ STAPLES = [
     ("Olive oil", "oil olive salad or cooking"),
     ("Rapeseed oil", "oil canola"),
     ("Coconut oil", "oil coconut"),
-    # --- other ---
+    # --- Sonstiges ---
     ("Honey", "honey"),
     ("Sugar, white", "sugars granulated"),
     ("Dark chocolate, 70%", "chocolate dark 70-85% cacao"),
@@ -148,7 +148,7 @@ STAPLES = [
     ("Mayonnaise", "salad dressing mayonnaise regular"),
     ("Soy sauce", "soy sauce made from soy and wheat shoyu"),
 
-    # --- more protein ---
+    # --- mehr Eiweiß ---
     ("Chicken, whole, roasted", "chicken broilers or fryers meat only roasted"),
     ("Turkey mince, raw", "turkey ground raw"),
     ("Beef liver, raw", "beef variety meats liver raw"),
@@ -168,7 +168,7 @@ STAPLES = [
     ("Seitan / wheat gluten", "vital wheat gluten"),
     ("Soy mince, dry", "soy protein concentrate"),
 
-    # --- more dairy ---
+    # --- mehr Milchprodukte ---
     ("Cheese, gouda", "cheese gouda"),
     ("Cheese, emmental", "cheese swiss"),
     ("Cheese, feta", "cheese feta"),
@@ -181,7 +181,7 @@ STAPLES = [
     ("Milk, skimmed", "milk nonfat fluid with added vitamin"),
     ("Condensed milk", "milk canned condensed sweetened"),
 
-    # --- more grains and starch ---
+    # --- mehr Getreide und Stärke ---
     ("Rye flour", "rye flour dark"),
     ("Wheat flour, white", "wheat flour white all-purpose enriched bleached"),
     ("Wheat flour, wholemeal", "wheat flour whole-grain"),
@@ -201,7 +201,7 @@ STAPLES = [
     ("Potato crisps", "snacks potato chips plain salted"),
     ("Chips / fries, frozen", "potatoes french fried frozen"),
 
-    # --- more vegetables ---
+    # --- mehr Gemüse ---
     ("Aubergine, raw", "eggplant raw"),
     ("Asparagus, raw", "asparagus raw"),
     ("Brussels sprouts, raw", "brussels sprouts raw"),
@@ -218,7 +218,7 @@ STAPLES = [
     ("Olives, green", "olives pickled canned or bottled green"),
     ("Peppers, chili, raw", "peppers hot chili red raw"),
 
-    # --- more fruit ---
+    # --- mehr Obst ---
     ("Pear", "pears raw"),
     ("Peach", "peaches raw"),
     ("Plum", "plums raw"),
@@ -232,7 +232,7 @@ STAPLES = [
     ("Fig, dried", "figs dried uncooked"),
     ("Prunes", "plums dried prunes uncooked"),
 
-    # --- more fats, nuts, seeds ---
+    # --- mehr Fette, Nüsse, Samen ---
     ("Hazelnuts", "nuts hazelnuts or filberts"),
     ("Pistachios", "nuts pistachio nuts raw"),
     ("Pecans", "nuts pecans"),
@@ -246,7 +246,7 @@ STAPLES = [
     ("Butter, unsalted", "butter without salt"),
     ("Margarine", "margarine regular hard soybean"),
 
-    # --- more of everything else ---
+    # --- mehr von allem anderen ---
     ("Maple syrup", "syrups maple"),
     ("Jam, strawberry", "jams and preserves"),
     ("Mustard", "mustard prepared yellow"),
@@ -260,7 +260,7 @@ STAPLES = [
     ("Wine, red", "alcoholic beverage wine table red"),
     ("Coffee, brewed", "beverages coffee brewed prepared with tap water"),
     ("Ice cream, vanilla", "ice creams vanilla"),
-    # --- common additional foods and preparation states ---
+    # --- weitere häufige Lebensmittel und Zubereitungen ---
     ("Chicken breast, roasted", "chicken breast meat only cooked roasted"),
     ("Beef steak, grilled", "beef top sirloin steak cooked grilled"),
     ("Salmon, cooked", "salmon atlantic farmed cooked dry heat"),
@@ -280,8 +280,8 @@ STAPLES = [
     ("Spinach, cooked", "spinach cooked boiled drained"),
 ]
 
-# FDC nutrient numbers -> the keys the app stores. Energy is handled separately:
-# Foundation foods sometimes carry the Atwater variants instead of 1008.
+# Nährstoffnummern von FDC -> die Schlüssel, die die App speichert. Energie wird extra
+# behandelt: Foundation Foods haben manchmal die Atwater-Varianten statt 1008.
 NUTRIENTS = {
     "1003": "protein",
     "1005": "carbs",
@@ -304,7 +304,7 @@ ENERGY_IDS = ("1008", "2047", "2048")
 
 
 def dataset():
-    """The bulk zip, downloaded once and cached."""
+    """Das Sammel-Zip, einmal geladen und zwischengespeichert."""
     CACHE.mkdir(parents=True, exist_ok=True)
     path = CACHE / "sr_legacy.zip"
     if not path.exists():
@@ -316,8 +316,8 @@ def dataset():
 
 
 def read_csv(zf, name):
-    # Exact basename: `endswith("food.csv")` also matches sr_legacy_food.csv,
-    # which is a two-column id mapping and silently has no descriptions.
+    # Genauer Dateiname: `endswith("food.csv")` passt auch auf sr_legacy_food.csv, und das ist
+    # eine Zuordnung mit zwei Spalten ohne Beschreibungen, still.
     inner = next(n for n in zf.namelist() if n.rsplit("/", 1)[-1] == name)
     with zf.open(inner) as fh:
         yield from csv.DictReader(io.TextIOWrapper(fh, encoding="utf-8-sig"))
@@ -325,20 +325,19 @@ def read_csv(zf, name):
 
 def best_match(descriptions, query):
     """
-    Every query word must appear as a *word*, then the shortest description wins.
+    Jedes Wort der Anfrage muss als *Wort* vorkommen, dann gewinnt die kürzeste Beschreibung.
 
-    SR Legacy descriptions read "Chicken, broilers or fryers, breast, meat only,
-    raw" — comma-separated qualifiers that grow more specific to the right. The
-    shortest full match is therefore the most generic food that satisfies the
-    query, which is what a staples list wants.
+    Beschreibungen in SR Legacy lesen sich wie "Chicken, broilers or fryers, breast, meat
+    only, raw": durch Kommas getrennte Zusätze, die nach rechts genauer werden. Der kürzeste
+    volle Treffer ist also das allgemeinste Lebensmittel, das zur Anfrage passt, und das
+    will eine Liste von Grundnahrungsmitteln.
 
-    Word boundaries are load-bearing, not tidiness: a plain substring test
-    matches "oats" inside "Buckwheat groats", and the shortest-wins rule then
-    confidently files roasted buckwheat under Oats. Nothing downstream would
-    ever have caught that.
+    Die Wortgrenzen tragen Last und sind keine Kosmetik: ein einfacher Teilstring-Test findet
+    "oats" in "Buckwheat groats", und die Regel "der kürzeste gewinnt" legt dann gerösteten
+    Buchweizen selbstbewusst unter Haferflocken ab. Nichts danach hätte das je bemerkt.
     """
-    # Word boundaries only make sense around alphanumeric tokens: "\b95%\b"
-    # never matches, because there is no word character after the percent sign.
+    # Wortgrenzen ergeben nur um alphanumerische Tokens Sinn: "\b95%\b" passt nie, weil nach
+    # dem Prozentzeichen kein Wortzeichen kommt.
     words = [
         re.compile(rf"\b{re.escape(w)}\b" if w.isalnum() else re.escape(w))
         for w in query.lower().split()
@@ -356,8 +355,8 @@ def best_match(descriptions, query):
 def main():
     zf = dataset()
 
-    # Units come out of the dataset rather than being assumed here: milligrams
-    # and micrograms are easy to mix up and the app prints them next to a number.
+    # Einheiten kommen aus dem Datensatz und werden hier nicht angenommen: Milligramm und
+    # Mikrogramm verwechselt man leicht, und die App druckt sie neben eine Zahl.
     print("reading nutrient.csv ...")
     units = {row["id"]: row["unit_name"].lower() for row in read_csv(zf, "nutrient.csv")}
 
@@ -384,8 +383,8 @@ def main():
         amount = row.get("amount")
         if amount in (None, ""):
             continue
-        # The bulk file keys by nutrient_id, which for SR Legacy matches the
-        # published nutrient numbers used below.
+        # Die Sammeldatei ist nach nutrient_id geordnet, und das passt bei SR Legacy zu den
+        # veröffentlichten Nährstoffnummern, die unten benutzt werden.
         if num in NUTRIENTS:
             target["per100"][NUTRIENTS[num]] = round(float(amount), 3)
         elif num in ENERGY_IDS and "kcal" not in target["per100"]:
@@ -408,15 +407,15 @@ def main():
         "  " + json.dumps(r, ensure_ascii=False, sort_keys=True) for r in rows
     )
     OUT.write_text(
-        "// GENERATED by tools/build_foods.py — do not hand-edit.\n"
+        "// ERZEUGT von tools/build_foods.py, bitte nicht von Hand ändern.\n"
         "//\n"
-        "// Generic foods from USDA FoodData Central (Foundation Foods and SR\n"
-        "// Legacy), which are works of the US federal government and therefore in\n"
-        "// the public domain. Values are per 100 g. `usda` records the exact source\n"
-        "// row so any number here can be traced back.\n"
+        "// Allgemeine Lebensmittel aus USDA FoodData Central (Foundation Foods und SR\n"
+        "// Legacy). Das sind Werke der US-Bundesregierung und damit gemeinfrei. Werte pro\n"
+        "// 100 g. `usda` hält die genaue Quellzeile fest, damit sich jede Zahl hier\n"
+        "// zurückverfolgen lässt.\n"
         "//\n"
-        "// Branded products are deliberately absent — that is what the barcode\n"
-        "// lookup is for. These are the raw ingredients a meal is built from.\n"
+        "// Markenprodukte fehlen mit Absicht, dafür gibt es die Barcode-Abfrage. Das hier\n"
+        "// sind die Grundzutaten, aus denen eine Mahlzeit besteht.\n"
         f"\nexport const FOOD_LIBRARY = [\n{body},\n];\n",
         encoding="utf-8",
     )

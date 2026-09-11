@@ -1,14 +1,14 @@
-// Live check of the cloud layer against the real Supabase project.
+// Live-Test der Cloud-Schicht gegen das echte Supabase-Projekt.
 //
 //   node tools/live-check.mjs TEST-C
 //
-// Not part of `node --test`: it needs the network and it consumes one invite
-// code, so it is a thing you run on purpose. Everything it touches, it deletes
-// again, apart from the login itself, which needs the dashboard.
+// Nicht Teil von `node --test`: braucht Netz und verbraucht einen Einladungscode,
+// startet man also bewusst. Alles, was er anlegt, löscht er wieder, bis auf den
+// Login selbst, dafür braucht es das Dashboard.
 //
-// It exists because the automated tests can only prove that the crypto is
-// correct and the code compiles. Whether the access rules on the server
-// actually bite is a question only the server can answer.
+// Den gibt es, weil die automatischen Tests nur zeigen können, dass die
+// Verschlüsselung stimmt und der Code kompiliert. Ob die Zugriffsregeln auf dem
+// Server wirklich greifen, kann nur der Server beantworten.
 const cloud = await import('../js/cloud.js');
 const crypto2 = await import('../js/crypto.js');
 

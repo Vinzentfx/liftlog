@@ -1,14 +1,14 @@
-# The public preview on GitHub Pages: the same app, opened without the invite
-# gate, filled with sample data, and unable to reach the real backend.
-# js/demo.js lists what the flag changes. The app friends use is not touched:
-# it is deployed from this repository separately and keeps DEMO = false.
+# Die öffentliche Vorschau auf GitHub Pages: dieselbe App, ohne Einladungssperre geöffnet,
+# mit Beispieldaten gefüllt und ohne Zugang zum echten Backend. Was die Markierung ändert,
+# steht in js/demo.js. Die App für die Freunde wird nicht angefasst: sie wird getrennt aus
+# diesem Repo ausgerollt und behält DEMO = false.
 name: Preview
 
 on:
   push:
     branches: [main]
-  # Every Monday, so the sample keeps ending yesterday instead of drifting into
-  # the past: tools/build_showcase.mjs counts back from the day it runs.
+  # Jeden Montag, damit die Beispieldaten weiter gestern enden und nicht in die Vergangenheit
+  # wandern: tools/build_showcase.mjs zählt vom Tag aus zurück, an dem es läuft.
   schedule:
     - cron: '0 4 * * 1'
   workflow_dispatch:
@@ -37,16 +37,16 @@ jobs:
       - name: Assemble the preview
         run: |
           mkdir _site
-          # A list, not a copy of everything: tests, tools, server SQL and the
-          # Supabase CLI state have no business on a public page.
+          # Eine Liste und keine Kopie von allem: Tests, Werkzeuge, Server-SQL und der Zustand
+          # der Supabase-CLI haben auf einer öffentlichen Seite nichts verloren.
           cp -R index.html legal.html privacy.html manifest.webmanifest css js icons assets _site/
           node tools/build_showcase.mjs > _site/showcase-backup.json
           printf 'export const DEMO = true;\n' > _site/js/demo.js
-          # The preview's own worker instead of the real one, which would cache
-          # last week's sample. It clears what the app left here in July and
-          # then serves nothing; tools/preview-sw.js says how.
+          # Der eigene Worker der Vorschau statt des echten, der die Beispieldaten der letzten
+          # Woche cachen würde. Er räumt weg, was die App hier im Juli hinterlassen hat, und
+          # liefert danach nichts aus. Wie, steht in tools/preview-sw.js.
           cp tools/preview-sw.js _site/sw.js
-          # Take the real project off the CSP, so nothing can reach it.
+          # Das echte Projekt aus der CSP nehmen, damit nichts es erreichen kann.
           sed -i 's# https://txjikhreoshmkjuyomki\.supabase\.co##' _site/index.html
           if grep -q 'supabase' _site/index.html; then
             echo 'The preview CSP still allows Supabase'; exit 1

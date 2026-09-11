@@ -1,5 +1,5 @@
-// Complete account deletion. Only an authenticated user who also possesses the
-// main-device owner capability can reach the privileged Auth deletion.
+// Konto vollständig löschen. Zur privilegierten Löschung in Auth kommt nur, wer
+// angemeldet ist UND die Besitzer-Berechtigung des Hauptgeräts hat.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "jsr:@supabase/server@^1";
 
@@ -19,8 +19,8 @@ const deleteAccount = withSupabase({ auth: "user" }, async (request, ctx) => {
       return reply(400, { code: "OWNER_TOKEN_WRONG" });
     }
 
-    // RLS-scoped call: auth.uid() is the signed-in person. The SQL function
-    // compares a hash of the device-only capability and changes no data.
+    // Aufruf mit RLS: auth.uid() ist die angemeldete Person. Die SQL-Funktion
+    // vergleicht einen Hash der Berechtigung, die nur auf dem Gerät liegt, und ändert keine Daten.
     const { data: authorized, error: authorizationError } = await ctx.supabase
       .rpc("authorize_account_deletion", { owner_token: ownerToken });
     if (authorizationError || authorized !== true) {
@@ -32,8 +32,8 @@ const deleteAccount = withSupabase({ auth: "user" }, async (request, ctx) => {
     const user = userResult?.user;
     if (userError || !user?.id) return reply(401, { code: "AUTH" });
 
-    // supabaseAdmin is supplied by the hosted runtime and never reaches the
-    // browser. Deleting auth.users cascades to all LiftLog account rows.
+    // supabaseAdmin stellt die gehostete Laufzeit bereit, es kommt nie in den
+    // Browser. Das Löschen in auth.users entfernt kaskadierend alle Kontozeilen von LiftLog.
     const { error: deleteError } = await ctx.supabaseAdmin.auth.admin.deleteUser(user.id);
     if (deleteError) {
       console.error("Auth account deletion failed", deleteError.code, deleteError.message);

@@ -1,31 +1,31 @@
-// Strength standards and the rating engine.
+// Kraftstandards und die Berechnung der Wertung.
 //
-// Ratings compare an estimated 1RM against published strength standards,
-// normalised by bodyweight, sex and age. Two deliberate limits:
+// Die Wertung vergleicht ein geschätztes 1RM mit veröffentlichten Kraftstandards,
+// bezogen auf Körpergewicht, Geschlecht und Alter. Zwei bewusste Grenzen:
 //
-//  1. Height is NOT an input. No published standard uses it — it affects
-//     leverages but isn't part of any normalisation. Including it would be
-//     invented precision.
-//  2. A movement is only rated when there is something to rate it against:
-//     a published standard for the barbell lifts, or a documented ratio to one
-//     of them for the machines. Everything else falls back to personal progress
-//     instead of a rank.
+//  1. Die Körpergröße ist KEINE Eingabe. Kein veröffentlichter Standard benutzt sie, sie
+//     beeinflusst die Hebel, ist aber in keiner Normierung enthalten. Sie aufzunehmen wäre
+//     ausgedachte Genauigkeit.
+//  2. Eine Bewegung wird nur bewertet, wenn es etwas gibt, woran man sie messen kann: einen
+//     veröffentlichten Standard für die Langhantelübungen oder ein festgehaltenes Verhältnis
+//     zu einer davon für die Maschinen. Alles andere bekommt statt eines Rangs den
+//     persönlichen Fortschritt.
 //
-// The numbers below are an approximate consensus of commonly published
-// standards. They are a useful yardstick, not a precise measurement.
+// Die Zahlen unten sind ein ungefährer Konsens aus häufig veröffentlichten Standards. Ein
+// brauchbarer Maßstab, keine genaue Messung.
 
 /**
- * The rank ladder.
+ * Die Rangleiter.
  *
- * Nine ranks with three divisions each, so there are 27 steps between the
- * first session and the top of the ladder rather than five. That is the point
- * of the shape: the old five-tier version put Elite at the fourth of four
- * boundaries, which meant a reasonably strong lifter arrived at the top name in
- * the app and then had nowhere left to go for the rest of their training life.
+ * Neun Ränge mit je drei Divisionen, zwischen der ersten Einheit und der Spitze liegen
+ * also 27 Stufen statt fünf. Genau darum geht es bei der Form: die alte Version mit fünf
+ * Stufen hatte Elite an der vierten von vier Grenzen. Ein ordentlich starker Mensch kam
+ * also beim obersten Namen der App an und hatte für den Rest seines Trainingslebens
+ * nichts mehr vor sich.
  *
- * The names are deliberately game-like. What they mean is not: every boundary
- * below is anchored to the same published bodyweight multiples the five-tier
- * version used — see LADDER for exactly which rank inherits which anchor.
+ * Die Namen sind bewusst wie aus einem Spiel. Was sie bedeuten, ist es nicht: jede Grenze
+ * unten hängt an denselben veröffentlichten Vielfachen des Körpergewichts wie die alte
+ * Version mit fünf Stufen, welcher Rang welchen Anker erbt, steht in LADDER.
  */
 export const TIERS = [
   { key: 'bronze',      label: 'Bronze',      short: 'Brz' },
@@ -37,25 +37,25 @@ export const TIERS = [
   { key: 'grandmaster', label: 'Grandmaster', short: 'GM' },
   { key: 'elite',       label: 'Elite',       short: 'Eli' },
   { key: 'legend',      label: 'Legend',      short: 'Lgd' },
-  // Above the published elite standard, where the tables run out and the only
-  // honest reference left is competition. These three are extrapolation and are
-  // labelled as such in their notes, but the territory is real: a lifter at the
-  // elite standard is a strong regional competitor, not the top of the sport.
+  // Über dem veröffentlichten Elite-Standard, wo die Tabellen aufhören und der einzige
+  // ehrliche Bezug der Wettkampf ist. Diese drei sind hochgerechnet und in ihren Hinweisen
+  // auch so gekennzeichnet, aber das Gebiet ist echt: wer auf Elite-Standard ist, ist ein
+  // starker regionaler Wettkämpfer und nicht die Spitze des Sports.
   { key: 'challenger',  label: 'Challenger',  short: 'Chl' },
   { key: 'immortal',    label: 'Immortal',    short: 'Imm' },
   { key: 'radiant',     label: 'Radiant',     short: 'Rad' },
 ];
 
-/** Divisions inside a rank, weakest first. Displayed as "Diamond II". */
+/** Divisionen innerhalb eines Rangs, die schwächste zuerst. Angezeigt als "Diamond II". */
 export const DIVISIONS = ['III', 'II', 'I'];
 
-/** Score width of one rank. Nine ranks across 0–100. */
+/** Breite eines Rangs in Punkten. Neun Ränge über 0 bis 100. */
 export const BAND = 100 / TIERS.length;
 
-/** Total steps on the ladder — the denominator of every "step 14 of 27". */
+/** Stufen auf der Leiter insgesamt, der Nenner jedes "Stufe 14 von 27". */
 export const RANK_STEPS = TIERS.length * DIVISIONS.length;
 
-/** Body-map regions. Finer than the coarse `muscle` field on an exercise. */
+/** Regionen der Muskelkarte. Feiner als das grobe Feld `muscle` an einer Übung. */
 export const REGIONS = {
   chest:       'Chest',
   'delts-front': 'Front Delts',
@@ -76,10 +76,10 @@ export const REGIONS = {
 };
 
 /**
- * The four published anchor points per lift, as bodyweight multiples: entry to
- * Novice, Intermediate, Advanced and Elite in the standards these came from.
- * `ladder()` turns them into the nine-rank boundaries the app displays, so the
- * published numbers stay visible and editable in one place.
+ * Die vier veröffentlichten Ankerpunkte je Übung als Vielfache des Körpergewichts:
+ * Einstieg zu Anfänger, Fortgeschritten, Weit fortgeschritten und Elite in den Standards,
+ * aus denen sie stammen. `ladder()` macht daraus die Grenzen der neun Ränge, die die App
+ * zeigt, die veröffentlichten Zahlen bleiben also an einer Stelle sichtbar und änderbar.
  */
 const BOUNDS = {
   male: {
@@ -122,7 +122,7 @@ const BOUNDS = {
   },
 };
 
-/** Lifts where the load is bodyweight plus any added weight. */
+/** Übungen, bei denen die Last Körpergewicht plus Zusatzgewicht ist. */
 const BODYWEIGHT_INCLUSIVE = new Set([
   'Pull-Up', 'Chin-Up', 'Dip', 'Weighted Pull-Up', 'Weighted Chin-Up', 'Weighted Dip',
 ]);
@@ -131,74 +131,73 @@ const BENCHMARK_BASE = {
 };
 
 /**
- * What the bundled catalogue calls a lift that already has a published standard.
+ * Wie der mitgelieferte Katalog eine Übung nennt, die schon einen veröffentlichten Standard hat.
  *
- * free-exercise-db spells a pull-up "Pullups" and splits the dip into a chest
- * and a triceps version, so not one of the three bodyweight benchmarks in
- * BOUNDS appears under the name that table uses. All three produced no rank
- * whatsoever: `isBenchmark` said no, and their equipment ("Bodyweight",
- * "Other") is not rated either, so buildRating skipped them before it ever
- * reached a standard. Somebody doing weighted pull-ups off the bundled library
- * had an unranked back.
+ * free-exercise-db schreibt den Klimmzug "Pullups" und teilt den Dip in eine Brust- und
+ * eine Trizepsversion, keine der drei Körpergewichts-Referenzen in BOUNDS steht also unter
+ * dem Namen, den die Tabelle benutzt. Alle drei ergaben überhaupt keinen Rang:
+ * `isBenchmark` sagte nein, und ihr Gerät ("Bodyweight", "Other") wird auch nicht bewertet,
+ * buildRating hat sie also übersprungen, bevor es je bei einem Standard ankam. Wer aus der
+ * mitgelieferten Bibliothek Klimmzüge mit Zusatzgewicht gemacht hat, hatte einen Rücken
+ * ohne Rang.
  *
- * Deliberately a separate table from ALIAS. ALIAS is forbidden from reaching
- * `isBenchmark`, because a wide-grip pulldown is close enough to borrow a
- * pulldown's ratio and not close enough to inherit its published standard.
- * These are not near variants; they are the same movement under the
- * catalogue's spelling, and saying so has to be its own deliberate list.
+ * Absichtlich eine eigene Tabelle neben ALIAS. ALIAS darf `isBenchmark` nie erreichen,
+ * weil ein Latzug im weiten Griff nah genug ist, um sich das Verhältnis eines Latzugs zu
+ * leihen, aber nicht nah genug, um seinen veröffentlichten Standard zu erben. Das hier sind
+ * keine nahen Varianten, sondern dieselbe Bewegung in der Schreibweise des Katalogs, und
+ * das zu sagen muss eine eigene, bewusste Liste sein.
  */
 export const BENCHMARK_ALIAS = {
   'Pullups': 'Pull-Up',
   'Dips - Chest Version': 'Dip',
   'Dips - Triceps Version': 'Dip',
 
-  // The catalogue and the standards table spell the same movements
-  // differently, and where they miss each other the lift ranks nothing at all.
-  // "Weighted Pull Ups" is the one that matters most: the published standard is
-  // filed under "Weighted Pull-Up", so the hyphen alone was the difference
-  // between a ranked lift and an invisible one — and without the alias the
-  // training screen also collected it as a plain external load rather than as
-  // bodyweight plus a belt.
+  // Katalog und Standardtabelle schreiben dieselben Bewegungen verschieden, und wo sie sich
+  // verfehlen, bekommt die Übung gar keinen Rang. "Weighted Pull Ups" ist die wichtigste:
+  // der veröffentlichte Standard steht unter "Weighted Pull-Up", allein der Bindestrich hat
+  // also zwischen einer eingestuften und einer unsichtbaren Übung entschieden. Ohne den
+  // Alias hat der Trainieren-Screen sie außerdem als normale Last abgefragt statt als
+  // Körpergewicht plus Gürtel.
   'Weighted Pull Ups': 'Weighted Pull-Up',
   'Parallel Bar Dip': 'Dip',
   'Ring Dips': 'Dip',
   'Narrow Parallel Grip Chin-ups': 'Chin-Up',
-  // Neutral grip sits between the two, and Chin-Up is the harder standard of
-  // the pair, so this is the conservative of the two readings.
+  // Der neutrale Griff liegt zwischen den beiden, und Chin-Up ist der härtere Standard des
+  // Paars. Das ist also die vorsichtigere der beiden Lesarten.
   'V-Bar Pullup': 'Chin-Up',
-  // Behind the neck is harder than a normal pull-up, never easier, so scoring
-  // it against the pull-up standard cannot flatter anybody.
+  // Hinter dem Nacken ist schwerer als ein normaler Klimmzug, nie leichter. Gegen den
+  // Klimmzug-Standard gemessen kann das also niemandem schmeicheln.
   'Wide-Grip Rear Pull-Up': 'Pull-Up',
 
-  // Deliberately absent, and each for its own reason. "Band Assisted Pull-Up"
-  // is assisted, so the number describes the band (see UNRATEABLE). "Bench
-  // Dips" and "Weighted Bench Dip" put the feet on the floor and carry a
-  // fraction of the load. "Scapular Pull-Up", "One Arm Chin-Up" and "Rocky
-  // Pull-Ups/Pulldowns" are different movements, not spellings.
+  // Absichtlich nicht dabei, jede aus eigenem Grund. "Band Assisted Pull-Up" ist
+  // unterstützt, die Zahl beschreibt also das Band (siehe UNRATEABLE). "Bench Dips" und
+  // "Weighted Bench Dip" stellen die Füße auf den Boden und tragen nur einen Teil der Last.
+  // "Scapular Pull-Up", "One Arm Chin-Up" und "Rocky Pull-Ups/Pulldowns" sind andere
+  // Bewegungen und keine andere Schreibweise.
 };
 
-/** The benchmark a catalogue name stands for, or the name itself. */
+/** Die Referenzübung, für die ein Katalogname steht, oder der Name selbst. */
 export const benchmarkName = (name) => BENCHMARK_ALIAS[name] || name;
 
-/** Which regions a benchmark lift trains, and how strongly (0–1). */
+/** Welche Regionen eine Referenzübung trainiert, und wie stark (0 bis 1). */
 export const CONTRIB = {
   'Barbell Bench Press':      { chest: 1, 'delts-front': 0.55, triceps: 0.55 },
   'Incline Barbell Bench Press': { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
   'Close-Grip Bench Press':   { triceps: 1, chest: 0.7, 'delts-front': 0.5 },
-  // The glutes are a prime hip extensor in a squat, which the old 0.75 denied,
-  // leaving them unrankable for anybody who squats and does not hip thrust.
+  // Das Gesäß ist bei der Kniebeuge ein Hauptstrecker der Hüfte, und die alten 0,75 haben
+  // das bestritten. Wer Kniebeugen, aber keine Hip Thrusts macht, konnte das Gesäß also nie einstufen.
   'Back Squat':               { quads: 1, glutes: 0.85, 'lower-back': 0.4, hamstrings: 0.35 },
   'Front Squat':              { quads: 1, glutes: 0.6, abs: 0.45, 'lower-back': 0.35 },
   'Deadlift':                 { 'lower-back': 1, hamstrings: 0.85, glutes: 0.85, traps: 0.55, lats: 0.45, forearms: 0.5 },
   'Sumo Deadlift':            { glutes: 1, quads: 0.7, 'lower-back': 0.8, hamstrings: 0.6, forearms: 0.45 },
   'Romanian Deadlift':        { hamstrings: 1, glutes: 0.8, 'lower-back': 0.6 },
   'Overhead Press':           { 'delts-front': 1, triceps: 0.6, traps: 0.4, abs: 0.3 },
-  // In a horizontal row the mid-back is a prime mover, not a bystander. These
-  // used to read lats 1.0 against traps 0.65, which described a pulldown: the
-  // consequence was that 22 movements touched the trapezius and not one could
-  // rank it, so an upper-back exercise left the upper back grey. `traps` here
-  // covers the mid and lower trapezius and the rhomboids, which the body map
-  // has no separate region for.
+  // Beim waagerechten Rudern ist der mittlere Rücken ein Hauptbeweger und kein Zuschauer.
+  // Hier stand früher Latissimus 1,0 gegen Trapez 0,65, und das beschreibt einen Latzug:
+  // die Folge war, dass 22 Bewegungen den Trapez berührt haben und keine ihn einstufen
+  // konnte, eine Übung für den oberen Rücken ließ den oberen Rücken grau. `traps` umfasst
+  // hier den mittleren und unteren Trapez und die Rautenmuskeln, für die die Muskelkarte
+  // keine eigene Region hat.
   'Barbell Row':              { lats: 1, traps: 1, biceps: 0.55, 'delts-rear': 0.7 },
   'Pendlay Row':              { lats: 1, traps: 1, biceps: 0.5, 'delts-rear': 0.7 },
   'Hip Thrust':               { glutes: 1, hamstrings: 0.55 },
@@ -213,38 +212,37 @@ export const CONTRIB = {
 };
 
 /**
- * Curated anatomy for movements that have no strength standard.
+ * Gepflegte Anatomie für Bewegungen ohne Kraftstandard.
  *
- * CONTRIB used to do two jobs at once — "which muscles does this train" and
- * "is this a benchmark lift" — which meant the only way to give an exercise
- * proper multi-region anatomy was to invent a standard for it. This table is
- * the first job on its own: machine work gets accurate regions and stays
- * unrated, which is the honest combination.
+ * CONTRIB hat früher zwei Aufgaben auf einmal gehabt, "welche Muskeln trainiert das" und
+ * "ist das eine Referenzübung". Der einzige Weg, einer Übung eine ordentliche Anatomie über
+ * mehrere Regionen zu geben, war also, ihr einen Standard zu erfinden. Diese Tabelle ist die
+ * erste Aufgabe für sich: Maschinenarbeit bekommt genaue Regionen und bleibt unbewertet,
+ * und das ist die ehrliche Kombination.
  *
- * Why machines get no standard: a "100 kg" chest press on one manufacturer's
- * frame is not 100 kg on another. Lever arms differ, plate-loaded and
- * pin-loaded stacks differ, and the starting resistance differs. There is
- * nothing to normalise against, so a tier would be a number with no meaning
- * behind it.
+ * Warum Maschinen keinen Standard bekommen: "100 kg" an der Brustpresse eines Herstellers
+ * sind nicht 100 kg am Gerät eines anderen. Hebelarme unterscheiden sich, Scheiben- und
+ * Steckgewicht unterscheiden sich, der Anfangswiderstand unterscheidet sich. Es gibt nichts,
+ * worauf man normieren könnte, eine Stufe wäre also eine Zahl ohne Bedeutung dahinter.
  */
 export const CONTRIB_EXTRA = {
-  // --- rows and pulls ---
-  // Chest-supported work is the most upper-back of the lot: the pad takes the
-  // torso out, which is exactly what lets the mid-back do the work.
+  // --- Rudern und Ziehen ---
+  // Mit Bruststütze trifft es am meisten den oberen Rücken: das Polster nimmt den Rumpf raus,
+  // und genau das lässt den mittleren Rücken die Arbeit machen.
   'Chest-Supported T-Bar Row': { traps: 1, lats: 0.9, 'delts-rear': 0.8, biceps: 0.5 },
   'Chest-Supported Row':       { traps: 1, lats: 0.9, 'delts-rear': 0.8, biceps: 0.5 },
   'Close-Grip Seated Row':     { lats: 1, traps: 0.9, biceps: 0.6, 'delts-rear': 0.45 },
   'Machine Row':               { lats: 1, traps: 0.95, biceps: 0.5, 'delts-rear': 0.6 },
   'Seated Cable Row':          { lats: 1, traps: 0.95, biceps: 0.55, 'delts-rear': 0.55 },
   'T-Bar Row':                 { lats: 1, traps: 1, biceps: 0.5, 'delts-rear': 0.6, 'lower-back': 0.3 },
-  // A high row pulls the elbows out and up, which is a rear-delt movement that
-  // happens to be loaded like a row.
+  // Hohes Rudern zieht die Ellbogen nach außen und oben, das ist eine Übung für die hintere
+  // Schulter, die zufällig wie Rudern beladen wird.
   'Machine High Row':          { traps: 1, 'delts-rear': 0.85, lats: 0.9, biceps: 0.45 },
   'Lying T-Bar Row':           { traps: 1, lats: 0.9, 'delts-rear': 0.8, biceps: 0.5 },
   'Machine Pullover':          { lats: 1, chest: 0.4, triceps: 0.3 },
   'Assisted Pull-Up Machine':  { lats: 1, biceps: 0.6, 'delts-rear': 0.3 },
 
-  // --- pressing ---
+  // --- Drücken ---
   'Machine Chest Press':       { chest: 1, 'delts-front': 0.55, triceps: 0.55 },
   'Incline Machine Press':     { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
   'Machine Chest Fly':         { chest: 1, 'delts-front': 0.3 },
@@ -255,13 +253,13 @@ export const CONTRIB_EXTRA = {
   'Smith Machine Incline Bench Press': { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
   'Smith Machine Squat':       { quads: 1, glutes: 0.7, 'lower-back': 0.3 },
 
-  // --- arms and delts ---
+  // --- Arme und Schultern ---
   'Machine Lateral Raise':     { 'delts-front': 1, traps: 0.3 },
   'Lateral Raise Machine':     { 'delts-front': 1, traps: 0.3 },
   'Machine Rear Delt Fly':     { 'delts-rear': 1, traps: 0.4 },
   'Machine Biceps Curl':       { biceps: 1, forearms: 0.3 },
-  // The same movement with a bar in your hands. Curated rather than inferred
-  // from the name, like every other row in this table.
+  // Dieselbe Bewegung mit einer Stange in den Händen. Gepflegt und nicht aus dem Namen
+  // abgeleitet, wie jede andere Zeile in dieser Tabelle.
   'Barbell Curl':              { biceps: 1, forearms: 0.35 },
   'Machine Preacher Curl':     { biceps: 1, forearms: 0.25 },
   'Preacher Curl Machine':     { biceps: 1, forearms: 0.25 },
@@ -273,13 +271,13 @@ export const CONTRIB_EXTRA = {
   'Rope Triceps Pushdown':     { triceps: 1 },
   'Machine Dip':               { triceps: 1, chest: 0.75, 'delts-front': 0.45 },
 
-  // --- lower body and core ---
+  // --- Unterkörper und Rumpf ---
   'Machine Hip Abduction':     { glutes: 1 },
   'Machine Hip Adduction':     { adductors: 1 },
   'Machine Crunch':            { abs: 1, obliques: 0.35 },
-  // Obliques had nothing that could rank them at all: one movement touched them
-  // and none drove them. These are the rotation and side-flexion patterns the
-  // catalogue actually carries.
+  // Für die seitlichen Bauchmuskeln gab es gar nichts, was sie einstufen konnte: eine
+  // Bewegung hat sie berührt, keine angetrieben. Das hier sind die Muster für Drehung und
+  // Seitneigung, die der Katalog tatsächlich hat.
   'Cable Oblique Twist':       { obliques: 1, abs: 0.8 },
   'Cable Side Bend':           { obliques: 1, abs: 0.6 },
   'Machine Back Extension':    { 'lower-back': 1, glutes: 0.6, hamstrings: 0.5 },
@@ -298,8 +296,8 @@ export const CONTRIB_EXTRA = {
   'Lat Pulldown Machine':      { lats: 1, biceps: 0.55, 'delts-rear': 0.35 },
   'Reverse Nordic Curl':       { quads: 1, abs: 0.25 },
   'Glute-Biased 45-Degree Back Extension': { glutes: 1, hamstrings: 0.7, 'lower-back': 0.3 },
-  // A Y-raise takes the arms up and back. That is the rear delt and the lower
-  // trapezius; calling it a front-delt movement was simply wrong.
+  // Y-Heben führt die Arme nach oben und hinten. Das ist hintere Schulter und unterer
+  // Trapez, es als Übung für die vordere Schulter zu führen war einfach falsch.
   'Cable Y-Raise':             { 'delts-rear': 1, traps: 0.85, 'delts-front': 0.5 },
   'Iso-Lateral Chest Press':   { chest: 1, 'delts-front': 0.55, triceps: 0.55 },
   'Iso-Lateral Incline Chest Press': { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
@@ -317,107 +315,103 @@ export const CONTRIB_EXTRA = {
   'Seated Dip Machine':        { triceps: 1, chest: 0.75, 'delts-front': 0.4 },
 };
 
-/** Anatomy for any curated movement, benchmark or not. */
+/** Anatomie für jede gepflegte Bewegung, ob Referenz oder nicht. */
 export const ANATOMY = { ...CONTRIB_EXTRA, ...CONTRIB };
 
 export const BENCHMARKS = Object.keys(CONTRIB);
 export const isBenchmark = (name) => Object.hasOwn(CONTRIB, benchmarkName(name));
 
-/* ===================== machines get a real standard ===================== */
+/* ===================== Maschinen bekommen einen echten Standard ===================== */
 
 /**
- * What a machine lift is measured against.
+ * Woran eine Übung an der Maschine gemessen wird.
  *
- * Recalibrated in August 2026 against the measured full-stack weights of one
- * real gym, which is the only hard data available up here: a stack maximum
- * answers the question a training standard cannot, namely what it *means* to
- * max this particular frame out. The rule used was **Legend ≈ a full stack
- * taken for about ten repetitions**, which is where the one movement with both
- * a published standard and a known stack already sat (a 105 kg pulldown stack
- * against a Legend of 138 kg), so the machines were fitted to agree with it.
+ * Im August 2026 neu eingestellt, an den gemessenen vollen Gewichtsblöcken eines echten
+ * Studios, weil das die einzigen harten Daten dafür sind: das Maximum eines Blocks
+ * beantwortet die Frage, die ein Trainingsstandard nicht beantworten kann, nämlich was es
+ * HEISST, genau dieses Gerät auszureizen. Die Regel war LEGEND ≈ VOLLER BLOCK FÜR ETWA ZEHN
+ * WIEDERHOLUNGEN, denn genau dort lag schon die eine Bewegung mit veröffentlichtem Standard
+ * und bekanntem Block (ein Latzug-Block mit 105 kg gegen ein Legend von 138 kg). Die
+ * Maschinen wurden also so eingestellt, dass sie dazu passen.
  *
- * Two independent checks that the rule is not circular: the chest press was
- * derived from the bench standard long before any stack was measured, and the
- * measured 135 kg stack put it within one percent of where it already was. The
- * pulldown, which has a published standard of its own and never went through
- * this table at all, lands in the same place.
+ * Zwei unabhängige Prüfungen, dass die Regel nicht im Kreis läuft: die Brustpresse wurde
+ * lange vor jeder Messung aus dem Bankdrück-Standard abgeleitet, und der gemessene Block
+ * mit 135 kg lag nur ein Prozent daneben. Der Latzug, der einen eigenen veröffentlichten
+ * Standard hat und nie durch diese Tabelle ging, landet an derselben Stelle.
  *
- * A second pass, against one lifter's actual working weights, split the rule in
- * two. Comparing a machine rank with that person's *barbell* rank for the same
- * muscle showed chest agreeing to half a rank and back to a third of one, so
- * those were left exactly as they were. Legs were 2.8 ranks apart — a leg
- * extension outranking the squat of the same person, which is not a thing legs
- * do — and the single-joint arm and shoulder machines sat consistently high.
+ * Eine zweite Runde an den echten Arbeitsgewichten eines Menschen hat die Regel geteilt.
+ * Der Maschinenrang im Vergleich zum LANGHANTEL-Rang derselben Person für denselben Muskel
+ * lag bei der Brust einen halben Rang auseinander und beim Rücken ein Drittel, die blieben
+ * also genau so. Die Beine lagen 2,8 Ränge auseinander (ein Beinstrecker über der Kniebeuge
+ * derselben Person, und das machen Beine nicht), und die eingelenkigen Maschinen für Arme
+ * und Schultern lagen durchgehend zu hoch.
  *
- * So compound machines keep **Legend ≈ a full stack for ten reps**, and
- * single-joint machines need roughly 1.6 times a full stack instead.
+ * Mehrgelenksmaschinen behalten also LEGEND ≈ VOLLER BLOCK FÜR ZEHN WIEDERHOLUNGEN,
+ * eingelenkige brauchen stattdessen etwa das 1,6-Fache eines vollen Blocks.
  *
- * A third pass caught what that rule alone cannot see: it treats every machine
- * on an 85 kg stack as the same achievement, and they are not. The same stack
- * carried a triceps pushdown and a preacher curl, so the table ended up
- * claiming that a Legend pushdown and a Legend curl are the same 134 kg —
- * a weight essentially nobody curls and plenty of people push down. The curl
- * factors therefore carry an explicit movement ratio on top of the stack rule:
- * a preacher curl handles roughly 85% of what a pushdown does on a comparable
- * stack, a hammer curl a little more. Confirmed by the lifter it was found
- * through, who maxes the pushdown stack and reaches 88% of the curl one. The
- * structural reason, which is why this is not simply fitted to one person: an
- * isolation stack is generous relative to the force actually produced, because
- * the same 135 kg frame has to serve a leg press and a leg extension. Where the
- * data and that argument disagreed, as on chest, the data won and nothing
- * moved.
+ * Eine dritte Runde hat erwischt, was diese Regel allein nicht sieht: sie behandelt jede
+ * Maschine mit einem 85-kg-Block als dieselbe Leistung, und das stimmt nicht. Derselbe Block
+ * hing an Trizepsdrücken und Scottcurls, die Tabelle behauptete also, ein Legend beim
+ * Trizepsdrücken und beim Curl seien dieselben 134 kg, ein Gewicht, das praktisch niemand
+ * curlt und viele drücken. Die Faktoren für Curls tragen deshalb zusätzlich ein Verhältnis
+ * der Bewegung: ein Scottcurl schafft an einem vergleichbaren Block etwa 85 % von dem, was
+ * Trizepsdrücken schafft, ein Hammercurl etwas mehr. Bestätigt von der Person, an der es
+ * aufgefallen ist: sie reizt den Block beim Trizepsdrücken aus und schafft 88 % am Curl.
+ * Der Grund im Aufbau, und deshalb ist das nicht einfach an eine Person angepasst: ein
+ * Block an einer Isolationsmaschine ist großzügig im Verhältnis zur wirklich erzeugten
+ * Kraft, weil dasselbe Gestell mit 135 kg für Beinpresse und Beinstrecker herhalten muss.
+ * Wo sich Daten und dieses Argument widersprachen, wie bei der Brust, gewannen die Daten,
+ * und nichts wurde verschoben.
  *
- * The consequence is deliberate: on an isolation machine the three ranks above
- * Legend are effectively out of reach, because a commercial stack cannot
- * express national-record strength. That is the honest answer. It is also what
- * fixes the case this was found through, a lateral raise machine handing out
- * the top rank at well under a full stack.
+ * Die Folge ist gewollt: an einer Isolationsmaschine sind die drei Ränge über Legend
+ * praktisch nicht erreichbar, weil ein normaler Block keine Kraft auf Landesrekord-Niveau
+ * ausdrücken kann. Das ist die ehrliche Antwort. Und genau das repariert den Fall, an dem
+ * es aufgefallen ist: eine Seitheben-Maschine, die den obersten Rang weit unter einem vollen
+ * Block verteilt hat.
  *
- * The old version rated machines off seven very broad category bands, and both
- * halves of that were wrong at once: the bands were far too soft (Elite on a
- * chest press was 1.40 × bodyweight, a number a great many lifters reach in
- * their second year), and the resulting rank was then discounted to 0.65 on the
- * body map because nobody trusted it. Machine work therefore inflated the rank
- * and contributed almost nothing to the map.
+ * Die alte Version hat Maschinen nach sieben sehr groben Kategorien bewertet, und beide
+ * Hälften davon waren gleichzeitig falsch: die Kategorien waren viel zu weich (Elite an der
+ * Brustpresse war das 1,40-Fache des Körpergewichts, das schaffen sehr viele im zweiten
+ * Jahr), und der Rang wurde auf der Muskelkarte dann auf 0,65 abgewertet, weil ihm keiner
+ * getraut hat. Maschinenarbeit hat den Rang also aufgebläht und zur Karte fast nichts beigetragen.
  *
- * This is the honest version of the same idea. A machine has no published
- * standard of its own, but the *ratio* between a machine and the barbell lift it
- * mirrors is stable enough to write down: a seated chest press is a little
- * easier than a bench press, a machine shoulder press a little heavier than a
- * standing overhead press because the seat takes the trunk out of it, a leg
- * extension is roughly half a squat. So the standard is derived — the barbell
- * ladder for that movement, scaled — which makes it as strict as the barbell
- * standard it comes from and lets it count fully.
+ * Das hier ist die ehrliche Fassung derselben Idee. Eine Maschine hat keinen eigenen
+ * veröffentlichten Standard, aber das VERHÄLTNIS zwischen einer Maschine und der
+ * Langhantelübung, der sie entspricht, ist stabil genug, um es aufzuschreiben: eine
+ * Brustpresse im Sitzen ist etwas leichter als Bankdrücken, eine Schulterpresse an der
+ * Maschine etwas schwerer als stehendes Überkopfdrücken, weil der Sitz den Rumpf rausnimmt,
+ * ein Beinstrecker ist etwa eine halbe Kniebeuge. Der Standard wird also abgeleitet (die
+ * Langhantel-Leiter für diese Bewegung, skaliert), dadurch ist er so streng wie der
+ * Langhantel-Standard, aus dem er kommt, und darf voll zählen.
  *
- * The factors are gym-floor consensus, not measurements, and they cannot be:
- * lever arms and stack ratios differ between manufacturers, which is exactly
- * what `scoreForMachine` blends same-model community data into once there is
- * any. LOW_CONFIDENCE carries that caveat to the screen.
+ * Die Faktoren sind Konsens aus dem Studio und keine Messungen, und das geht auch nicht
+ * anders: Hebelarme und Übersetzungen der Blöcke unterscheiden sich zwischen Herstellern,
+ * und genau dort mischt `scoreForMachine` Daten der Gemeinschaft zum selben Modell ein,
+ * sobald es welche gibt. LOW_CONFIDENCE bringt diesen Hinweis auf den Screen.
  *
- * @type {Object<string, [string, number]>}  name -> [barbell lift, factor]
+ * @type {Object<string, [string, number]>}  Name -> [Langhantelübung, Faktor]
  */
 const MACHINE_ANCHOR = {
-  // --- rows and pulls ---
-  // The chest-supported rows carried a 10% premium over a barbell row, on the
-  // reasoning that taking the lower back and hips out of the movement lets you
-  // pull more. That part is true. What it missed is the other side of the
-  // comparison: a barbell row is logged as bar plus plates, and a plate-loaded
-  // T-bar is logged as plates alone. The lever's own weight never reaches the
-  // number, so the premium was being charged against a load that already
-  // understates itself by roughly the same amount. The two cancel, and 1.00 is
-  // what is left. The free T-bar row keeps its step below the supported one.
+  // --- Rudern und Ziehen ---
+  // Das Rudern mit Bruststütze hatte einen Aufschlag von 10 % auf das Langhantelrudern, mit
+  // der Begründung, dass man mehr zieht, wenn unterer Rücken und Hüfte raus sind. Das stimmt
+  // auch. Übersehen wurde die andere Seite des Vergleichs: Langhantelrudern wird als Stange
+  // plus Scheiben eingetragen, eine T-Bar mit Scheiben nur als Scheiben. Das Eigengewicht
+  // des Hebels kommt nie in der Zahl an, der Aufschlag galt also einer Last, die sich selbst
+  // schon um etwa denselben Betrag zu niedrig angibt. Beides hebt sich auf, übrig bleibt 1,00.
+  // Die freie T-Bar behält ihren Abstand unter der gestützten.
   //
-  // This is a calibration against a logging convention, not a claim that the
-  // movements are equally hard. Anybody who knows what their frame actually
-  // resists at the handles should set a load correction and override it.
+  // Das ist eine Einstellung gegen eine Art einzutragen, keine Behauptung, dass beide
+  // Bewegungen gleich schwer sind. Wer weiß, was sein Gerät an den Griffen wirklich an
+  // Widerstand hat, sollte eine Lastkorrektur setzen und das überschreiben.
   'Chest-Supported T-Bar Row':  ['Barbell Row', 1.00],
   'Chest-Supported Row':        ['Barbell Row', 1.00],
   'Close-Grip Seated Row':      ['Barbell Row', 1.17],
   'Machine Row':                ['Barbell Row', 1.17],
   'Seated Cable Row':           ['Barbell Row', 1.17],
   'T-Bar Row':                  ['Barbell Row', 0.95],
-  // Unreachable: ALIAS resolves this name to Chest-Supported T-Bar Row before
-  // the anchor is looked up. Kept in step so it cannot mislead a reader.
+  // Nicht erreichbar: ALIAS löst diesen Namen zu Chest-Supported T-Bar Row auf, bevor der
+  // Anker nachgeschlagen wird. Wird trotzdem mitgezogen, damit es niemanden in die Irre führt.
   'Lying T-Bar Row':            ['Barbell Row', 1.00],
   'Machine High Row':           ['Barbell Row', 1.20],
   'Iso-Lateral High Row':       ['Barbell Row', 1.15],
@@ -427,7 +421,7 @@ const MACHINE_ANCHOR = {
   'Single-Arm Lat Pulldown':    ['Lat Pulldown', 0.50],
   'Lat Pulldown Machine':       ['Lat Pulldown', 1.00],
 
-  // --- pressing ---
+  // --- Drücken ---
   'Machine Chest Press':        ['Barbell Bench Press', 0.96],
   'Iso-Lateral Chest Press':    ['Barbell Bench Press', 0.96],
   'Smith Machine Bench Press':  ['Barbell Bench Press', 1.00],
@@ -442,26 +436,25 @@ const MACHINE_ANCHOR = {
   'Machine Dip':                ['Close-Grip Bench Press', 0.90],
   'Seated Dip Machine':         ['Close-Grip Bench Press', 0.90],
 
-  // --- arms and delts ---
+  // --- Arme und Schultern ---
   'Machine Lateral Raise':      ['Overhead Press', 1.13],
   'Lateral Raise Machine':      ['Overhead Press', 1.13],
   'Cable Y-Raise':              ['Overhead Press', 0.56],
   'Cross-Body Cable Lateral Raise': ['Overhead Press', 0.33],
   'Machine Rear Delt Fly':      ['Barbell Row', 0.91],
   'Machine Biceps Curl':        ['Barbell Row', 0.78],
-  // Not a machine. See DERIVED_FREE_WEIGHT: a barbell curl had no way to rank
-  // anything, because rateability was decided by equipment and "Barbell" was
-  // not on the list. 0.52 puts the elite band at 0.96 of the allometric
-  // reference, which is where the published barbell-curl standard sits — a
-  // little under bodyweight for a strong lifter. Routing it through the machine
-  // curl instead would have given 107 kg, because a cam helps and a bar does
-  // not.
+  // Keine Maschine. Siehe DERIVED_FREE_WEIGHT: ein Langhantelcurl konnte nichts einstufen,
+  // weil die Bewertbarkeit am Gerät hing und "Barbell" nicht auf der Liste stand. 0,52 legt
+  // das Elite-Band beim 0,96-Fachen der allometrischen Referenz, dort steht der
+  // veröffentlichte Standard für den Langhantelcurl, knapp unter dem Körpergewicht bei
+  // jemandem, der stark ist. Über den Maschinencurl hätte das 107 kg ergeben, weil ein
+  // Exzenter hilft und eine Stange nicht.
   'Barbell Curl':               ['Barbell Row', 0.52],
   'Machine Preacher Curl':      ['Barbell Row', 0.76],
   'Preacher Curl Machine':      ['Barbell Row', 0.76],
   'Rope Hammer Curl':           ['Barbell Row', 0.80],
-  // Forearms move a lot of weight through almost no range, so the number on the
-  // stack is at its least honest here of anywhere in the gym.
+  // Unterarme bewegen viel Gewicht über fast keinen Weg, die Zahl am Block ist hier also so
+  // unehrlich wie nirgends sonst im Studio.
   'Cable Wrist Curl':           ['Barbell Row', 0.90],
   'Bayesian Cable Curl':        ['Barbell Row', 0.19],
   'Machine Triceps Extension':  ['Close-Grip Bench Press', 0.89],
@@ -469,7 +462,7 @@ const MACHINE_ANCHOR = {
   'Rope Triceps Pushdown':      ['Close-Grip Bench Press', 0.86],
   'Overhead Rope Triceps Extension': ['Close-Grip Bench Press', 1.43],
 
-  // --- lower body and core ---
+  // --- Unterkörper und Rumpf ---
   'Hack Squat':                 ['Back Squat', 1.15],
   'Pendulum Squat':             ['Back Squat', 0.95],
   'Belt Squat':                 ['Back Squat', 0.95],
@@ -497,19 +490,17 @@ const MACHINE_ANCHOR = {
 };
 
 /**
- * The same movement under the name the library actually uses.
+ * Dieselbe Bewegung unter dem Namen, den die Bibliothek wirklich benutzt.
  *
- * The curated tables above were written against the seed list; the bundled
- * catalogue calls a lot of the same machines something else ("Ab Crunch
- * Machine" for Machine Crunch, "Leg Extensions" with an s, four different
- * spellings of a triceps pushdown). Without this an exercise gets ranked off
- * the coarse category bands and contributes to no muscle at all, which is how
- * an ab machine ended up invisible on the body map while still producing a
- * rank.
+ * Die gepflegten Tabellen oben wurden gegen die Startliste geschrieben, der mitgelieferte
+ * Katalog nennt viele derselben Maschinen anders ("Ab Crunch Machine" für Machine Crunch,
+ * "Leg Extensions" mit s, vier Schreibweisen für Trizepsdrücken am Kabel). Ohne das hier
+ * wird eine Übung über die groben Kategorien eingestuft und trägt zu keinem Muskel bei. So
+ * war eine Bauchmaschine auf der Muskelkarte unsichtbar und hat trotzdem einen Rang erzeugt.
  *
- * Aliasing affects anatomy, the machine anchor and the category — never
- * `isBenchmark`, because a wide-grip pulldown is close enough to borrow the
- * pulldown's ratio and not close enough to inherit its published standard.
+ * Der Alias wirkt auf Anatomie, Maschinenanker und Kategorie, nie auf `isBenchmark`, weil
+ * ein Latzug im weiten Griff nah genug ist, um sich das Verhältnis des Latzugs zu leihen,
+ * aber nicht nah genug, um seinen veröffentlichten Standard zu erben.
  */
 const ALIAS = {
   'Ab Crunch Machine': 'Machine Crunch',
@@ -545,9 +536,9 @@ const ALIAS = {
   'Seated Two-Arm Palms-Up Low-Pulley Wrist Curl': 'Cable Wrist Curl',
   'Cable Wrist Curl ': 'Cable Wrist Curl',
 
-  // The barbell curl the catalogue never calls a barbell curl. Every one of
-  // these is a two-handed bar curl differing only in grip or bench angle, and
-  // each was invisible to the rating under its own name.
+  // Der Langhantelcurl, den der Katalog nie Langhantelcurl nennt. Jeder davon ist ein
+  // beidhändiger Curl mit Stange, der sich nur im Griff oder Bankwinkel unterscheidet, und
+  // jeder war unter seinem eigenen Namen für die Bewertung unsichtbar.
   'Wide-Grip Standing Barbell Curl': 'Barbell Curl',
   'Close-Grip Standing Barbell Curl': 'Barbell Curl',
   'EZ-Bar Curl': 'Barbell Curl',
@@ -558,10 +549,9 @@ const ALIAS = {
   'Barbell Curls Lying Against An Incline': 'Barbell Curl',
   'Lying High Bench Barbell Curl': 'Barbell Curl',
   'Seated Close-Grip Concentration Barbell Curl': 'Barbell Curl',
-  // Deliberately NOT aliased here: a plain "Preacher Curl" is a bench in some
-  // gyms and a stack in others, and MACHINE_ANCHOR already carries the machine
-  // one. Guessing which the lifter means is how a rank ends up built on the
-  // wrong standard.
+  // Hier absichtlich KEIN Alias: ein einfaches "Preacher Curl" ist in manchen Studios eine
+  // Bank und in anderen ein Block, und MACHINE_ANCHOR hat den an der Maschine schon. Zu raten,
+  // was gemeint ist, ist genau der Weg, auf dem ein Rang auf dem falschen Standard landet.
 
   'Cable Seated Lateral Raise': 'Machine Lateral Raise',
   'Cable Rear Delt Fly': 'Machine Rear Delt Fly',
@@ -600,9 +590,9 @@ const ALIAS = {
   'T-Bar Rows': 'T-Bar Row',
   'Dumbbell Incline Row': 'Chest-Supported Row',
 
-  // Variants that differ from an anchored name by a letter, a bracket or a word
-  // order. Each of these was falling through to the coarse category bands and
-  // coming out at Legend on a normal stack.
+  // Varianten, die sich von einem Namen mit Anker durch einen Buchstaben, eine Klammer oder
+  // die Wortstellung unterscheiden. Jede davon ist durch die groben Kategorien gefallen und
+  // kam an einem normalen Block als Legend heraus.
   'Butterfly Machine': 'Butterfly',
   'Machine Bicep Curl': 'Machine Biceps Curl',
   'Machine Shoulder (Military) Press': 'Machine Shoulder Press',
@@ -625,31 +615,31 @@ const ALIAS = {
   'Cable Incline Pushdown': 'Machine Pullover',
 };
 
-/** The name the curated tables know this movement by. */
+/** Der Name, unter dem die gepflegten Tabellen diese Bewegung kennen. */
 export const canonical = (name) => ALIAS[name] || BENCHMARK_ALIAS[name] || name;
 
 /**
- * Movements a load cannot be ranked on at all, whatever the equipment says.
+ * Bewegungen, bei denen sich eine Last überhaupt nicht einstufen lässt, egal was das Gerät sagt.
  *
- * An assisted pull-up machine counts *downwards* — the number on the stack is
- * how much of you the machine is carrying, so a higher number is a weaker
- * lifter. Ranking it would invert the entire ladder for anyone who uses it.
+ * Eine Maschine für unterstützte Klimmzüge zählt RÜCKWÄRTS: die Zahl am Block ist, wie
+ * viel von einem die Maschine trägt, eine höhere Zahl heißt also schwächer. Das einzustufen
+ * würde für alle, die sie benutzen, die ganze Leiter umdrehen.
  */
 const UNRATEABLE = new Set(['Assisted Pull-Up Machine', 'Reverse Nordic Curl']);
 
 /**
- * Fallback bands for a machine with no anchor — a custom exercise, or one of the
- * long tail of the library. Same four published anchor points as a barbell lift
- * (novice / intermediate / advanced / elite entry) so they run through the same
- * ladder.
+ * Rückfallbereiche für eine Maschine ohne Anker, also eine eigene Übung oder eine aus dem
+ * langen Ende der Bibliothek. Dieselben vier veröffentlichten Ankerpunkte wie bei einer
+ * Langhantelübung (Einstieg Anfänger, Fortgeschritten, Weit fortgeschritten, Elite), damit
+ * sie durch dieselbe Leiter laufen.
  *
- * These have to stay in step with MACHINE_ANCHOR, and once did not: when the
- * anchored isolation machines were tightened, this table was left behind, so
- * `upperIsolation` sat at a Legend of 85 kg while every *recognised* isolation
- * machine asked for 110 to 175. The result was that the 63 library movements
- * with no anchor became the easiest route to a rank in the whole app — a full
- * cable tower on a wrist curl came out Radiant. An unrecognised machine must
- * never be an easier route than a recognised one, and there is a test for it.
+ * Die müssen mit MACHINE_ANCHOR im Gleichschritt bleiben und waren es einmal nicht: als die
+ * Isolationsmaschinen mit Anker strenger wurden, blieb diese Tabelle zurück. `upperIsolation`
+ * lag bei einem Legend von 85 kg, während jede ERKANNTE Isolationsmaschine 110 bis 175
+ * verlangte. Die 63 Bewegungen in der Bibliothek ohne Anker wurden so zum leichtesten Weg zu
+ * einem Rang in der ganzen App, ein voller Kabelturm beim Handgelenkcurl kam als Radiant
+ * heraus. Eine unerkannte Maschine darf nie ein leichterer Weg sein als eine erkannte, und
+ * dafür gibt es einen Test.
  */
 const MACHINE_BOUNDS = {
   male: {
@@ -674,16 +664,16 @@ export function machineCategory(name) {
   if (/(crunch|back extension)/.test(n)) return 'core';
   if (/(row|pulldown|pull-up|pullover)/.test(n)) return 'upperPull';
   if (/(chest press|bench press|incline press|shoulder press|machine dip|seated dip)/.test(n)) return 'upperPress';
-  // Heavy compound patterns, before anything else gets a chance to call them
-  // isolation. A Smith machine deadlift landing on the triceps band is not a
-  // rounding error, it is three ranks.
+  // Schwere Mehrgelenksmuster zuerst, bevor irgendetwas anderes sie Isolation nennen kann.
+  // Kreuzheben an der Multipresse, das im Trizeps-Bereich landet, ist kein Rundungsfehler,
+  // das sind drei Ränge.
   if (/(squat|lunge|split squat|step-up)/.test(n)) return 'lowerPress';
   if (/(deadlift|dead lift|good morning|hang clean|power clean|romanian)/.test(n)) return 'hip';
   if (/(shrug|high pull)/.test(n)) return 'upperPull';
 
-  // Then which half of the body it is. An unrecognised leg machine used to land
-  // on the triceps band, which is the wrong direction to be wrong in: it made
-  // an unknown lower-body movement far easier to rank than a known one.
+  // Dann, welche Körperhälfte. Eine unerkannte Beinmaschine ist früher im Trizeps-Bereich
+  // gelandet, und das ist die falsche Richtung für einen Fehler: eine unbekannte Übung für den
+  // Unterkörper war damit viel leichter einzustufen als eine bekannte.
   if (/(leg|glute|hamstring|quad|thigh|calf|hip|adduct|abduct)/.test(n)) return 'lowerIsolation';
   if (/(abs|core|oblique|crunch|sit-up|plank)/.test(n)) return 'core';
   if (/(fly|flye|pec|rear delt|lateral raise)/.test(n)) return 'upperIsolation';
@@ -691,63 +681,61 @@ export function machineCategory(name) {
   return 'upperIsolation';
 }
 
-/** Equipment whose loads this engine is willing to rank. */
+/** Geräte, deren Lasten diese Berechnung einzustufen bereit ist. */
 export const RATED_EQUIPMENT = new Set(['Machine', 'Cable']);
 
 /**
- * Free weights that rank through an anchor rather than a table of their own.
+ * Freie Gewichte, die über einen Anker eingestuft werden statt über eine eigene Tabelle.
  *
- * Rateability used to be decided entirely by equipment: a benchmark, or a
- * Machine or Cable. The effect was that the *same movement* ranked or did not
- * depending on which implement was in the lifter's hands — "Standing Biceps
- * Cable Curl" gave the biceps a rank, "Wide-Grip Standing Barbell Curl" gave
- * them nothing at all, and 292 barbell and dumbbell movements in the bundled
- * catalogue contributed to no muscle and no score. That is not a calibration
- * judgement, it is a filter drawn around the wrong property.
+ * Ob etwas bewertbar ist, hing früher nur am Gerät: eine Referenzübung oder Maschine oder
+ * Kabel. Die Folge war, dass DIESELBE BEWEGUNG einen Rang bekam oder nicht, je nachdem,
+ * was man in der Hand hielt. "Standing Biceps Cable Curl" gab dem Bizeps einen Rang,
+ * "Wide-Grip Standing Barbell Curl" gar nichts, und 292 Übungen mit Lang- und Kurzhantel im
+ * Katalog trugen zu keinem Muskel und keiner Wertung bei. Das ist keine Frage der
+ * Einstellung, das ist ein Filter um die falsche Eigenschaft.
  *
- * The fix is small on purpose. This is an explicit opt-in list, not the
- * category fallback that unknown machines get: those bands were fitted to pin
- * stacks, and letting every unrecognised barbell movement fall into them would
- * hand out ranks nobody calibrated. A name gets in here only when it has an
- * entry in MACHINE_ANCHOR with the derivation written next to it.
+ * Die Reparatur ist mit Absicht klein. Das ist eine ausdrückliche Liste zum Eintragen und
+ * nicht der Kategorie-Rückfall, den unbekannte Maschinen bekommen: diese Bereiche sind an
+ * Steckgewichten eingestellt, und jede unerkannte Langhantelübung da hineinfallen zu lassen
+ * würde Ränge verteilen, die niemand eingestellt hat. Ein Name kommt nur hier hinein, wenn er
+ * einen Eintrag in MACHINE_ANCHOR mit der Herleitung daneben hat.
  *
- * Dumbbells stay out, and the reason is the logging convention rather than the
- * lifting: the app records one bell, so the number on screen is half the work,
- * and choosing where to put that factor is the user's call and not this file's.
+ * Kurzhanteln bleiben draußen, und der Grund ist die Art einzutragen und nicht das Heben: die
+ * App speichert eine Hantel, die Zahl auf dem Screen ist also die halbe Arbeit, und wo man
+ * diesen Faktor ansetzt, entscheidet der Nutzer und nicht diese Datei.
  */
 export const DERIVED_FREE_WEIGHT = new Set(['Barbell Curl']);
 
 /**
- * Can this movement carry a rank at all? The one place that answers it.
+ * Kann diese Bewegung überhaupt einen Rang tragen? Die eine Stelle, die das beantwortet.
  *
- * The rule used to be written out by hand in three places — `buildRating` here,
- * and twice in history.js for the Progress line — and the copies had already
- * drifted: the two in history.js tested equipment directly and so quietly
- * dropped every plate-loaded lift that `ratedMachineNames` had just admitted.
- * Adding free weights to one copy would have split Home and Progress properly
- * in half, with the same barbell curl ranked on one screen and invisible on the
- * other. One function, three callers, no drift.
+ * Die Regel stand früher an drei Stellen von Hand ausgeschrieben, `buildRating` hier und
+ * zweimal in history.js für die Linie im Fortschritt, und die Kopien waren schon
+ * auseinandergelaufen: die zwei in history.js haben direkt das Gerät geprüft und damit still
+ * jede Übung mit Scheiben fallen lassen, die `ratedMachineNames` gerade zugelassen hatte.
+ * Freie Gewichte in nur eine Kopie aufzunehmen hätte Home und Fortschritt richtig
+ * auseinandergerissen, derselbe Langhantelcurl auf einem Screen eingestuft und auf dem
+ * anderen unsichtbar. Eine Funktion, drei Aufrufer, kein Auseinanderlaufen.
  *
- * @param name          the lift's catalogue name
- * @param machineNames  the set from `ratedMachineNames`, for this catalogue
+ * @param name          der Katalogname der Übung
+ * @param machineNames  das Set aus `ratedMachineNames` für diesen Katalog
  */
 export const isRateable = (name, machineNames) => !!name
   && (isBenchmark(name) || machineNames.has(name) || DERIVED_FREE_WEIGHT.has(canonical(name)));
 
 /**
- * Movements that take real plates on a real bar, whatever the catalogue calls
- * their equipment.
+ * Bewegungen mit echten Scheiben an einer echten Stange, egal welches Gerät der Katalog nennt.
  *
- * A chest-supported T-bar row is not a stack machine: it is a barbell with a
- * pad, and the number logged is plates. That matters three times over. The
- * full-stack calibration rule has nothing to say about it, because there is no
- * stack to max. The "count half of it" correction is about a display showing
- * both sides at once, which a plate-loaded bar does not do. And on the body map
- * it should win a tie the way a barbell does, because it is one.
+ * Ein T-Bar-Rudern mit Bruststütze ist keine Maschine mit Block, sondern eine Langhantel mit
+ * Polster, und eingetragen werden Scheiben. Das zählt dreimal. Die Regel mit dem vollen
+ * Block sagt dazu nichts, weil es keinen Block gibt, den man ausreizen könnte. Die Korrektur
+ * "die Hälfte zählen" betrifft eine Anzeige, die beide Seiten auf einmal zeigt, und das tut
+ * eine Stange mit Scheiben nicht. Und auf der Muskelkarte soll sie einen Gleichstand
+ * gewinnen wie eine Langhantel, weil sie eine ist.
  *
- * It also has to be rankable at all: several of these are tagged `Barbell` in
- * the catalogue, which kept them out of RATED_EQUIPMENT entirely, so a
- * plate-loaded T-bar row produced no rank whatsoever.
+ * Einstufbar muss sie auch überhaupt sein: mehrere davon sind im Katalog als `Barbell`
+ * markiert und fielen damit ganz aus RATED_EQUIPMENT, ein T-Bar-Rudern mit Scheiben
+ * erzeugte also gar keinen Rang.
  */
 export const PLATE_LOADED = new Set([
   'T-Bar Row', 'Chest-Supported T-Bar Row', 'Chest-Supported Row', 'Lying T-Bar Row',
@@ -762,12 +750,11 @@ export const PLATE_LOADED = new Set([
 export const isPlateLoaded = (name) => PLATE_LOADED.has(canonical(name)) || PLATE_LOADED.has(name);
 
 /**
- * Every exercise name whose load gets a rank without a published standard.
+ * Jeder Übungsname, dessen Last ohne veröffentlichten Standard einen Rang bekommt.
  *
- * Cables used to be excluded outright, which quietly meant a pushdown, a cable
- * row and a Bayesian curl were worth nothing at all — the same stack, the same
- * pin, ranked or unranked depending on which side of the frame the pulley was
- * bolted to.
+ * Kabel waren früher ganz ausgeschlossen. Still hieß das, dass Trizepsdrücken, Kabelrudern
+ * und ein Bayesian Curl gar nichts wert waren: derselbe Block, derselbe Stift, eingestuft
+ * oder nicht, je nachdem, auf welcher Seite des Gestells die Rolle angeschraubt war.
  */
 export function ratedMachineNames(exercises = []) {
   return new Set(exercises
@@ -776,42 +763,40 @@ export function ratedMachineNames(exercises = []) {
     .map((ex) => ex.name));
 }
 
-/* ===================== the ladder ===================== */
+/* ===================== die Leiter ===================== */
 
 const geo = (a, b) => Math.sqrt(a * b);
 
 /**
- * Multipliers on the published elite standard for the three ranks above it.
+ * Faktoren auf den veröffentlichten Elite-Standard für die drei Ränge darüber.
  *
- * There is nothing to interpolate up here, so these are the one genuinely
- * extrapolated part of the ladder and they are kept in their own table where
- * that is visible. They are calibrated against competition rather than against
- * a training standard: at 80 kg bodyweight, Radiant is a 248 kg bench, a 331 kg
- * squat and a 375 kg deadlift, which is the neighbourhood of a national record
- * and not a number anybody reaches by accident.
+ * Hier oben gibt es nichts zu interpolieren, das ist also der eine wirklich hochgerechnete
+ * Teil der Leiter, und er steht in einer eigenen Tabelle, wo man das sieht. Eingestellt
+ * gegen Wettkämpfe und nicht gegen einen Trainingsstandard: bei 80 kg Körpergewicht ist
+ * Radiant 248 kg Bankdrücken, 331 kg Kniebeuge und 375 kg Kreuzheben, also in der Nähe eines
+ * Landesrekords und keine Zahl, die jemand zufällig erreicht.
  */
 const BEYOND_ELITE = [1.10, 1.22, 1.38];
 
 /**
- * Four published anchors → the eleven boundaries of the twelve-rank ladder.
+ * Vier veröffentlichte Anker -> die elf Grenzen der Leiter mit zwölf Rängen.
  *
- * Every published number keeps its meaning; the new ranks are inserted between
- * them rather than replacing them:
+ * Jede veröffentlichte Zahl behält ihre Bedeutung, die neuen Ränge werden dazwischen
+ * geschoben und ersetzen sie nicht:
  *
- *   Silver      = a little over half the novice standard
- *   Gold        = published Novice
- *   Platinum    = between novice and intermediate
- *   Diamond     = published Intermediate
- *   Master      = between intermediate and advanced
- *   Grandmaster = published Advanced
- *   Elite       = between advanced and elite
- *   Legend      = published Elite
- *   Challenger / Immortal / Radiant = BEYOND_ELITE, above every table
+ *   Silver      = etwas mehr als die Hälfte des Anfängerstandards
+ *   Gold        = veröffentlicht: Anfänger
+ *   Platinum    = zwischen Anfänger und Fortgeschritten
+ *   Diamond     = veröffentlicht: Fortgeschritten
+ *   Master      = zwischen Fortgeschritten und Weit fortgeschritten
+ *   Grandmaster = veröffentlicht: Weit fortgeschritten
+ *   Elite       = zwischen Weit fortgeschritten und Elite
+ *   Legend      = veröffentlicht: Elite
+ *   Challenger / Immortal / Radiant = BEYOND_ELITE, über jeder Tabelle
  *
- * Geometric rather than arithmetic midpoints, because strength standards are
- * multiplicative: the gap from 1.25 to 1.75 × bodyweight is a bigger job than
- * the same 0.5 lower down, and the halfway point people actually experience is
- * the ratio, not the difference.
+ * Geometrische statt arithmetische Mitten, weil Kraftstandards multiplikativ sind: der
+ * Schritt vom 1,25- zum 1,75-Fachen des Körpergewichts ist mehr Arbeit als dieselben 0,5
+ * weiter unten, und die Hälfte, die man wirklich erlebt, ist das Verhältnis, nicht die Differenz.
  */
 export function ladder(anchors) {
   const [novice, intermediate, advanced, elite] = anchors;
@@ -822,48 +807,46 @@ export function ladder(anchors) {
   ];
 }
 
-/** Ranks with no published standard behind them at all. */
+/** Ränge, hinter denen gar kein veröffentlichter Standard steht. */
 export const EXTRAPOLATED_TIERS = new Set(['challenger', 'immortal', 'radiant']);
 
 /**
- * Everything in this file is kilograms, and the app is not.
+ * Alles in dieser Datei ist in Kilo, die App aber nicht.
  *
- * The published standards are bodyweight multiples against a 60 or 80 kg
- * reference, and the allometric exponent means the arithmetic is *not*
- * unit-agnostic: feeding it pounds does not cancel out, it inflates. The same
- * lifter logged in pounds came out a rank and a half stronger than in
- * kilograms, silently, for as long as the setting has existed. So the ratio is
- * computed in kilograms whatever the app is displaying, and anything handed
- * back for a screen is converted return.
+ * Die veröffentlichten Standards sind Vielfache des Körpergewichts gegen eine Referenz von
+ * 60 oder 80 kg, und durch den allometrischen Exponenten ist die Rechnung NICHT
+ * einheitenfrei: Pfund hineinzugeben hebt sich nicht auf, es bläht auf. Derselbe Mensch
+ * kam in Pfund eingetragen anderthalb Ränge stärker heraus als in Kilo, still, solange es
+ * die Einstellung gibt. Das Verhältnis wird also immer in Kilo gerechnet, egal was die App
+ * anzeigt, und was an einen Screen zurückgeht, wird umgerechnet.
  */
 const LB_PER_KG = 2.2046226218;
 const toKg = (value, units) => (units === 'lb' ? Number(value) / LB_PER_KG : Number(value));
 const fromKg = (value, units) => (units === 'lb' ? value * LB_PER_KG : value);
 
 /**
- * Where a load sits on the scale the standards are written against.
+ * Wo eine Last auf der Skala liegt, gegen die die Standards geschrieben sind.
  *
- * Two forms, and which one applies is a property of the lift.
+ * Zwei Formen, und welche gilt, ist eine Eigenschaft der Übung.
  *
- * **Allometric**, for anything with a load you choose. Muscle cross-section
- * scales with mass to about the two-thirds power, so a bigger lifter is
- * expected to move more in absolute terms and less per kilo of themselves. The
- * reference bodyweight is the one the published tables were written at, so a
- * lifter of exactly that weight scores precisely what the table says.
+ * ALLOMETRISCH, für alles mit einer Last, die man wählt. Der Muskelquerschnitt wächst mit
+ * etwa der Masse hoch zwei Drittel, von jemand Schwererem erwartet man also absolut mehr
+ * und pro Kilo eigenem Gewicht weniger. Das Referenzgewicht ist das, bei dem die
+ * veröffentlichten Tabellen geschrieben wurden, wer genau so viel wiegt, bekommt also
+ * genau das, was die Tabelle sagt.
  *
- * **Bodyweight-relative**, for a pull-up, a chin-up or a dip, where the load
- * *is* the lifter. The allometric form counts bodyweight on both sides of the
- * fraction there, and the two do not cancel: with nothing added it reduces to
- * `(bw / reference) ^ 0.33`, a number that depends on nothing but the scale in
- * the bathroom. The result was a rank that went **up** when the lifter gained
- * weight and did exactly as many pull-ups as before — three steps, from Silver
- * I at 70 kg to Gold II at 100 kg, for the same single rep. Every other lift in
- * the app moves the other way, correctly, and so does reality.
+ * RELATIV ZUM KÖRPERGEWICHT, für Klimmzüge, Chin-Ups und Dips, wo die Last der Mensch IST.
+ * Die allometrische Form zählt dort das Körpergewicht auf beiden Seiten des Bruchs, und die
+ * heben sich nicht auf: ohne Zusatzgewicht bleibt `(bw / reference) ^ 0.33`, eine Zahl, die
+ * von nichts abhängt als der Waage im Bad. Das Ergebnis war ein Rang, der STIEG, wenn man
+ * zugenommen hat und genauso viele Klimmzüge schaffte wie vorher: drei Stufen, von Silver I
+ * bei 70 kg zu Gold II bei 100 kg, für dieselbe einzelne Wiederholung. Jede andere Übung in
+ * der App bewegt sich andersherum, zu Recht, und die Wirklichkeit auch.
  *
- * A plain multiple of bodyweight is also how these particular standards are
- * published ("advanced = 1.55 x bodyweight"), and it agrees with the allometric
- * form exactly at the reference weight, so nothing that was calibrated there
- * moves.
+ * Ein einfaches Vielfaches des Körpergewichts ist auch die Form, in der genau diese
+ * Standards veröffentlicht werden ("weit fortgeschritten = 1,55 x Körpergewicht"), und am
+ * Referenzgewicht stimmt es genau mit der allometrischen Form überein. Nichts, was dort
+ * eingestellt wurde, bewegt sich.
  */
 export function strengthRatio(oneRepMax, profile, { bodyweightRelative = false } = {}) {
   const sex = profile.sex === 'female' ? 'female' : 'male';
@@ -875,7 +858,7 @@ export function strengthRatio(oneRepMax, profile, { bodyweightRelative = false }
   return load / (Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33));
 }
 
-/** The inverse of strengthRatio, in whatever unit the app is displaying. */
+/** Die Umkehrung von strengthRatio, in der Einheit, die die App gerade zeigt. */
 export function weightForRatio(ratio, profile, { bodyweightRelative = false } = {}) {
   const sex = profile.sex === 'female' ? 'female' : 'male';
   const bw = toKg(profile.bodyweight, profile.units);
@@ -885,12 +868,12 @@ export function weightForRatio(ratio, profile, { bodyweightRelative = false } = 
   return fromKg(ratio * Math.pow(bw, 0.67) * Math.pow(referenceBw, 0.33), profile.units);
 }
 
-/** Is this lift's load the lifter's own body? Then see `strengthRatio`. */
+/** Ist die Last dieser Übung der eigene Körper? Dann siehe `strengthRatio`. */
 const carriesOwnBodyweight = (liftName) => BODYWEIGHT_INCLUSIVE.has(benchmarkName(liftName));
 
 /**
- * Strength peaks roughly 20–35. Older lifters get a proportionally easier
- * standard; under-20s a slightly easier one too.
+ * Die Kraft ist etwa zwischen 20 und 35 am höchsten. Ältere bekommen einen entsprechend
+ * leichteren Standard, unter 20-Jährige einen etwas leichteren.
  */
 export function ageFactor(age) {
   const a = Number(age);
@@ -901,12 +884,11 @@ export function ageFactor(age) {
 }
 
 /**
- * Continuous 0–100 score across the eight boundaries.
+ * Durchgehende Wertung von 0 bis 100 über die acht Grenzen.
  *
- * Bands are equal width, so the score encodes both the rank and how far through
- * it you are. Above the last boundary the score climbs to 100 over a further
- * 25% of the top standard, which is what stops Legend from being a wall the
- * moment it is reached.
+ * Die Bereiche sind gleich breit, die Wertung sagt also den Rang und wie weit man darin
+ * ist. Über der letzten Grenze steigt die Wertung über weitere 25 % des obersten Standards
+ * bis 100, dadurch ist Legend keine Wand, sobald man es erreicht hat.
  */
 function scoreFromBounds(ratio, bounds) {
   const band = 100 / (bounds.length + 1);
@@ -918,7 +900,7 @@ function scoreFromBounds(ratio, bounds) {
   return Math.min(100, band * bounds.length + band * Math.min(1, (ratio - top) / (top * 0.25)));
 }
 
-/** scoreFromBounds turned inside out: the ratio a target score asks for. */
+/** scoreFromBounds umgedreht: das Verhältnis, das eine Zielwertung verlangt. */
 function ratioFromScore(score, bounds) {
   const band = 100 / (bounds.length + 1);
   const i = Math.floor(score / band);
@@ -929,8 +911,8 @@ function ratioFromScore(score, bounds) {
 }
 
 /**
- * The eight boundaries for one lift, age-adjusted, or null when the lift has no
- * standard at all. `machine` decides which table is consulted.
+ * Die acht Grenzen für eine Übung, ans Alter angepasst, oder null, wenn die Übung gar keinen
+ * Standard hat. `machine` entscheidet, welche Tabelle gefragt wird.
  */
 export function boundsFor(liftName, profile, { machine = false, community = null } = {}) {
   const sex = profile.sex === 'female' ? 'female' : 'male';
@@ -949,13 +931,13 @@ export function boundsFor(liftName, profile, { machine = false, community = null
   if (anchor && BOUNDS[sex][anchor[0]]) seed = BOUNDS[sex][anchor[0]].map((v) => v * anchor[1]);
   else seed = MACHINE_BOUNDS[sex][machineCategory(canonical(liftName))];
 
-  // Same-model community percentiles, blended into the four anchors before the
-  // ladder is built from them — the cloud stores four quantiles, which is
-  // exactly the shape the published tables come in.
+  // Perzentile der Gemeinschaft zum selben Modell, in die vier Anker gemischt, bevor daraus
+  // die Leiter gebaut wird. Die Cloud speichert vier Quantile, und genau in dieser Form
+  // kommen die veröffentlichten Tabellen.
   const observed = community && [community.q20, community.q40, community.q60, community.q80].map(Number);
   if (Number(community?.count) >= 10 && observed?.every((v, i) => v > 0 && (!i || v > observed[i - 1]))) {
-    // Seed data never disappears entirely; even a popular model can have a
-    // biased user base. At 100 observations the community contributes 80%.
+    // Die Startdaten verschwinden nie ganz, auch ein beliebtes Modell kann eine schiefe
+    // Nutzerschaft haben. Bei 100 Beobachtungen trägt die Gemeinschaft 80 % bei.
     const blend = Math.min(0.8, 0.15 + (Number(community.count) - 10) / 90 * 0.65);
     seed = seed.map((v, i) => v * (1 - blend) + observed[i] * blend);
   }
@@ -963,20 +945,20 @@ export function boundsFor(liftName, profile, { machine = false, community = null
 }
 
 /**
- * How much a rank built outside the valid repetition window is trusted.
+ * Wie sehr einem Rang getraut wird, der außerhalb des gültigen Wiederholungsbereichs
+ * gebaut wurde.
  *
- * Not zero: a lifter who only ever trains a machine at fifteen reps should get
- * a rank rather than a blank. Not one either, and the number is deliberately
- * the same size as the machine discount it replaced, because the uncertainty is
- * the same kind: a real measurement read through a formula that was not fitted
- * for it.
+ * Nicht null: wer eine Maschine immer nur mit fünfzehn Wiederholungen trainiert, soll einen
+ * Rang bekommen und kein leeres Feld. Aber auch nicht eins, und die Zahl ist absichtlich so
+ * groß wie der Maschinenabschlag, den sie ersetzt hat, weil die Unsicherheit dieselbe Art
+ * ist: eine echte Messung, gelesen durch eine Formel, die dafür nicht gemacht ist.
  */
 const EXTRAPOLATED_CONFIDENCE = 0.85;
 
-/** How much a free weight ranked through somebody else's standard is trusted. */
+/** Wie sehr einem freien Gewicht getraut wird, das über den Standard von etwas anderem eingestuft ist. */
 const DERIVED_CONFIDENCE = 0.9;
 
-/** How much a machine's rank is trusted on the shared body map. */
+/** Wie sehr dem Rang einer Maschine auf der gemeinsamen Muskelkarte getraut wird. */
 export function machineConfidence(liftName, community = null) {
   if (Number(community?.count) >= 10) return 1;
   return MACHINE_ANCHOR[canonical(liftName)] ? 1 : 0.9;
@@ -998,30 +980,27 @@ export function scoreFor(liftName, oneRepMax, profile) {
 }
 
 /**
- * Benchmarks whose standard is shakier than the rest, and why.
+ * Referenzübungen, deren Standard wackliger ist als der Rest, und warum.
  *
- * Leg press is the honest problem case in this table: published standards for
- * it exist and circulate widely, but the load depends entirely on the machine's
- * leverage and sled weight, which vary hugely. Two lifters pressing the same
- * number on different machines are not doing the same work. The rank is kept
- * because leaving quads unranked for a machine trainee is worse, but the caveat
- * travels with it wherever it is shown.
+ * Die Beinpresse ist hier das ehrliche Problem: Standards dafür gibt es und sie sind weit
+ * verbreitet, aber die Last hängt komplett an Hebel und Schlittengewicht der Maschine, und
+ * die sind sehr verschieden. Zwei Leute, die an verschiedenen Maschinen dieselbe Zahl
+ * drücken, leisten nicht dieselbe Arbeit. Der Rang bleibt, weil ein Quadrizeps ohne Rang
+ * für jemanden an Maschinen schlimmer ist, aber der Hinweis geht überall mit, wo er steht.
  */
 export const LOW_CONFIDENCE = {
-  // A key, not a sentence. This used to hold finished English prose and was
-  // rendered straight onto the screen, which made it the one line of the German
-  // interface that was not in German — and invisible to the i18n test, which
-  // only reads strings.js.
+  // Ein Schlüssel, kein Satz. Hier stand früher fertiger englischer Text, der direkt auf den
+  // Screen kam. Damit war das die eine Zeile der deutschen Oberfläche, die nicht Deutsch war,
+  // und der i18n-Test hat sie nicht gesehen, weil er nur strings.js liest.
   'Leg Press': 'standards.lowConfidence.legPress',
 };
 
 /**
- * The epsilon exists because 100/9 does not divide 100.
+ * Das Epsilon gibt es, weil 100/9 nicht glatt aufgeht.
  *
- * A lift landing exactly on a published anchor scores exactly `n × BAND`, and
- * without this that division comes back as 5.999999 and prints the rank below
- * the one the standard says. It is not a rounding preference, it is the
- * difference between "you have reached Grandmaster" and "you have not".
+ * Eine Übung genau auf einem veröffentlichten Anker ergibt genau `n × BAND`, und ohne das
+ * kommt die Division als 5,999999 zurück und druckt den Rang darunter. Das ist keine
+ * Rundungsvorliebe, sondern der Unterschied zwischen "du hast Grandmaster erreicht" und "hast du nicht".
  */
 const EPS = 1e-9;
 
@@ -1036,11 +1015,11 @@ export const tierOf = (score) => {
 };
 
 /**
- * Rank, division, and how far through the division you are.
+ * Rang, Division und wie weit man in der Division ist.
  *
- * `step` is the absolute position on the 27-step ladder, which is the number to
- * compare across time: it is the one value that goes up by exactly one every
- * time there is something to celebrate.
+ * `step` ist die absolute Position auf der Leiter mit 27 Stufen, das ist die Zahl zum
+ * Vergleichen über die Zeit: der eine Wert, der jedes Mal genau um eins steigt, wenn es
+ * etwas zu feiern gibt.
  */
 export function rankOf(score) {
   if (score === null || score === undefined || Number.isNaN(score)) return null;
@@ -1052,7 +1031,7 @@ export function rankOf(score) {
     tierIndex: i,
     division: DIVISIONS[d],
     divisionIndex: d,
-    /** 0–1 through the current division. */
+    /** 0 bis 1, wie weit in der aktuellen Division. */
     progress: into * DIVISIONS.length - d,
     step: i * DIVISIONS.length + d + 1,
     steps: RANK_STEPS,
@@ -1060,7 +1039,7 @@ export function rankOf(score) {
   };
 }
 
-/** The score at which the next division, and the next rank, begin. */
+/** Die Wertung, bei der die nächste Division und der nächste Rang anfangen. */
 export function nextThresholds(score) {
   const rank = rankOf(score);
   if (!rank) return null;
@@ -1073,10 +1052,10 @@ export function nextThresholds(score) {
 }
 
 /**
- * The lift that a target score asks for, in kilograms on the bar.
+ * Die Last, die eine Zielwertung verlangt, in Kilo auf der Stange.
  *
- * For a bodyweight-inclusive movement the standard is written against the whole
- * system, so the answer is what to *add*, which is what a pull-up belt takes.
+ * Bei einer Bewegung mit Körpergewicht ist der Standard gegen das ganze System geschrieben,
+ * die Antwort ist also, was man DRAUFLEGEN muss, und das nimmt ein Klimmzuggürtel.
  */
 export function weightForScore(liftName, targetScore, profile, { machine = false, community = null } = {}) {
   const bounds = boundsFor(liftName, profile, { machine, community });
@@ -1089,7 +1068,7 @@ export function weightForScore(liftName, targetScore, profile, { machine = false
   return need;
 }
 
-/** kg still needed to reach the next rank, or null at the top. */
+/** Wie viele kg noch bis zum nächsten Rang fehlen, oder null ganz oben. */
 export function toNextTier(liftName, score, profile, opts = {}) {
   const next = nextThresholds(score);
   if (!next || next.tier === null) return null;
@@ -1097,7 +1076,7 @@ export function toNextTier(liftName, score, profile, opts = {}) {
   return weight === null ? null : { tier: TIERS[tierIndex(score) + 1], weight };
 }
 
-/** kg still needed to reach the next division — the small, frequent win. */
+/** Wie viele kg noch bis zur nächsten Division fehlen, der kleine, häufige Erfolg. */
 export function toNextDivision(liftName, score, profile, opts = {}) {
   const next = nextThresholds(score);
   if (!next || next.division === null) return null;
@@ -1108,67 +1087,65 @@ export function toNextDivision(liftName, score, profile, opts = {}) {
 }
 
 /**
- * How much a lift has to train a region before that region counts as measured.
+ * Wie stark eine Übung eine Region trainieren muss, bevor die Region als gemessen gilt.
  *
- * This exists because of a category error that ran for a long time. A region's
- * score is `lift score × how strongly that lift trains it`, and that second
- * number is a *contribution* weight: how much the squat stimulates hamstrings.
- * It was then being read as a *strength* discount, so somebody whose only
- * hamstring evidence was a squat got hamstrings = 35% of their squat rank, and
- * that fed straight into the average.
+ * Das gibt es wegen eines Denkfehlers, der lange drin war. Die Wertung einer Region ist
+ * `Wertung der Übung × wie stark die Übung sie trainiert`, und diese zweite Zahl ist ein
+ * BEITRAGS-Gewicht: wie stark die Kniebeuge die Beinbeuger reizt. Gelesen wurde sie aber
+ * als Abschlag auf die STÄRKE. Wer als einzigen Beleg für die Beinbeuger eine Kniebeuge
+ * hatte, bekam Beinbeuger = 35 % seines Kniebeuge-Rangs, und das ging direkt in den Durchschnitt.
  *
- * The effect was severe and one-directional. A real lifter's directly trained
- * regions averaged 53 while the six read only through a secondary contribution
- * came out at 14 to 30, dragging the overall from Grandmaster to Diamond. The
- * app was not telling them their hamstrings were weak. It was telling them it
- * had never looked, in a voice that sounded like a verdict.
+ * Die Wirkung war heftig und ging nur in eine Richtung. Bei einem echten Log lagen die
+ * direkt trainierten Regionen im Schnitt bei 53, die sechs, die nur über einen Nebenbeitrag
+ * gelesen wurden, bei 14 bis 30, und die Gesamtwertung fiel von Grandmaster auf Diamond. Die
+ * App hat nicht gesagt, dass die Beinbeuger schwach sind. Sie hat gesagt, dass sie nie
+ * hingeschaut hat, nur in einem Ton, der wie ein Urteil klang.
  *
- * So the weight now **gates** rather than **scales**. At or above this, the lift
- * is a primary or near-primary driver for that region and the region simply
- * takes the lift's rank, undiscounted: if your incline press is Grandmaster,
- * your chest is Grandmaster, not 95% of Grandmaster. Below it there is no rank
- * at all. The region is reported as touched indirectly, by name, and left grey.
+ * Das Gewicht ist deshalb jetzt eine SCHWELLE und kein FAKTOR. Ab diesem Wert treibt die
+ * Übung die Region hauptsächlich oder fast hauptsächlich an, und die Region bekommt einfach
+ * den Rang der Übung, ohne Abschlag: ist das Schrägbankdrücken Grandmaster, ist die Brust
+ * Grandmaster und nicht 95 % davon. Darunter gibt es gar keinen Rang. Die Region wird als
+ * indirekt berührt gemeldet, mit Namen, und bleibt grau.
  *
- * That last part is the half it took two goes to get right. Taking these out of
- * the *average* was not enough, because the discounted number was still printed
- * on the map and in the region sheet. A trapezius reading of "Diamond II"
- * computed as `row rank x 0.7` is not a weak trapezius, it is a row.
+ * Dieser letzte Teil hat zwei Anläufe gebraucht. Die Regionen aus dem DURCHSCHNITT zu
+ * nehmen reichte nicht, weil die abgeschlagene Zahl weiter auf der Karte und im Sheet der
+ * Region stand. Ein Trapez mit "Diamond II", gerechnet als `Rang beim Rudern x 0,7`, ist kein
+ * schwacher Trapez, sondern Rudern.
  */
 export const DIRECT_CONTRIBUTION = 0.8;
 
 /**
- * Per-region and overall rating.
+ * Wertung je Region und insgesamt.
  *
- * A region's score is the best (lift score × how strongly that lift trains it)
- * across the lifts the user actually performs. Taking the max rather than an
- * average means skipping one lift doesn't drag a region down — but a region you
- * never train stays unrated rather than scoring zero.
+ * Die Wertung einer Region ist das Beste aus (Wertung der Übung × wie stark die Übung sie
+ * trainiert) über die Übungen, die man wirklich macht. Das Maximum statt eines
+ * Durchschnitts heißt, dass eine ausgelassene Übung eine Region nicht runterzieht, eine
+ * Region, die man nie trainiert, bleibt aber unbewertet, statt null zu bekommen.
  *
- * Machines now count fully, because they finally have a standard worth counting
- * (see MACHINE_ANCHOR). Free weights still win a tie: where a barbell lift and a
- * machine land a region on the same number, the one measured against a published
- * standard is the one named as the source.
+ * Maschinen zählen jetzt voll, weil sie endlich einen Standard haben, der sich zu zählen
+ * lohnt (siehe MACHINE_ANCHOR). Freie Gewichte gewinnen trotzdem einen Gleichstand: bringen
+ * eine Langhantelübung und eine Maschine eine Region auf dieselbe Zahl, wird die Übung als
+ * Quelle genannt, die gegen einen veröffentlichten Standard gemessen ist.
  *
- * @param bestByLift Map of lift name -> best estimated 1RM
+ * @param bestByLift Map Übungsname -> bestes geschätztes 1RM
  */
 /**
- * How far above the rest of somebody's training a lift has to sit before the
- * app says something. Two whole ranks.
+ * Wie weit eine Übung über dem Rest des eigenen Trainings liegen muss, bevor die App etwas
+ * sagt. Zwei ganze Ränge.
  *
- * The case this exists for: a machine that shows the total stack while each arm
- * moves half of it, or a plate-loaded frame logged as the sum of both sides, or
- * a stack marked in pounds typed in as kilograms. All three produce a number
- * that is right for the machine and wrong for the standard, and the symptom is
- * always the same shape — one movement standing several ranks clear of
- * everything else the same person does.
+ * Der Fall, für den es das gibt: eine Maschine, die den ganzen Block anzeigt, während jeder
+ * Arm die Hälfte bewegt, ein Gestell mit Scheiben, das als Summe beider Seiten eingetragen
+ * ist, oder ein Block in Pfund, der als Kilo eingetippt wird. Alle drei ergeben eine Zahl,
+ * die für die Maschine stimmt und für den Standard falsch ist, und das Anzeichen hat immer
+ * dieselbe Form: eine Bewegung steht mehrere Ränge über allem anderen, was dieselbe Person macht.
  *
- * It is a question, never a correction. The app does not know which of those
- * three it is, or whether somebody simply has freakish side delts, so it says
- * what it noticed and offers the fix rather than applying one.
+ * Es ist eine Frage und nie eine Korrektur. Die App weiß nicht, welcher der drei Fälle es
+ * ist oder ob jemand einfach unfassbare Schultern hat. Sie sagt also, was ihr aufgefallen
+ * ist, und bietet die Lösung an, statt sie anzuwenden.
  */
 const OUTLIER_RANKS = 2;
 
-/** Lifts below this many rated movements cannot have an outlier: too short a list. */
+/** Bei weniger bewerteten Übungen als hier kann es keinen Ausreißer geben, die Liste ist zu kurz. */
 const OUTLIER_MIN_PEERS = 3;
 
 const median = (values) => {
@@ -1179,16 +1156,14 @@ const median = (values) => {
 };
 
 /**
- * @param loadFactors  name -> multiplier applied to the estimate before it is
- *                     ranked. This corrects how a machine *reports* load; the
- *                     log itself is never touched, because what you typed is
- *                     what you did.
- * @param stackMax     name -> the heaviest the stack goes, when the user has
- *                     said. Turns "this looks high" into "this is 1.7 times a
- *                     full stack", which is evidence rather than a hunch.
- * @param regionsByName name -> { region: weight }, from the exercises
- *                     themselves. The fallback for anything the curated
- *                     ANATOMY table has never heard of.
+ * @param loadFactors  Name -> Faktor, mit dem die Schätzung vor dem Einstufen multipliziert
+ *                     wird. Das korrigiert, wie eine Maschine Last ANZEIGT. Das Log selbst
+ *                     wird nie angefasst, denn was eingetippt wurde, wurde gemacht.
+ * @param stackMax     Name -> das Höchste, was der Block hergibt, wenn der Nutzer es gesagt
+ *                     hat. Macht aus "das sieht hoch aus" ein "das ist das 1,7-Fache eines
+ *                     vollen Blocks", und das ist ein Beleg statt eines Bauchgefühls.
+ * @param regionsByName Name -> { Region: Gewicht }, aus den Übungen selbst. Der Rückfall
+ *                     für alles, was die gepflegte Tabelle ANATOMY nie gehört hat.
  */
 export function buildRating(bestByLift, profile,
   {
@@ -1197,12 +1172,12 @@ export function buildRating(bestByLift, profile,
     loadFactors = {}, stackMax = {}, regionsByName = {},
   } = {}) {
   const regions = {};
-  // Regions no lift drives hard enough to rank, and the best lift that touches
-  // them. Deliberately not a score: a number here is what caused the bug this
-  // replaced.
+  // Regionen, die keine Übung stark genug antreibt, um sie einzustufen, und die beste Übung,
+  // die sie berührt. Absichtlich keine Wertung: eine Zahl hier war die Ursache des Fehlers,
+  // den das ersetzt hat.
   const indirect = {};
-  // Every lift that *could* rank each region, so the rating can say whether a
-  // rank is corroborated or resting on one movement.
+  // Jede Übung, die eine Region einstufen KÖNNTE, damit die Wertung sagen kann, ob ein Rang
+  // abgesichert ist oder an einer Bewegung hängt.
   const support = {};
   const lifts = [];
   const outside = extrapolated instanceof Set ? extrapolated : new Set();
@@ -1212,11 +1187,11 @@ export function buildRating(bestByLift, profile,
     const name = rawName;
     const factor = Number(loadFactors[name]) > 0 ? Number(loadFactors[name]) : 1;
     const orm = rawOrm * factor;
-    // Two different questions. `anchored` decides which table the score is read
-    // from — anything without a published standard of its own goes through
-    // MACHINE_ANCHOR. `machine` is what the lift *is*, and it stays false for a
-    // free weight so that a barbell curl wins a tie like the free weight it is
-    // and never turns up under "your machine records".
+    // Zwei verschiedene Fragen. `anchored` entscheidet, aus welcher Tabelle die Wertung gelesen
+    // wird, alles ohne eigenen veröffentlichten Standard geht über MACHINE_ANCHOR. `machine`
+    // sagt, was die Übung IST, und bleibt bei einem freien Gewicht false, damit ein
+    // Langhantelcurl einen Gleichstand gewinnt wie das freie Gewicht, das er ist, und nie unter
+    // "deine Maschinenrekorde" auftaucht.
     const derivedFree = !isBenchmark(name) && DERIVED_FREE_WEIGHT.has(canonical(name));
     const machine = machineNames.has(name) && !isBenchmark(name);
     const anchored = machine || derivedFree;
@@ -1226,11 +1201,11 @@ export function buildRating(bestByLift, profile,
       : scoreFor(name, orm, profile);
     if (score === null) continue;
     const sample = Number(community[name]?.count) || 0;
-    // `anchored`, not `machine`: this decides which table the *next* target is
-    // read off, and it has to be the same table the score came from. Passing
-    // `machine` here sent a barbell curl to look for its own published
-    // standard, found nothing, and printed "top of the ladder reached" on a
-    // Master II lift with six ranks still above it.
+    // `anchored`, nicht `machine`: das entscheidet, aus welcher Tabelle das NÄCHSTE Ziel
+    // gelesen wird, und das muss dieselbe sein, aus der die Wertung kam. Mit `machine` hat ein
+    // Langhantelcurl nach seinem eigenen veröffentlichten Standard gesucht, nichts gefunden
+    // und bei einer Übung auf Master II mit noch sechs Rängen darüber "oberstes Ende der
+    // Leiter erreicht" gedruckt.
     const opts = { machine: anchored, community: community[name] || null };
     lifts.push({
       name, oneRepMax: orm, score, tier: tierOf(score), rank: rankOf(score),
@@ -1239,69 +1214,68 @@ export function buildRating(bestByLift, profile,
       machine, plateLoaded: isPlateLoaded(name),
       derived: machine && !!MACHINE_ANCHOR[canonical(name)],
       provisional: machine && sample < 10, sample,
-      // Built from a set outside the range a 1RM estimate is valid over, because
-      // this lift has never been trained inside it. See THRESHOLDS.e1rmWindow.
+      // Aus einem Satz außerhalb des Bereichs gebaut, in dem eine 1RM-Schätzung gilt, weil
+      // diese Übung nie darin trainiert wurde. Siehe THRESHOLDS.e1rmWindow.
       extrapolated: outside.has(name),
-      // When the best was set. A rank is an all-time record, and a record has a
-      // date on it or it is being passed off as something it is not.
+      // Wann der Bestwert gemacht wurde. Ein Rang ist ein Rekord aller Zeiten, und ein Rekord
+      // hat ein Datum, sonst wird er als etwas ausgegeben, was er nicht ist.
       achievedAt: dates.get(name) ?? null,
       corrected: factor !== 1,
-      // Beyond what the stack can physically produce, once Epley's slack at one
-      // rep is allowed for. Only answerable when the user has said what the
-      // stack tops out at.
+      // Mehr als der Block körperlich hergeben kann, nachdem der Spielraum von Epley bei
+      // einer Wiederholung abgezogen ist. Nur beantwortbar, wenn der Nutzer gesagt hat, wo der
+      // Block aufhört.
       overStack: Number(stackMax[name]) > 0 && orm > Number(stackMax[name]) * 1.4
         ? { max: Number(stackMax[name]), times: orm / Number(stackMax[name]) }
         : null,
     });
 
-    // Curated anatomy first, then the regions the exercise itself carries.
-    // Without the fallback, 52 machine and cable movements in the bundled
-    // catalogue produced a rank and contributed to no muscle at all: they had
-    // no curated entry, so the body map never saw them. Those regions come from
-    // the library record, not from guessing at the name.
+    // Erst die gepflegte Anatomie, dann die Regionen, die die Übung selbst mitbringt. Ohne
+    // den Rückfall haben 52 Maschinen- und Kabelübungen im mitgelieferten Katalog einen Rang
+    // erzeugt und zu keinem Muskel beigetragen: sie hatten keinen gepflegten Eintrag, die
+    // Muskelkarte hat sie also nie gesehen. Diese Regionen kommen aus dem Eintrag in der
+    // Bibliothek, nicht aus Raterei am Namen.
     const anatomy = ANATOMY[canonical(name)] || regionsByName[name] || {};
     for (const [region, weight] of Object.entries(anatomy)) {
       if (weight < DIRECT_CONTRIBUTION) {
-        // Touched, not measured. Remembered by name so the map can say which
-        // lift reaches it, and given no score at all.
+        // Berührt, nicht gemessen. Nach Namen gemerkt, damit die Karte sagen kann, welche
+        // Übung sie erreicht, und ohne jede Wertung.
         const seen = indirect[region];
         if (!seen || score > seen.score) indirect[region] = { via: name, score };
         continue;
       }
-      // How far this lift can be trusted, which is a separate question from how
-      // strong it says the lifter is. It used to be multiplied into the number,
-      // and that put the same lift on the screen at two different ranks: a
-      // machine chest press trained at fifteen reps read Diamond I on the lift
-      // list and Diamond III on the body map, two ranks apart, with nothing on
-      // either screen to say why. Uncertainty about a measurement is not
-      // evidence of weakness, and a lifter who only has machines was quietly
-      // paying a rank for the equipment their gym happens to own.
+      // Wie weit man dieser Übung trauen kann, und das ist eine andere Frage als wie stark sie
+      // einen macht. Früher wurde das in die Zahl hineinmultipliziert, und dann stand dieselbe
+      // Übung mit zwei verschiedenen Rängen auf dem Screen: eine Brustpresse, mit fünfzehn
+      // Wiederholungen trainiert, war in der Liste Diamond I und auf der Muskelkarte Diamond
+      // III, zwei Ränge auseinander, und nirgends stand warum. Unsicherheit über eine Messung
+      // ist kein Beleg für Schwäche, und wer nur Maschinen hat, hat still einen Rang für die
+      // Geräte bezahlt, die sein Studio zufällig hat.
       //
-      // So it does what a confidence belongs doing: it decides how much this
-      // region pulls on the overall average, and it rides along on the region so
-      // the map can mark it. The rank itself is the rank.
+      // Es macht also, was eine Sicherheit machen sollte: es entscheidet, wie stark diese
+      // Region am Gesamtdurchschnitt zieht, und fährt an der Region mit, damit die Karte sie
+      // markieren kann. Der Rang selbst ist der Rang.
       const confidence = (machine ? machineConfidence(name, community[name])
-        // A free weight read off somebody else's standard is a derived number,
-        // and it weighs like one. Since the discount now lives in the average
-        // rather than in the score, the lifter still sees the rank they earned.
+        // Ein freies Gewicht, das über den Standard von etwas anderem gelesen wird, ist eine
+        // abgeleitete Zahl und wiegt auch so. Weil der Abschlag jetzt im Durchschnitt steckt und
+        // nicht in der Wertung, sieht man trotzdem den Rang, den man verdient hat.
         : derivedFree ? DERIVED_CONFIDENCE : 1)
         * (outside.has(name) ? EXTRAPOLATED_CONFIDENCE : 1);
       const value = score;
       const held = regions[region];
-      // Ties go to the published standard: a machine only takes a region off a
-      // barbell lift by being strictly better.
-      // A plate-loaded bar counts as a free weight for the tie-break, because
-      // it is one. Only a stack loses a tie to a published standard.
+      // Gleichstände gehen an den veröffentlichten Standard: eine Maschine nimmt einer
+      // Langhantelübung eine Region nur ab, wenn sie wirklich besser ist.
+      // Eine Stange mit Scheiben zählt beim Gleichstand als freies Gewicht, weil sie eins
+      // ist. Nur ein Block verliert einen Gleichstand gegen einen veröffentlichten Standard.
       const stack = machine && !isPlateLoaded(name);
-      // Every qualifying driver is remembered, not only the winner. The rank
-      // itself is still the best of them (see below), but how many there are and
-      // how far apart they sit is the useful part that a single number hides.
+      // Jeder passende Treiber wird gemerkt, nicht nur der Sieger. Der Rang selbst ist
+      // weiterhin der beste davon (siehe unten), aber wie viele es sind und wie weit sie
+      // auseinanderliegen, ist der nützliche Teil, den eine einzelne Zahl versteckt.
       (support[region] ||= []).push({ name, score: value });
       const better = !held || value > held.score
         || (!stack && held.stack && value >= held.score)
-        // A dead-level tie between two lifts of the same kind goes to the one
-        // the app is surer of, which is the only remaining thing to separate
-        // them now that confidence no longer moves the score.
+        // Ein exakter Gleichstand zwischen zwei Übungen derselben Art geht an die, bei der
+        // sich die App sicherer ist. Das ist das Einzige, was sie noch trennt, seit die
+        // Sicherheit die Wertung nicht mehr bewegt.
         || (value === held.score && confidence > held.confidence);
       if (better) {
         regions[region] = { score: value, via: name, machine, stack, confidence,
@@ -1314,9 +1288,9 @@ export function buildRating(bestByLift, profile,
 
   lifts.sort((a, b) => b.score - a.score);
 
-  // Now that every lift has a score, ask which of them does not belong. A lift
-  // is only its own outlier: the comparison is against the median of the
-  // others, so one very strong movement cannot hide behind itself.
+  // Jetzt, wo jede Übung eine Wertung hat, fragen, welche nicht dazupasst. Eine Übung ist nur
+  // ihr eigener Ausreißer: verglichen wird mit dem Median der anderen, damit sich eine sehr
+  // starke Bewegung nicht hinter sich selbst verstecken kann.
   for (const lift of lifts) {
     const peers = lifts.filter((other) => other !== lift).map((other) => other.score);
     if (peers.length < OUTLIER_MIN_PEERS) continue;
@@ -1328,39 +1302,38 @@ export function buildRating(bestByLift, profile,
   }
 
   const rated = Object.values(regions);
-  // Overall is the mean of *directly measured* regions. An unrated region isn't
-  // a zero, it's an absence of data, and a region seen only through somebody
-  // else's lift is much closer to an absence than to a measurement — see
-  // DIRECT_CONTRIBUTION. Falls back to everything rated when nothing at all was
-  // trained directly, which is a brand-new log rather than a real training
-  // history, and a number is better than a blank there.
-  // A region that ended up ranked does not also need an "only touched" note.
+  // Insgesamt ist der Mittelwert der DIREKT gemessenen Regionen. Eine unbewertete Region ist
+  // keine Null, sondern fehlende Information, und eine Region, die man nur durch die Übung
+  // von etwas anderem sieht, ist viel näher an fehlender Information als an einer Messung,
+  // siehe DIRECT_CONTRIBUTION. Wurde gar nichts direkt trainiert, fällt es auf alles
+  // Bewertete zurück. Das ist dann ein ganz neues Log und kein echter Trainingsverlauf, und
+  // eine Zahl ist dort besser als ein leeres Feld.
+  // Eine Region, die eingestuft ist, braucht nicht noch einen Hinweis "nur berührt".
   for (const region of Object.keys(regions)) delete indirect[region];
-  // And the score that picked the best touching lift does not leave this
-  // function. It exists to break a tie between two lifts, not to be printed,
-  // and a number reachable from the outside is a number that ends up on a
-  // screen: that is precisely the bug this whole rule replaced.
+  // Und die Wertung, mit der die beste berührende Übung gewählt wurde, verlässt diese
+  // Funktion nicht. Sie ist da, um einen Gleichstand zwischen zwei Übungen zu brechen, nicht
+  // um gedruckt zu werden, und eine Zahl, an die man von außen kommt, landet irgendwann auf
+  // einem Screen. Genau das war der Fehler, den diese ganze Regel ersetzt hat.
   const touched = {};
   for (const [region, seen] of Object.entries(indirect)) touched[region] = { via: seen.via };
   const counted = rated;
 
   /**
-   * A rank is the best demonstration, and this says how well corroborated it is.
+   * Ein Rang ist die beste gezeigte Leistung, und das hier sagt, wie gut er abgesichert ist.
    *
-   * Deliberately not an average. Averaging the movements that train a muscle
-   * punishes having several: somebody who benches heavy and also does two light
-   * accessory flies would rank below somebody who only benches, which
-   * contradicts both the plan rating (it rewards two movements per muscle) and
-   * common sense, because their chest can still bench what it benches. And the
-   * single-movement failure mode averaging is meant to guard against is already
-   * handled: an outlier that disagrees with everything else gets flagged and
-   * offered a correction.
+   * Absichtlich kein Durchschnitt. Die Bewegungen zu mitteln, die einen Muskel trainieren,
+   * bestraft es, mehrere zu haben: wer schwer drückt und dazu zwei leichte Flys als
+   * Zusatzübung macht, läge unter jemandem, der nur drückt. Das widerspricht der
+   * Planbewertung (die belohnt zwei Bewegungen pro Muskel) und dem gesunden Verstand, denn die
+   * Brust drückt ja immer noch, was sie drückt. Und der Fall mit nur einer Bewegung, gegen den
+   * ein Durchschnitt schützen soll, ist schon abgedeckt: ein Ausreißer, der allem anderen
+   * widerspricht, wird markiert, und es wird eine Korrektur angeboten.
    *
-   * So the number stays the best driver, and the spread rides alongside it. On
-   * one real log the well-covered regions agreed to within half a rank across
-   * three movements each, while quads came out 1.3 ranks apart between a squat
-   * and a leg extension. That disagreement is worth saying out loud. Hiding it
-   * inside a mean would have turned it into a number that describes neither.
+   * Die Zahl bleibt also der beste Treiber, und die Streuung fährt nebenher. In einem echten
+   * Log waren die gut abgedeckten Regionen über je drei Bewegungen auf einen halben Rang
+   * einig, der Quadrizeps lag zwischen Kniebeuge und Beinstrecker 1,3 Ränge auseinander. Das
+   * lohnt sich laut zu sagen. In einem Mittelwert versteckt wäre daraus eine Zahl geworden,
+   * die keins von beidem beschreibt.
    */
   for (const [region, drivers] of Object.entries(support)) {
     if (!regions[region]) continue;
@@ -1368,11 +1341,11 @@ export function buildRating(bestByLift, profile,
     regions[region].drivers = drivers.length;
     regions[region].spread = drivers.length > 1 ? Math.max(...scores) - Math.min(...scores) : 0;
   }
-  // Weighted by confidence rather than counted flat. A region measured through
-  // a machine nobody has calibrated still says something, and dropping it would
-  // leave a machine-only lifter with no overall at all; letting it count as much
-  // as a barbell bench against a published table would be pretending the two
-  // measurements are equally good. This is the one place the discount belongs.
+  // Nach Sicherheit gewichtet statt einfach gezählt. Eine Region, gemessen über eine
+  // Maschine, die niemand eingestellt hat, sagt trotzdem etwas, und sie wegzulassen ließe
+  // jemanden nur mit Maschinen ganz ohne Gesamtwertung. Sie so viel zählen zu lassen wie
+  // Bankdrücken gegen eine veröffentlichte Tabelle hieße, so zu tun, als wären beide
+  // Messungen gleich gut. Das hier ist die eine Stelle, an die der Abschlag gehört.
   const totalWeight = counted.reduce((n, r) => n + (r.confidence ?? 1), 0);
   const overall = totalWeight
     ? counted.reduce((n, r) => n + r.score * (r.confidence ?? 1), 0) / totalWeight
@@ -1392,20 +1365,19 @@ export function buildRating(bestByLift, profile,
 }
 
 /**
- * Fallback anatomy from the exercises themselves.
+ * Rückfall-Anatomie aus den Übungen selbst.
  *
- * Primary regions count fully, secondary at half, which is the same fractional
- * convention the plan rating and the weekly volume already use
- * (THRESHOLDS.indirectSetWeight). Only ever consulted for movements the curated
- * table does not cover.
+ * Hauptregionen zählen voll, Nebenregionen halb, dieselbe anteilige Zählweise wie bei der
+ * Planbewertung und beim Wochenvolumen (THRESHOLDS.indirectSetWeight). Wird nur für
+ * Bewegungen gefragt, die die gepflegte Tabelle nicht abdeckt.
  */
 /**
- * Which movements can put a rank on this region.
+ * Welche Bewegungen dieser Region einen Rang geben können.
  *
- * The answer to the fair complaint that a grey muscle is a dead end: it is not,
- * and the app should say what would light it up rather than leaving somebody to
- * guess. Ordered by how strongly each drives the region, so the first suggestion
- * is the most direct one.
+ * Die Antwort auf die berechtigte Beschwerde, dass ein grauer Muskel eine Sackgasse ist:
+ * ist er nicht, und die App soll sagen, was ihn einfärben würde, statt jemanden raten zu
+ * lassen. Sortiert danach, wie stark jede die Region antreibt, der erste Vorschlag ist also
+ * der direkteste.
  */
 export function liftsThatRank(region) {
   return Object.entries(ANATOMY)
@@ -1415,12 +1387,11 @@ export function liftsThatRank(region) {
 }
 
 /**
- * How strongly one named exercise drives a region, 0 when it does not.
+ * Wie stark eine benannte Übung eine Region antreibt, 0, wenn gar nicht.
  *
- * Resolves through the alias, which is the whole point: a suggestion has to be
- * phrased in the names the user's own library uses, not in the curated ones.
- * "Do a Cable Oblique Twist" is useless advice when their catalogue calls it
- * Cable Russian Twists.
+ * Löst über den Alias auf, und genau darum geht es: ein Vorschlag muss in den Namen
+ * formuliert sein, die die eigene Bibliothek benutzt, nicht in den gepflegten. "Mach einen
+ * Cable Oblique Twist" ist nutzlos, wenn der eigene Katalog das Cable Russian Twists nennt.
  */
 export function drivesRegion(name, region) {
   return (ANATOMY[canonical(name)] || {})[region] || 0;
@@ -1429,16 +1400,15 @@ export function drivesRegion(name, region) {
 export const canRank = (name, region) => drivesRegion(name, region) >= DIRECT_CONTRIBUTION;
 
 /**
- * How strongly one exercise trains each region, curated where possible.
+ * Wie stark eine Übung jede Region trainiert, wo möglich gepflegt.
  *
- * The one place in the app that answers "which muscles, and how much" for an
- * arbitrary exercise. ANATOMY is hand-written and graded from 0 to 1; the
- * catalogue's own primary/secondary lists are coarse (a movement is either a
- * chest exercise or it is not) and are the fallback rather than the answer.
+ * Die eine Stelle in der App, die für eine beliebige Übung "welche Muskeln und wie viel"
+ * beantwortet. ANATOMY ist von Hand geschrieben und von 0 bis 1 abgestuft, die eigenen
+ * Haupt- und Nebenlisten des Katalogs sind grob (eine Bewegung ist eine Brustübung oder
+ * nicht) und sind der Rückfall, nicht die Antwort.
  *
- * The fallback's 1 and 0.5 are the same fractional convention the plan rating
- * and the weekly volume already count with, so nothing invents a third scale
- * for the same idea.
+ * Die 1 und 0,5 des Rückfalls sind dieselbe anteilige Zählweise wie bei Planbewertung und
+ * Wochenvolumen, es erfindet also niemand eine dritte Skala für dieselbe Idee.
  */
 export function anatomyOf(exercise) {
   if (!exercise) return {};

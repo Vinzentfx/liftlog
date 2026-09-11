@@ -1,35 +1,32 @@
--- Where a rank sits in the distribution of everyone who logs the same thing.
+-- Wo ein Rang in der Verteilung aller liegt, die dasselbe eintragen.
 --
--- The app's strength ranks compare an estimated 1RM against published tables.
--- Those tables are a consensus assembled from other people's data; this is the
--- only number in the app that actually measures the population using it. It is
--- also the number people want from a rank system and the one a printed standard
--- cannot give: not "you are Diamond II" but "of the people who log this, 62%
--- are below you".
+-- Die Stärkeränge der App vergleichen ein geschätztes 1RM mit veröffentlichten Tabellen. Diese
+-- Tabellen sind ein Konsens aus den Daten anderer Leute. Das hier ist die einzige Zahl in der
+-- App, die wirklich die Leute misst, die sie benutzen. Es ist auch die Zahl, die man von einem
+-- Rangsystem will und die ein gedruckter Standard nicht liefern kann: nicht "du bist Diamond
+-- II", sondern "von allen, die das eintragen, liegen 62 % unter dir".
 --
--- What is deliberately NOT here:
+-- Was hier absichtlich NICHT steht:
 --
---   * No leaderboard, no ordering, no identity. The RPC returns a count, four
---     percentiles and one share-below. There is no call that returns a row, a
---     user id, or a name, and the raw table is unreachable from the app role.
---   * No weights and no repetitions. A score is already normalised for
---     bodyweight, sex and age, which means it carries far less about a person
---     than "142.5 kg" does.
---   * No sex column. Splitting again would halve every sample for nothing:
---     the score being compared is sex-normalised before it ever leaves the
---     device. Storing an attribute the query does not use is storing it for
---     no reason.
---   * Nothing at all until ten other people have contributed the same metric.
---     Below that a percentile is a description of individuals.
+--   * Keine Rangliste, keine Reihenfolge, keine Identität. Die RPC gibt eine Anzahl, vier
+--     Perzentile und einen Anteil darunter zurück. Es gibt keinen Aufruf, der eine Zeile, eine
+--     Nutzer-ID oder einen Namen liefert, und die rohe Tabelle ist für die Rolle der App unerreichbar.
+--   * Keine Gewichte und keine Wiederholungen. Eine Wertung ist schon nach Körpergewicht,
+--     Geschlecht und Alter normiert und sagt damit viel weniger über eine Person als "142,5 kg".
+--   * Keine Spalte fürs Geschlecht. Noch einmal zu teilen würde jede Stichprobe umsonst
+--     halbieren: die verglichene Wertung ist schon nach Geschlecht normiert, bevor sie das
+--     Gerät verlässt. Eine Eigenschaft zu speichern, die die Abfrage nicht benutzt, heißt, sie
+--     ohne Grund zu speichern.
+--   * Gar nichts, bis zehn andere Leute dieselbe Größe beigesteuert haben. Darunter ist ein
+--     Perzentil eine Beschreibung einzelner Menschen.
 --
--- Contributing is what buys the answer, as in patch 013: there is no read-only
--- path, so nobody is measured by a population they declined to join.
+-- Wer beisteuert, bekommt die Antwort, wie in Patch 013: es gibt keinen Weg nur zum Lesen,
+-- niemand wird also an einer Gruppe gemessen, der er nicht beitreten wollte.
 
 create table if not exists public.rank_observations (
   user_id uuid not null references auth.users on delete cascade,
-  -- 'overall', 'lift:Barbell Bench Press', or 'region:chest'. One table for all
-  -- three because they are the same question asked at three zoom levels, and
-  -- three tables would mean three of every policy below.
+  -- 'overall', 'lift:Barbell Bench Press' oder 'region:chest'. Eine Tabelle für alle drei, weil
+  -- es dieselbe Frage auf drei Zoomstufen ist, und drei Tabellen hießen drei von jeder Policy unten.
   metric_key text not null check(
     metric_key = 'overall'
     or metric_key ~ '^(lift|region):[^\n\r]{1,70}$'
@@ -46,11 +43,11 @@ alter table public.rank_observations enable row level security;
 revoke all on table public.rank_observations from anon,authenticated;
 
 /**
- * Upsert this device's scores and return the distribution around them.
+ * Schreibt die Wertungen dieses Geräts und gibt die Verteilung drumherum zurück.
  *
- * `p_scores` is [{"key":"overall","score":41.2}, ...]. One call rather than one
- * per metric: a body map has fifteen regions and patch 013's loop would make
- * fifteen round trips out of one screen render.
+ * `p_scores` ist [{"key":"overall","score":41.2}, ...]. Ein Aufruf statt einem pro
+ * Wert: eine Körperkarte hat fünfzehn Regionen, und die Schleife aus Patch 013 würde
+ * aus einem Bildschirmaufbau fünfzehn Anfragen machen.
  */
 create or replace function public.share_rank_scores(p_scores jsonb)
 returns jsonb language plpgsql security definer set search_path=public as $$
@@ -77,17 +74,16 @@ begin
     insert into public.rank_observations(user_id, metric_key, score)
     values(auth.uid(), k, s)
     on conflict(user_id, metric_key) do update set score = excluded.score, updated_at = now();
-    -- A payload that repeats a key would otherwise run the aggregate twice for
-    -- the same answer.
+    -- Eine Anfrage, die einen Schlüssel wiederholt, würde sonst die Aggregation zweimal für
+    -- dieselbe Antwort laufen lassen.
     if not (k = any(keys)) then keys := keys || k; end if;
   end loop;
 
-  -- Everyone *else*, and only while their number is recent enough to describe
-  -- them. A percentile against your own row included is a percentile that moves
-  -- when you are the only one who trained.
+  -- Alle ANDEREN, und nur so lange ihre Zahl frisch genug ist, um sie zu beschreiben. Ein
+  -- Perzentil mit der eigenen Zeile darin bewegt sich, wenn man als Einziger trainiert hat.
   foreach k in array keys loop
-    -- Read once rather than per row: a correlated subquery inside the aggregate
-    -- would re-run it for every observation being counted.
+    -- Einmal gelesen statt pro Zeile: eine korrelierte Unterabfrage in der Aggregation würde für
+    -- jede gezählte Beobachtung neu laufen.
     select score into own from public.rank_observations
      where user_id = auth.uid() and metric_key = k;
 
@@ -107,8 +103,8 @@ begin
     if stats.n >= 10 then
       result := result || jsonb_build_object(k, jsonb_build_object(
         'count', stats.n,
-        -- Whole percent. A distribution of a few dozen people does not support
-        -- a decimal, and printing one would imply a precision that is not there.
+        -- Ganze Prozent. Eine Verteilung aus ein paar Dutzend Leuten gibt keine Nachkommastelle
+        -- her, und eine zu drucken würde eine Genauigkeit behaupten, die es nicht gibt.
         'below', round(stats.below * 100),
         'q20', stats.q20, 'q40', stats.q40, 'q60', stats.q60, 'q80', stats.q80
       ));
@@ -129,13 +125,12 @@ end; $$;
 revoke all on function public.share_rank_scores(jsonb) from public;
 revoke all on function public.forget_rank_scores() from public;
 
--- And from anon by name. Supabase's default privileges grant EXECUTE on every
--- newly created function directly to anon, and a revoke from PUBLIC does not
--- touch a grant made to a role: without these two lines both functions are
--- reachable from an unauthenticated request. They refuse it on their first
--- line, so this changes no behaviour, but a guard inside is not a reason to
--- leave the door reachable. Verified against the live database, where patch
--- 013's two functions still show the same gap.
+-- Und von anon mit Namen. Die Standardrechte von Supabase geben EXECUTE für jede neu angelegte
+-- Funktion direkt an anon, und ein Entzug von PUBLIC berührt kein Recht, das einer Rolle gegeben
+-- wurde: ohne diese zwei Zeilen sind beide Funktionen von einer Anfrage ohne Anmeldung
+-- erreichbar. Sie lehnen das in ihrer ersten Zeile ab, das hier ändert also kein Verhalten, aber
+-- ein Schutz drinnen ist kein Grund, die Tür erreichbar zu lassen. Gegen die echte Datenbank
+-- geprüft, dort haben die zwei Funktionen aus Patch 013 noch dieselbe Lücke.
 revoke execute on function public.share_rank_scores(jsonb) from anon;
 revoke execute on function public.forget_rank_scores() from anon;
 

@@ -1,11 +1,11 @@
-// The research the two rating systems are built on, in one place.
+// Die Studien, auf denen beide Bewertungen aufbauen, an einer Stelle.
 //
-// Every threshold used by js/plan-rating.js and js/exercise-rating.js points at
-// an entry here, and the UI can show the source next to the number. That is the
-// whole point of the file: a star rating that can't say where its cut-offs came
-// from is just an opinion with a nicer font.
+// Jede Schwelle aus js/plan-rating.js und js/exercise-rating.js zeigt auf einen
+// Eintrag hier, und die Oberfläche kann die Quelle neben der Zahl anzeigen. Genau
+// darum geht es in dieser Datei: eine Sternebewertung, die nicht sagen kann, woher
+// ihre Grenzen kommen, ist nur eine Meinung in schönerer Schrift.
 //
-// Last reviewed: July 2026.
+// Zuletzt durchgesehen: Juli 2026.
 
 export const SOURCES = {
   acsm2026: {
@@ -149,102 +149,104 @@ export const SOURCES = {
 export const SOURCE_LIST = Object.values(SOURCES);
 
 /**
- * Thresholds every rating reads from. Each one names the source it came from so
- * nothing in the app can quietly drift away from the paper it claims to follow.
+ * Die Schwellen, aus denen jede Bewertung liest. Jede nennt ihre Quelle, damit
+ * sich nichts in der App still von der Studie entfernt, auf die es sich beruft.
  */
 export const THRESHOLDS = {
-  /** Weekly fractional sets per muscle where the ACSM floor sits. */
+  /** Anteilige Sätze pro Woche und Muskel, bei denen die ACSM-Untergrenze liegt. */
   weeklyFloor: { value: 10, source: 'acsm2026' },
-  /** Where the weekly dose-response has flattened enough to score full marks. */
+  /** Ab hier ist die Dosis-Wirkungs-Kurve flach genug für volle Punktzahl. */
   weeklyStrong: { value: 20, source: 'pelland2026' },
-  /** Beyond this the app stops guiding — it advises, it does not deduct. */
+  /** Darüber hinaus gibt die App nur noch Hinweise und zieht nichts ab. */
   weeklyUncharted: { value: 30, source: 'pelland2026' },
-  /** Fractional sets for one muscle in one session past which extra sets stop paying. */
+  /** Anteilige Sätze für einen Muskel in einer Einheit, ab denen weitere nichts mehr bringen. */
   sessionPerMuscle: { value: 11, source: 'remmert2025' },
-  /** Sessions per week per muscle. */
+  /** Einheiten pro Woche und Muskel. */
   minFrequency: { value: 2, source: 'acsm2026' },
-  /** An indirect (secondary-muscle) set counts as this many sets. */
+  /** Ein indirekter Satz (Nebenmuskel) zählt so viel. */
   indirectSetWeight: { value: 0.5, source: 'pelland2026' },
-  /** Rep window that builds muscle when the set is taken close to failure. */
+  /** Wiederholungsbereich, der Muskeln aufbaut, wenn der Satz nahe ans Versagen geht. */
   repWindow: { low: 5, high: 30, source: 'acsm2026' },
-  /** Different movements per muscle before regional coverage stops improving. */
+  /** Verschiedene Übungen pro Muskel, bevor die regionale Abdeckung nicht mehr besser wird. */
   exercisesPerMuscle: { value: 2, source: 'variation2024' },
 
   /**
-   * Where the last warm-up set sits, as a share of the working weight.
+   * Wo der letzte Aufwärmsatz liegt, als Anteil vom Arbeitsgewicht.
    *
-   * The old ramp topped out at 75% for three reps, which is the number every
-   * gym uses and no trial supports. Ribeiro 2020 compared a light-only warm-up
-   * against a heavy one and a progressive one, and the light-only version came
-   * last on both lifts: the set that does the work is the one near the load.
+   * Die alte Rampe endete bei 75 % für drei Wiederholungen. Das nimmt jedes Studio,
+   * und keine Studie stützt es. Ribeiro 2020 hat nur leichtes Aufwärmen mit einem
+   * schweren und einem steigernden verglichen, und nur leicht war bei beiden Übungen
+   * am schlechtesten: der Satz, der die Arbeit macht, ist der nahe an der Last.
    */
   warmupTopShare: { value: 0.80, source: 'ribeiro2020' },
 
   /**
-   * The repetition range an estimated 1RM may be built from.
+   * Der Wiederholungsbereich, aus dem ein geschätztes 1RM gebaut werden darf.
    *
-   * Prediction equations are validated to about ten repetitions and their error
-   * grows past it (SOURCES.ribeiro1rm2024 also finds the error is worst on the
-   * arm curl, which is to say on exactly the light isolation work a machine
-   * rank is otherwise built from). Twelve rather than ten is one repetition of
-   * grace, so ordinary 8–12 hypertrophy work is not permanently flagged as
-   * extrapolation; past that it *is* extrapolation and the app says so instead
-   * of quietly ranking somebody on a set of twenty.
+   * Die Schätzformeln sind bis etwa zehn Wiederholungen geprüft, danach wird der
+   * Fehler größer (SOURCES.ribeiro1rm2024 findet ihn außerdem beim Bizepscurl am
+   * größten, also genau bei der leichten Isolationsarbeit, aus der sonst ein
+   * Maschinenrang gebaut wird). Zwölf statt zehn ist eine Wiederholung Kulanz,
+   * damit normale Hypertrophie-Arbeit mit 8 bis 12 nicht dauerhaft als
+   * Hochrechnung markiert ist. Darüber IST es eine Hochrechnung, und die App sagt
+   * das, statt jemanden still anhand eines Satzes mit zwanzig einzustufen.
    */
   e1rmWindow: { low: 1, high: 12, source: 'ribeiro1rm2024' },
 
   /**
-   * Warm-up sets at a normal training load, before it stops buying anything.
+   * Aufwärmsätze bei normaler Trainingslast, bevor sie nichts mehr bringen.
    *
-   * One. A 2025 crossover found no meaningful difference between two sets, one
-   * set and none at all around 10RM — so the app offers the one that is at
-   * least defensible and never stacks more on top.
+   * Einer. Eine Crossover-Studie von 2025 fand um 10RM keinen nennenswerten
+   * Unterschied zwischen zwei Sätzen, einem und gar keinem. Die App bietet also den
+   * einen an, der sich wenigstens begründen lässt, und stapelt nichts obendrauf.
    */
   warmupSetsModerate: { value: 1, source: 'warmup2025' },
   /**
-   * Daily protein, grams per kg of bodyweight. Deliberately a band: 1.6 is the
-   * headline breakpoint, 2.2 is the top of its own confidence interval, and the
-   * honest reading is that anywhere inside is fine.
+   * Eiweiß pro Tag in Gramm pro kg Körpergewicht. Bewusst ein Bereich: 1,6 ist der
+   * bekannte Knickpunkt, 2,2 das obere Ende seines Konfidenzintervalls, und
+   * ehrlich gelesen ist alles dazwischen in Ordnung.
    */
   proteinPerKg: { low: 1.6, high: 2.2, source: 'protein2018' },
 
   /**
-   * Dietary fibre, grams per day. A general-health adequate intake, not a
-   * training number — nothing links fibre to hypertrophy, and the app says so
-   * where it shows it.
+   * Ballaststoffe in Gramm pro Tag. Ein Richtwert für die allgemeine Gesundheit,
+   * keine Trainingszahl. Nichts verbindet Ballaststoffe mit Muskelaufbau, und die
+   * App sagt das auch dort, wo sie sie anzeigt.
    */
   fibrePerDay: { value: 25, source: 'efsaFibre' },
 
   /**
-   * Drinking water, litres per day, by sex. Also an adequate intake for a
-   * temperate climate at average activity, and explicitly *total* water minus
-   * the ~20–30% that arrives in food. Training, heat and bodyweight all move it,
-   * which is why it is shown as a reference line and never as a score.
+   * Trinkwasser in Litern pro Tag, nach Geschlecht. Auch das ist ein Richtwert für
+   * gemäßigtes Klima und durchschnittliche Aktivität, und zwar ausdrücklich das
+   * GESAMTE Wasser minus die etwa 20 bis 30 %, die über das Essen kommen. Training,
+   * Hitze und Körpergewicht verschieben ihn, deshalb steht er als Bezugslinie da
+   * und nie als Note.
    */
   waterLitres: { male: 2.0, female: 1.6, source: 'efsaWater' },
 
-  /** Energy equivalent of a kilogram of bodyweight change. */
+  /** Energie, die einem Kilo Körpergewicht entspricht. */
   kcalPerKg: { value: 7700, source: 'wishnofsky' },
 
   /**
-   * Fat as a share of energy. The lower edge is a floor worth respecting —
-   * essential fatty acids, fat-soluble vitamins, and a hormonal cost below it.
-   * Inside the range, nothing distinguishes one point from another.
+   * Fett als Anteil der Energie. Die untere Grenze sollte man ernst nehmen:
+   * essenzielle Fettsäuren, fettlösliche Vitamine, und darunter leiden die Hormone.
+   * Innerhalb des Bereichs unterscheidet sich kein Punkt vom anderen.
    */
   fatShare: { low: 0.20, high: 0.35, source: 'efsaFat' },
 
   /**
-   * Carbohydrate as a share of energy, for a sanity check rather than a target:
-   * in this app carbs are whatever energy is left once protein and fat are set.
+   * Kohlenhydrate als Anteil der Energie, als Plausibilitätsprüfung und nicht als
+   * Ziel: in dieser App sind Kohlenhydrate das, was an Energie übrig bleibt, wenn
+   * Eiweiß und Fett feststehen.
    */
   carbShare: { low: 0.45, high: 0.60, source: 'efsaFibre' },
 
   /**
-   * Weight change per week, as a share of bodyweight. Training-practice
-   * convention rather than a trial result, which is why the UI says so.
+   * Gewichtsänderung pro Woche als Anteil vom Körpergewicht. Übliche Trainingspraxis
+   * und kein Studienergebnis, deshalb sagt die Oberfläche das auch.
    */
   weeklyChangePct: { low: 0.0025, high: 0.005, source: null },
 };
 
-// A key, like everything else in this file that gets read out loud.
+// Ein Schlüssel, wie alles in dieser Datei, das vorgelesen wird.
 export const RATING_DISCLAIMER = 'evidence.disclaimer';

@@ -1,10 +1,10 @@
-// The guard rail for the string tables.
+// Das Geländer für die Texttabellen.
 //
-// The whole risk of an i18n layer over a hand-written app is drift: a key that
-// exists in one language, a placeholder that got renamed on one side, a call to
-// t() whose key nobody ever added. All three are silent at runtime (you get
-// English, or a literal "{name}", or the key itself), so they are caught here
-// instead.
+// Das ganze Risiko einer Übersetzungsschicht über einer handgeschriebenen App ist das
+// Auseinanderlaufen: ein Schlüssel, den es nur in einer Sprache gibt, ein Platzhalter, der
+// auf einer Seite umbenannt wurde, ein Aufruf von t(), dessen Schlüssel nie jemand angelegt
+// hat. Alle drei sind zur Laufzeit still (man bekommt Englisch, ein wörtliches "{name}" oder
+// den Schlüssel selbst), deshalb werden sie hier abgefangen.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,7 +20,7 @@ const LANGS = Object.keys(STRINGS);
 const placeholders = (text) =>
   [...String(text).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
-/** Every .js file under js/, so a new screen cannot escape the scan. */
+/** Jede .js-Datei unter js/, damit sich kein neuer Screen der Prüfung entziehen kann. */
 function sourceFiles(dir = join(ROOT, 'js'), out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
@@ -60,9 +60,9 @@ test('no string is left empty', () => {
 });
 
 /**
- * House rule, and the reason it is a test rather than a habit: an em dash reads
- * as a stall mid-sentence on a phone. A colon, a comma or a second sentence
- * says the same thing.
+ * Hausregel, und warum es ein Test ist und keine Gewohnheit: ein langer Gedankenstrich
+ * wirkt auf dem Handy wie ein Stocken mitten im Satz. Ein Doppelpunkt, ein Komma oder ein
+ * zweiter Satz sagen dasselbe.
  */
 test('no em dash anywhere in the interface', () => {
   const offenders = [];
@@ -75,12 +75,12 @@ test('no em dash anywhere in the interface', () => {
 });
 
 /**
- * Catches the typo'd key, which is invisible in the browser: t() falls back to
- * English and then to the key itself, so a screen shows "home.stat.streek" in
- * grey and nobody notices.
+ * Fängt den vertippten Schlüssel ab, den man im Browser nicht sieht: t() fällt auf Englisch
+ * und dann auf den Schlüssel selbst zurück, ein Screen zeigt also "home.stat.streek" in
+ * Grau, und niemand merkt es.
  *
- * Only literal calls can be checked. Computed keys (`t(`weekday.${n}`)`) are
- * skipped on purpose rather than parsed badly.
+ * Prüfen lassen sich nur wörtliche Aufrufe. Zusammengesetzte Schlüssel
+ * (`t(`weekday.${n}`)`) werden absichtlich übersprungen, statt schlecht geparst.
  */
 test('every literal t() key exists in the tables', () => {
   const known = new Set(Object.keys(STRINGS[LANGS[0]]));
@@ -98,27 +98,26 @@ test('every literal t() key exists in the tables', () => {
 });
 
 /**
- * The other direction. A key nobody says is dead weight, and dead weight is
- * where a wrong translation hides for a year.
+ * Die andere Richtung. Ein Schlüssel, den niemand sagt, ist Ballast, und im Ballast
+ * versteckt sich eine falsche Übersetzung ein Jahr lang.
  *
- * Keys whose name is built at runtime are listed by prefix; they are reached
- * through tRegion / tTier / tn and friends, never as a literal.
+ * Schlüssel, deren Name zur Laufzeit gebaut wird, stehen hier mit ihrem Anfang. Erreicht
+ * werden sie über tRegion, tTier, tn und Co., nie als wörtlicher Text.
  */
 test('no unused keys', () => {
   const COMPUTED = [
     'weekday.', 'region.', 'muscle.', 'equipment.', 'tier.', 'route.',
-    // The progression engine returns a reason as a key fragment rather than a
-    // sentence, so the advice on the training screen is `t('train.why.' + key)`.
-    // That is deliberate: the engine is DOM-free and has no business holding
-    // German in it.
+    // Die Progression gibt einen Grund als Schlüsselstück zurück und nicht als Satz, der Rat
+    // auf dem Trainieren-Screen ist also `t('train.why.' + key)`. Das ist gewollt: die
+    // Berechnung hat kein DOM und hat auch nichts Deutsches in sich zu suchen.
     'train.tip.', 'train.why.', 'train.next.',
-    // Error and status keys are looked up from a code the server or the sync
-    // layer produced: `t('cloud.err.' + err.code)`. Listing the prefixes is the
-    // price of that, and the parity test above still guarantees both languages
-    // define the same set of them.
+    // Schlüssel für Fehler und Status werden über einen Code nachgeschlagen, den der Server
+    // oder die Synchronisation liefert: `t('cloud.err.' + err.code)`. Die Anfänge aufzulisten
+    // ist der Preis dafür, und der Test auf Gleichheit oben sorgt weiter dafür, dass beide
+    // Sprachen dieselben definieren.
     'cloud.err.', 'cloud.status.',
-    // Which population line a rank is compared against depends on the profile,
-    // so the key ends in Male or Female and is assembled at the call site.
+    // Mit welcher Bevölkerungszeile ein Rang verglichen wird, hängt vom Profil ab, der
+    // Schlüssel endet also auf Male oder Female und wird an der Aufrufstelle zusammengesetzt.
     'rank.pop.world', 'rank.pop.howWorld', 'rank.pop.short',
   ];
   const used = new Set();
@@ -129,15 +128,14 @@ test('no unused keys', () => {
     for (const m of src.matchAll(/'([\w.-]+\.[\w.-]+)'/g)) used.add(m[1]);
   }
 
-  // The tab bar and the rest bar are markup, not calls: they carry their key in
-  // a data-i18n attribute and would otherwise all read as unused.
+  // Tab-Leiste und Pausenleiste sind Markup und keine Aufrufe: sie tragen ihren Schlüssel in
+  // einem data-i18n-Attribut und würden sonst alle als unbenutzt gelten.
   const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
   for (const m of html.matchAll(/data-i18n(?:-aria)?="([\w.-]+)"/g)) used.add(m[1]);
 
   const orphans = Object.keys(STRINGS[LANGS[0]]).filter((key) => {
     if (COMPUTED.some((p) => key.startsWith(p))) return false;
-    // tn() splits a count key into .one / .other, so the source only ever
-    // mentions the stem.
+    // tn() teilt einen Zählschlüssel in .one und .other, im Quelltext steht also nur der Stamm.
     const stem = key.replace(/\.(one|other)$/, '');
     return !used.has(key) && !used.has(stem);
   });

@@ -1,4 +1,4 @@
-// Library — searchable exercise catalogue with muscle-map illustration.
+// Bibliothek: durchsuchbarer Übungskatalog mit Muskelkarte.
 
 import {
   el, toast, confirmSheet, emptyState, debounce, listItem, starBadge,
@@ -13,11 +13,11 @@ import { exerciseSearchScore } from '../exercise-search.js';
 import { exerciseRatingCard, myRatingRow } from '../rating-ui.js';
 import { navigate, render } from '../app.js';
 
-// Rendering 700+ rows is slow and useless — cap it and let search narrow.
+// 700+ Zeilen zu zeichnen ist langsam und bringt nichts, also deckeln und die Suche eingrenzen lassen.
 const PAGE = 60;
 
-// Keys, not labels: the visible text is looked up at render time so the
-// dropdown follows a language switch without the module being reloaded.
+// Schlüssel, keine Beschriftungen: der sichtbare Text wird beim Zeichnen
+// nachgeschlagen, so folgt die Auswahl einem Sprachwechsel, ohne dass das Modul neu lädt.
 const SORTS = {
   muscle: 'library.sort.muscle',
   rating: 'library.sort.rating',
@@ -31,7 +31,7 @@ let equipFilter = 'All';
 let sort = 'muscle';
 let limit = PAGE;
 
-/** Stars sit on the right of every row so the list is scannable at a glance. */
+/** Die Sterne stehen rechts in jeder Zeile, damit man die Liste auf einen Blick überfliegen kann. */
 const starsFor = (ex) => (store.starsShown() ? starBadge(rateExercise(ex).stars) : null);
 
 export default function renderLibrary({ param, actions }) {
@@ -94,8 +94,8 @@ function listView() {
       return;
     }
 
-    // Favourites get their own block at the very top, ungrouped, so they're
-    // reachable without scrolling past whichever muscle sorts first.
+    // Favoriten bekommen ganz oben einen eigenen Block, ohne Gruppierung, damit man
+    // nicht erst an dem Muskel vorbeiscrollen muss, der alphabetisch zuerst kommt.
     const favs = found.filter((e) => e.favourite);
     const rest = found.filter((e) => !e.favourite);
 
@@ -121,7 +121,7 @@ function listView() {
     const ordered = [...pool].sort(comparators[sort]);
     const shown = ordered.slice(0, limit);
 
-    // Muscle headings only make sense while the list is grouped by muscle.
+    // Muskel-Überschriften ergeben nur Sinn, solange nach Muskel gruppiert ist.
     let group = null;
     for (const ex of shown) {
       if (sort === 'muscle' && ex.muscle !== group) {
@@ -174,15 +174,15 @@ function listView() {
 const comparators = {
   muscle: (a, b) => MUSCLES.indexOf(a.muscle) - MUSCLES.indexOf(b.muscle) || a.name.localeCompare(b.name),
   rating: (a, b) => rateExercise(b).stars - rateExercise(a).stars || a.name.localeCompare(b.name),
-  // Unrated exercises sink rather than sorting as zero — "no opinion" is not
-  // the same statement as "bad".
+  // Unbewertete Übungen rutschen nach unten, statt als null einsortiert zu werden.
+  // "Keine Meinung" ist nicht dasselbe wie "schlecht".
   mine: (a, b) => (b.myRating || 0) - (a.myRating || 0)
     || rateExercise(b).stars - rateExercise(a).stars
     || a.name.localeCompare(b.name),
   name: (a, b) => a.name.localeCompare(b.name),
 };
 
-/* =========================== detail =========================== */
+/* =========================== Detail =========================== */
 
 function detailView(id) {
   const ex = store.state.exerciseById.get(id);
@@ -229,8 +229,8 @@ function detailView(id) {
     ])
   );
 
-  // With stars switched off the evidence card goes too — but your own rating
-  // stays, because that is a note to yourself, not a score handed to you.
+  // Mit ausgeschalteten Sternen verschwindet auch die Karte mit den Belegen. Die eigene
+  // Bewertung bleibt, das ist eine Notiz an sich selbst und keine verordnete Note.
   if (store.starsShown()) {
     const ratingCard = exerciseRatingCard(ex);
     ratingCard.append(myRatingRow(ex, { onChange: () => render() }));
@@ -239,7 +239,7 @@ function detailView(id) {
     root.append(el('div.card', {}, [myRatingRow(ex, { onChange: () => render() })]));
   }
 
-  // Illustrated where everkinetic has the movement, muscle map otherwise.
+  // Bild, wo everkinetic die Bewegung hat, sonst die Muskelkarte.
   const illustrated = hasArt(ex);
   if (illustrated || primary.length || secondary.length) {
     root.append(
@@ -283,11 +283,11 @@ function detailView(id) {
           const planPart = inPlans
             ? ' ' + t('library.deletePlans', { days: tn(inPlans, 'unit.day') })
             : '';
-          // Say what actually happens. The sets survive as rows in the session,
-          // but every analysis looks the exercise up by id and skips what it
-          // cannot find — so the volume, the muscle map, the strength score and
-          // the charts all quietly lose that work. "The name will be lost" was
-          // true and misleading at the same time.
+          // Sagen, was wirklich passiert. Die Sätze bleiben als Zeilen in der Einheit,
+          // aber jede Auswertung sucht die Übung über ihre ID und überspringt, was sie
+          // nicht findet. Volumen, Muskelkarte, Stärkewertung und Diagramme verlieren
+          // diese Arbeit also still. "Der Name geht verloren" war wahr und trotzdem
+          // irreführend.
           const warn = uses
             ? t('library.deleteUsed', { name: ex.name, sessions: tn(uses, 'unit.session') }) + planPart
             : t('library.deleteUnused', { name: ex.name }) + planPart;

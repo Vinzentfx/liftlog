@@ -1,20 +1,19 @@
--- Patch 017: retire the pre-014 claim_ownership and pin two search_paths.
+-- Patch 017: das claim_ownership von vor 014 in Rente schicken und zwei search_paths festlegen.
 --
--- Patch 014 replaced claim_ownership with a three-argument form that rate
--- limits, checks an owner token and clears the wrapped keys off revoked
--- devices. It created the new signature but never dropped the old one, so both
--- lived side by side. The old one reads profiles.recovery_verifier, a column
--- that patch 003 moved into recovery_proofs, so every call to it raises at
--- runtime rather than doing anything. What was left is a dead SECURITY DEFINER
--- endpoint on the REST surface with none of 014's hardening on it.
+-- Patch 014 hat claim_ownership durch eine Form mit drei Argumenten ersetzt, die Anfragen
+-- begrenzt, ein Besitzertoken prüft und die eingepackten Schlüssel von entzogenen Geräten
+-- entfernt. Die neue Signatur wurde angelegt, die alte aber nie gelöscht, beide lebten also
+-- nebeneinander. Die alte liest profiles.recovery_verifier, eine Spalte, die Patch 003 nach
+-- recovery_proofs verschoben hat. Jeder Aufruf wirft also zur Laufzeit, statt etwas zu tun.
+-- Übrig war ein toter SECURITY-DEFINER-Endpunkt an der REST-Oberfläche ohne irgendeine der
+-- Absicherungen aus 014.
 --
--- Nothing calls it: js/cloud.js has passed owner_token since 014.
+-- Niemand ruft ihn auf: js/cloud.js übergibt owner_token seit 014.
 drop function if exists public.claim_ownership(text, uuid);
 
--- Both of these resolved unqualified names against whatever search_path the
--- caller happened to have. Neither actually needs one, because both reference
--- every object with its schema spelled out, so the empty setting is the strict
--- reading rather than a compromise. trim_backup_history runs as a trigger on
--- every backup write, which is the reason it is worth pinning at all.
+-- Beide haben Namen ohne Schema gegen den search_path aufgelöst, den der Aufrufer gerade
+-- hatte. Keine braucht einen, weil beide jedes Objekt mit ausgeschriebenem Schema ansprechen,
+-- die leere Einstellung ist also die strenge Lesart und kein Kompromiss. trim_backup_history
+-- läuft als Trigger bei jedem Schreiben einer Sicherung, und nur deshalb lohnt es sich, ihn festzulegen.
 alter function public.trim_backup_history() set search_path = '';
 alter function public.invite_failure_budget() set search_path = '';

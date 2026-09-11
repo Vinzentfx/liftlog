@@ -1,13 +1,12 @@
-// The week card: one week of training, drawn as a PNG you can send to a group
-// chat.
+// Die Wochenkarte: eine Trainingswoche als PNG, das man in einen Gruppenchat schicken kann.
 //
-// Two rules shape what is on it. It carries only what the app already computed
-// — no number is invented for the card, and anything the data cannot support is
-// said in words instead of shown as a figure. And it is a picture, not a link:
-// nothing is uploaded, nothing is fetched, no account exists. The image is built
-// on the phone and handed to the share sheet.
+// Zwei Regeln bestimmen, was darauf steht. Sie zeigt nur, was die App ohnehin schon
+// berechnet hat. Für die Karte wird keine Zahl erfunden, und was die Daten nicht
+// hergeben, steht in Worten da statt als Zahl. Und sie ist ein Bild, kein Link: nichts
+// wird hochgeladen, nichts geholt, es gibt kein Konto. Das Bild entsteht auf dem Handy
+// und geht an das Teilen-Menü.
 //
-// The image is drawn rather than screenshotted; js/canvas-kit.js says why.
+// Das Bild wird gezeichnet und nicht abfotografiert, warum, steht in js/canvas-kit.js.
 
 import { fmtNum, fmtWeight, fmtDate } from './ui.js';
 import { startOfWeek, isCounted, e1rm, entryStats } from './models.js';
@@ -21,14 +20,14 @@ import {
   fillRound, strokeRound, drawText, textWidth, wrapLines, loadPaths, drawPaths,
 } from './canvas-kit.js';
 
-/** Logical width. The bitmap is this times `scale`. */
+/** Logische Breite. Die Bitmap ist das mal `scale`. */
 export const CARD_W = 540;
 
 const PAD = 26;
 const INNER = CARD_W - PAD * 2;
 
-// The app's tokens, resolved. Canvas has no cascade, so they are duplicated
-// here on purpose — keep them in step with :root in css/styles.css.
+// Die Farben der App, aufgelöst. Canvas kennt keine Kaskade, deshalb stehen sie hier
+// absichtlich doppelt. Mit :root in css/styles.css im Gleichschritt halten.
 const C = {
   bg: '#0A0E1A',
   raised: '#121A2B',
@@ -43,8 +42,8 @@ const C = {
   accentHi: '#60A5FA',
   good: '#34D399',
   warn: '#FBBF24',
-  // Nine ranks, matching --t0..--t8 in css/styles.css. The canvas cannot read
-  // custom properties, so the ramp is duplicated here and must be kept in step.
+  // Neun Ränge, passend zu --t0..--t8 in css/styles.css. Der Canvas kann keine
+  // CSS-Variablen lesen, die Skala steht also doppelt und muss mitgezogen werden.
   tier: ['#8A6A4A', '#9AA7B8', '#D9A93B', '#3B82F6', '#22D3EE',
     '#34D399', '#A855F7', '#F472B6', '#FFB020', '#DC2626', '#D946EF', '#F1F5F9'],
 };
@@ -56,7 +55,7 @@ const rgba = (hex, a) => {
 
 const BODY_ART = ['assets/body-front.svg', 'assets/body-back.svg'];
 
-/* ============================== data ============================== */
+/* ============================== Daten ============================== */
 
 const nextWeek = (weekStart) => {
   const d = new Date(weekStart);
@@ -65,10 +64,10 @@ const nextWeek = (weekStart) => {
 };
 
 /**
- * Everything one card shows, assembled from the same functions the screens use.
+ * Alles, was eine Karte zeigt, zusammengestellt aus denselben Funktionen wie die Screens.
  *
- * @param mapMode 'strength' (tiers against published standards) or 'progress'
- *                (your own e1RM trend). Never mixed — two different scales.
+ * @param mapMode 'strength' (Stufen gegen veröffentlichte Standards) oder 'progress'
+ *                (eigener e1RM-Verlauf). Nie gemischt, das sind zwei Skalen.
  */
 export function weekSummary({
   sessions, exerciseById, settings, bodyweight, plan, units,
@@ -90,13 +89,13 @@ export function weekSummary({
   const rows = compareToPlan(week, planned);
   const verdict = weekVerdict(week, rows, planned ? plan.days.length * (plan.perWeek || 1) : 0);
 
-  // The rating at both ends of the week, each with the bodyweight of its own
-  // moment — the score is bodyweight-relative, so anything else rewrites history.
+  // Die Wertung an beiden Enden der Woche, jeweils mit dem Körpergewicht dieses
+  // Moments. Die Wertung hängt am Körpergewicht, alles andere schreibt die Vergangenheit um.
   const endRating = strengthAt(sessions, bodyweight, settings, exerciseById, weekEnd);
   const startRating = strengthAt(sessions, bodyweight, settings, exerciseById, weekStart - 1);
-  // The card never shows a rating the app itself would hide. One decision, used
-  // by both the hero and the map — a card with the tier map on it but no score
-  // above it would be showing exactly what the setting switched off.
+  // Die Karte zeigt nie eine Wertung, die die App selbst verstecken würde. Eine
+  // Entscheidung, für Kopf und Karte. Eine Karte mit Stufenkarte, aber ohne Wertung
+  // darüber, würde genau das zeigen, was die Einstellung ausgeschaltet hat.
   const rating = settings.showRatings === false ? null : endRating;
   const sorted = [...(bodyweight || [])].sort((a, b) => a.date - b.date);
   const bwStart = bodyweightAt(sorted, weekStart - 1);
@@ -121,9 +120,9 @@ export function weekSummary({
           steps: rankOf(rating.overall).steps,
           rated: rating.ratedRegions,
           total: rating.totalRegions,
-          // Difference of the *rounded* scores, not the rounded difference. The
-          // card prints whole numbers, and a 28.5 → 29.4 week must not show a
-          // 29 next to "no change" while last week's card showed a 28.
+          // Differenz der GERUNDETEN Werte, nicht die gerundete Differenz. Die Karte
+          // zeigt ganze Zahlen, und eine Woche von 28,5 auf 29,4 darf keine 29 neben
+          // "keine Änderung" zeigen, wenn die Karte der Vorwoche eine 28 hatte.
           delta: startRating
             ? Math.round(rating.overall) - Math.round(startRating.overall)
             : null,
@@ -151,22 +150,22 @@ function weekLabel(weekStart, weekEnd) {
   const sameYear = new Date(weekStart).getFullYear() === new Date().getFullYear();
   const from = fmtDate(weekStart);
   const to = fmtDate(weekEnd, sameYear ? {} : { year: 'numeric' });
-  return `${from} – ${to}`;
+  return `${from} - ${to}`;
 }
 
 /**
- * Lifts that beat their own previous best during the week.
+ * Übungen, die in der Woche ihren eigenen bisherigen Bestwert geschlagen haben.
  *
- * A movement logged for the first time is not a personal best, it is a first
- * data point — without that rule week one of any programme reads as a wall of
- * records, which would make the whole section worthless.
+ * Eine Übung, die zum ersten Mal eingetragen wird, ist kein persönlicher Rekord,
+ * sondern der erste Datenpunkt. Ohne diese Regel ist die erste Woche jedes Programms
+ * eine Wand aus Rekorden, und der ganze Abschnitt wäre wertlos.
  */
 function newBests(finished, exerciseById, weekStart, weekEnd) {
-  const before = new Map();   // exerciseId -> best e1RM before this week
-  const during = new Map();   // exerciseId -> best set of this week
+  const before = new Map();   // Übungs-ID -> bestes e1RM vor dieser Woche
+  const during = new Map();   // Übungs-ID -> bester Satz dieser Woche
 
   for (const s of finished) {
-    if (s.startedAt > weekEnd) continue;    // later sessions are not this week's history
+    if (s.startedAt > weekEnd) continue;    // spätere Einheiten gehören nicht zu dieser Woche
     const inWeek = s.startedAt >= weekStart;
     for (const entry of s.entries || []) {
       for (const set of (entry.sets || []).filter(isCounted)) {
@@ -189,7 +188,7 @@ function newBests(finished, exerciseById, weekStart, weekEnd) {
     const prev = before.get(id);
     const ex = exerciseById.get(id);
     if (!ex || !prev) continue;
-    // A hair over the old best is rounding, not a record.
+    // Ein Hauch über dem alten Bestwert ist Rundung und kein Rekord.
     if (best.e1rm <= prev * 1.005) continue;
     out.push({
       name: ex.name,
@@ -204,16 +203,17 @@ function newBests(finished, exerciseById, weekStart, weekEnd) {
 }
 
 /**
- * The two maps, each with its own legend and its own sentence.
+ * Die beiden Karten, jede mit eigener Legende und eigenem Satz.
  *
- * They answer different questions — "how do I compare" needs published
- * standards and so only lights about seventeen lifts; "am I getting stronger"
- * needs only your own past and so counts every exercise, machines included.
+ * Sie beantworten verschiedene Fragen. "Wie stehe ich im Vergleich" braucht
+ * veröffentlichte Standards und kann deshalb nur etwa siebzehn Übungen einfärben.
+ * "Werde ich stärker" braucht nur die eigene Vergangenheit und zählt jede Übung, auch
+ * an Maschinen.
  *
- * Without a rating there is no tier map worth drawing — an unlit body under a
- * Bronze-to-Legend legend says nothing, and printing one when the user has
- * switched ratings off would put back exactly what they hid. It falls back to
- * the map that works from your own numbers alone.
+ * Ohne Wertung lohnt sich keine Stufenkarte. Ein grauer Körper unter einer Legende
+ * von Bronze bis Legend sagt nichts, und bei ausgeschalteter Wertung würde sie genau
+ * das zurückbringen, was versteckt werden sollte. Dann kommt die Karte, die nur mit
+ * den eigenen Zahlen arbeitet.
  */
 function muscleMap(mapMode, { finished, exerciseById, rating, weekEnd }) {
   if (mapMode === 'progress' || !rating) {
@@ -222,7 +222,7 @@ function muscleMap(mapMode, { finished, exerciseById, rating, weekEnd }) {
     const colours = {};
     for (const [region, idx] of Object.entries(fills)) colours[region] = C.tier[idx];
     return {
-      // What was drawn, which is not always what was asked for.
+      // Was gezeichnet wurde, und das ist nicht immer das, was gewünscht war.
       mapMode: 'progress',
       mapFills: colours,
       mapLegend: [
@@ -239,15 +239,15 @@ function muscleMap(mapMode, { finished, exerciseById, rating, weekEnd }) {
   for (const [region, info] of Object.entries(rating.regions)) {
     colours[region] = C.tier[tierIndex(info.score)];
   }
-  // Touched but unranked regions get the panel line colour, the same as on
-  // screen. A rank colour here would say something the rating does not.
+  // Trainierte, aber unbewertete Regionen bekommen die Linienfarbe der Panels, wie auf
+  // dem Bildschirm. Eine Rangfarbe würde hier etwas sagen, was die Wertung nicht sagt.
   for (const region of Object.keys(rating.indirect || {})) colours[region] ||= C.faint;
   return {
     mapMode: 'strength',
     mapFills: colours,
-    // Two entries, not twelve. The card has 540 pixels and a dozen abbreviated
-    // rank names is a wall of three-letter stumps; naming the two ends says the
-    // one thing a reader needs from an ordinal ramp, which is which way it runs.
+    // Zwei Einträge, nicht zwölf. Die Karte hat 540 Pixel, und ein Dutzend abgekürzter
+    // Rangnamen ist eine Wand aus Stummeln. Die beiden Enden zu nennen sagt das Eine,
+    // was man von einer geordneten Skala braucht: in welche Richtung sie läuft.
     mapLegend: [
       { colour: C.tier[0], label: tTier(TIERS[0].key) },
       { colour: C.tier[TIERS.length - 1], label: tTier(TIERS[TIERS.length - 1].key), ramp: true },
@@ -257,15 +257,16 @@ function muscleMap(mapMode, { finished, exerciseById, rating, weekEnd }) {
   };
 }
 
-/* ============================= drawing ============================= */
+/* ============================= Zeichnen ============================= */
 
 /** @returns {Promise<HTMLCanvasElement>} */
 export async function renderCard(summary, { scale = 2 } = {}) {
   const art = await Promise.all(BODY_ART.map(loadPaths));
 
-  // Height falls out of the content, so the card is laid out once against a
-  // throwaway context to find it, then drawn for real. Both passes run the same
-  // code — a measured layout that drifts from the drawn one is a bug waiting.
+  // Die Höhe ergibt sich aus dem Inhalt. Die Karte wird also einmal gegen einen
+  // Wegwerf-Context gelayoutet, um sie zu finden, und dann richtig gezeichnet. Beide
+  // Durchläufe nutzen denselben Code, ein gemessenes Layout, das vom gezeichneten
+  // abweicht, ist ein Fehler, der nur wartet.
   const scratch = document.createElement('canvas').getContext('2d');
   const height = Math.ceil(paint(scratch, summary, art, { measure: true }));
 
@@ -288,12 +289,12 @@ export function cardBlob(canvas) {
 }
 
 /**
- * Draws the whole card. @returns the height it used.
+ * Zeichnet die ganze Karte. @returns die benutzte Höhe.
  *
- * `measure` skips the two things whose size is known without drawing them — the
- * background needs the final height, and the body map's is pure arithmetic on
- * the viewBox. Everything else runs in both passes, because a layout that is
- * measured differently from how it is drawn drifts.
+ * `measure` lässt die zwei Dinge weg, deren Größe man ohne Zeichnen kennt: der
+ * Hintergrund braucht die endgültige Höhe, und die der Muskelkarte ist reine Rechnung
+ * mit der viewBox. Alles andere läuft in beiden Durchläufen, weil ein Layout, das
+ * anders gemessen als gezeichnet wird, abdriftet.
  */
 function paint(ctx, d, art, { measure = false, height = 0 } = {}) {
   if (!measure) background(ctx, height);
@@ -313,7 +314,7 @@ function background(ctx, height) {
   ctx.fillStyle = C.bg;
   ctx.fillRect(0, 0, CARD_W, height);
 
-  // The same two washes the app body has, sized to the card.
+  // Dieselben zwei Farbschleier wie im Hintergrund der App, auf die Karte zugeschnitten.
   const blue = ctx.createRadialGradient(CARD_W * 0.5, -60, 0, CARD_W * 0.5, -60, CARD_W * 1.35);
   blue.addColorStop(0, 'rgba(59, 130, 246, .18)');
   blue.addColorStop(1, 'rgba(59, 130, 246, 0)');
@@ -337,7 +338,7 @@ function header(ctx, d, y) {
   return y + 17;
 }
 
-/* ---------- hero ---------- */
+/* ---------- Kopf ---------- */
 
 function hero(ctx, d, y) {
   const h = 128;
@@ -347,8 +348,8 @@ function hero(ctx, d, y) {
 
   const x = PAD + 22;
   if (d.strength) {
-    // The rank is the headline here too. A shared card saying "41" invites the
-    // one comparison the ladder exists to replace.
+    // Auch hier ist der Rang die Überschrift. Eine geteilte Karte mit "41" lädt genau
+    // zu dem Vergleich ein, den die Leiter ersetzen soll.
     const big = tTier(d.strength.tier.key);
     drawText(ctx, big, x, y + 22, { size: 40, weight: 800, color: accent, baseline: 'top', max: INNER - 130 });
     const w = Math.min(textWidth(ctx, big, { size: 40, weight: 800 }), INNER - 130);
@@ -383,14 +384,14 @@ function deltaBadge(ctx, v, y) {
   drawText(ctx, v === 0 ? t('weekCard.noChange') : `${v > 0 ? '+' : ''}${v}`, CARD_W - PAD - 22, y + 30, {
     size: v === 0 ? 15 : 26, weight: 740, color: colour, align: 'right', baseline: 'top',
   });
-  // Not "vs last week": on a card about last week the comparison is against the
-  // week before that one.
+  // Nicht "gegenüber letzter Woche": auf einer Karte über die letzte Woche wird mit der
+  // Woche davor verglichen.
   drawText(ctx, t('weekCard.overTheWeek'), CARD_W - PAD - 22, y + (v === 0 ? 50 : 62), {
     size: 11, weight: 600, color: C.faint, align: 'right', baseline: 'top',
   });
 }
 
-/* ---------- stat strip ---------- */
+/* ---------- Kennzahlen ---------- */
 
 function stats(ctx, d, y) {
   const gap = 8;
@@ -400,8 +401,8 @@ function stats(ctx, d, y) {
     [String(d.workouts), t('home.stat.workouts')],
     [String(d.sets), t('home.stat.workingSets')],
     [d.tonnage ? `${fmtNum(Math.round(d.tonnage))}${d.units}` : t('common.empty'), t('weekCard.moved')],
-    // Its own key rather than Home's: the tile is 12 characters wide and the
-    // German for "week streak" does not fit in it.
+    // Ein eigener Schlüssel statt dem von Home: die Kachel ist 12 Zeichen breit, und
+    // das deutsche Wort für "week streak" passt da nicht hinein.
     [String(d.streak), t('weekCard.streak')],
   ];
 
@@ -422,7 +423,7 @@ function stats(ctx, d, y) {
   return y + h;
 }
 
-/* ---------- muscle map ---------- */
+/* ---------- Muskelkarte ---------- */
 
 function map(ctx, d, art, y, measure = false) {
   const top = sectionHead(ctx, t('home.map.title'), y, d.mapTitle);
@@ -449,9 +450,9 @@ function map(ctx, d, art, y, measure = false) {
 
   let ly = top + 16 + figureH + 16 + 14;
   if (d.mapLegend.some((item) => item.ramp)) {
-    // The strength map is an ordinal ramp, so it gets drawn as one: the whole
-    // scale as a bar with its two ends named. Twelve abbreviated rank names
-    // across 540 pixels was a wall of three-letter stumps.
+    // Die Stärkekarte ist eine geordnete Skala und wird auch so gezeichnet: die ganze
+    // Skala als Balken mit beiden Enden beschriftet. Zwölf abgekürzte Rangnamen über
+    // 540 Pixel waren eine Wand aus Stummeln.
     const rampW = INNER - 32;
     const cell = rampW / C.tier.length;
     C.tier.forEach((colour, i) => {
@@ -497,7 +498,7 @@ function layoutLegend(ctx, items, max) {
   return rows;
 }
 
-/* ---------- new bests ---------- */
+/* ---------- neue Bestwerte ---------- */
 
 function bests(ctx, d, y) {
   const top = sectionHead(ctx, t('weekCard.newBests'), y, t('progress.metric.e1rmNoun'));
@@ -520,7 +521,7 @@ function bests(ctx, d, y) {
   return top + h;
 }
 
-/* ---------- volume vs plan ---------- */
+/* ---------- Volumen gegen Plan ---------- */
 
 function volume(ctx, d, y) {
   const top = sectionHead(ctx, t('plans.part.volume'), y,
@@ -552,8 +553,8 @@ function volume(ctx, d, y) {
     return top + h;
   }
 
-  // Green is "on pace for how far into the week you are", not "finished" — the
-  // same rule Home uses, so the card cannot flatter a week the app calls behind.
+  // Grün heißt "im Soll für die Stelle der Woche, an der man ist", nicht "fertig". Dieselbe
+  // Regel wie auf Home, damit die Karte keine Woche schönredet, die die App als Rückstand sieht.
   const pace = Math.max(0.15, d.verdict.pace);
   const nameW = 86;
   const valW = 46;
@@ -568,8 +569,8 @@ function volume(ctx, d, y) {
     fillRound(ctx, trackX, ry + 4, trackW, 9, 4.5, C.sunken);
     const pct = Math.min(1, r.target > 0 ? r.ratio : 1);
     const w = Math.max(4, pct * trackW);
-    // Without a target there is no pace to be on, so the bar stays neutral
-    // rather than claiming a muscle the plan never asked for was "hit".
+    // Ohne Ziel gibt es kein Soll, der Balken bleibt also neutral, statt zu behaupten,
+    // ein Muskel, den der Plan nie verlangt hat, sei "getroffen".
     const good = r.target > 0 && r.ratio >= pace * 0.9;
     const okay = r.target > 0 && r.ratio >= pace * 0.7;
     let fill;
@@ -580,8 +581,8 @@ function volume(ctx, d, y) {
       fill = ctx.createLinearGradient(trackX, 0, trackX + w, 0);
       fill.addColorStop(0, C.accent); fill.addColorStop(1, C.accentHi);
     } else {
-      // Not a rank colour: this bar means "behind, or no target", and borrowing
-      // the bottom of the ladder for it would read as a Bronze rating.
+      // Keine Rangfarbe: der Balken heißt "im Rückstand oder ohne Ziel", und das untere
+      // Ende der Leiter dafür zu leihen würde sich wie eine Bronze-Wertung lesen.
       fill = C.faint;
     }
     fillRound(ctx, trackX, ry + 4, w, 9, 4.5, fill);
@@ -601,7 +602,7 @@ function volume(ctx, d, y) {
   return top + h;
 }
 
-/* ---------- footer ---------- */
+/* ---------- Fußzeile ---------- */
 
 function footer(ctx, d, y) {
   ctx.strokeStyle = C.lineSoft;
@@ -628,7 +629,7 @@ function appUrl() {
   }
 }
 
-/* ---------- small pieces ---------- */
+/* ---------- Kleinteile ---------- */
 
 function panel(ctx, x, y, w, h, { glow = null } = {}) {
   const grad = ctx.createLinearGradient(x, y, x + w * 0.4, y + h);

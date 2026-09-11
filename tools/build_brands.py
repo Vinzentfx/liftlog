@@ -1,32 +1,32 @@
 #!/usr/bin/env python3
 """
-Regenerates js/brand-library.js from Open Food Facts.
+Erzeugt js/brand-library.js neu aus Open Food Facts.
 
-Branded products, so the search box can find "Nutella" and not just "hazelnut
-spread". Fetched here, at build time, rather than from the app — the browser
-cannot search Open Food Facts at all (see tools/build_foods.py for the two
-separate reasons), but a build script has no CORS to worry about.
+Markenprodukte, damit die Suche "Nutella" findet und nicht nur "Haselnusscreme". Geholt
+wird hier beim Bauen und nicht aus der App: der Browser kann Open Food Facts gar nicht
+durchsuchen (die zwei Gründe stehen in tools/build_foods.py), ein Build-Skript muss sich
+um CORS aber nicht kümmern.
 
-LICENSING — read before extending this.
+LIZENZ, vor dem Erweitern lesen.
 
-Open Food Facts is ODbL v1.0. Querying it live for one barcode creates nothing
-and triggers nothing, which is why js/foodlookup.js is unencumbered. *This* file
-is different: extracting a subset and shipping it makes a derived database, and
-ODbL's share-alike then applies to it. That is fine and intended, but it has to
-be honoured:
+Open Food Facts steht unter ODbL v1.0. Live nach einem Barcode zu fragen erzeugt nichts und
+löst nichts aus, deshalb ist js/foodlookup.js unbelastet. Diese Datei ist anders: einen
+Ausschnitt herauszuziehen und mitzuliefern ergibt eine abgeleitete Datenbank, und für die
+gilt dann das Share-alike der ODbL. Das ist in Ordnung und so gewollt, muss aber
+eingehalten werden:
 
-  * the extracted database is licensed ODbL v1.0, stated in NOTICE and in the
-    app's credits;
-  * Open Food Facts is attributed wherever these entries are shown;
-  * it stays data-only. No product images (those are CC-BY-SA and separately
-    licensed), and no OFF content is mixed into the app's own code.
+  * die herausgezogene Datenbank steht unter ODbL v1.0, so steht es in NOTICE und in den
+    Credits der App;
+  * Open Food Facts wird überall genannt, wo diese Einträge zu sehen sind;
+  * es bleiben reine Daten. Keine Produktbilder (die sind CC-BY-SA und eigens lizenziert),
+    und kein Inhalt von OFF wird mit dem eigenen Code der App vermischt.
 
-The app's source code is unaffected — ODbL covers the database, not the program
-that reads it.
+Der Quellcode der App ist davon nicht betroffen, die ODbL gilt für die Datenbank, nicht für
+das Programm, das sie liest.
 
-Category facets are used rather than a free-text or popularity sort: sorting by
-unique_scans_n makes the API return 503, and querying by category gives a spread
-across the shelf, which is what a search library wants.
+Abgefragt wird über Kategorie-Facetten statt über Freitext oder Beliebtheit: nach
+unique_scans_n zu sortieren lässt die API mit 503 antworten, und nach Kategorie zu fragen
+ergibt eine Streuung über das ganze Regal, und genau das will eine Suchbibliothek.
 
     python3 tools/build_brands.py [--per-category N]
 """
@@ -43,8 +43,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "js" / "brand-library.js"
 API = "https://world.openfoodfacts.org/api/v2/search"
 
-# A German shelf. Each is an Open Food Facts category facet; the country filter
-# keeps it to products actually sold here rather than the global catalogue.
+# Ein deutsches Regal. Jeder Eintrag ist eine Kategorie-Facette von Open Food Facts, der
+# Länderfilter hält es bei Produkten, die hier wirklich verkauft werden, statt beim Weltkatalog.
 CATEGORIES = [
     "yogurts", "cheeses", "milks", "plant-based-milk-alternatives", "creams",
     "butters", "quark", "breads", "breakfast-cereals", "mueslis",
@@ -58,8 +58,8 @@ CATEGORIES = [
     "eggs", "olive-oils", "vegetable-oils", "vinegars", "mustards",
 ]
 
-# OFF nutriment keys -> what the app stores. Same set the barcode path reads, so
-# a product added from here and one scanned later are the same shape.
+# Nährwertschlüssel von OFF -> was die App speichert. Dieselben, die der Barcode-Weg liest,
+# ein Produkt von hier und eins, das später gescannt wird, haben also dieselbe Form.
 FIELDS = {
     "proteins_100g": "protein",
     "carbohydrates_100g": "carbs",
@@ -67,8 +67,8 @@ FIELDS = {
     "fat_100g": "fat",
     "saturated-fat_100g": "satFat",
     "fiber_100g": "fibre",
-    "sodium_100g": "sodium",       # OFF reports grams; converted below
-    "salt_100g": None,             # read for sodium fallback only
+    "sodium_100g": "sodium",       # OFF liefert Gramm, wird unten umgerechnet
+    "salt_100g": None,             # nur als Ersatz für Natrium gelesen
 }
 
 REQUIRED = ("energy-kcal_100g", "proteins_100g", "carbohydrates_100g", "fat_100g")
@@ -105,13 +105,13 @@ def num(v):
 
 def clean_name(product):
     name = (product.get("product_name_de") or product.get("product_name") or "").strip()
-    # OFF names carry all sorts of debris: sizes, ALL CAPS, doubled whitespace.
+    # Namen von OFF schleppen allerlei Müll mit: Größen, NUR GROSSBUCHSTABEN, doppelte Leerzeichen.
     name = re.sub(r"\s+", " ", name)
     if len(name) < 3 or len(name) > 60:
         return None
-    # Crowd-sourced fields collect keyboard mashing. A name with no vowel in it
-    # is not a product ("ghgh" arrived under Haribo); short real ones like
-    # "Eier", "Pils" and "Skyr" all have one, so this is the only filter needed.
+    # Felder aus der Community sammeln Tastaturgehämmer. Ein Name ohne Vokal ist kein Produkt
+    # ("ghgh" kam unter Haribo an). Kurze echte wie "Eier", "Pils" und "Skyr" haben alle
+    # einen, mehr Filter braucht es also nicht.
     if not re.search(r"[aeiouyäöü]", name, re.IGNORECASE):
         return None
     if name.isupper() and len(name) > 12:
@@ -129,8 +129,8 @@ def to_entry(product):
         return None
 
     kcal = num(n.get("energy-kcal_100g"))
-    # Junk guard: nothing edible is 900+ kcal per 100 g except pure fat, and a
-    # zero-energy row with protein in it is a broken record, not a food.
+    # Schutz gegen Müll: nichts Essbares hat 900+ kcal pro 100 g außer reinem Fett, und eine
+    # Zeile ohne Energie, aber mit Eiweiß, ist ein kaputter Datensatz und kein Lebensmittel.
     if kcal is None or kcal > 950 or (kcal == 0 and num(n.get("proteins_100g"))):
         return None
 
@@ -141,13 +141,13 @@ def to_entry(product):
         v = num(n.get(key))
         if v is None:
             continue
-        # OFF reports sodium in grams; the app stores milligrams.
+        # OFF liefert Natrium in Gramm, die App speichert Milligramm.
         per100[target] = round(v * 1000) if target == "sodium" else round(v, 2)
 
     if "sodium" not in per100:
         salt = num(n.get("salt_100g"))
         if salt is not None:
-            per100["sodium"] = round(salt * 400)      # salt g -> sodium mg
+            per100["sodium"] = round(salt * 400)      # Salz g -> Natrium mg
 
     brand = (product.get("brands") or "").split(",")[0].strip()
     entry = {
@@ -183,23 +183,23 @@ def main():
             rows.append(entry)
             kept += 1
         print(f"  {category:<32} {kept}")
-        time.sleep(3)                                  # be a good citizen
+        time.sleep(3)                                  # höflich bleiben
 
     rows.sort(key=lambda r: r["name"].lower())
     body = ",\n".join("  " + json.dumps(r, ensure_ascii=False, sort_keys=True) for r in rows)
     OUT.write_text(
-        "// GENERATED by tools/build_brands.py — do not hand-edit.\n"
+        "// ERZEUGT von tools/build_brands.py, bitte nicht von Hand ändern.\n"
         "//\n"
-        "// Branded products from Open Food Facts, filtered to items sold in Germany.\n"
-        "// Values are per 100 g or 100 ml as the contributor entered them.\n"
+        "// Markenprodukte aus Open Food Facts, gefiltert auf Artikel, die in Deutschland\n"
+        "// verkauft werden. Werte pro 100 g oder 100 ml, so wie sie eingetragen wurden.\n"
         "//\n"
-        "// LICENCE: this extracted database is licensed under the Open Database\n"
-        "// License (ODbL) v1.0, because it is a derived database of Open Food Facts.\n"
-        "// Attribution and the full terms are in NOTICE. The app's own source code is\n"
-        "// not affected — ODbL covers the database, not the program reading it.\n"
+        "// LIZENZ: dieser Auszug steht unter der Open Database License (ODbL) v1.0, weil\n"
+        "// er eine abgeleitete Datenbank von Open Food Facts ist. Quellenangabe und die\n"
+        "// vollständigen Bedingungen stehen in NOTICE. Der Quellcode der App ist davon\n"
+        "// nicht betroffen, die ODbL gilt für die Datenbank und nicht für das Programm, das sie liest.\n"
         "//\n"
-        "// Crowd-sourced, so a value is only as good as the contributor who typed it.\n"
-        "// The UI says where each number came from for exactly this reason.\n"
+        "// Von der Community eingetragen, ein Wert ist also nur so gut wie die Person, die\n"
+        "// ihn abgetippt hat. Genau deshalb sagt die Oberfläche, woher jede Zahl kommt.\n"
         f"\nexport const BRAND_LIBRARY = [\n{body},\n];\n",
         encoding="utf-8",
     )

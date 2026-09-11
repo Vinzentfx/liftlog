@@ -1,107 +1,105 @@
-// Where a rank sits in a population, estimated rather than measured.
+// Wo ein Rang in der Bevölkerung liegt, geschätzt und nicht gemessen.
 //
-// The app already had one percentile, and it is a real one: `shareRankScores`
-// asks the server how many other LiftLog users score below you. It is also
-// unavailable to most people most of the time, because it needs an account, a
-// connection, an opt-in, and a population that has already logged the same
-// lift. So the rank stood on its own on screen, and a rank on its own does not
-// answer the question people actually have.
+// Ein Perzentil hatte die App schon, und das ist ein echtes: `shareRankScores`
+// fragt den Server, wie viele andere LiftLog-Nutzer unter einem liegen. Die meiste
+// Zeit gibt es das aber für die meisten nicht, denn dafür braucht man ein Konto,
+// eine Verbindung, eine Zustimmung und genug andere, die dieselbe Übung eingetragen
+// haben. Der Rang stand also allein auf dem Bildschirm, und ein Rang allein
+// beantwortet nicht die Frage, die man eigentlich hat.
 //
-// That question is "is this good", and without an answer the ladder actively
-// misleads. Legend is the ninth of twelve ranks, so Legend II reads as
-// mid-table when it is in fact the top one percent of adult men. Somebody
-// pressing an incline that essentially nobody in their gym presses was being
-// shown a number that looked like a C grade. This file is the fix, and it is
-// deliberately a model rather than a measurement, said out loud everywhere it
-// is displayed.
+// Die Frage ist "ist das gut", und ohne Antwort führt die Leiter sogar in die Irre.
+// Legend ist der neunte von zwölf Rängen, Legend II wirkt also wie Mittelfeld,
+// obwohl es das oberste Prozent erwachsener Männer ist. Wer eine Schrägbank drückt,
+// die in seinem Studio praktisch niemand schafft, bekam eine Zahl, die aussah wie
+// eine Drei. Diese Datei behebt das, und zwar bewusst als Modell und nicht als
+// Messung, was auch überall steht, wo die Zahl angezeigt wird.
 //
-// Two numbers come out of it, and they are not the same kind of claim:
+// Heraus kommen zwei Zahlen, und die behaupten nicht dasselbe:
 //
-//   `lifters` is close to arithmetic. The four published anchors the whole
-//   ladder is built from are themselves percentile statements about people who
-//   train and log: novice is the 20th, intermediate the 50th, advanced the
-//   80th, elite the 95th. Turning a score back into a percentile is reading the
-//   table in the direction it was written.
+//   `lifters` ist fast nur Rechnen. Die vier veröffentlichten Ankerpunkte, aus denen
+//   die Leiter gebaut ist, sind selbst Perzentile über Leute, die trainieren und
+//   mitschreiben: Anfänger ist das 20., Fortgeschritten das 50., Weit
+//   fortgeschritten das 80., Elite das 95. Eine Wertung zurück in ein Perzentil zu
+//   verwandeln heißt, die Tabelle in der Richtung zu lesen, in der sie geschrieben ist.
 //
-//   `world` adds one modelling step on top, mixing in the large majority of
-//   adults who never touch a barbell. That step is an assumption, the numbers
-//   behind it are below with their reasoning, and it is why every screen calls
-//   this an estimate.
+//   `world` legt einen Modellierungsschritt drauf und mischt die große Mehrheit der
+//   Erwachsenen dazu, die nie eine Langhantel anfassen. Dieser Schritt ist eine
+//   Annahme, die Zahlen dahinter stehen unten mit Begründung, und deshalb heißt es
+//   auf jedem Screen Schätzung.
 
 import { BAND, DIVISIONS } from './standards.js';
 
 /**
- * Score on the ladder against z on a standard normal of lifters.
+ * Wertung auf der Leiter gegen z auf einer Standardnormalverteilung der Trainierenden.
  *
- * Each row is a published anchor and the percentile the standards it came from
- * assign to it. The score column is not chosen: it falls out of `ladder()`,
- * which puts novice at the entry to Gold, intermediate at Diamond, advanced at
- * Grandmaster and elite at Legend.
+ * Jede Zeile ist ein veröffentlichter Ankerpunkt mit dem Perzentil, das ihm die
+ * Standards zuordnen, aus denen er stammt. Die Spalte mit der Wertung ist nicht
+ * gewählt, sie ergibt sich aus `ladder()`: Anfänger am Einstieg zu Gold,
+ * Fortgeschritten bei Diamond, Weit fortgeschritten bei Grandmaster, Elite bei Legend.
  *
- * The striking part, and the reason this file can be short: those four points
- * are almost exactly collinear in z. Gold to Diamond is 0.842 z across 16.67
- * score, Diamond to Grandmaster is 0.842 across 16.67, Grandmaster to Legend is
- * 0.803 across 16.67. The rank ladder is already a linear standard-normal
- * scale, which nobody designed it to be, and which is a decent sign that the
- * geometric interpolation in `ladder()` is the right shape.
+ * Das Auffällige, und der Grund, warum diese Datei kurz sein kann: die vier Punkte
+ * liegen in z fast genau auf einer Geraden. Gold bis Diamond sind 0,842 z über
+ * 16,67 Punkte, Diamond bis Grandmaster 0,842 über 16,67, Grandmaster bis Legend
+ * 0,803 über 16,67. Die Rangleiter ist also schon eine lineare Normalskala, ohne
+ * dass sie so geplant war, und das spricht dafür, dass die geometrische
+ * Interpolation in `ladder()` die richtige Form hat.
  *
- * Above Legend it bends away from that line, correctly: BEYOND_ELITE is
- * calibrated against competition, and the last three ranks are much thinner
- * slices of the population than a straight extension would make them.
+ * Über Legend knickt sie von der Geraden ab, und zwar zu Recht: BEYOND_ELITE ist an
+ * Wettkämpfen kalibriert, und die letzten drei Ränge sind viel dünnere Scheiben der
+ * Bevölkerung, als eine gerade Verlängerung sie machen würde.
  */
 const ANCHORS = [
-  // [score, share of lifters below]
-  [100 / 12 * 1,  0.05],    // Silver      — a little over half the novice standard
-  [100 / 12 * 2,  0.20],    // Gold        — published Novice
-  [100 / 12 * 4,  0.50],    // Diamond     — published Intermediate
-  [100 / 12 * 6,  0.80],    // Grandmaster — published Advanced
-  [100 / 12 * 8,  0.95],    // Legend      — published Elite
-  [100 / 12 * 9,  0.99],    // Challenger  — extrapolated, see BEYOND_ELITE
+  // [Wertung, Anteil der Trainierenden darunter]
+  [100 / 12 * 1,  0.05],    // Silver       etwas mehr als die Hälfte des Anfängerstandards
+  [100 / 12 * 2,  0.20],    // Gold         veröffentlicht: Anfänger
+  [100 / 12 * 4,  0.50],    // Diamond      veröffentlicht: Fortgeschritten
+  [100 / 12 * 6,  0.80],    // Grandmaster  veröffentlicht: Weit fortgeschritten
+  [100 / 12 * 8,  0.95],    // Legend       veröffentlicht: Elite
+  [100 / 12 * 9,  0.99],    // Challenger   hochgerechnet, siehe BEYOND_ELITE
   [100 / 12 * 10, 0.998],   // Immortal
   [100 / 12 * 11, 0.9995],  // Radiant
-  [100,           0.9999],  // the top of the scale
+  [100,           0.9999],  // das obere Ende der Skala
 ];
 
 /**
- * The share of adults who train with resistance often enough to be described by
- * the standards table at all.
+ * Der Anteil der Erwachsenen, die oft genug mit Widerstand trainieren, dass die
+ * Standardtabelle sie überhaupt beschreibt.
  *
- * Self-reported "meets muscle-strengthening guidelines" runs near 30% in
- * national surveys, and self-report on exercise is generous in one direction
- * only. Regular barbell or machine training, the thing the standards are
- * written about, is meaningfully rarer than that. A fifth is the conservative
- * reading, and conservative here means the world percentile comes out *lower*,
- * which is the correct direction for a number that flatters.
+ * Selbst angegeben "erfüllt die Empfehlung zum Muskeltraining" liegt in nationalen
+ * Umfragen bei etwa 30 %, und Selbstauskunft über Sport ist nur in eine Richtung
+ * großzügig. Regelmäßiges Training mit Langhantel oder Maschine, also das, worüber
+ * die Standards geschrieben sind, ist deutlich seltener. Ein Fünftel ist die
+ * vorsichtige Lesart, und vorsichtig heißt hier, dass das Welt-Perzentil NIEDRIGER
+ * herauskommt. Das ist die richtige Richtung für eine Zahl, die schmeichelt.
  */
 const TRAINING_SHARE = 0.20;
 
 /**
- * Where the untrained sit on the same scale, as mean and spread in z.
+ * Wo die Untrainierten auf derselben Skala liegen, als Mittelwert und Streuung in z.
  *
- * -1.45 puts the untrained median at roughly half of bodyweight on the bench,
- * which is the middle of the range usually reported for adult men who do not
- * train. It lands between Bronze and Silver on this ladder, below the published
- * novice standard, which is the whole point: the novice standard describes
- * somebody who has already started.
+ * -1,45 legt den Median der Untrainierten bei etwa dem halben Körpergewicht auf
+ * der Bank. Das ist die Mitte dessen, was meist für erwachsene Männer ohne
+ * Training angegeben wird. Auf dieser Leiter liegt das zwischen Bronze und Silver,
+ * unter dem veröffentlichten Anfängerstandard, und genau darum geht es: der
+ * Anfängerstandard beschreibt jemanden, der schon angefangen hat.
  *
- * 0.50 is the honest part of the uncertainty. Too narrow and the curve develops
- * a cliff, where one division of rank moves the world percentile by thirty
- * points; too wide and one untrained adult in five is claimed to out-bench the
- * novice standard. At 0.50 about one in nine does, which is roughly the share
- * of adults who are strong from work or sport without ever lifting.
+ * 0,50 ist der ehrliche Teil der Unsicherheit. Zu schmal, und die Kurve bekommt eine
+ * Klippe, an der eine Division im Rang das Welt-Perzentil um dreißig Punkte
+ * verschiebt. Zu breit, und jeder fünfte Untrainierte würde angeblich mehr drücken
+ * als der Anfängerstandard. Bei 0,50 ist es etwa jeder neunte, und das ist ungefähr
+ * der Anteil der Erwachsenen, die durch Arbeit oder Sport stark sind, ohne je zu heben.
  *
- * These two are the only invented numbers in this file, and they only affect
- * `world`. `lifters` never touches them.
+ * Diese beiden sind die einzigen ausgedachten Zahlen in der Datei, und sie wirken
+ * nur auf `world`. `lifters` berührt sie nie.
  */
 const UNTRAINED_MEAN_Z = -1.45;
 const UNTRAINED_SD_Z = 0.50;
 
 /**
- * The normal CDF, via Abramowitz and Stegun 7.1.26.
+ * Die Verteilungsfunktion der Normalverteilung nach Abramowitz und Stegun 7.1.26.
  *
- * Accurate to about 1.5e-7, which is four orders of magnitude better than
- * anything displayed here needs, and it is fifteen lines instead of a
- * dependency.
+ * Genau auf etwa 1,5e-7, vier Größenordnungen besser als alles, was hier angezeigt
+ * wird, und fünfzehn Zeilen statt einer Abhängigkeit.
  */
 function phi(z) {
   const sign = z < 0 ? -1 : 1;
@@ -112,10 +110,10 @@ function phi(z) {
   return 0.5 * (1 + sign * y);
 }
 
-/** The inverse, for turning the anchor percentiles into z once at load time. */
+/** Die Umkehrung, um die Anker-Perzentile beim Laden einmal in z umzurechnen. */
 function probit(p) {
-  // Acklam's rational approximation. Only ever called on the nine constants
-  // above, so speed is irrelevant and clarity is not.
+  // Rationale Näherung nach Acklam. Wird nur für die neun Konstanten oben aufgerufen,
+  // die Geschwindigkeit ist also egal und die Lesbarkeit nicht.
   const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
     1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
   const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
@@ -136,22 +134,22 @@ function probit(p) {
     / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
 }
 
-/** The anchor table in z, built once. */
+/** Die Ankertabelle in z, einmal gebaut. */
 const CURVE = ANCHORS.map(([score, share]) => [score, probit(share)]);
 
 /**
- * A ladder score as a z-value on the distribution of people who train.
+ * Eine Wertung auf der Leiter als z-Wert in der Verteilung der Trainierenden.
  *
- * Linear between anchors, and linearly extended below the first one rather than
- * clamped: a score of zero is a real place on the ladder that somebody's first
- * session can land on, and pinning everything under Silver to the same number
- * would make the whole bottom of the app say one thing.
+ * Linear zwischen den Ankern und unter dem ersten linear verlängert statt
+ * abgeschnitten: eine Wertung von null ist ein echter Platz auf der Leiter, auf dem
+ * die erste Einheit von jemandem landen kann. Alles unter Silver auf dieselbe Zahl
+ * festzunageln würde den ganzen unteren Teil der App dasselbe sagen lassen.
  */
 export function zForScore(score) {
-  // `Number(null)` is 0, and 0 is a real place on this ladder. Without the
-  // first test an unrated lift would come back as Bronze III and be told it is
-  // stronger than two per cent of men, which is a claim about somebody the app
-  // has never measured.
+  // `Number(null)` ist 0, und 0 ist ein echter Platz auf der Leiter. Ohne die erste
+  // Prüfung käme eine unbewertete Übung als Bronze III zurück, stärker als zwei
+  // Prozent der Männer, und das wäre eine Aussage über jemanden, den die App nie
+  // gemessen hat.
   if (score === null || score === undefined || score === '') return null;
   const s = Number(score);
   if (!Number.isFinite(s)) return null;
@@ -169,9 +167,9 @@ export function zForScore(score) {
 }
 
 /**
- * Both readings of one score, as fractions between 0 and 1, or null.
+ * Beide Lesarten einer Wertung als Anteile zwischen 0 und 1, oder null.
  *
- * @returns { lifters, world } or null when there is no score to read
+ * @returns { lifters, world } oder null, wenn es keine Wertung zum Lesen gibt
  */
 export function percentiles(score) {
   const z = zForScore(score);
@@ -185,13 +183,13 @@ export function percentiles(score) {
 }
 
 /**
- * How many decimals a share deserves, which is not a formatting preference.
+ * Wie viele Nachkommastellen ein Anteil verdient. Das ist keine Geschmacksfrage.
  *
- * The interesting half of this scale is compressed into its last two percent:
- * Legend, Challenger, Immortal and Radiant all round to 99% or 100%, and a
- * lifter climbing three whole ranks would watch the number not move. So the
- * closer to the ceiling, the more decimals, and above 99.95 the honest thing is
- * to stop claiming a percentile at all and name the slice instead.
+ * Die spannende Hälfte der Skala steckt in den letzten zwei Prozent: Legend,
+ * Challenger, Immortal und Radiant runden alle auf 99 % oder 100 %, und wer drei
+ * ganze Ränge aufsteigt, sähe die Zahl nicht wackeln. Je näher an der Decke, desto
+ * mehr Stellen, und über 99,95 hört man ehrlicherweise auf, ein Perzentil zu
+ * behaupten, und nennt stattdessen die Scheibe.
  */
 export function shareDigits(fraction) {
   const pct = fraction * 100;
@@ -201,10 +199,10 @@ export function shareDigits(fraction) {
 }
 
 /**
- * "Top 3%" — the same fact from the other end, for the lifter-relative number.
+ * "Top 3 %", dieselbe Tatsache vom anderen Ende, für die Zahl unter Trainierenden.
  *
- * Rounded to something a person would say out loud. Nobody says top 37.2%, and
- * a top-half number is better read as "top half" than as a decimal.
+ * Gerundet auf etwas, das man laut sagen würde. Niemand sagt "Top 37,2 %", und eine
+ * Zahl in der oberen Hälfte liest sich als "obere Hälfte" besser als mit Komma.
  */
 export function topSlice(fraction) {
   const rest = (1 - fraction) * 100;
@@ -215,10 +213,10 @@ export function topSlice(fraction) {
 }
 
 /**
- * The step on the ladder a percentile answers for, so the two never disagree.
+ * Die Stufe auf der Leiter, für die ein Perzentil steht, damit sich beide nie widersprechen.
  *
- * Only used by the tests: it is the guard against somebody changing ANCHORS and
- * quietly moving what a rank is worth without noticing which rank moved.
+ * Nur von den Tests benutzt: sie passen auf, dass niemand ANCHORS ändert und still
+ * verschiebt, was ein Rang wert ist, ohne zu merken, welcher Rang sich bewegt hat.
  */
 export function anchorTable() {
   return CURVE.map(([score, z]) => ({

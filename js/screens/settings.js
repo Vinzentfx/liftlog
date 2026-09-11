@@ -1,4 +1,4 @@
-// Settings sheet — units, rest defaults, and backup/restore.
+// Einstellungen: Einheiten, Pausen und Sichern/Wiederherstellen.
 
 import {
   el, openSheet, closeSheet, confirmSheet, toast, fmtClock, fmtDate, fmtDecimal,
@@ -25,9 +25,9 @@ const THEMES = [
 ];
 
 /**
- * Profile — the inputs the strength standards actually need.
- * Height is captured for reference only; no published standard normalises by it,
- * so including it in the maths would be invented precision.
+ * Profil: die Angaben, die die Kraftstandards wirklich brauchen.
+ * Die Körpergröße wird nur zur Info erfasst. Kein veröffentlichter Standard rechnet
+ * mit ihr, sie in die Rechnung zu nehmen wäre also ausgedachte Genauigkeit.
  */
 export function profileForm(onSaved = null) {
   const s = store.state.settings;
@@ -68,7 +68,7 @@ export function profileForm(onSaved = null) {
     await store.setSetting('bodyweight', bw);
     await store.setSetting('age', age.value ? Number(age.value) : null);
     await store.setSetting('height', height.value ? Number(height.value) : null);
-    // Keep the bodyweight chart in step with the profile figure.
+    // Das Diagramm fürs Körpergewicht im Gleichschritt mit dem Profil halten.
     await store.logBodyweight(bw);
 
     closeSheet();
@@ -94,10 +94,10 @@ export function profileForm(onSaved = null) {
 export function renderSettings() {
   const s = store.state.settings;
 
-  // Switching units relabels every stored number rather than converting it —
-  // weights are kept as bare figures, so 100 kg becomes "100 lb". That is fine
-  // when it is set once at the start and wrong the moment there is history, so
-  // the switch says so instead of pretending to convert.
+  // Beim Wechsel der Einheit wird jede gespeicherte Zahl umbeschriftet und nicht
+  // umgerechnet. Gewichte stehen als nackte Zahlen, aus 100 kg wird also "100 lb".
+  // Einmal am Anfang eingestellt ist das in Ordnung, sobald es Verlauf gibt, ist es
+  // falsch. Deshalb sagt der Schalter das, statt so zu tun, als würde er umrechnen.
   const units = el('div.seg', {}, ['kg', 'lb'].map((u) =>
     el('button', {
       'aria-pressed': String(s.units === u),
@@ -137,8 +137,8 @@ export function renderSettings() {
     ].join(' · '),
   });
 
-  // Language. Stored as null when it follows the device, which is what a fresh
-  // install should do; picking one here pins it.
+  // Sprache. Gespeichert als null, solange sie dem Gerät folgt, so soll es bei einer
+  // frischen Installation sein. Wer hier eine auswählt, legt sie fest.
   const languageChoices = el('div.language-grid', {
     role: 'group', 'aria-label': t('settings.language'),
   }, [
@@ -150,7 +150,7 @@ export function renderSettings() {
       type: 'button', 'aria-pressed': String(selected),
       onclick: async () => {
         await store.setSetting('language', option.key);
-        // Rebuild the open sheet immediately in the newly selected language.
+        // Das offene Sheet sofort in der neu gewählten Sprache neu aufbauen.
         closeSheet();
         renderSettings();
       },
@@ -167,8 +167,8 @@ export function renderSettings() {
     return el('button.theme-choice', {
       type: 'button', 'aria-pressed': String(selected),
       onclick: async (event) => {
-        // currentTarget is cleared when dispatch finishes, which can happen
-        // while the IndexedDB write below is awaiting. Keep the element itself.
+        // currentTarget wird geleert, sobald das Ereignis durch ist, und das kann
+        // passieren, während unten auf IndexedDB gewartet wird. Also das Element selbst behalten.
         const clicked = event.currentTarget;
         await store.setSetting('theme', theme.key);
         for (const choice of clicked.parentElement.children) {
@@ -196,10 +196,10 @@ export function renderSettings() {
   ratingToggle.disabled = !hasProfile(s);
   ratingToggle.addEventListener('change', () => store.setSetting('showRatings', ratingToggle.checked));
 
-  // The anonymous rank comparison. Off unless it is switched on, and switching
-  // it off withdraws every contribution in the same action rather than merely
-  // stopping new ones, which is the difference between opting out and having
-  // opted out.
+  // Der anonyme Vergleich der Ränge. Aus, solange man ihn nicht einschaltet, und beim
+  // Ausschalten werden alle bisherigen Beiträge in derselben Aktion zurückgezogen,
+  // nicht nur keine neuen mehr geschickt. Das ist der Unterschied zwischen "nicht
+  // mehr mitmachen" und "nie mitgemacht haben".
   const rankShareToggle = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
   rankShareToggle.checked = s.shareRankComparison === true;
   rankShareToggle.addEventListener('change', async () => {
@@ -217,10 +217,10 @@ export function renderSettings() {
   rirToggle.checked = s.logRir !== false;
   rirToggle.addEventListener('change', () => store.setSetting('logRir', rirToggle.checked));
 
-  // What a set with no RIR on it is worth to the progression engine. It matters
-  // most for people who have the column switched off entirely: for them every
-  // set is blank, and reading blank as "to failure" made every suggestion too
-  // light for as long as the app has existed.
+  // Was ein Satz ohne RIR für die Progression wert ist. Am meisten zählt das für alle,
+  // die die Spalte ganz ausgeschaltet haben: bei ihnen ist jeder Satz leer, und leer
+  // als "bis zum Versagen" zu lesen hat jeden Vorschlag zu leicht gemacht, solange es
+  // die App gibt.
   const assumedRir = normaliseOnBlur(numberInput({
     value: s.assumedRir ?? 1,
     placeholder: '1',
@@ -250,8 +250,8 @@ export function renderSettings() {
     input.addEventListener('change', () => store.setSetting(key, input.checked));
     return input;
   };
-  // Opt-in rather than opt-out: `preferenceToggle` reads a missing value as on,
-  // and this one changes what the app recommends, so it has to be asked for.
+  // Einschalten statt Ausschalten: `preferenceToggle` liest einen fehlenden Wert als an,
+  // und dieser Schalter ändert, was die App empfiehlt. Also muss man ihn selbst wollen.
   const optInToggle = (key) => {
     const input = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
     input.checked = s[key] === true;
@@ -434,10 +434,10 @@ export function renderSettings() {
         const ok = await confirmSheet(t('settings.eraseTitle'), t('settings.eraseBody'),
           { confirmLabel: t('settings.erase') });
         if (!ok) return;
-        // Here the device keys go too: "erase everything" means everything,
-        // including the cloud identity. Signing out with them keeps the two
-        // sides in step, rather than leaving a session pointing at an account
-        // this device can no longer decrypt.
+        // Hier gehen auch die Geräteschlüssel mit: "alles löschen" heißt alles, auch
+        // die Identität in der Cloud. Mit ihnen abzumelden hält beide Seiten im
+        // Gleichschritt, statt eine Sitzung übrig zu lassen, die auf ein Konto zeigt,
+        // das dieses Gerät nicht mehr entschlüsseln kann.
         await Promise.all(Object.values(db.STORES).map((st) => db.clear(st)));
         await sync.signOutEverywhere({ forgetDevice: true }).catch(() => {});
         await store.load();
@@ -508,8 +508,8 @@ function gymLocationSection() {
   radius.addEventListener('change', () => saveGymLocation({ radius: Number(radius.value) }));
   const pick = () => gymMapPicker((point) => {
     saveGymLocation({ ...point, radius: Number(radius.value), enabled: true });
-    // The picker closes itself after this callback. Reopen Settings on the next
-    // task so closeSheet cannot immediately close the freshly rebuilt sheet.
+    // Die Auswahl schließt sich nach diesem Callback selbst. Die Einstellungen im
+    // nächsten Task neu öffnen, sonst schließt closeSheet das frisch gebaute Sheet sofort.
     setTimeout(renderSettings, 0);
   });
 
@@ -604,22 +604,23 @@ function notificationSection(settings) {
 }
 
 /**
- * The real storage state, filled in asynchronously.
+ * Der echte Zustand des Speichers, wird nachträglich eingefüllt.
  *
- * This replaces a blanket warning that was wrong for the way this app is
- * actually used: an installed home-screen web app is exempt from Safari's
- * seven-day eviction and gets a browser-sized quota. Saying "Safari will wipe
- * this" when it will not just teaches you to ignore the warnings that matter.
+ * Ersetzt eine pauschale Warnung, die für die Art, wie die App tatsächlich benutzt
+ * wird, falsch war: eine installierte Web-App auf dem Homescreen ist von Safaris
+ * Sieben-Tage-Löschung ausgenommen und bekommt ein Kontingent wie ein Browser.
+ * "Safari löscht das" zu sagen, wenn es das nicht tut, bringt einem nur bei, auch
+ * die Warnungen zu übergehen, auf die es ankommt.
  */
 /**
- * Temporary instrument, not a feature. Remove once the iOS tab-bar gap is
- * settled.
+ * Vorübergehendes Messwerkzeug, keine Funktion. Wieder raus, sobald die Lücke über
+ * der Tab-Leiste unter iOS geklärt ist.
  *
- * It draws nothing at all unless the app viewport actually disagrees with the
- * screen, which is the one thing that cannot be measured from a laptop and the
- * difference between "the bar reserves too much space" and "the layout is
- * shorter than the phone". A diagnostic that is invisible when everything is
- * fine is worth having; one that is always visible is clutter.
+ * Zeichnet gar nichts, solange das Fenster der App nicht vom Bildschirm abweicht.
+ * Genau das lässt sich vom Laptop aus nicht messen, und daran hängt der Unterschied
+ * zwischen "die Leiste reserviert zu viel Platz" und "das Layout ist kürzer als das
+ * Handy". Eine Diagnose, die unsichtbar bleibt, wenn alles passt, lohnt sich. Eine,
+ * die immer zu sehen ist, stört.
  */
 function viewportLine() {
   const inner = Math.round(window.innerHeight);
@@ -632,7 +633,7 @@ function viewportLine() {
   const inset = getComputedStyle(document.documentElement)
     .getPropertyValue('--safe-b').trim();
 
-  // Everything agreeing means there is no gap to explain, so say nothing.
+  // Stimmt alles überein, gibt es keine Lücke zu erklären, also nichts sagen.
   if (Math.abs(app - inner) <= 1 && Math.abs(dvh - inner) <= 1) return null;
 
   return el('div.small', {
@@ -676,9 +677,9 @@ export async function doExport() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  // Marked optimistically: the browser gives no callback for "the user actually
-  // kept the file", and nagging someone who just exported is worse than missing
-  // one cancelled download.
+  // Vorsichtshalber schon als erledigt markiert: der Browser meldet nicht, ob die
+  // Datei wirklich behalten wurde, und jemanden zu nerven, der gerade exportiert hat,
+  // ist schlimmer, als einen abgebrochenen Download zu übersehen.
   await store.markExported();
   toast(t('settings.backupDownloaded'));
 }

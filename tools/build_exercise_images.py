@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Build assets/exercises/ + js/exercise-images.js from the everkinetic image set.
+Baut assets/exercises/ und js/exercise-images.js aus dem Bildersatz von everkinetic.
 
-everkinetic is CC-BY-SA 4.0 (https://github.com/everkinetic/data). The original
-CDN is offline, so images come from a community mirror. Attribution lives in
-README.md and in the app's Settings sheet.
+everkinetic steht unter CC-BY-SA 4.0 (https://github.com/everkinetic/data). Das ursprüngliche
+CDN ist offline, die Bilder kommen deshalb aus einem Spiegel der Community. Die Namensnennung
+steht in README.md und in den Einstellungen der App.
 
-Source images are black line art on transparency. They are re-rendered here as
-*white* art carried entirely in the alpha channel, so they sit on the dark UI
-with no CSS filter, and the alpha is quantised to 8 levels — for line work that
-is visually indistinguishable and cuts each file from ~32 KB to ~6 KB.
+Die Quellbilder sind schwarze Strichzeichnungen auf transparentem Grund. Hier werden sie als
+*weiße* Zeichnung neu gerendert, die ganz im Alphakanal steckt. So sitzen sie ohne CSS-Filter
+auf der dunklen Oberfläche, und der Alphakanal wird auf 8 Stufen gerundet. Bei Strichen sieht
+man keinen Unterschied, und jede Datei schrumpft von ~32 KB auf ~6 KB.
 
     curl -sL https://codeload.github.com/lczarnec/everkinetic_modifications/tar.gz/refs/heads/master -o /tmp/ek.tar.gz
     mkdir -p /tmp/ek_repo && tar -xzf /tmp/ek.tar.gz -C /tmp/ek_repo
@@ -26,15 +26,15 @@ from PIL import Image, ImageChops
 ROOT = Path(__file__).resolve().parent.parent
 SRC = Path("/tmp/ek_repo/everkinetic_modifications-master/images")
 DEST = ROOT / "assets" / "exercises"
-WIDTH = 320          # plenty at 2x on a phone card
-ALPHA_LEVELS = 8     # quantisation steps; 8 is invisible on line art
+WIDTH = 320          # reicht bei 2x auf einer Handykarte
+ALPHA_LEVELS = 8     # Stufen beim Runden, 8 sieht man bei Strichen nicht
 
-# everkinetic slug -> exact library name. Only for pairs the token matcher
-# can't reach, and for the benchmark lifts where a wrong match would be worse
-# than none.
+# everkinetic-Slug -> genauer Name in der Bibliothek. Nur für Paare, die der Token-Abgleich
+# nicht erreicht, und für die Referenzübungen, bei denen ein falscher Treffer schlimmer wäre
+# als keiner.
 ALIASES = {
-    # Verified against the actual slug list — everkinetic's naming rarely
-    # matches the library's, and a wrong guess silently yields no art.
+    # Gegen die echte Slug-Liste geprüft. Die Namen bei everkinetic passen selten zu denen
+    # der Bibliothek, und ein falscher Tipp ergibt still kein Bild.
     "bench_press": "Barbell Bench Press",
     "narrow_grip_bench_press": "Close-Grip Bench Press",
     "bench_press_dumbbell": "Dumbbell Bench Press",
@@ -77,11 +77,11 @@ ALIASES = {
     "hanging_leg_raise": "Hanging Leg Raise",
 }
 
-# Movements everkinetic simply does not cover — recorded so nobody re-hunts for
-# them. These fall back to the muscle map.
+# Bewegungen, die everkinetic schlicht nicht hat. Aufgeschrieben, damit niemand noch einmal
+# danach sucht. Diese fallen auf die Muskelkarte zurück.
 NO_ART = ("Deadlift", "Barbell Row", "Pendlay Row", "Hip Thrust", "Sumo Deadlift")
 
-# --- everkinetic metadata (for exercises we adopt wholesale) -------------------
+# --- everkinetic-Metadaten (für Übungen, die wir ganz übernehmen) -------------------
 
 EK_JSON = Path("/tmp/ek.json")
 
@@ -109,7 +109,7 @@ EK_MUSCLE = {
     "calves": ("Calves", "calves"),
 }
 
-# most specific wins — a "bench + barbell" entry is a barbell exercise
+# die genaueste gewinnt: ein Eintrag "bench + barbell" ist eine Langhantelübung
 EK_EQUIP = [
     ("barbell", "Barbell"), ("bar", "Barbell"),
     ("dumbbell", "Dumbbell"), ("dumbbells", "Dumbbell"), ("dumbell", "Dumbbell"),
@@ -123,7 +123,7 @@ EK_EQUIP = [
 
 
 def ek_meta():
-    """slug -> library-shaped record, for everkinetic exercises we adopt."""
+    """Slug -> Eintrag in Bibliotheksform, für übernommene everkinetic-Übungen."""
     if not EK_JSON.exists():
         return {}
     out = {}
@@ -182,20 +182,20 @@ def tokens(s: str) -> frozenset:
         if not w or w in STOPWORDS:
             continue
         if len(w) > 3 and w.endswith("s") and not w.endswith("ss"):
-            w = w[:-1]          # crude singularisation: shrugs -> shrug
+            w = w[:-1]          # grobe Einzahl: shrugs -> shrug
         out.add(w)
     return frozenset(out)
 
 
 def render(src: Path, dest: Path) -> None:
-    """Black line art -> white art carried in alpha, quantised and lossless."""
+    """Schwarze Striche -> weiße Striche im Alphakanal, gerundet und verlustfrei."""
     im = Image.open(src)
     w = WIDTH
     h = round(im.height * (w / im.width))
     im = im.resize((w, h), Image.LANCZOS)
 
     lum, alpha = im.convert("LA").split()
-    # ink coverage: how dark the pixel is, gated by the source transparency
+    # Deckung der Tinte: wie dunkel das Pixel ist, begrenzt durch die Transparenz der Quelle
     ink = ImageChops.multiply(ImageChops.invert(lum), alpha)
 
     step = 256 // ALPHA_LEVELS
@@ -218,7 +218,7 @@ def library_names() -> list:
 
 def main() -> None:
     if not SRC.is_dir():
-        sys.exit(f"source images not found at {SRC} — see the docstring")
+        sys.exit(f"Quellbilder nicht gefunden unter {SRC}, siehe Docstring")
 
     names = library_names()
     by_norm = {}
@@ -227,7 +227,7 @@ def main() -> None:
         by_norm.setdefault(norm(n), n)
         by_tokens.setdefault(tokens(n), n)
 
-    # collect slugs that have both frames
+    # Slugs sammeln, die beide Bilder haben
     pairs = {}
     for f in sorted(SRC.iterdir()):
         m = re.match(r"^_*(.+?)_([12])\.png$", f.name)
@@ -237,8 +237,8 @@ def main() -> None:
 
     mapping, unmatched = {}, []
 
-    # Aliases first and unconditionally: they are hand-verified, so a fuzzy
-    # match must never claim the slot ahead of one.
+    # Aliase zuerst und ohne Bedingung: sie sind von Hand geprüft, ein unscharfer Treffer darf
+    # den Platz also nie vor einem von ihnen besetzen.
     for slug, frames in pairs.items():
         name = ALIASES.get(slug)
         if name and norm(name) in by_norm:
@@ -259,7 +259,7 @@ def main() -> None:
                 if tk in by_tokens:
                     target = by_tokens[tk]
                 else:
-                    # best Jaccard overlap above threshold
+                    # beste Jaccard-Überlappung über der Schwelle
                     best, score = None, 0.0
                     for cand_tokens, cand in by_tokens.items():
                         if not cand_tokens:
@@ -276,7 +276,7 @@ def main() -> None:
         if not target:
             unmatched.append((slug, frames))
             continue
-        # first match wins — keeps output stable and avoids two slugs fighting
+        # der erste Treffer gewinnt, das hält die Ausgabe stabil und verhindert, dass zwei Slugs sich streiten
         mapping.setdefault(norm(target), {"slug": slug, "frames": frames})
 
     DEST.mkdir(parents=True, exist_ok=True)
@@ -292,9 +292,9 @@ def main() -> None:
             render(info["frames"][n], DEST / f"{slug}_{n}.webp")
         out[key] = slug
 
-    # Unmatched everkinetic exercises have art but no library entry. Adopt them:
-    # they cost nothing extra (the images already exist) and every one of them
-    # arrives illustrated, which is the whole point.
+    # everkinetic-Übungen ohne Treffer haben ein Bild, aber keinen Eintrag in der Bibliothek.
+    # Die werden übernommen: sie kosten nichts extra (die Bilder gibt es schon), und jede kommt
+    # gleich mit Bild an, und darum geht es ja.
     meta = ek_meta()
     adopted = []
     for slug, frames in unmatched:
@@ -312,24 +312,24 @@ def main() -> None:
 
     adopted.sort(key=lambda r: r["n"])
     (ROOT / "js" / "exercise-extra.js").write_text(
-        "// GENERATED — do not edit by hand. Rebuild with tools/build_exercise_images.py\n"
+        "// ERZEUGT, bitte nicht von Hand ändern. Neu bauen mit tools/build_exercise_images.py\n"
         "//\n"
-        "// Exercises adopted from everkinetic (CC-BY-SA 4.0) because they ship with\n"
-        "// demo art but had no counterpart in the free-exercise-db catalogue.\n"
-        "// Same record shape as js/exercise-library.js.\n"
+        "// Übungen aus everkinetic (CC-BY-SA 4.0), übernommen, weil sie Bilder mitbringen,\n"
+        "// aber im Katalog von free-exercise-db kein Gegenstück hatten.\n"
+        "// Gleicher Aufbau wie js/exercise-library.js.\n"
         f"export const LIBRARY_EXTRA = {json.dumps(adopted, ensure_ascii=False, separators=(',', ':'))};\n"
     )
     print(f"adopted {len(adopted)} extra exercises -> js/exercise-extra.js")
 
     (ROOT / "js" / "exercise-images.js").write_text(
-        "// GENERATED — do not edit by hand. Rebuild with tools/build_exercise_images.py\n"
+        "// ERZEUGT, bitte nicht von Hand ändern. Neu bauen mit tools/build_exercise_images.py\n"
         "//\n"
-        "// Exercise illustrations from everkinetic (CC-BY-SA 4.0).\n"
+        "// Bilder zu den Übungen aus everkinetic (CC-BY-SA 4.0).\n"
         "// https://github.com/everkinetic/data\n"
         "//\n"
-        "// Maps a normalised exercise name to its image slug. Two frames exist per\n"
-        "// slug: <slug>_1.webp (start) and <slug>_2.webp (end).\n"
-        "// Source art is black line work; the app inverts it to white in CSS.\n"
+        "// Ordnet einem normalisierten Übungsnamen seinen Bildnamen zu. Pro Name gibt es\n"
+        "// zwei Bilder: <slug>_1.webp (Start) und <slug>_2.webp (Ende).\n"
+        "// Die Vorlagen sind schwarze Linien, die App invertiert sie per CSS auf Weiß.\n"
         f"export const EXERCISE_IMAGES = {json.dumps(out, separators=(',', ':'))};\n"
     )
 

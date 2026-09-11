@@ -1,17 +1,17 @@
-// Whether this build is the public preview.
+// Ob dieser Stand die öffentliche Vorschau ist.
 //
-// The repository always says false, so the app friends use never changes, and
-// tests/security.test.js fails if that ever stops being true. The GitHub Pages
-// workflow (.github/workflows/pages.yml) writes true into its own copy before
-// publishing. Nothing else sets it.
+// Im Repo steht immer false, die App für die Freunde ändert sich also nie, und
+// tests/security.test.js schlägt fehl, falls das einmal nicht mehr stimmt. Der
+// GitHub-Pages-Workflow (.github/workflows/pages.yml) schreibt vor dem
+// Veröffentlichen true in seine eigene Kopie. Sonst setzt es niemand.
 //
-// What the preview does differently, all of it in js/app.js:
-//   - no invite gate and no install hint, because a visitor has no code
-//   - no cloud: nothing syncs, and the published copy's CSP does not allow the
-//     Supabase host at all, so a stray call fails in the browser rather than
-//     reaching the real project
-//   - an empty device is filled from showcase-backup.json on first launch
-//   - no offline copy: the published sw.js is tools/preview-sw.js, because
-//     bootstrap.js registers a worker before any module could say otherwise,
-//     and the real one would keep serving last week's sample data
+// Was die Vorschau anders macht, alles in js/app.js:
+//   - keine Einladungssperre und kein Installationshinweis, Besucher haben keinen Code
+//   - keine Cloud: nichts wird synchronisiert, und die CSP der veröffentlichten Kopie
+//     lässt den Supabase-Host gar nicht zu. Ein verirrter Aufruf scheitert also im
+//     Browser und erreicht nie das echte Projekt
+//   - ein leeres Gerät wird beim ersten Start aus showcase-backup.json gefüllt
+//   - keine Offline-Kopie: das veröffentlichte sw.js ist tools/preview-sw.js, weil
+//     bootstrap.js einen Worker registriert, bevor irgendein Modul etwas sagen kann,
+//     und der echte würde weiter die Beispieldaten der letzten Woche ausliefern
 export const DEMO = false;

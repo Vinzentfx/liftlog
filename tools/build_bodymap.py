@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Generate assets/body-front.svg + body-back.svg from the body-muscles dataset.
+Erzeugt assets/body-front.svg und body-back.svg aus dem Datensatz body-muscles.
 
-Source: https://github.com/vulovix/body-muscles (Apache-2.0). Attribution lives
-in README.md, NOTICE and the app's Settings sheet.
+Quelle: https://github.com/vulovix/body-muscles (Apache-2.0). Die Namensnennung steht
+in README.md, NOTICE und in den Einstellungen der App.
 
-That project ships ~90 fine-grained muscle paths (chest-upper-left,
-traps-mid-right, ...). They are collapsed here onto the 15 regions the rating
-engine uses, so one tap on the map maps to one rated muscle group.
+Das Projekt liefert rund 90 feine Muskelpfade (chest-upper-left, traps-mid-right, ...).
+Hier werden sie auf die 15 Regionen zusammengelegt, die die Bewertung benutzt, damit ein
+Tipp auf die Karte genau eine bewertete Muskelgruppe trifft.
 
     curl -sL -o /tmp/mf.ts https://raw.githubusercontent.com/vulovix/body-muscles/main/src/data/muscles.front.ts
     curl -sL -o /tmp/mb.ts https://raw.githubusercontent.com/vulovix/body-muscles/main/src/data/muscles.back.ts
@@ -20,11 +20,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
 
-# The source viewBoxes: front and back sit side by side in one coordinate space.
+# Die viewBoxen der Quelle: Vorder- und Rückseite liegen nebeneinander in einem Koordinatenraum.
 VIEWBOX = {"front": "0 0 35 93", "back": "37 0 35 93"}
 
-# source id prefix (after stripping -left/-right) -> our region key.
-# Anything not listed becomes non-muscle body-base (head, hands, feet, joints).
+# Präfix der Quell-ID (ohne -left/-right) -> unser Regionsschlüssel.
+# Alles, was nicht aufgeführt ist, wird zu body-base ohne Muskel (Kopf, Hände, Füße, Gelenke).
 REGION_OF = {
     "chest-upper": "chest", "chest-lower": "chest",
     "shoulder-front": "delts-front", "shoulder-side": "delts-front",
@@ -54,11 +54,11 @@ PATH_RE = re.compile(r'path:\s*"([^"]+)"')
 
 def parse(path: Path):
     """
-    Split into object literals and pull id + path from each.
+    Zerlegt die Datei in Objektliterale und holt aus jedem id und path.
 
-    A single regex over the whole file silently drops entries: several objects
-    carry a `// comment` line between `view:` and `path:`, which broke a
-    field-order-sensitive pattern and cost the entire chest group.
+    Eine einzige Regex über die ganze Datei verliert still Einträge: mehrere Objekte haben
+    eine `// Kommentar`-Zeile zwischen `view:` und `path:`, das hat ein Muster zerlegt, das
+    von der Reihenfolge der Felder abhing, und die ganze Brust gekostet.
     """
     text = path.read_text()
     out = []
@@ -85,16 +85,16 @@ def build(entries, view: str) -> str:
     label = "Front" if view == "front" else "Back"
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="{VIEWBOX[view]}" role="img" aria-label="{label} view muscle map">
   <!--
-    GENERATED — rebuild with tools/build_bodymap.py
+    ERZEUGT, neu bauen mit tools/build_bodymap.py
 
-    Muscle paths from body-muscles (https://github.com/vulovix/body-muscles),
-    licensed Apache-2.0. Its ~90 fine-grained muscles are collapsed onto the 15
-    regions the rating engine scores.
+    Muskelpfade aus body-muscles (https://github.com/vulovix/body-muscles),
+    Lizenz Apache-2.0. Die rund 90 feinen Muskeln sind auf die 15 Regionen
+    zusammengelegt, die die Bewertung benutzt.
 
-    Contract the app relies on:
-      * every muscle shape carries class="muscle" and data-region="<key>"
-      * non-muscle anatomy carries class="body-base"
-      * do not set fill on .muscle shapes — the app colours them by rating
+    Worauf sich die App verlässt:
+      * jede Muskelform hat class="muscle" und data-region="<key>"
+      * alles, was kein Muskel ist, hat class="body-base"
+      * kein fill auf .muscle setzen, die App färbt nach Bewertung
   -->
   <g class="body-base">
 {chr(10).join(base_paths)}
@@ -109,7 +109,7 @@ def build(entries, view: str) -> str:
 def main() -> None:
     front_src, back_src = Path("/tmp/mf.ts"), Path("/tmp/mb.ts")
     if not front_src.exists() or not back_src.exists():
-        sys.exit("source .ts files missing — see the docstring")
+        sys.exit("Quelldateien .ts fehlen, siehe Docstring")
 
     ASSETS.mkdir(exist_ok=True)
     for view, src in (("front", front_src), ("back", back_src)):

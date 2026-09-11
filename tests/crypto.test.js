@@ -1,9 +1,9 @@
-// The crypto layer, checked without a server existing.
+// Die Verschlüsselung, geprüft, ohne dass es einen Server gibt.
 //
-// Everything here is arithmetic on bytes, so it runs in the test runner exactly
-// as it runs in Safari. That matters more than usual: this is the one part of
-// the app where a bug is not a wrong number on a screen but a backup nobody can
-// ever open again, or one anybody can.
+// Alles hier ist Rechnen mit Bytes, es läuft im Testrunner also genau wie in Safari. Das
+// ist wichtiger als sonst: das ist der eine Teil der App, in dem ein Fehler keine falsche
+// Zahl auf dem Bildschirm ist, sondern eine Sicherung, die niemand mehr öffnen kann, oder
+// eine, die jeder öffnen kann.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,7 +24,7 @@ const SAMPLE = {
   })),
 };
 
-/* ========================= sealing the payload ========================= */
+/* ========================= den Inhalt versiegeln ========================= */
 
 test('a sealed payload comes back exactly as it went in', async () => {
   const key = await generateDataKey();
@@ -42,9 +42,9 @@ test('a tampered payload will not open', async () => {
   const key = await generateDataKey();
   const blob = await seal(key, SAMPLE);
 
-  // Flip one character in the middle of the ciphertext. AES-GCM authenticates,
-  // so this has to be caught rather than decrypted into plausible rubbish: a
-  // backup that half-restores is worse than one that refuses.
+  // Ein Zeichen mitten im Chiffrat umdrehen. AES-GCM authentifiziert, das muss also
+  // auffallen, statt zu plausiblem Unsinn entschlüsselt zu werden: eine Sicherung, die sich
+  // halb wiederherstellt, ist schlimmer als eine, die sich weigert.
   const i = Math.floor(blob.ct.length / 2);
   const swapped = blob.ct[i] === 'A' ? 'B' : 'A';
   const tampered = { ...blob, ct: blob.ct.slice(0, i) + swapped + blob.ct.slice(i + 1) };
@@ -64,23 +64,23 @@ test('compression happens before encryption, or the upload is pointless', async 
   const plain = JSON.stringify(SAMPLE).length;
   const blob = await seal(key, SAMPLE);
 
-  // Repetitive JSON is what a backup is. If this ratio ever collapses, the
-  // order of the two steps has been swapped: ciphertext does not compress.
+  // Eine Sicherung ist sich wiederholendes JSON. Bricht dieses Verhältnis je ein, wurde die
+  // Reihenfolge der zwei Schritte vertauscht: Chiffrat lässt sich nicht komprimieren.
   assert.ok(blob.bytes < plain / 3,
     `expected the sealed payload well under a third of ${plain} bytes, got ${blob.bytes}`);
 });
 
 test('a payload the size of a real backup survives the round trip', async () => {
-  // The chunked base64 helper exists because the naive version throws a
-  // RangeError somewhere past a hundred thousand bytes, and it would have
-  // thrown it on the first real upload rather than in any small test.
+  // Den Helfer für base64 in Stücken gibt es, weil die naive Version irgendwo jenseits von
+  // hunderttausend Bytes einen RangeError wirft, und zwar beim ersten echten Upload und in
+  // keinem kleinen Test.
   const key = await generateDataKey();
   const big = { blobs: Array.from({ length: 4000 }, (_, i) => ({ i, note: 'Satz sauber, Griff eng.' })) };
   const blob = await seal(key, big);
   assert.deepEqual(await open(key, blob), big);
 });
 
-/* =========================== recovery key =========================== */
+/* =========================== Wiederherstellungsschlüssel =========================== */
 
 test('a recovery key survives being written down and typed back in', () => {
   const key = generateRecoveryKey();
@@ -90,7 +90,7 @@ test('a recovery key survives being written down and typed back in', () => {
   assert.equal(bytes.length, 16);
   assert.equal(formatRecoveryKey(bytes), key);
 
-  // Someone copying this off paper will not reproduce the dashes or the case.
+  // Wer das von einem Zettel abschreibt, schreibt weder die Bindestriche noch Groß und Klein genau ab.
   for (const variant of [
     key.toLowerCase(),
     key.replace(/-/g, ''),
@@ -102,8 +102,8 @@ test('a recovery key survives being written down and typed back in', () => {
 });
 
 test('a recovery key has no characters you could misread', () => {
-  // Hex is the point: the letters O and I never occur, so the digits 0 and 1
-  // cannot be transcribed as them.
+  // Genau darum Hex: die Buchstaben O und I kommen nie vor, 0 und 1 können also nicht als
+  // diese abgeschrieben werden.
   for (let i = 0; i < 50; i++) {
     assert.ok(!/[OIL]/.test(generateRecoveryKey()));
   }
@@ -123,7 +123,7 @@ test('the recovery key opens the backup, and only the right one does', async () 
   const salt = randomBytes(16);
   const wrapped = await wrapDataKey(await keyFromRecovery(recovery, salt), dataKey);
 
-  // A new phone, months later, with nothing but the piece of paper.
+  // Ein neues Handy, Monate später, mit nichts als dem Zettel.
   const recovered = await unwrapDataKey(await keyFromRecovery(recovery, salt), wrapped);
   assert.deepEqual(await open(recovered, blob), SAMPLE);
 
@@ -144,13 +144,13 @@ test('the verifier proves the recovery key without revealing it', async () => {
   const verifierSalt = randomBytes(16);
   const verifier = await recoveryVerifier(recovery, verifierSalt);
 
-  // The server stores this and compares. Same key, same answer.
+  // Der Server speichert das und vergleicht. Gleicher Schlüssel, gleiche Antwort.
   assert.equal(await recoveryVerifier(recovery, verifierSalt), verifier);
-  // Anyone else fails.
+  // Jeder andere scheitert.
   assert.notEqual(await recoveryVerifier(generateRecoveryKey(), verifierSalt), verifier);
 
-  // And it must not be the wrapping key, or storing it would hand the server
-  // the ability to open the backup it is holding.
+  // Und es darf nicht der Schlüssel zum Einpacken sein, sonst gäbe man dem Server mit dem
+  // Speichern die Möglichkeit, die Sicherung zu öffnen, die er aufbewahrt.
   const wrapSalt = randomBytes(16);
   const wrapping = await keyFromRecovery(recovery, wrapSalt);
   const raw = toBase64(await globalThis.crypto.subtle.exportKey('raw', wrapping)
@@ -158,7 +158,7 @@ test('the verifier proves the recovery key without revealing it', async () => {
   assert.notEqual(verifier, raw);
 });
 
-/* ========================== linking a device ========================== */
+/* ========================== ein Gerät verbinden ========================== */
 
 test('an approved device gets the key, a third device does not', async () => {
   const main = await generateDeviceKeys();
@@ -168,9 +168,9 @@ test('an approved device gets the key, a third device does not', async () => {
   const dataKey = await generateDataKey();
   const blob = await seal(dataKey, SAMPLE);
 
-  // What approving a device does: the main device derives a shared secret from
-  // its own private key and the newcomer's public one, and wraps the data key
-  // with it. Only the two of them can compute that secret.
+  // Was eine Freigabe macht: das Hauptgerät leitet aus seinem privaten Schlüssel und dem
+  // öffentlichen des neuen ein gemeinsames Geheimnis ab und packt den Datenschlüssel damit
+  // ein. Nur die beiden können dieses Geheimnis ausrechnen.
   const forTablet = await wrapDataKey(
     await sharedKey(main.privateKey, await exportPublicKey(tablet)), dataKey);
 
@@ -178,7 +178,7 @@ test('an approved device gets the key, a third device does not', async () => {
     await sharedKey(tablet.privateKey, await exportPublicKey(main)), forTablet);
   assert.deepEqual(await open(onTablet, blob), SAMPLE, 'the tablet can read the backup');
 
-  // Someone who grabbed the wrapped blob off the server, with their own device.
+  // Jemand, der den eingepackten Blob vom Server geholt hat, mit seinem eigenen Gerät.
   const asStranger = await sharedKey(stranger.privateKey, await exportPublicKey(main));
   await assert.rejects(() => unwrapDataKey(asStranger, forTablet), /WRONG_KEY/);
 });
@@ -189,7 +189,7 @@ test('the private half of a device key cannot be read back out', async () => {
     () => globalThis.crypto.subtle.exportKey('jwk', device.privateKey),
     'a device key must be usable but not copyable',
   );
-  // The public half is meant to travel.
+  // Die öffentliche Hälfte darf reisen.
   const pub = await exportPublicKey(device);
   assert.equal(pub.kty, 'EC');
   assert.equal(pub.crv, 'P-256');

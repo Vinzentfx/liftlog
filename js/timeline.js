@@ -1,30 +1,33 @@
-// Eating and training on one set of week buckets.
+// Essen und Training in denselben Wochen.
 //
-// The app has always had both halves and never put them next to each other, so
-// "I ate more and my sets went up" was a thing you had to hold in your head
-// across two screens. This lines them up on a shared x-axis and stops there.
+// Beides gab es in der App schon immer, nur nie nebeneinander. "Ich habe mehr
+// gegessen und meine Sätze sind hochgegangen" musste man sich über zwei Screens
+// hinweg merken. Das hier legt beides auf eine gemeinsame Zeitachse, und mehr nicht.
 //
-// It stops there on purpose. Three series moving together is not evidence that
-// one moved the other: a training block, a holiday, an illness and a change of
-// job all push several of these at once, and n=1 with no control has nothing to
-// say about which way the arrow points. So this module computes, the screen
-// draws, and neither of them uses the word "because". There is no correlation
-// coefficient here either, for the same reason: a number would read as a finding.
+// Mehr nicht, mit Absicht. Drei Kurven, die sich zusammen bewegen, beweisen
+// nicht, dass die eine die andere bewegt hat: ein Trainingsblock, Urlaub,
+// Krankheit oder ein neuer Job schieben mehrere davon gleichzeitig, und bei n=1
+// ohne Vergleich lässt sich nicht sagen, in welche Richtung der Pfeil zeigt. Also
+// rechnet dieses Modul, der Screen zeichnet, und keiner von beiden benutzt das
+// Wort "weil". Aus demselben Grund gibt es keinen Korrelationskoeffizienten, eine
+// Zahl würde sich wie ein Befund lesen.
 //
-// The rule the rest of the app lives by carries over unchanged: a week nobody
-// logged reports null, never zero. Averaging in the weeks you forgot would make
-// a good month look like a bad one, which is the fastest way to stop logging.
+// Die Regel aus dem Rest der App gilt auch hier: eine Woche, in der nichts
+// eingetragen wurde, ist null und nie null Kalorien. Vergessene Wochen
+// mitzurechnen würde einen guten Monat schlecht aussehen lassen, und dann hört
+// man am schnellsten auf einzutragen.
 
 import { startOfWeek } from './models.js';
 import { dayTotals } from './nutrition.js';
 import { tonnageHistory } from './history.js';
 
 /**
- * How many logged days a week needs before its average intake is reported.
+ * Wie viele eingetragene Tage eine Woche braucht, bevor ihr Durchschnitt angezeigt wird.
  *
- * A convention, not a finding: with two logged days out of seven the mean says
- * more about which days you remembered than about what you ate. Four is a bare
- * majority of the week and is named as a convention wherever it is shown.
+ * Eine Festlegung, kein Befund: bei zwei von sieben Tagen sagt der Mittelwert
+ * mehr darüber, an welche Tage man gedacht hat, als darüber, was man gegessen
+ * hat. Vier ist knapp die Mehrheit der Woche und wird überall, wo es steht, als
+ * Festlegung benannt.
  */
 export const MIN_LOGGED_DAYS = 4;
 
@@ -38,9 +41,9 @@ export function timeline({ sessions = [], meals = [], bodyweight = [] },
 
   const training = tonnageHistory(sessions, weeks, now);
 
-  // Meals carry a day key rather than a timestamp, so the week they belong to
-  // comes from parsing that key at midday: parsing a bare date as UTC and then
-  // reading it back in a negative offset would land it on the day before.
+  // Mahlzeiten haben einen Tagesschlüssel statt eines Zeitstempels. Die Woche kommt
+  // deshalb aus diesem Schlüssel, gelesen um 12 Uhr mittags: ein reines Datum als
+  // UTC zu lesen und in einer negativen Zeitzone zurückzurechnen landet am Vortag.
   const mealsByWeek = new Map();
   for (const m of meals) {
     const ts = new Date(`${m.day}T12:00:00`).getTime();
@@ -59,8 +62,8 @@ export function timeline({ sessions = [], meals = [], bodyweight = [] },
     const totals = [...days.values()].map((dayMeals) => dayTotals(dayMeals));
     const loggedDays = totals.length;
 
-    // Only the days that actually carry the value count towards its mean. A day
-    // logged without calories is a logged day and not a zero-calorie one.
+    // Für den Mittelwert zählen nur Tage, die den Wert auch haben. Ein Tag ohne
+    // Kalorien ist ein eingetragener Tag und kein Tag mit null Kalorien.
     const meanOf = (pick) => {
       const values = totals.map(pick).filter((v) => Number.isFinite(v) && v > 0);
       if (!values.length) return null;
@@ -71,15 +74,15 @@ export function timeline({ sessions = [], meals = [], bodyweight = [] },
       ? { kcal: meanOf((t) => t.kcal), protein: meanOf((t) => t.protein), days: loggedDays }
       : null;
 
-    // Only weigh-ins that happened inside the week. Carrying the last one
-    // forward would draw a flat line through days nobody stood on a scale, and
-    // a chart of bodyweight has to show weighing, not interpolation.
+    // Nur Wiegen, das in der Woche stattgefunden hat. Den letzten Wert
+    // weiterzuziehen würde eine flache Linie durch Tage malen, an denen niemand
+    // auf der Waage stand, und eine Gewichtskurve muss Wiegen zeigen, keine Interpolation.
     //
-    // Stepped by calendar days rather than by 7 * 86400000: a week containing a
-    // clock change is 167 or 169 hours long, and the fixed-millisecond version
-    // put the boundary an hour into the Monday, so everything weighed in that
-    // hour landed in the week before. Twice already this app has shipped that
-    // bug and found out about it months later.
+    // In Kalendertagen weitergezählt statt in 7 * 86400000: eine Woche mit
+    // Zeitumstellung hat 167 oder 169 Stunden, und mit festen Millisekunden lag die
+    // Grenze eine Stunde im Montag. Alles, was in dieser Stunde gewogen wurde, landete
+    // in der Woche davor. Den Fehler hatte die App schon zweimal und hat es jedes Mal
+    // erst Monate später gemerkt.
     const end = new Date(bucket.week);
     end.setDate(end.getDate() + 7);
     const weekEnd = end.getTime();
@@ -112,11 +115,10 @@ export function timeline({ sessions = [], meals = [], bodyweight = [] },
 }
 
 /**
- * Is there enough here to be worth drawing?
+ * Reicht das, um etwas zu zeichnen?
  *
- * Two weeks of intake is the floor, because one point is not a timeline and the
- * whole promise of the screen is that you can see two things move over the same
- * stretch of weeks.
+ * Zwei Wochen mit Essen sind die Untergrenze. Ein Punkt ist keine Zeitleiste, und
+ * der ganze Sinn des Screens ist, dass man zwei Dinge über dieselben Wochen sieht.
  */
 export function timelineReady(data) {
   return data.coverage.withIntake >= 2;

@@ -1,8 +1,8 @@
--- Patch 004: repair incomplete invite activations and make claiming independent
--- of helper-function execute privileges. Apply after patch 003.
+-- Patch 004: unvollständige Aktivierungen von Einladungen reparieren und das Einlösen
+-- unabhängig von Ausführungsrechten auf Hilfsfunktionen machen. Nach Patch 003 einspielen.
 
--- Profiles prove that an invite was accepted by an earlier schema version.
--- Restore only missing grants; deliberately do not reactivate revoked rows.
+-- Profile belegen, dass eine Einladung von einer früheren Schemaversion angenommen wurde.
+-- Nur fehlende Freigaben wiederherstellen, entzogene Zeilen absichtlich nicht reaktivieren.
 insert into public.access_grants (user_id, active, granted_at, revoked_at)
 select p.id, true, p.created_at, null
 from public.profiles p
@@ -23,8 +23,8 @@ begin
     raise exception 'NOT_SIGNED_IN';
   end if;
 
-  -- Read the grant directly. This RPC must not depend on callers having execute
-  -- permission on the private has_active_access() helper.
+  -- Die Freigabe direkt lesen. Diese RPC darf nicht davon abhängen, dass Aufrufer die
+  -- private Hilfsfunktion has_active_access() ausführen dürfen.
   if exists (
     select 1 from public.access_grants ag
     where ag.user_id = auth.uid() and ag.active = true
@@ -69,5 +69,5 @@ revoke all on function public.claim_invite(text) from public, anon;
 grant execute on function public.claim_invite(text) to authenticated;
 grant execute on function public.has_active_access() to authenticated;
 
--- Make the replacement visible to PostgREST immediately.
+-- Den Ersatz für PostgREST sofort sichtbar machen.
 notify pgrst, 'reload schema';

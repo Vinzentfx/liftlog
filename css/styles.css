@@ -1,6 +1,6 @@
-/* ============ tokens ============
-   Dark-only by design: the glow treatment below is what gives the app its look,
-   and glow reads as muddy smudges on a light surface. */
+/* ============ Tokens ============
+   Absichtlich nur dunkel: der Leuchteffekt unten gibt der App ihren Look, und auf einer
+   hellen Fläche sieht Leuchten wie Schmutz aus. */
 :root {
   color-scheme: dark;
 
@@ -12,25 +12,25 @@
   --line-soft: #1B2942;
   --text:      #EAF0FA;
   --text-dim:  #93A3BE;
-  /* 5.1:1 on --bg-raised. It was #5E6E8C, which is 3.4:1, and it carries the
-     10.5px stat labels and every faint subline in the app: the smallest type
-     here had the weakest contrast, which is the wrong way round. */
+  /* 5,1:1 auf --bg-raised. Vorher #5E6E8C mit 3,4:1, und das trägt die 10,5-px-Beschriftung
+     der Kennzahlen und jede blasse Unterzeile der App: die kleinste Schrift hatte den
+     schwächsten Kontrast, genau falsch herum. */
   --text-faint:#7C8BA7;
 
   --accent:     #3B82F6;
   --accent-hi:  #60A5FA;
   --accent-ink: #04122B;
-  /* Validated against the #0A0E1A chart surface for lightness band,
-     chroma and contrast. Separate token from UI chrome. */
+  /* Gegen die Diagrammfläche #0A0E1A auf Helligkeitsbereich, Farbsättigung und Kontrast
+     geprüft. Eigene Variable, getrennt von den Farben der Oberfläche. */
   --data:       #3B82F6;
 
   --good:      #34D399;
   --warn:      #FBBF24;
   --danger:    #F87171;
 
-  /* Rating tiers — ordinal ramp, validated for adjacent-pair separation under
-     colourblind simulation (worst pair ΔE 15.1 deutan / 16.1 normal).
-     Always paired with a text label, never colour alone. */
+  /* Rangstufen, eine geordnete Skala, geprüft auf Unterscheidbarkeit benachbarter Paare
+     unter simulierter Farbenblindheit (schlechtestes Paar ΔE 15,1 Deuteranopie / 16,1
+     normal). Immer mit Textbeschriftung, nie Farbe allein. */
   --t0: #8A6A4A;   /* Bronze      */
   --t1: #9AA7B8;   /* Silver      */
   --t2: #D9A93B;   /* Gold        */
@@ -40,11 +40,10 @@
   --t6: #A855F7;   /* Grandmaster */
   --t7: #F472B6;   /* Elite       */
   --t8: #FFB020;   /* Legend      */
-  /* Above the published standards. Challenger is deliberately much darker than
-     the amber below it rather than merely a different hue: amber and red
-     converge under deuteranopia, and lightness is the channel that survives.
-     Radiant is near-white because it is the end of the ladder and because the
-     name means light. */
+  /* Über den veröffentlichten Standards. Challenger ist absichtlich viel dunkler als das
+     Bernstein darunter und nicht nur ein anderer Farbton: Bernstein und Rot laufen bei
+     Deuteranopie zusammen, und Helligkeit ist der Kanal, der übrig bleibt. Radiant ist fast
+     weiß, weil es das Ende der Leiter ist und weil der Name Licht heißt. */
   --t9:  #DC2626;  /* Challenger  */
   --t10: #D946EF;  /* Immortal    */
   --t11: #F1F5F9;  /* Radiant     */
@@ -62,16 +61,16 @@
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --tabbar-h: 58px;
-  /* How much of the home-indicator inset the tab bar actually reserves.
-     iOS hands out 34pt, but the indicator itself only occupies the bottom ~21,
-     so reserving all of it leaves a band of empty bar under the labels that
-     reads as a gap. Capped rather than dropped: at 0 the labels would sit under
-     the indicator on a phone that has one. */
+  /* Wie viel vom unteren Rand fürs Home-Symbol die Tab-Leiste wirklich reserviert. iOS
+     gibt 34 pt, das Symbol selbst belegt aber nur die unteren ~21. Alles zu reservieren
+     lässt unter den Beschriftungen einen leeren Streifen, der wie eine Lücke aussieht.
+     Gedeckelt statt weggelassen: bei 0 säßen die Beschriftungen auf einem Handy mit Symbol
+     darunter. */
   --tabbar-lift: 0px;
   --tabbar-pad: min(var(--safe-b), 20px);
-  /* Everything that has to sit clear of the tab bar measures from here. Three
-     places used to add the same two terms by hand, which is the arrangement
-     where one of them quietly stops matching the others. */
+  /* Alles, was frei von der Tab-Leiste bleiben muss, misst von hier. Drei Stellen haben
+     dieselben zwei Werte früher von Hand addiert, und genau so hört eine davon irgendwann
+     still auf, zu den anderen zu passen. */
   --above-tabbar: calc(var(--tabbar-h) + var(--tabbar-pad) + var(--tabbar-lift));
 
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
@@ -144,17 +143,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 2px; }
 input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
 
-/* ============ layout ============ */
+/* ============ Layout ============ */
 #app {
   position: relative; width: 100%; height: 100vh; height: 100dvh;
   min-height: 0; overflow: hidden;
   display: flex; flex-direction: column;
 }
 
-/* In an installed iOS PWA, 100dvh can start at the smaller, pre-settled
-   viewport height and stay there when the shell itself cannot scroll. Use the
-   large viewport for the app shell so the tab bar reaches the screen edge
-   immediately; safe-area padding still keeps its controls above the home bar. */
+/* In einer installierten iOS-PWA kann 100dvh mit der kleineren Höhe vor dem Einrasten
+   anfangen und dort bleiben, wenn die Hülle selbst nicht scrollen kann. Für die Hülle der
+   App deshalb das große Fenster nehmen, dann reicht die Tab-Leiste sofort bis zum Rand. Die
+   sicheren Ränder halten ihre Knöpfe trotzdem über dem Home-Balken. */
 @supports (-webkit-touch-callout: none) {
   html, body { height: 100lvh; }
   body { background-attachment: scroll; }
@@ -196,14 +195,13 @@ input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
   outline: none;
 }
 
-/* The rest bar floats over the bottom of the screen rather than pushing it up,
-   so while it is running the scroll has to reach past it. Without this the last
-   control on a screen sits under the bar, and on the workout screen that is
-   "end workout". */
+/* Die Pausenleiste schwebt über dem unteren Rand, statt ihn hochzuschieben. Solange sie
+   läuft, muss das Scrollen also an ihr vorbeireichen. Ohne das liegt der letzte Knopf eines
+   Screens unter der Leiste, und beim Training ist das "Training beenden". */
 body.resting #screen { padding-bottom: 102px; }
 
-/* `hidden` alone loses to the display rule below, so the invite gate could not
-   actually take the tab bar away. Specificity, not the attribute, decides. */
+/* `hidden` allein verliert gegen die display-Regel darunter, die Einladungssperre konnte
+   die Tab-Leiste also gar nicht wegnehmen. Die Spezifität entscheidet, nicht das Attribut. */
 #tabbar[hidden] { display: none; }
 
 #tabbar {
@@ -237,14 +235,14 @@ body.resting #screen { padding-bottom: 102px; }
   transform: translateY(-1px);
   filter: drop-shadow(0 0 7px rgba(96, 165, 250, .75));
 }
-/* lit rail above the active tab */
+/* leuchtende Leiste über dem aktiven Tab */
 .tab[aria-selected="true"]::before {
   content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
   width: 26px; height: 2px; border-radius: 0 0 3px 3px;
   background: var(--accent-hi); box-shadow: 0 0 10px 1px rgba(96, 165, 250, .9);
 }
 
-/* ============ primitives ============ */
+/* ============ Grundbausteine ============ */
 .card {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, .025), transparent 42%),
@@ -287,17 +285,17 @@ body.resting #screen { padding-bottom: 102px; }
 .btn.full   { width: 100%; }
 .btn.sm     { min-height: 36px; font-size: 13.5px; padding: 0 13px; }
 
-/* Fingertips, not pixels.
+/* Fingerspitzen, keine Pixel.
  *
- * A 36px control is comfortable with a mouse and small in a gym with chalk on
- * your hands, and Apple's floor is 44. Growing them on screen would loosen a
- * layout that is already tight on a 375px phone, so the hit area grows instead
- * and the button stays the size it looks. The pseudo-element reaches outward
- * from the centre, so nothing moves.
+ * Ein Knopf mit 36 px ist mit der Maus bequem und im Studio mit Magnesia an den Händen
+ * klein, und Apples Untergrenze sind 44. Sie auf dem Bildschirm größer zu machen würde ein
+ * Layout lockern, das auf einem 375-px-Handy schon eng ist. Deshalb wächst die
+ * Trefferfläche und der Knopf bleibt so groß, wie er aussieht. Das Pseudo-Element reicht
+ * von der Mitte nach außen, nichts verschiebt sich.
  *
- * Height only where a neighbour sits close: .set-no is 26px wide with the
- * weight field immediately to its right, and a 44px-wide hit area there would
- * steal taps from the field you actually came to type in.
+ * Nur in der Höhe, wo ein Nachbar nah dran sitzt: .set-no ist 26 px breit, direkt rechts
+ * daneben das Gewichtsfeld, und eine 44 px breite Trefferfläche würde dem Feld, in das man
+ * eigentlich tippen will, die Tipps wegnehmen.
  */
 .btn.sm, .icon-btn, .set-no { position: relative; }
 .btn.sm::after, .icon-btn::after, .set-no::after {
@@ -487,9 +485,9 @@ label.field > span {
   text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px;
 }
 
-/* Auth fields get their own visual language. Email/password were previously
-   outside the generic input selector, so the most important form looked like
-   raw browser controls while the rest of the app was polished. */
+/* Die Felder zum Anmelden bekommen eine eigene Optik. E-Mail und Passwort lagen früher
+   außerhalb der allgemeinen Eingabe-Regel, das wichtigste Formular sah also nach rohen
+   Browser-Feldern aus, während der Rest der App gepflegt war. */
 .auth-field { display: block; margin-bottom: 14px; }
 .auth-label {
   display: block; margin: 0 0 7px 3px;
@@ -539,8 +537,8 @@ label.field > span {
   color: var(--text-faint); font-size: 11.5px; line-height: 1.4;
 }
 
-/* Invite gate: one calm decision per screen, with the two entry paths visibly
-   distinct instead of looking like unrelated generic buttons. */
+/* Einladungssperre: eine ruhige Entscheidung pro Screen, die zwei Wege hinein sichtbar
+   verschieden statt wie zwei beliebige Knöpfe. */
 .gate-hero { text-align: center; padding: 22px 10px 18px; }
 .gate-mark {
   width: 58px; height: 58px; margin: 0 auto 14px;
@@ -628,11 +626,10 @@ label.field > span {
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px; margin: 26px 0 11px;
 }
-/* Who yields when a long title, a rule and two buttons want the same 343px.
-   Before this the answer was "everybody", which turned one German heading into
-   three wrapped lines with "+ New" broken across two of them. Now the rule
-   gives up its width first, the buttons never shrink, and only the title
-   wraps. */
+/* Wer nachgibt, wenn ein langer Titel, eine Linie und zwei Knöpfe dieselben 343 px wollen.
+   Vorher war die Antwort "alle", und aus einer deutschen Überschrift wurden drei Zeilen,
+   "+ Neu" über zwei davon gebrochen. Jetzt gibt zuerst die Linie ihre Breite ab, die Knöpfe
+   schrumpfen nie, und nur der Titel bricht um. */
 .section-head h2 { min-width: 0; }
 .section-head > :not(h2) { flex: none; }
 .section-head::after {
@@ -695,7 +692,7 @@ label.field > span {
 .list-item .li-sub { font-size: 13px; color: var(--text-dim); margin-top: 1px; }
 .list-item .chev { color: var(--text-faint); font-size: 18px; }
 
-/* ============ rating ============ */
+/* ============ Wertung ============ */
 .tier-0 { --tier: var(--t0); }
 .tier-1 { --tier: var(--t1); }
 .tier-2 { --tier: var(--t2); }
@@ -709,18 +706,17 @@ label.field > span {
 .tier-10 { --tier: var(--t10); }
 .tier-11 { --tier: var(--t11); }
 
-/* Roman numeral after the rank name. Its own element so the rank reads as one
-   word at a glance and the division only registers on a second look — which is
-   the order they matter in. */
+/* Römische Zahl hinter dem Rangnamen. Ein eigenes Element, damit der Rang auf einen Blick
+   wie ein Wort wirkt und die Division erst beim zweiten Hinschauen auffällt, in genau der
+   Reihenfolge, in der beides zählt. */
 .div-mark {
   font-variant-numeric: tabular-nums; font-weight: 800;
   opacity: .8; margin-left: 5px; letter-spacing: .08em;
 }
 
-/* Where you stand and what is next. One segment per rank rather than one per
-   step: twelve ranks times three divisions would be 36 slivers three pixels
-   wide, which is a texture and not a scale. The division lives in the partial
-   fill of the current segment instead. */
+/* Wo man steht und was als Nächstes kommt. Ein Abschnitt pro Rang statt pro Stufe: zwölf
+   Ränge mal drei Divisionen wären 36 Splitter mit drei Pixeln, eine Textur und keine Skala.
+   Die Division steckt stattdessen in der teilweisen Füllung des aktuellen Abschnitts. */
 .rank-track { margin-top: 16px; }
 .rank-track-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .rank-track-now { display: flex; align-items: center; gap: 11px; text-align: left; min-width: 0; }
@@ -728,12 +724,12 @@ label.field > span {
   font-size: 17px; font-weight: 760; letter-spacing: -.01em; line-height: 1.15;
   color: var(--tier, var(--text)); white-space: nowrap;
 }
-/* Both of these must never wrap: "I · Stufe 15/36" broken over three lines was
-   what the old head did, and it pushed the goal badge into the score above. */
+/* Beides darf nie umbrechen: "I · Stufe 15/36" über drei Zeilen gebrochen war der alte Kopf,
+   und der hat das Zielabzeichen in die Wertung darüber geschoben. */
 .rank-track-step { font-size: 12px; color: var(--text-faint); margin-top: 2px; white-space: nowrap; }
 
-/* The goal, dimmed: present enough to aim at, quiet enough not to compete with
-   the rank actually held. */
+/* Das Ziel, abgeblendet: da genug, um darauf zu zielen, leise genug, um nicht mit dem
+   Rang zu konkurrieren, den man wirklich hat. */
 .rank-track-next { display: flex; align-items: center; gap: 6px; flex: none; white-space: nowrap; opacity: .68; }
 .rank-track-next .rank-badge { flex: none; }
 .rank-track-arrow { color: var(--text-faint); font-size: 13px; }
@@ -751,7 +747,7 @@ label.field > span {
 }
 .rank-rail-seg.now { box-shadow: 0 0 10px -2px var(--tier, var(--accent)); }
 
-/* Progress inside the current division, still used on the per-lift rows. */
+/* Fortschritt in der aktuellen Division, wird bei den Zeilen je Übung noch benutzt. */
 .division-track {
   height: 5px; border-radius: 999px; background: var(--bg-sunken);
   overflow: hidden; margin-top: 8px;
@@ -761,8 +757,8 @@ label.field > span {
   background: linear-gradient(90deg, color-mix(in srgb, var(--tier, var(--accent)) 45%, transparent), var(--tier, var(--accent)));
 }
 
-/* The "this one does not belong" row. Warn-coloured because it is a question
-   about the data, not an error the lifter made. */
+/* Die Zeile "diese passt nicht dazu". In Warnfarbe, weil es eine Frage zu den Daten ist und
+   kein Fehler, den man gemacht hat. */
 .outlier {
   margin-top: 9px; padding: 8px 10px; border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--warn) 10%, transparent);
@@ -771,20 +767,19 @@ label.field > span {
 }
 .outlier .btn { color: var(--warn); font-weight: 700; }
 
-/* ============ rank badges ============ */
+/* ============ Rangabzeichen ============ */
 
-/* The badge inherits --tier from a .tier-N ancestor or carries its own. It is
-   drawn at 64x64 and scaled, so one definition serves the chip and the
-   celebration. */
+/* Das Abzeichen erbt --tier von einem Vorfahren .tier-N oder bringt es selbst mit. Es ist
+   in 64x64 gezeichnet und skaliert, eine Definition reicht also für Chip und Feier. */
 .rank-badge { display: block; overflow: visible; }
 .rank-badge.glow { filter: drop-shadow(0 0 18px color-mix(in srgb, var(--tier) 55%, transparent)); }
 
-/* Inside a chip the badge replaces the dot, so the dot has to go. */
+/* Im Chip ersetzt das Abzeichen den Punkt, der Punkt muss also weg. */
 .tier-chip.with-badge::before { display: none; }
 .tier-chip.with-badge { padding-left: 6px; gap: 5px; }
 .tier-chip .rank-badge { margin: -3px 0; }
 
-/* The hero badge is the headline now, not a decoration above a number. */
+/* Das große Abzeichen ist jetzt die Überschrift und keine Deko über einer Zahl. */
 .rank-hero-badge { display: flex; justify-content: center; margin-bottom: 10px; }
 .rank-hero-name {
   display: flex; align-items: baseline; justify-content: center; gap: .34em;
@@ -792,17 +787,17 @@ label.field > span {
   color: var(--tier, var(--accent));
   flex-wrap: wrap;
 }
-/* Sized in em so it tracks whatever the name is set at: the muscle sheet drops
-   the heading to 24px and the division has to come with it. */
+/* In em bemessen, damit es der Größe des Namens folgt: das Muskel-Sheet setzt die
+   Überschrift auf 24 px, und die Division muss mit. */
 .rank-hero-division {
   font-size: .44em; font-weight: 750; letter-spacing: .16em;
   opacity: .7; transform: translateY(-.15em);
 }
 
-/* Where a rank sits in a population. Two lines with different weights,
-   because they are two different claims: the estimate people asked for, and
-   the near-arithmetic one that keeps it honest. Tinted with --tier so the
-   sentence belongs to the badge above it rather than floating free. */
+/* Wo ein Rang in der Bevölkerung liegt. Zwei Zeilen mit verschiedenem Gewicht, weil es zwei
+   verschiedene Aussagen sind: die Schätzung, nach der gefragt wurde, und die fast
+   rechnerische, die sie ehrlich hält. Mit --tier eingefärbt, damit der Satz zum Abzeichen
+   darüber gehört und nicht frei herumschwebt. */
 .pop-note {
   margin-top: 14px; padding: 10px 12px; border-radius: var(--r-sm); text-align: center;
   background: color-mix(in srgb, var(--tier, var(--accent)) 9%, transparent);
@@ -822,10 +817,10 @@ label.field > span {
   font: inherit; font-size: 12.5px; font-weight: 650;
   color: var(--accent-hi); cursor: pointer;
 }
-/* On a lift card the note is one grey line among several, not a panel. */
+/* Auf einer Übungskarte ist der Hinweis eine graue Zeile unter mehreren, kein Kasten. */
 .pop-line { line-height: 1.35; }
 
-/* ============ ranking up ============ */
+/* ============ Aufstieg ============ */
 
 .rank-up-overlay {
   position: fixed; inset: 0; z-index: 60;
@@ -840,13 +835,13 @@ label.field > span {
 
 .rank-up-stage { position: relative; display: grid; place-items: center; width: 210px; height: 210px; }
 
-/* One rotating conic sweep rather than a dozen animated spokes: a single
-   composited layer, and it reads as light rather than as a loading spinner. */
+/* Ein drehender konischer Schwung statt einem Dutzend animierter Speichen: eine Ebene, und
+   es wirkt wie Licht und nicht wie ein Ladekreis. */
 .rank-up-rays {
   position: absolute; inset: 0; border-radius: 50%;
-  /* repeating-, not plain: a conic-gradient whose stops stop at 30deg holds the
-     last colour for the remaining 330, which drew exactly one spoke sticking
-     out of the badge like a stray line. */
+  /* repeating-, nicht einfach: ein conic-gradient, dessen Stufen bei 30deg aufhören, hält
+     die letzte Farbe für die übrigen 330, und das hat genau eine Speiche gezeichnet, die wie
+     ein verirrter Strich aus dem Abzeichen ragte. */
   background: repeating-conic-gradient(from 0deg,
     color-mix(in srgb, var(--tier) 58%, transparent) 0deg 5deg, transparent 5deg 30deg);
   mask-image: radial-gradient(circle, transparent 34%, #000 46%, #000 68%, transparent 78%);
@@ -877,16 +872,15 @@ label.field > span {
   to { transform: translateY(0); opacity: 1; }
 }
 
-/* The overlay is celebration, so it is the first thing to stand down when the
-   reader has asked for less movement. The badge and the words remain. */
+/* Das Overlay ist Feier, es tritt also als Erstes zurück, wenn man weniger Bewegung
+   möchte. Abzeichen und Worte bleiben. */
 @media (prefers-reduced-motion: reduce) {
   .rank-up-overlay, .rank-up-overlay * { animation: none !important; }
   .rank-up-rays { display: none; }
 }
 
-/* Where a rank sits in the distribution of everyone logging the same thing.
-   A track with a marker rather than a fill: the number is a position among
-   others, not an amount of anything. */
+/* Wo ein Rang in der Verteilung aller liegt, die dasselbe eintragen. Eine Spur mit
+   Markierung statt einer Füllung: die Zahl ist eine Position unter anderen, keine Menge. */
 .percentile {
   position: relative; height: 6px; border-radius: 999px;
   background: var(--bg-sunken); overflow: visible;
@@ -904,8 +898,8 @@ label.field > span {
   box-shadow: 0 0 8px 0 var(--tier, var(--accent));
 }
 
-/* Rank-up banner. Deliberately loud, and deliberately rare: 27 steps means it
-   fires often enough to matter and seldom enough to still mean something. */
+/* Banner beim Aufstieg. Absichtlich laut und absichtlich selten: bei 27 Stufen kommt es
+   oft genug, um zu zählen, und selten genug, um noch etwas zu bedeuten. */
 .rank-up {
   display: flex; align-items: flex-start; gap: 10px; text-align: left;
   margin-top: 12px; padding: 9px 12px; border-radius: var(--r-sm);
@@ -914,12 +908,12 @@ label.field > span {
   font-size: 13px; font-weight: 650;
 }
 
-/* The "why" line under a drop is context, not headline: the box sets 650 for
-   the sentence that matters and this steps back out of it. */
+/* Die Zeile mit dem Warum unter einem Abstieg ist Zusammenhang, keine Überschrift: der
+   Kasten setzt 650 für den Satz, auf den es ankommt, und diese Zeile tritt wieder zurück. */
 .rank-up .small { font-weight: 500; }
 
-/* A drop is stated, not scolded: the same box in neutral ink rather than the
-   red the rest of the app keeps for things that went wrong. */
+/* Ein Abstieg wird gesagt, nicht geschimpft: derselbe Kasten in neutraler Farbe statt dem
+   Rot, das die App für Dinge aufhebt, die schiefgelaufen sind. */
 .rank-up.down {
   background: var(--bg-sunken);
   border-color: var(--line);
@@ -940,8 +934,8 @@ label.field > span {
   box-shadow: 0 0 8px 0 var(--tier, transparent);
 }
 
-/* Criterion meter inside a rating breakdown — same language as .bar-row .track,
-   but full width because the label sits on its own line above it. */
+/* Balken für ein Kriterium in einer Bewertung, dieselbe Sprache wie .bar-row .track, aber
+   über die ganze Breite, weil die Beschriftung darüber in einer eigenen Zeile steht. */
 .track-thin {
   height: 6px; border-radius: 999px; background: var(--bg-sunken);
   overflow: hidden; margin-top: 6px;
@@ -951,10 +945,10 @@ label.field > span {
   background: linear-gradient(90deg, var(--accent), var(--accent-hi));
 }
 
-/* ============ nutrition ============ */
+/* ============ Ernährung ============ */
 
-/* The day's energy split. One bar, three segments, each labelled — colour
-   distinguishes them but never carries the number on its own. */
+/* Die Aufteilung der Energie des Tages. Ein Balken, drei Abschnitte, jeder beschriftet. Die
+   Farbe unterscheidet sie, trägt aber nie allein die Zahl. */
 .macro-bar {
   display: flex; height: 10px; border-radius: 999px; overflow: hidden;
   background: var(--bg-sunken); margin: 12px 0 8px;
@@ -973,7 +967,7 @@ label.field > span {
 .macro-key .v { font-weight: 700; font-size: 13px; color: var(--text); }
 .macro-key .k { color: var(--text-faint); }
 
-/* Slot headers in the day's log. */
+/* Überschriften der Tageszeiten im Log des Tages. */
 .slot-head {
   display: flex; align-items: baseline; justify-content: space-between;
   margin: 16px 0 2px; font-size: 10.5px; font-weight: 780;
@@ -984,7 +978,7 @@ label.field > span {
   padding: 9px 0; border-bottom: 1px solid var(--line-soft);
 }
 
-/* Water: discrete glasses, because "1,750 ml" is not how anyone thinks. */
+/* Wasser: einzelne Gläser, weil niemand in "1.750 ml" denkt. */
 .glass-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .glass {
   width: 26px; height: 32px; border-radius: 4px 4px 8px 8px;
@@ -996,12 +990,12 @@ label.field > span {
   background: linear-gradient(180deg, transparent 18%, #0E7490 18%, #22D3EE 100%);
 }
 
-/* Star ratings never carry meaning by colour alone — the glyphs themselves
-   encode the value, so amber here is decoration, not information. */
+/* Sternebewertungen tragen ihre Bedeutung nie nur über die Farbe, die Zeichen selbst
+   zeigen den Wert. Das Bernstein ist hier Deko, keine Information. */
 .stars { color: var(--t4); font-variant-numeric: tabular-nums; }
 
-/* Personal rating — bigger tap targets than the read-only star string, because
-   these are controls, not decoration. */
+/* Eigene Bewertung: größere Trefferflächen als die reine Sternanzeige, weil das Knöpfe sind
+   und keine Deko. */
 .myrating { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
 .mystar {
   background: none; border: 0; padding: 2px 4px;
@@ -1018,9 +1012,9 @@ label.field > span {
 }
 .rating-sub { font-size: 13px; color: var(--text-dim); margin-top: 7px; }
 
-/* ============ exercise art ============ */
-/* Row thumbnail. A fixed slot on every row whether or not there is art, so the
-   titles still line up down a list of 898. */
+/* ============ Übungsbilder ============ */
+/* Vorschaubild in der Zeile. Ein fester Platz in jeder Zeile, ob es ein Bild gibt oder
+   nicht, damit die Titel in einer Liste von 898 trotzdem untereinander stehen. */
 .ex-thumb {
   flex: none; width: 40px; height: 40px; border-radius: 10px;
   background: var(--bg-sunken); border: 1px solid var(--line-soft);
@@ -1035,12 +1029,12 @@ label.field > span {
 .exercise-art figure { margin: 0; }
 .exercise-art img {
   display: block; width: 100%;
-  /* Source frames vary between landscape (bench) and tall portrait (squat).
-     Cap the height and letterbox, or a portrait pair blows the card up to
-     several screens tall. */
+  /* Die Vorlagen sind mal quer (Bankdrücken), mal hoch (Kniebeuge). Die Höhe deckeln und
+     mit Rand einpassen, sonst bläst ein Paar im Hochformat die Karte auf mehrere
+     Bildschirme auf. */
   height: 190px; object-fit: contain;
-  /* Art ships as white line work carried in the alpha channel, so it needs no
-     filter — it composites straight onto the dark surface. */
+  /* Die Bilder kommen als weiße Linien im Alphakanal und brauchen deshalb keinen Filter,
+     sie legen sich direkt auf die dunkle Fläche. */
   opacity: .94;
 }
 .exercise-art figcaption {
@@ -1049,14 +1043,14 @@ label.field > span {
   color: var(--text-faint); margin-top: 4px;
 }
 
-/* ============ body map ============ */
+/* ============ Muskelkarte ============ */
 .bodymap { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-/* The source viewBox is 35x93 — a very tall aspect. Cap the *width* rather than
-   the height: max-height on an inline SVG with width:100% distorts it, because
-   the width doesn't shrink to match. 130px wide gives a ~345px figure. */
+/* Die viewBox der Vorlage ist 35x93, also sehr hoch. Die BREITE deckeln, nicht die Höhe:
+   max-height bei einem eingebetteten SVG mit width:100% verzerrt es, weil die Breite nicht
+   mitschrumpft. 130 px Breite ergeben eine Figur von ~345 px. */
 .bodymap svg { display: block; width: 100%; max-width: 130px; height: auto; margin: 0 auto; }
-/* Stroke widths are in user units — the source viewBox is 35x93, so these are
-   deliberately small. Scaling the art means rescaling these too. */
+/* Strichbreiten sind in Nutzereinheiten, die viewBox ist 35x93, deshalb absichtlich klein.
+   Wer die Zeichnung skaliert, muss die hier mitskalieren. */
 .bodymap .muscle {
   fill: var(--m-fill, var(--line));
   stroke: rgba(10, 14, 26, .8); stroke-width: .12;
@@ -1070,14 +1064,14 @@ label.field > span {
   text-transform: uppercase; color: var(--text-faint); margin-top: 2px;
 }
 
-/* ============ active workout ============ */
+/* ============ laufendes Training ============ */
 .exercise-block { margin-bottom: 14px; }
 .exercise-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .exercise-head h3 { margin: 0; font-size: 17px; font-weight: 680; letter-spacing: -0.012em; flex: 1; }
 
-/* The last-time panel is also the way into the three sessions before it, so it
-   is a button. Left-aligned and full width, because a control that looks like a
-   panel has to behave like the panel it replaced. */
+/* Die Fläche mit dem letzten Mal ist auch der Weg zu den drei Einheiten davor, also ist sie
+   ein Knopf. Linksbündig und über die ganze Breite, weil ein Knopf, der wie eine Fläche
+   aussieht, sich wie die Fläche verhalten muss, die er ersetzt hat. */
 .last-time {
   display: block; width: 100%; text-align: left; font: inherit;
   font-size: 12.5px; color: var(--text-dim); background: rgba(59, 130, 246, .06);
@@ -1121,10 +1115,10 @@ button.last-time:active { background: rgba(59, 130, 246, .12); }
 }
 .set-row.done input { opacity: .6; }
 
-/* Which set you are on. A tinted set number and a lit weight field, no extra
-   height and nothing that moves: on a four-set exercise the rows are otherwise
-   identical grey boxes, and coming back from a rest timer meant counting ticks
-   to find your place. */
+/* Bei welchem Satz man ist. Eine eingefärbte Satznummer und ein leuchtendes Gewichtsfeld,
+   keine zusätzliche Höhe und nichts, was sich bewegt: bei vier Sätzen sind die Zeilen sonst
+   gleiche graue Kästen, und nach einem Pausentimer musste man Häkchen zählen, um seine
+   Stelle zu finden. */
 .set-row.up-next .set-no { color: var(--accent-hi); }
 .set-row.up-next input { border-color: color-mix(in srgb, var(--accent) 42%, var(--line)); }
 .set-row.up-next .done-btn {
@@ -1137,15 +1131,15 @@ button.last-time:active { background: rgba(59, 130, 246, .12); }
   color: var(--text-faint); margin-bottom: 5px; text-align: center;
 }
 
-/* With the RIR column the gap drops to 6px — on a 375px screen the two main
-   inputs are already down to ~74px each and any wider gutter starts clipping
-   three-digit weights. */
+/* Mit der RIR-Spalte fällt der Abstand auf 6 px. Auf einem 375-px-Screen sind die zwei
+   Hauptfelder schon bei ~74 px, und jeder breitere Zwischenraum schneidet dreistellige
+   Gewichte ab. */
 .set-row.with-rir, .set-labels.with-rir { grid-template-columns: 26px 1fr 1fr 48px 44px; gap: 6px; }
 .set-row .rir { font-size: 15px; font-weight: 600; color: var(--text-dim); }
 .set-row .rir::placeholder { color: var(--text-faint); }
-/* The estimate for a load the lifter typed themselves. Spans the whole row
-   under the fields, right-aligned so it sits beneath the reps column it is
-   about, and it takes no space at all when there is nothing to say. */
+/* Die Schätzung für eine selbst eingetippte Last. Geht über die ganze Zeile unter den
+   Feldern, rechtsbündig, damit sie unter der Spalte mit den Wiederholungen steht, um die es
+   geht, und nimmt gar keinen Platz ein, wenn es nichts zu sagen gibt. */
 .set-estimate {
   grid-column: 1 / -1; text-align: right;
   font-size: 11.5px; line-height: 1.3; color: var(--text-faint);
@@ -1170,8 +1164,8 @@ button.last-time:active { background: rgba(59, 130, 246, .12); }
 }
 .unilateral-set.done .done-btn { background: var(--good); color: #04241A; border-color: transparent; }
 .unilateral-set.done input { opacity: .6; }
-/* The workout's name doubles as its rename control, so it has to look tappable
-   without looking like one more button competing with Pause. */
+/* Der Name des Trainings ist gleichzeitig der Knopf zum Umbenennen, er muss also antippbar
+   aussehen, ohne wie ein weiterer Knopf neben Pause zu wirken. */
 .session-name {
   flex: 1; min-width: 0; text-align: left;
   background: none; border: 0; padding: 4px 6px; margin: -4px -6px;
@@ -1201,19 +1195,19 @@ button.last-time:active { background: rgba(59, 130, 246, .12); }
   padding: 7px 11px; margin: -4px 0 10px;
 }
 .suggest b { color: var(--good); font-weight: 680; }
-/* As a button it still has to read as the same note it was as a div. */
+/* Als Knopf muss es sich immer noch lesen wie die Notiz, die es als div war. */
 button.suggest {
   display: block; width: 100%; text-align: left;
   font: inherit; font-size: 12.5px; color: var(--text-dim);
   -webkit-tap-highlight-color: transparent;
-  /* Real padding rather than an overlay: "show last 3 workouts" sits a few
-     pixels below, and an overlay would reach into it. */
+  /* Echter Innenabstand statt Overlay: "letzte 3 Trainings zeigen" sitzt ein paar Pixel
+     darunter, und ein Overlay würde da hineinreichen. */
   min-height: 44px; padding-top: 10px; padding-bottom: 10px;
 }
 button.suggest .row { align-items: baseline; }
 
-/* A quiet button that still reads as one. The caret is the only thing telling
-   a row of dim text apart from the dim text around it. */
+/* Ein leiser Knopf, der sich trotzdem wie einer liest. Das Dreieck ist das Einzige, was eine
+   Zeile mit blassem Text vom blassen Text drumherum unterscheidet. */
 .warmup-offer { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: center; }
 .warmup-offer:empty { display: none; }
 .warmup-add {
@@ -1231,8 +1225,8 @@ button.suggest .row { align-items: baseline; }
 .suggest-why { flex: none; color: var(--text-faint); font-size: 11px; font-weight: 650; }
 .suggest-reason { display: block; margin-top: 5px; }
 
-/* Seat, backrest and stack step: noted once, read back months later. A quiet
-   line under the sets rather than a full-width button above them. */
+/* Sitz, Lehne und Gewichtsschritt: einmal notiert, Monate später nachgelesen. Eine leise
+   Zeile unter den Sätzen statt eines breiten Knopfs darüber. */
 .machine-line {
   display: flex; align-items: flex-start; gap: 7px; width: 100%;
   margin-top: 8px; padding: 8px 2px; background: none; border: 0;
@@ -1241,7 +1235,7 @@ button.suggest .row { align-items: baseline; }
 }
 .machine-line:active { color: var(--text-dim); }
 
-/* ============ rest timer ============ */
+/* ============ Pausentimer ============ */
 #rest-bar {
   position: absolute; left: 10px; right: 10px;
   bottom: calc(var(--above-tabbar) + 10px);
@@ -1272,7 +1266,7 @@ button.suggest .row { align-items: baseline; }
   transition: transform .95s linear;
 }
 
-/* ============ sheet ============ */
+/* ============ Sheet ============ */
 #sheet-host { position: fixed; inset: 0; z-index: 60; }
 #sheet-host[hidden] { display: none; }
 #sheet-scrim { position: absolute; inset: 0; background: rgba(2, 5, 12, .68); backdrop-filter: blur(2px); animation: fade .16s ease; }
@@ -1319,7 +1313,7 @@ button.suggest .row { align-items: baseline; }
 @keyframes slideup { from { transform: translateY(100%); } }
 @keyframes fade { from { opacity: 0; } }
 
-/* ============ toast ============ */
+/* ============ Toast ============ */
 #toast {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(var(--above-tabbar) + 20px); z-index: 70;
@@ -1338,7 +1332,7 @@ button.suggest .row { align-items: baseline; }
   text-transform: uppercase; letter-spacing: .04em;
 }
 
-/* ============ stats + charts ============ */
+/* ============ Kennzahlen und Diagramme ============ */
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
 .stat-grid.two { grid-template-columns: repeat(2, 1fr); }
 .stat-grid .span-all { grid-column: 1 / -1; }
@@ -1352,12 +1346,12 @@ button.suggest .row { align-items: baseline; }
 .stat-val { font-size: 21px; font-weight: 760; letter-spacing: -0.03em; display: block; }
 .stat-key { font-size: 10.5px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); margin-top: 3px; display: block; }
 
-/* The same three numbers on a screen whose job is the rows underneath them.
-   Used by the live workout header, where the full-size tile is a summary of
-   work you have not done yet standing between you and the field you came to
-   type in. `nowrap` is the other half: three tiles across a 375px phone leave
-   about 80px of label, which "Volume kg" does not fit and "Elapsed" does, so
-   one tile grew a second line and the row lost its baseline. */
+/* Dieselben drei Zahlen auf einem Screen, dessen Aufgabe die Zeilen darunter sind. Benutzt
+   im Kopf des laufenden Trainings, wo die Kachel in voller Größe eine Zusammenfassung von
+   Arbeit ist, die man noch nicht gemacht hat, und zwischen einem und dem Feld steht, in das
+   man tippen will. `nowrap` ist die andere Hälfte: drei Kacheln auf einem 375-px-Handy lassen
+   etwa 80 px für die Beschriftung, da passt "Volumen kg" nicht und "Dauer" schon, eine Kachel
+   bekam also eine zweite Zeile und die Reihe verlor ihre Grundlinie. */
 .stat-grid.compact .stat { padding: 9px 10px; }
 .stat-grid.compact .stat-val { font-size: 17px; white-space: nowrap; }
 .stat-grid.compact .stat-key { font-size: 9.5px; letter-spacing: .045em; margin-top: 1px; white-space: nowrap; }
@@ -1377,8 +1371,8 @@ svg.chart .area { fill: var(--data); opacity: .13; }
 svg.chart .dot { fill: var(--data); stroke: var(--bg-raised); stroke-width: 2; }
 svg.chart .bar { fill: var(--data); }
 svg.chart .bar.dim { opacity: .40; }
-/* Lit from the top, the same ramp as the meter fills elsewhere, so a bar chart
-   and a progress bar read as the same material. */
+/* Von oben beleuchtet, dieselbe Farbskala wie die Balken anderswo, damit ein
+   Säulendiagramm und ein Fortschrittsbalken wie dasselbe Material wirken. */
 svg.chart .bar-stop-top { stop-color: var(--accent-hi); }
 svg.chart .bar-stop-bottom { stop-color: var(--data); }
 svg.chart .bar-value { fill: var(--text-dim); font-size: 10.5px; font-weight: 700; }
@@ -1403,8 +1397,8 @@ svg.chart .hit { fill: transparent; }
 .heatmap i[data-v="2"] { background: color-mix(in srgb, var(--accent) 66%, var(--line-soft)); }
 .heatmap i[data-v="3"] { background: var(--accent); box-shadow: 0 0 7px -1px rgba(59, 130, 246, .8); }
 
-/* The strength map's legend: an ordinal ramp with its two ends named, rather
-   than a wrapped row of abbreviations nobody can decode. */
+/* Legende der Stärkekarte: eine geordnete Skala mit beiden Enden benannt, statt einer
+   umgebrochenen Reihe von Abkürzungen, die niemand entschlüsseln kann. */
 .legend-scale { margin-top: 12px; }
 .legend-ramp { display: flex; gap: 2px; height: 8px; }
 .legend-ramp i { flex: 1; border-radius: 1px; }
@@ -1440,7 +1434,7 @@ svg.chart .hit { fill: transparent; }
   color: #fff; box-shadow: 0 0 14px -4px rgba(59, 130, 246, .8);
 }
 
-/* Social hub */
+/* Sozialer Bereich */
 .social-choice {
   display: flex; align-items: center; gap: 11px; padding: 12px;
   margin-bottom: 10px; border: 1px solid var(--line); border-radius: var(--r-sm);
@@ -1547,8 +1541,8 @@ svg.chart .hit { fill: transparent; }
   background: color-mix(in srgb, var(--accent) 7%, var(--surface));
 }
 
-/* Local gym picker. Tiles only exist while this sheet is open; the chosen
-   point is the fixed centre pin, so selecting a building is thumb-friendly. */
+/* Lokale Auswahl des Studios. Die Kacheln gibt es nur, solange dieses Sheet offen ist. Der
+   gewählte Punkt ist die feste Nadel in der Mitte, ein Gebäude auszuwählen geht also gut mit dem Daumen. */
 .geo-map {
   position: relative; height: min(46vh, 310px); overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--accent-hi) 30%, var(--line));

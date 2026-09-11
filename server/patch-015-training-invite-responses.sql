@@ -1,5 +1,5 @@
--- Optional replies to training invitations and a one-shot marker for the push
--- sent back to the inviter. Apply after patch-012-social-groups-challenges-pr.sql.
+-- Freiwillige Antworten auf Trainingseinladungen und eine einmalige Markierung für den Push
+-- zurück an den Einladenden. Nach patch-012-social-groups-challenges-pr.sql einspielen.
 
 alter table public.training_invites
   add column if not exists response_note text check (char_length(response_note)<=140),
@@ -17,7 +17,7 @@ begin
   if not found then raise exception 'INVITE_NOT_FOUND'; end if;
 end; $$;
 
--- Rebuild the hub so the sender can still read the answer if push is disabled.
+-- Den Bereich neu bauen, damit der Absender die Antwort auch ohne Push lesen kann.
 create or replace function public.social_hub()
 returns jsonb language sql stable security definer set search_path=public as $$
 with me as (

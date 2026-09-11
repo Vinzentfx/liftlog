@@ -1,6 +1,6 @@
-// Shared rendering for the two star ratings, so the Library and the Plans tab
-// explain a score the same way — and so every rating in the app is one tap from
-// the papers it came from.
+// Gemeinsame Darstellung der beiden Sternebewertungen, damit Bibliothek und Pläne
+// eine Wertung gleich erklären und jede Bewertung in der App einen Tipp von den
+// Studien entfernt ist, aus denen sie kommt.
 
 import { el, openSheet, closeSheet, toast, starString, starBadge } from './ui.js';
 import * as store from './store.js';
@@ -10,7 +10,7 @@ import { RATING_DISCLAIMER, SOURCE_LIST } from './evidence.js';
 import { suggestSwaps, targetLabel } from './swaps.js';
 import { t, tn } from './i18n.js';
 
-/** Coloured chip for where an exercise loads the muscle. */
+/** Farbiger Chip dafür, wo eine Übung den Muskel belastet. */
 export function lengthChip(length) {
   const tone = { long: 'var(--good)', mixed: 'var(--text-dim)', short: 'var(--warn)' }[length.bias];
   return el('span.pill', {
@@ -19,7 +19,7 @@ export function lengthChip(length) {
   });
 }
 
-/** The rating block on an exercise detail page. */
+/** Der Bewertungsblock auf der Detailseite einer Übung. */
 export function exerciseRatingCard(ex) {
   const r = rateExercise(ex);
   if (!r) return null;
@@ -52,15 +52,16 @@ export function exerciseRatingCard(ex) {
   return card;
 }
 
-/* ===================== personal rating ===================== */
+/* ===================== eigene Bewertung ===================== */
 
 /**
- * Your own 1–5, kept deliberately separate from the evidence score.
+ * Die eigene 1 bis 5, bewusst getrennt von der Wertung aus den Studien.
  *
- * They answer different questions — "is this movement good" versus "is it good
- * *for me*", which covers the shoulder that complains, the machine your gym
- * does not own, and the exercise you can never feel in the right place. Averaged
- * into one number they would just cancel each other out, so the app shows two.
+ * Die beiden beantworten verschiedene Fragen, "ist die Übung gut" gegen "ist sie
+ * gut FÜR MICH". Zu Letzterem gehören die Schulter, die sich meldet, die Maschine,
+ * die das eigene Studio nicht hat, und die Übung, die man nie an der richtigen
+ * Stelle spürt. Zu einer Zahl gemittelt würden sie sich nur gegenseitig aufheben,
+ * deshalb zeigt die App zwei.
  */
 export function myRatingRow(ex, { onChange } = {}) {
   const row = el('div.myrating');
@@ -73,8 +74,8 @@ export function myRatingRow(ex, { onChange } = {}) {
         'aria-label': t('rating.rateN', { n }),
         'aria-pressed': String(ex.myRating >= n),
         onclick: async () => {
-          // Tapping the star you already sit on clears it — otherwise there is
-          // no way back to "no opinion" once you have tapped once.
+          // Wer auf den Stern tippt, bei dem er schon steht, löscht die Bewertung.
+          // Sonst gäbe es nach dem ersten Tipp keinen Weg zurück zu "keine Meinung".
           const next = ex.myRating === n ? 0 : n;
           await store.setMyRating(ex.id, next);
           paint();
@@ -94,7 +95,7 @@ export function myRatingRow(ex, { onChange } = {}) {
   return row;
 }
 
-/* ===================== swaps ===================== */
+/* ===================== Alternativen ===================== */
 
 export function swapSheet(ex, swaps = suggestSwaps(ex, store.state.exercises), onPick = null) {
   const body = el('div', {}, [
@@ -121,7 +122,7 @@ export function swapSheet(ex, swaps = suggestSwaps(ex, store.state.exercises), o
   openSheet(t('rating.insteadOf', { name: ex.name }), body);
 }
 
-/** Full breakdown: every criterion, its points, and the source behind it. */
+/** Die ganze Aufschlüsselung: jedes Kriterium, seine Punkte und die Quelle dahinter. */
 export function exerciseRatingSheet(ex) {
   const r = rateExercise(ex);
   if (!r) return;
@@ -169,7 +170,7 @@ export function exerciseRatingSheet(ex) {
   ]));
 }
 
-/** The full source list, used by the rating sheets and by Settings. */
+/** Die vollständige Quellenliste, für die Bewertungs-Sheets und die Einstellungen. */
 export function evidenceList(title = null) {
   return el('div', {}, [
     el('div.section-head', {}, [el('h2', { text: title || t('rating.evidence') })]),

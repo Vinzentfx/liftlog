@@ -1,4 +1,4 @@
-// Bootstrap + hash router.
+// Start und Hash-Router.
 
 import { $, clear, el, initSheet, openSheet, closeSheet, toast, enableCollapsibleSections } from './ui.js';
 import { t, setLanguage } from './i18n.js';
@@ -53,7 +53,7 @@ function installHintDismissed() {
 }
 
 function dismissInstallHint() {
-  try { localStorage.setItem(INSTALL_HINT_KEY, '1'); } catch { /* private mode */ }
+  try { localStorage.setItem(INSTALL_HINT_KEY, '1'); } catch { /* privater Modus */ }
 }
 
 function showInstallHint({ beforeLogin = false } = {}) {
@@ -97,13 +97,13 @@ function scheduleInstallHint(attempt = 0) {
 }
 
 /**
- * Five tabs, plus `calendar` and `progress`, which are reached from Home.
+ * Fünf Tabs, dazu `calendar` und `progress`, die man über Home erreicht.
  *
- * Five is the ceiling: a sixth was tried, and the tab pushed to the far edge
- * became invisible in use — the calendar was reported missing within a day.
- * So the slots go to what gets opened during a session or a meal, and the two
- * weekly reads live on Home, as visible cards rather than links tucked into a
- * section head.
+ * Fünf sind die Obergrenze. Ein sechster wurde ausprobiert, und der Tab ganz am Rand
+ * war beim Benutzen unsichtbar, schon nach einem Tag wurde der Kalender als fehlend
+ * gemeldet. Die Plätze gehen also an das, was man während eines Trainings oder einer
+ * Mahlzeit öffnet, und die beiden wöchentlichen Ansichten stehen auf Home, als
+ * sichtbare Karten und nicht als Links in einer Abschnittsüberschrift.
  */
 const ROUTES = {
   home:      { title: 'route.home',      render: renderHome },
@@ -114,11 +114,11 @@ const ROUTES = {
   progress:  { title: 'route.progress',  render: renderProgress },
   nutrition: { title: 'route.nutrition', render: renderNutrition },
   users:     { title: 'route.users',     render: renderUsers },
-  // Arrives from a link someone sent; never navigated to from inside the app.
+  // Kommt über einen Link, den jemand geschickt hat, innerhalb der App kommt man nie dorthin.
   share:     { title: 'route.share',     render: renderShare },
 };
 
-/** Parsed from location.hash: `#/route/param`. */
+/** Aus location.hash gelesen: `#/route/param`. */
 export function currentRoute() {
   const raw = location.hash.replace(/^#\/?/, '');
   const [name, ...rest_] = raw.split('/');
@@ -138,11 +138,11 @@ let locked = true;
 let cloudMaintenanceStarted = false;
 let cloudMaintenanceRunning = false;
 let cloudMaintenanceImmediatePending = false;
-// Whether going back lands anywhere useful. A screen reached by tapping through
-// the app has somewhere to return to; the same screen opened from a bookmark or
-// a shared link does not, and there "back" has to mean Home.
+// Ob Zurück irgendwo Sinnvolles landet. Ein Screen, zu dem man sich in der App
+// durchgetippt hat, hat einen Weg zurück. Derselbe Screen aus einem Lesezeichen oder
+// einem geteilten Link hat keinen, dort muss "zurück" Home heißen.
 let hashSteps = 0;
-/** The five routes with a tab. Everything else needs its own way back. */
+/** Die fünf Routen mit Tab. Alles andere braucht einen eigenen Weg zurück. */
 const TAB_ROUTES = new Set(['home', 'train', 'nutrition', 'plans', 'users']);
 
 let lastBackupWarningAt = 0;
@@ -157,8 +157,8 @@ export function render() {
     const { name, param } = currentRoute();
     const route = ROUTES[name];
     const routeKey = `${name}/${param || ''}`;
-    // Re-rendering in place (a logged set, a saved edit) must not yank the user
-    // back to the top of a long workout.
+    // Neuzeichnen an Ort und Stelle (ein eingetragener Satz, eine gespeicherte Änderung)
+    // darf einen nicht an den Anfang eines langen Trainings zurückreißen.
     const samePlace = routeKey === lastRouteKey;
     const screen = $('#screen');
     const keepScroll = samePlace ? screen.scrollTop : 0;
@@ -168,16 +168,16 @@ export function render() {
     });
 
     $('#screen-title').textContent = t(route.title);
-    // Calendar, Progress, the exercise library and a shared plan have no tab to
-    // return to, and in an installed PWA there is no browser chrome either, so
-    // without this the only way out was a swipe nobody is told about.
+    // Kalender, Fortschritt, die Übungsbibliothek und ein geteilter Plan haben keinen
+    // Tab zum Zurückkehren, und in einer installierten PWA gibt es auch keine
+    // Browserleiste. Ohne das hier war der einzige Weg raus ein Wischen, von dem niemand weiß.
     const back = $('#topbar-back');
     back.hidden = TAB_ROUTES.has(name);
     clear($('#topbar-actions'));
 
     const host = clear(screen);
-    // Said on every screen, because a visitor can arrive at any of them from a
-    // shared link and the numbers there are not anyone's real training.
+    // Steht auf jedem Screen, weil ein Besucher über einen geteilten Link auf jedem
+    // landen kann und die Zahlen dort nicht das echte Training von jemandem sind.
     if (DEMO) host.append(el('div.card.tight', {
       style: { borderColor: 'var(--accent)', marginBottom: '12px' },
     }, [
@@ -190,11 +190,11 @@ export function render() {
       el('div', { style: { fontWeight: '680' }, text: t('offline.title') }),
       el('div.small.muted', { text: t('offline.body') }),
     ]));
-    // `fresh` separates arriving at a screen from re-rendering the one you are
-    // already on. A screen that remembers something across renders (which day
-    // the food log is showing) needs to know the difference: keeping it while
-    // you tap around that screen is right, keeping it after you have been to
-    // another tab and come back is how you log today's lunch into last Tuesday.
+    // `fresh` unterscheidet das Ankommen auf einem Screen vom Neuzeichnen des aktuellen.
+    // Ein Screen, der sich etwas über das Neuzeichnen hinaus merkt (welchen Tag das
+    // Essenslog zeigt), muss den Unterschied kennen. Es beim Herumtippen auf diesem
+    // Screen zu behalten ist richtig. Es zu behalten, nachdem man auf einem anderen Tab
+    // war und zurückkommt, trägt das heutige Mittagessen beim letzten Dienstag ein.
     const node = route.render({ param, actions: $('#topbar-actions'), fresh: !samePlace });
     if (node) {
       enableCollapsibleSections(node, name);
@@ -235,22 +235,22 @@ function wireChrome() {
     else navigate('home');
   });
 
-  // Settings lives behind a gear rather than eating a fifth tab slot.
+  // Die Einstellungen liegen hinter einem Zahnrad, statt einen fünften Tab zu belegen.
   $('#topbar').addEventListener('click', (e) => {
     if (e.target.closest('#settings-btn')) renderSettings();
   });
 }
 
 async function boot() {
-  // Before anything can be said out loud, including the two failures below,
-  // which happen before there are any settings to read a preference from.
+  // Bevor irgendetwas laut gesagt werden kann, auch die zwei Fehler unten. Die passieren,
+  // bevor es Einstellungen gibt, aus denen man eine Vorliebe lesen könnte.
   setLanguage(null);
   initSheet();
   rest.init();
   wireChrome();
 
-  // Fire and forget — the app must not wait on a storage permission to render,
-  // and there is nothing useful to do if it is refused.
+  // Abschicken und vergessen: die App wartet mit dem Zeichnen nicht auf eine
+  // Speicherberechtigung, und wenn sie abgelehnt wird, lässt sich ohnehin nichts tun.
   db.requestPersistence().then((state) => {
     if (state !== 'granted') console.info(`[liftlog] persistent storage: ${state}`);
   });
@@ -272,9 +272,9 @@ async function boot() {
     return;
   }
 
-  // The public preview opens on half a year of sample data rather than an empty
-  // log. Only on a device with no training yet, so whatever a visitor logs
-  // survives a reload instead of being overwritten by the sample again.
+  // Die öffentliche Vorschau öffnet mit einem halben Jahr Beispieldaten statt einem
+  // leeren Log. Nur auf einem Gerät ohne Trainings, damit das, was ein Besucher einträgt,
+  // ein Neuladen übersteht und nicht wieder vom Beispiel überschrieben wird.
   if (DEMO && !store.state.sessions.length) {
     try {
       const response = await fetch('./showcase-backup.json', { cache: 'no-store' });
@@ -286,20 +286,21 @@ async function boot() {
 
   applyTheme(store.state.settings.theme);
 
-  // Installed iOS PWAs sometimes restore a small stale document offset before
-  // the dynamic viewport and safe areas have settled. Normalize it once during
-  // a real launch; route renders still preserve intentional in-app scrolling.
+  // Installierte iOS-PWAs stellen manchmal einen kleinen, veralteten Versatz des
+  // Dokuments wieder her, bevor sich das dynamische Fenster und die sicheren Ränder
+  // gesetzt haben. Einmal beim echten Start zurücksetzen, gewolltes Scrollen in der App
+  // bleibt beim Neuzeichnen erhalten.
   $('#screen').scrollTop = 0;
   requestAnimationFrame(() => { $('#screen').scrollTop = 0; });
 
-  // A failed write has to be said out loud where it happens, which is usually
-  // the Train screen mid-set, not Home. The store cannot raise UI itself
-  // without the data layer importing the view layer, so the notification is
-  // wired here instead — one place, every screen.
+  // Ein fehlgeschlagenes Speichern muss dort laut gesagt werden, wo es passiert, und
+  // das ist meistens der Trainieren-Screen mitten im Satz, nicht Home. Der Store kann
+  // selbst keine Oberfläche anzeigen, ohne dass die Datenschicht die Ansicht importiert.
+  // Die Meldung ist deshalb hier verdrahtet, an einer Stelle für jeden Screen.
   let announced = 0;
   store.subscribe(() => {
-    // One place syncs the language, so a switch in Settings reaches the tab bar
-    // and the rest bar as well as whatever screen is currently mounted.
+    // Die Sprache wird an einer Stelle abgeglichen, ein Wechsel in den Einstellungen
+    // erreicht also Tab-Leiste und Pausenleiste genauso wie den gerade offenen Screen.
     setLanguage(store.state.settings.language);
     applyTheme(store.state.settings.theme);
     const problem = store.state.storageError;
@@ -311,34 +312,34 @@ async function boot() {
   });
   setLanguage(store.state.settings.language);
 
-  // The gate asks once per device. After that it never runs again, so a phone
-  // with no reception behaves exactly as it did before any of this existed.
+  // Die Sperre fragt einmal pro Gerät. Danach läuft sie nie wieder, ein Handy ohne
+  // Empfang verhält sich also genau wie früher, bevor es das alles gab.
   const browserTest = ['localhost', '127.0.0.1'].includes(location.hostname)
     && new URL(location.href).searchParams.get('e2e') === '1';
   let deviceUnlocked = browserTest || DEMO || await gate.isUnlocked();
-  // Repair the state left by older builds after a successful Auth-account
-  // deletion: the session was gone but the IndexedDB gate survived, making the
-  // deleted account appear to remain inside the app forever. A real offline
-  // launch still has its persisted session, so it is unaffected.
+  // Den Zustand reparieren, den ältere Versionen nach dem erfolgreichen Löschen eines
+  // Auth-Kontos hinterlassen haben: die Sitzung war weg, aber die Sperre in IndexedDB
+  // blieb, und das gelöschte Konto schien für immer in der App zu stecken. Ein echter
+  // Start ohne Netz hat seine gespeicherte Sitzung noch und ist nicht betroffen.
   if (deviceUnlocked && !browserTest && !DEMO && !cloud.isSignedIn()) {
     await gate.lock();
     deviceUnlocked = false;
   }
   if (deviceUnlocked) openApp({ skipInstallHint: browserTest || DEMO });
   else {
-    // A browser tab must explain installation before it can become the main
-    // device. Otherwise the first login silently binds ownership to Safari or
-    // Chrome instead of the home-screen app the person meant to use.
+    // Ein Browser-Tab muss erst die Installation erklären, bevor er Hauptgerät werden
+    // kann. Sonst bindet der erste Login den Besitz still an Safari oder Chrome statt an
+    // die App auf dem Homescreen, die gemeint war.
     await showInstallHint({ beforeLogin: true });
     await gate.show(openApp);
   }
 
-  // Not under ?e2e=1. The worker caches the app shell, which is exactly what it
-  // is for in a gym and exactly wrong on a dev server: an edited file keeps
-  // being served from the last install, so a change looks like it did nothing
-  // and the obvious conclusion is that the code is broken rather than stale.
+  // Nicht unter ?e2e=1. Der Worker cacht die App-Hülle, genau richtig im Studio und
+  // genau falsch auf einem Entwicklungsserver: eine geänderte Datei kommt weiter aus der
+  // letzten Installation, eine Änderung scheint nichts zu bewirken, und man hält den
+  // Code für kaputt, obwohl er nur alt ist.
   if ('serviceWorker' in navigator && !browserTest && !DEMO) {
-    // Only meaningful over https/localhost; silently skipped elsewhere.
+    // Ergibt nur über https oder localhost Sinn, woanders wird es still übersprungen.
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   } else if (browserTest && 'serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations()
@@ -356,10 +357,10 @@ function openApp({ skipInstallHint = false } = {}) {
   if (!skipInstallHint) scheduleInstallHint();
   if (!skipInstallHint) scheduleGymArrivalCheck();
 
-  // The cloud copy is a copy. It must never delay the app opening, never block
-  // on a phone with no signal, and never be the reason a screen does not draw,
-  // so it runs after the first render and nothing waits on it.
-  // The preview has no account to back up to and no community to show.
+  // Die Cloud-Kopie ist eine Kopie. Sie darf das Öffnen der App nie verzögern, auf einem
+  // Handy ohne Empfang nie blockieren und nie der Grund sein, dass ein Screen nicht
+  // zeichnet. Sie läuft also nach dem ersten Zeichnen, und nichts wartet auf sie.
+  // Die Vorschau hat kein Konto zum Sichern und keine Gemeinschaft zum Zeigen.
   if (DEMO) return;
   sync.subscribe(render);
   runCloudMaintenance();
@@ -367,15 +368,15 @@ function openApp({ skipInstallHint = false } = {}) {
 }
 
 /**
- * When connectivity is available, verify access first and then consider an
- * encrypted backup. `onAppOpen` skips byte-identical snapshots, while this
- * coordinator prevents overlapping checks after several browser events.
+ * Bei Verbindung erst den Zugang prüfen, dann über eine verschlüsselte Sicherung
+ * nachdenken. `onAppOpen` überspringt byte-gleiche Stände, und diese Koordination
+ * verhindert, dass sich nach mehreren Browser-Ereignissen Prüfungen überlappen.
  */
 async function runCloudMaintenance({ immediate = false } = {}) {
-  // A routine check may already be downloading when the user finishes a
-  // workout. Dropping that second call would turn "save now" into "perhaps in
-  // five minutes". Remember only the stronger, immediate request and run it as
-  // soon as the current pass releases the single-flight lock.
+  // Eine normale Prüfung lädt vielleicht gerade herunter, wenn ein Training fertig ist.
+  // Den zweiten Aufruf fallen zu lassen würde aus "jetzt sichern" ein "vielleicht in fünf
+  // Minuten" machen. Nur die stärkere, sofortige Anfrage merken und ausführen, sobald der
+  // laufende Durchgang die Sperre freigibt.
   if (cloudMaintenanceRunning) {
     if (immediate) cloudMaintenanceImmediatePending = true;
     return;
@@ -386,8 +387,8 @@ async function runCloudMaintenance({ immediate = false } = {}) {
     if (await gate.recheck() === false) return;
     await handleNotificationAction();
     const result = await sync.onAppOpen({ immediate });
-    // Social presence is deliberately best-effort. A missing community patch
-    // must never interfere with backups or opening the local training log.
+    // Anwesenheit im sozialen Bereich ist bewusst nur ein Versuch. Ein fehlender Patch
+    // für die Gemeinschaft darf nie Sicherungen oder das Öffnen des lokalen Logs stören.
     import('./screens/users.js').then(({ syncPresence }) => syncPresence()).catch(() => {});
     if (sync.state.isOwner) {
       const freshRequests = sync.state.pendingDevices.filter(
@@ -413,8 +414,8 @@ async function runCloudMaintenance({ immediate = false } = {}) {
     cloudMaintenanceRunning = false;
     if (cloudMaintenanceImmediatePending) {
       cloudMaintenanceImmediatePending = false;
-      // Leave the current promise and its finally block before starting the
-      // queued pass. This also prevents a synchronous failure from recursing.
+      // Erst das aktuelle Promise samt finally verlassen, dann den wartenden Durchgang
+      // starten. Das verhindert auch, dass ein synchroner Fehler in eine Rekursion läuft.
       queueMicrotask(() => runCloudMaintenance({ immediate: true }));
     }
   }
@@ -434,21 +435,21 @@ async function handleNotificationAction() {
 }
 
 /**
- * Back up now rather than at the next routine interval.
+ * Jetzt sichern statt beim nächsten normalen Durchgang.
  *
- * For the two moments where waiting is the wrong answer: a workout that has
- * just been saved, and the app being put away. Both are exactly when a phone
- * is most likely to be closed and not opened again for days.
+ * Für die zwei Momente, in denen Warten die falsche Antwort ist: ein Training wurde
+ * gerade gespeichert, und die App wird weggelegt. In beiden Momenten wird ein Handy am
+ * ehesten zugemacht und tagelang nicht mehr geöffnet.
  */
 export function flushBackup() {
   runCloudMaintenance({ immediate: true });
 }
 
-/** Pull an active workout from another device before creating a second one. */
+/** Ein laufendes Training von einem anderen Gerät holen, bevor ein zweites entsteht. */
 export async function startWorkout(options = {}) {
   if (navigator.onLine && cloud.isSignedIn()) await sync.onAppOpen({ immediate: true });
-  // The pull may have revealed a workout started on another device while this
-  // launcher was already visible. Never create a second session after that.
+  // Das Holen hat vielleicht ein Training gezeigt, das auf einem anderen Gerät gestartet
+  // wurde, während dieser Startbildschirm schon zu sehen war. Danach nie eine zweite Einheit anlegen.
   const existing = store.activeSession();
   if (existing) return existing;
   const session = await store.startSession(options);
@@ -469,27 +470,26 @@ function startCloudMaintenance() {
   if (cloudMaintenanceStarted) return;
   cloudMaintenanceStarted = true;
 
-  // `online` is the portable signal browsers expose when Wi-Fi or another
-  // connection returns. Mobile browsers do not reliably reveal whether that
-  // connection is specifically Wi-Fi.
+  // `online` ist das Signal, das Browser überall geben, wenn WLAN oder eine andere
+  // Verbindung zurückkommt. Mobile Browser sagen nicht verlässlich, ob es genau WLAN ist.
   window.addEventListener('online', () => runCloudMaintenance());
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') runCloudMaintenance();
     if (document.visibilityState === 'visible') scheduleGymArrivalCheck();
-    // Going away is the last chance to save what this session produced, and on
-    // a phone "away" usually means hours. iOS gives a backgrounding page a
-    // short moment rather than a guarantee, so this is an extra attempt and
-    // never the only one: the launch after it retries anything that was cut off.
+    // Weggehen ist die letzte Gelegenheit, zu sichern, was diese Sitzung erzeugt hat, und
+    // auf dem Handy heißt "weg" meistens Stunden. iOS gibt einer Seite beim Wechsel in
+    // den Hintergrund einen kurzen Moment und keine Garantie, das hier ist also ein
+    // zusätzlicher Versuch und nie der einzige. Der nächste Start wiederholt, was abgeschnitten wurde.
     else flushBackup();
   });
-  // Safari can go straight to `pagehide` without a hidden visibility change
-  // when the app is swiped away.
+  // Safari kann direkt zu `pagehide` springen, ohne vorher unsichtbar zu werden, wenn
+  // die App weggewischt wird.
   window.addEventListener('pagehide', flushBackup);
 
-  // Timers may be paused while a PWA is in the background; the online and
-  // visibility handlers above catch up when it becomes active again.
-  // Device removal is an access decision, so a visible online app checks it
-  // promptly instead of waiting for the next backup interval.
+  // Timer können pausieren, solange eine PWA im Hintergrund ist. Die Handler für online
+  // und Sichtbarkeit oben holen das nach, sobald sie wieder aktiv ist.
+  // Ein Gerät zu entfernen ist eine Zugangsfrage, eine sichtbare App mit Netz prüft das
+  // also gleich und wartet nicht auf die nächste Sicherung.
   setInterval(() => {
     if (document.visibilityState === 'visible') runCloudMaintenance();
   }, 60 * 1000);
@@ -524,7 +524,7 @@ async function checkGymArrival() {
       } }, [t('gym.startToday')]),
       el('button.btn.ghost.full', { style: { marginTop: '8px' }, onclick: closeSheet }, [t('gym.notNow')]),
     ]));
-  } catch { /* Location refusal or a weak signal should never block the app. */ }
+  } catch { /* Kein Standort oder schwacher Empfang dürfen die App nie blockieren. */ }
   finally { gymLocationChecking = false; }
 }
 
@@ -533,11 +533,11 @@ window.addEventListener('error', (e) => {
 });
 window.addEventListener('unhandledrejection', (e) => {
   console.error('[liftlog] unhandled rejection', e.reason);
-  // Most UI handlers fire a store action without awaiting it — deliberately, so
-  // a tap never waits on a disk write. A failed write therefore lands here as
-  // well as in store.state.storageError, and the subscriber above has already
-  // said something specific about it. Two toasts for one problem, the vaguer
-  // one second, is worse than one.
+  // Die meisten Handler lösen eine Store-Aktion aus, ohne zu warten, und zwar mit
+  // Absicht, damit ein Tipp nie auf die Festplatte wartet. Ein fehlgeschlagenes
+  // Schreiben landet deshalb auch hier und nicht nur in store.state.storageError, und
+  // der Abonnent oben hat schon etwas Genaues dazu gesagt. Zwei Toasts für ein Problem,
+  // der ungenauere als zweiter, sind schlechter als einer.
   const problem = store.state.storageError;
   if (problem && Date.now() - problem.at < 2000) return;
   toast(t('app.error.generic'));

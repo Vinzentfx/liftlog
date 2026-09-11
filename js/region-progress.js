@@ -1,21 +1,20 @@
-// Per-muscle progression, from your own numbers.
+// Fortschritt je Muskel, aus den eigenen Zahlen.
 //
-// This exists because of a question the strength rating cannot answer: what if
-// you train on machines?
+// Das gibt es wegen einer Frage, die die Stärkebewertung nicht beantworten kann:
+// was, wenn man an Maschinen trainiert?
 //
-// The tiers compare you against published standards, and those only exist for
-// about seventeen barbell and bodyweight lifts. There is no standard for a
-// machine chest press, and there cannot be a useful one — a "100 kg" press on
-// one manufacturer's frame is not 100 kg on another, because the lever arms,
-// the sled weight and the starting resistance all differ. Inventing a tier for
-// it would be a number with nothing behind it.
+// Die Stufen vergleichen mit veröffentlichten Standards, und die gibt es nur für
+// etwa siebzehn Langhantel- und Körpergewichtsübungen. Für eine Brustpresse an der
+// Maschine gibt es keinen, und es kann auch keinen brauchbaren geben: "100 kg" an
+// einem Hersteller sind keine 100 kg am nächsten, weil Hebelarme, Schlittengewicht
+// und Anfangswiderstand verschieden sind. Eine Stufe dafür wäre eine Zahl ohne
+// Grundlage.
 //
-// So this module answers the other half of the question instead. "Am I strong
-// compared to other people" needs standards. "Am I getting stronger" does not —
-// it only needs you, last month. That comparison is valid on any equipment,
-// which makes it exactly the right signal for someone training in a machine
-// gym, and it means every exercise you log counts toward it rather than only
-// the seventeen.
+// Dieses Modul beantwortet deshalb die andere Hälfte der Frage. "Bin ich stark im
+// Vergleich zu anderen" braucht Standards. "Werde ich stärker" nicht, dafür reicht
+// man selbst vor einem Monat. Der Vergleich gilt an jedem Gerät, ist also genau das
+// richtige Signal für jemanden in einem Maschinenstudio, und jede eingetragene Übung
+// zählt mit, nicht nur die siebzehn.
 
 import { entryStats, linearFit } from './models.js';
 import { tRegion, t, tn } from './i18n.js';
@@ -23,37 +22,37 @@ import { fmtDecimal } from './ui.js';
 
 const WEEK = 7 * 86400000;
 
-/** Minimum sessions on one exercise before its slope means anything. */
+/** Mindestzahl an Einheiten mit einer Übung, bevor ihr Anstieg etwas bedeutet. */
 const MIN_SESSIONS = 3;
 
 /**
- * How close to zero a slope has to be before it is called flat, in percent of
- * the starting estimate per week.
+ * Wie nah an null ein Anstieg sein muss, damit er als flach gilt, in Prozent der
+ * Startschätzung pro Woche.
  *
- * This is the app's own convention, not a finding — there is no published cut-off
- * for "no longer progressing". It is here rather than inline because more than
- * one screen asks the same question, and two screens disagreeing about what
- * counts as flat is the bug this codebase keeps producing.
+ * Eine eigene Festlegung der App, kein Befund: eine veröffentlichte Grenze für
+ * "kein Fortschritt mehr" gibt es nicht. Sie steht hier und nicht direkt im Code,
+ * weil mehr als ein Screen dieselbe Frage stellt, und zwei Screens, die sich
+ * uneinig sind, was flach heißt, sind der Fehler, den dieses Projekt immer wieder baut.
  */
 export const FLAT_BAND = 0.3;
 
 /**
- * Estimated-1RM trend per body-map region.
+ * Verlauf des geschätzten 1RM je Region der Muskelkarte.
  *
- * Fitted on e1RM rather than top weight so that adding reps counts as progress
- * — which matters more here than on the strength card, because machine users
- * often progress in reps between the stack's coarse weight steps.
+ * Gerechnet mit e1RM statt Höchstgewicht, damit mehr Wiederholungen auch als
+ * Fortschritt zählen. Das ist hier wichtiger als auf der Stärkekarte, weil man an
+ * Maschinen oft über Wiederholungen zwischen den groben Gewichtsstufen vorankommt.
  *
- * `now` ends the window. It exists for the week card: a card about last week
- * must not be able to see sessions logged since, or re-opening it next month
- * would quietly change what it said.
+ * `now` beendet das Zeitfenster. Das braucht die Wochenkarte: eine Karte über die
+ * letzte Woche darf keine Einheiten sehen, die danach eingetragen wurden, sonst
+ * sagt sie beim erneuten Öffnen im nächsten Monat still etwas anderes.
  *
  * @returns {Object<string, {state, pctPerWeek, exercises, sessions, best}>}
  */
 export function regionProgress(sessions, exerciseById, { weeks = 12, now = Date.now() } = {}) {
   const since = now - weeks * WEEK;
 
-  // exerciseId -> [{t, e1rm}]
+  // Übungs-ID -> [{t, e1rm}]
   const series = new Map();
   for (const s of sessions) {
     if (!s.finishedAt || s.startedAt < since || s.startedAt > now) continue;
@@ -65,7 +64,7 @@ export function regionProgress(sessions, exerciseById, { weeks = 12, now = Date.
     }
   }
 
-  // region -> contributions
+  // Region -> Beiträge
   const acc = {};
   const touch = (region) => (acc[region] = acc[region] || { weighted: 0, weight: 0, exercises: 0, sessions: 0, best: null, thin: 0 });
 
@@ -74,8 +73,8 @@ export function regionProgress(sessions, exerciseById, { weeks = 12, now = Date.
     if (!ex) continue;
     const points = raw.sort((a, b) => a.t - b.t);
 
-    // A region is "trained" as soon as you log it, even once — the map should
-    // show that. Whether it is *progressing* needs more than one data point.
+    // Eine Region gilt als "trainiert", sobald sie einmal eingetragen ist, das soll
+    // die Karte zeigen. Ob sie VORANKOMMT, braucht mehr als einen Datenpunkt.
     const regions = [
       ...(ex.primary || []).map((r) => [r, 1]),
       ...(ex.secondary || []).map((r) => [r, 0.5]),
@@ -107,7 +106,7 @@ export function regionProgress(sessions, exerciseById, { weeks = 12, now = Date.
   const out = {};
   for (const [region, a] of Object.entries(acc)) {
     if (!a.weight) {
-      // Logged, but never enough sessions on one movement to fit a line.
+      // Eingetragen, aber nie genug Einheiten mit einer Übung für eine Linie.
       out[region] = { state: 'thin', pctPerWeek: null, exercises: 0, sessions: a.sessions, best: null };
       continue;
     }
@@ -124,13 +123,13 @@ export function regionProgress(sessions, exerciseById, { weeks = 12, now = Date.
 }
 
 /**
- * Map the progression states onto steps of the body map's colour ramp.
+ * Die Fortschrittszustände auf Stufen der Farbskala der Muskelkarte legen.
  *
- * Reusing the ramp keeps one visual language, but the meaning is different and
- * the legend says so — this is rate of change, not rank against anyone. The
- * three steps are picked for what they read as rather than for where they sit
- * on the ladder: green for climbing, a flat grey for flat, and the dimmest
- * step for falling.
+ * Dieselbe Skala hält die Bildsprache einheitlich, aber die Bedeutung ist eine
+ * andere, und die Legende sagt das auch: hier geht es um Veränderung, nicht um
+ * einen Rang gegen irgendwen. Die drei Stufen sind danach gewählt, wie sie wirken,
+ * nicht wo sie auf der Leiter stehen: Grün für steigend, flaches Grau für flach
+ * und die dunkelste Stufe für fallend.
  */
 export const PROGRESS_TIER = { falling: 0, flat: 1, thin: 1, climbing: 5 };
 
@@ -150,14 +149,14 @@ export const PROGRESS_LABEL = {
   thin: 'regionProgress.thin',
 };
 
-/** One-line summary for a region, in plain language. */
+/** Zusammenfassung einer Region in einer Zeile, in normaler Sprache. */
 export function describeRegion(region, p) {
   const name = tRegion(region);
   if (!p) return t('regionProgress.nothing', { muscle: name });
   if (p.state === 'thin') {
     return t('regionProgress.tooThin', { muscle: name, times: tn(p.sessions, 'unit.time') });
   }
-  // `-0.0%` is what a flat fit prints without this, and it reads like a bug.
+  // `-0.0%` käme bei einer flachen Linie ohne das hier heraus, und das sieht aus wie ein Fehler.
   const v = Math.abs(p.pctPerWeek) < 0.05 ? 0 : p.pctPerWeek;
   const rate = t('regionProgress.rate', { pct: `${v > 0 ? '+' : ''}${fmtDecimal(v)}` });
   const via = p.best ? ` ${t('regionProgress.bestMover', { name: p.best.name })}` : '';

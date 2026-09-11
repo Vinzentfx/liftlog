@@ -1,15 +1,15 @@
-// The cloud backup, as the person using it sees it.
+// Die Cloud-Sicherung, so wie man sie als Nutzer sieht.
 //
-// Two jobs, and the second one is the hard one. Setting an account up is a
-// form. Explaining honestly what happens to the data, and making the recovery
-// key impossible to skip past, is the part that decides whether any of this is
-// worth having.
+// Zwei Aufgaben, und die zweite ist die schwere. Ein Konto einzurichten ist ein
+// Formular. Ehrlich zu erklären, was mit den Daten passiert, und den
+// Wiederherstellungsschlüssel so zu zeigen, dass man ihn nicht überspringen kann,
+// entscheidet darüber, ob das Ganze etwas taugt.
 //
-// The recovery key screen in particular is deliberately awkward. It cannot be
-// dismissed by tapping outside, the key is shown once and never again, and
-// continuing requires ticking a box. Every one of those is friction on purpose:
-// the alternative is someone tapping through it in four seconds and finding out
-// what it was for on the day their phone goes in a river.
+// Vor allem der Screen mit dem Wiederherstellungsschlüssel ist absichtlich sperrig.
+// Er lässt sich nicht durch Tippen daneben schließen, der Schlüssel wird genau
+// einmal gezeigt, und weiter geht es erst mit einem Haken im Kästchen. Jeder dieser
+// Punkte bremst mit Absicht. Die Alternative ist jemand, der in vier Sekunden
+// durchtippt und erst an dem Tag erfährt, wofür das war, an dem sein Handy im Fluss landet.
 
 import {
   el, openSheet, closeSheet, confirmSheet, toast, fmtDate, listItem, authField,
@@ -21,15 +21,15 @@ import { t, tn, locale } from '../i18n.js';
 import { CONSENT_VERSION } from '../cloud-config.js';
 import { DEMO } from '../demo.js';
 
-/* ============================== entry point ============================== */
+/* ============================== Einstieg ============================== */
 
-/** The row in Settings, and everything reachable from it. */
+/** Die Zeile in den Einstellungen und alles, was man von dort erreicht. */
 export function cloudSection() {
   const wrap = el('div');
   wrap.append(el('div.section-head', {}, [el('h2', { text: t('cloud.title') })]));
 
-  // The preview cannot reach the cloud, so it describes it instead of offering
-  // a sign-up that would fail. See js/demo.js.
+  // Die Vorschau kommt nicht an die Cloud, sie beschreibt sie deshalb, statt eine
+  // Registrierung anzubieten, die scheitern würde. Siehe js/demo.js.
   if (DEMO) {
     wrap.append(el('div.card', {}, [el('div.small.muted', { text: t('demo.cloudBody') })]));
     return wrap;
@@ -66,7 +66,7 @@ export function cloudSection() {
   );
 
   if (!s.profile) {
-    // Signed in but never redeemed an invite. Nothing works until that happens.
+    // Angemeldet, aber nie eine Einladung eingelöst. Bis dahin geht nichts.
     card.append(el('div.small', { style: { marginTop: '10px', color: 'var(--warn)' },
       text: t('cloud.needInvite') }));
     card.append(el('button.btn.ghost.full.sm', { style: { marginTop: '10px' },
@@ -75,9 +75,9 @@ export function cloudSection() {
     return wrap;
   }
 
-  // The invite gate creates the account/profile without silently consenting to
-  // cloud storage. That is a valid halfway state, not a secondary device. Offer
-  // the separate consent/setup here before any backup action is possible.
+  // Die Einladungssperre legt Konto und Profil an, ohne still der Speicherung in der
+  // Cloud zuzustimmen. Das ist ein gültiger Zwischenzustand und kein Zweitgerät. Die
+  // eigene Zustimmung und Einrichtung wird hier angeboten, bevor eine Sicherung möglich ist.
   if (!s.profile.recovery_wrap) {
     card.append(
       el('div.small.muted', { style: { marginTop: '10px' }, text: t('cloud.finishSetupIntro') }),
@@ -204,13 +204,13 @@ function statusLine(s) {
   });
 }
 
-/* ============================== setting up ============================== */
+/* ============================== Einrichten ============================== */
 
 /**
- * The sign-in / sign-up fork, for callers outside this module.
+ * Die Weiche zwischen Anmelden und Registrieren, für Aufrufer außerhalb dieses Moduls.
  *
- * The Users tab needs it: it is the one screen that is useless without an
- * account, and it used to say so and then offer no way to get one.
+ * Der Nutzer-Tab braucht sie: das ist der eine Screen, der ohne Konto nutzlos ist,
+ * und früher hat er das gesagt und dann keinen Weg zu einem Konto angeboten.
  */
 export function openCloudSetup() {
   startSheet();
@@ -313,8 +313,8 @@ function signInSheet() {
       cloud.persistSession();
       await sync.load();
       closeSheet();
-      // A phone signing in to an existing account is a second device until the
-      // main one says otherwise, so it asks rather than assuming.
+      // Ein Handy, das sich bei einem vorhandenen Konto anmeldet, ist ein Zweitgerät,
+      // bis das Hauptgerät etwas anderes sagt. Es fragt also, statt es anzunehmen.
       afterSignIn();
     } catch (err) {
       status.style.color = 'var(--warn)';
@@ -331,7 +331,7 @@ function signInSheet() {
   ]));
 }
 
-/** Add encrypted cloud backup to an account created by the invite gate. */
+/** Verschlüsselte Cloud-Sicherung zu einem Konto aus der Einladungssperre hinzufügen. */
 export function promptCloudSetup() {
   finishSetupSheet();
 }
@@ -372,7 +372,7 @@ function finishSetupSheet() {
   ]));
 }
 
-/** Signed in on a device the account has not seen before. */
+/** Angemeldet auf einem Gerät, das das Konto noch nicht kennt. */
 function afterSignIn() {
   if (!sync.state.profile) { inviteSheet(); return; }
 
@@ -423,16 +423,16 @@ function inviteSheet() {
   ]));
 }
 
-/* ============================ the recovery key ============================ */
+/* ============================ Wiederherstellungsschlüssel ============================ */
 
 /**
- * Shown exactly once, and built so it cannot be skimmed past.
+ * Wird genau einmal gezeigt und ist so gebaut, dass man nicht darüber hinweglesen kann.
  *
- * No dismiss on the scrim, no close button that works, and the continue button
- * stays disabled until the box is ticked. That is unusual in this app, which
- * otherwise never traps anyone in a sheet. It is justified here because this is
- * the only screen whose consequence is unrecoverable: everything else can be
- * undone by trying again, and this one cannot be revisited at all.
+ * Kein Schließen durch Tippen daneben, kein Schließen-Knopf, der funktioniert, und
+ * der Weiter-Knopf bleibt aus, bis das Kästchen angehakt ist. Das ist ungewöhnlich
+ * für diese App, die sonst nie jemanden in einem Sheet festhält. Hier ist es
+ * gerechtfertigt, weil nur dieser Screen eine Folge hat, die sich nicht reparieren
+ * lässt: alles andere kann man noch einmal versuchen, zu diesem kommt man nie zurück.
  */
 function recoveryKeySheet(recovery) {
   const confirmed = el('input', { type: 'checkbox', style: { width: 'auto', minHeight: 'auto' } });
@@ -475,7 +475,7 @@ function recoveryKeySheet(recovery) {
       ]),
     ]),
     done,
-  ]), { onClose: () => { /* the sheet can close; the key is gone either way */ } });
+  ]), { onClose: () => { /* das Sheet darf zugehen, der Schlüssel ist so oder so weg */ } });
 }
 
 function recoverSheet() {
@@ -507,7 +507,7 @@ function recoverSheet() {
   ]));
 }
 
-/* ================================ devices ================================ */
+/* ================================ Geräte ================================ */
 
 function approveSheet(device) {
   openSheet(t('cloud.approveTitle'), el('div', {}, [
@@ -609,7 +609,7 @@ async function devicesSheet() {
   );
 }
 
-/* ============================ restore and manage ============================ */
+/* ============================ Wiederherstellen und verwalten ============================ */
 
 async function restoreSheet() {
   const body = el('div', {}, [el('div.small.faint', { text: t('cloud.working') })]);

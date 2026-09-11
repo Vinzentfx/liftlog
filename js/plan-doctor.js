@@ -1,12 +1,13 @@
-// Turns the plan rating's complaints into edits you can actually apply.
+// Macht aus den Beschwerden der Planbewertung Änderungen, die man direkt übernehmen kann.
 //
-// The rating already knows the exact problem — "Abs 6 sets", "Quads 14 in one
-// session", "this is loaded short". Making the user translate that back into
-// which day to open and which exercise to add is work the app can do itself.
+// Die Bewertung kennt das Problem schon genau: "Bauch 6 Sätze", "Quadrizeps 14 in
+// einer Einheit", "das wird verkürzt belastet". Den Nutzer das zurückübersetzen zu
+// lassen, welchen Tag er öffnen und welche Übung er hinzufügen muss, ist Arbeit,
+// die die App selbst erledigen kann.
 //
-// Every fix is a small, reversible edit to one day. Nothing here restructures a
-// plan: no fix removes a training day, changes the split, or touches an exercise
-// you picked deliberately without saying so.
+// Jede Korrektur ist eine kleine, umkehrbare Änderung an einem Tag. Nichts hier
+// baut einen Plan um: keine Korrektur entfernt einen Trainingstag, ändert die
+// Aufteilung oder fasst ungefragt eine Übung an, die man bewusst gewählt hat.
 
 import { tRegion, t } from './i18n.js';
 import { THRESHOLDS } from './evidence.js';
@@ -20,9 +21,9 @@ const PER_SESSION = THRESHOLDS.sessionPerMuscle.value;
 const name = tRegion;
 
 /**
- * @param plan      the plan being edited (not mutated here)
- * @param analysis  an analysePlan() result for it
- * @param exercises the full library
+ * @param plan      der Plan, der bearbeitet wird (wird hier nicht verändert)
+ * @param analysis  ein Ergebnis von analysePlan() dafür
+ * @param exercises die ganze Bibliothek
  * @returns [{ id, title, detail, severity, apply(plan) }]
  */
 export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXERCISE } = {}) {
@@ -30,7 +31,7 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
   const used = new Set();
   for (const d of plan.days || []) for (const i of d.items) used.add(i.exerciseId);
 
-  // ---- 1. muscles that get nothing at all ----
+  // ---- 1. Muskeln, die gar nichts bekommen ----
   for (const region of analysis.untrained) {
     const pick = pickForRegion(region, exercises, { used, preferCompound: true });
     if (!pick) continue;
@@ -46,7 +47,7 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
     });
   }
 
-  // ---- 2. muscles under the weekly floor ----
+  // ---- 2. Muskeln unter der Wochenuntergrenze ----
   const under = analysis.trained
     .filter((r) => analysis.volume[r] < FLOOR)
     .sort((a, b) => analysis.volume[a] - analysis.volume[b]);
@@ -66,7 +67,7 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
     });
   }
 
-  // ---- 3. one muscle crammed into one session ----
+  // ---- 3. ein Muskel in eine einzige Einheit gequetscht ----
   for (const region of analysis.trained) {
     const peak = analysis.peakSession[region] || 0;
     if (peak <= PER_SESSION) continue;
@@ -83,7 +84,7 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
     });
   }
 
-  // ---- 4. movements loaded in the shortened position ----
+  // ---- 4. Übungen, die in der verkürzten Position belasten ----
   for (const day of plan.days || []) {
     for (const item of day.items) {
       const ex = byId.get(item.exerciseId);
@@ -102,7 +103,7 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
     }
   }
 
-  // ---- 5. a muscle carried by a single movement ----
+  // ---- 5. ein Muskel hängt an einer einzigen Übung ----
   for (const region of analysis.trained) {
     if ((analysis.exercisesPer[region] || 0) !== 1) continue;
     if (analysis.volume[region] < 8) continue;
@@ -123,7 +124,7 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
   return fixes.sort((a, b) => b.severity - a.severity).slice(0, 8);
 }
 
-/* ---------------- edits ---------------- */
+/* ---------------- Änderungen ---------------- */
 
 function addItem(plan, dayId, exerciseId, sets = SETS_PER_EXERCISE) {
   const day = plan.days.find((d) => d.id === dayId);
@@ -152,31 +153,32 @@ function moveItem(plan, fromId, toId, exerciseId) {
   to.items.push(item);
 }
 
-/* ---------------- helpers ---------------- */
+/* ---------------- Helfer ---------------- */
 
 /**
- * Where an extra exercise for a muscle belongs.
+ * Wohin eine zusätzliche Übung für einen Muskel gehört.
  *
- * Order matters more than it looks. Sorting only by "which day is emptiest"
- * puts a back squat on pull day — technically the lightest, obviously wrong. So
- * the plan's own structure wins first: a generated day carries the muscle slots
- * it was built from, and that is the plan telling you where the muscle lives.
- * Only after that does load, and only then size, get a say.
+ * Die Reihenfolge ist wichtiger, als sie aussieht. Nur nach "welcher Tag ist am
+ * leersten" zu sortieren, legt Kniebeugen auf den Pull-Tag, rein rechnerisch der
+ * leichteste, aber offensichtlich falsch. Deshalb gewinnt zuerst der Aufbau des
+ * Plans selbst: ein erzeugter Tag trägt die Muskelplätze, aus denen er entstanden
+ * ist, und damit sagt der Plan, wo der Muskel hingehört. Erst danach zählt die
+ * Belastung und ganz zum Schluss die Größe.
  */
 function lightestDay(plan, byId, region, pick = null) {
   const days = (plan.days || []).filter((d) => d.items);
   if (!days.length) return null;
 
-  // Everything the new exercise touches, so a hand-built plan with no slot
-  // targets can still tell a leg day from a pull day: a back squat also loads
-  // glutes and hamstrings, and the day that already trains those is the day it
-  // belongs on.
+  // Alles, was die neue Übung trifft. So kann auch ein Plan von Hand ohne
+  // Platzvorgaben einen Beintag von einem Pull-Tag unterscheiden: Kniebeugen
+  // belasten auch Gesäß und Beinbeuger, und der Tag, der die schon trainiert, ist
+  // der richtige.
   const kin = new Set([...(pick?.primary || []), ...(pick?.secondary || [])]);
 
   const scored = days.map((d) => ({
     d,
-    // 2 = the blueprint put this muscle on this day, 1 = something here trains
-    // it today, 0 = no relationship at all.
+    // 2 = die Vorlage hat den Muskel auf diesen Tag gelegt, 1 = etwas an diesem Tag
+    // trainiert ihn, 0 = kein Zusammenhang.
     fit: (d.target || []).some((t) => t.region === region) ? 2
       : regionLoad(d, byId, region) > 0 ? 1 : 0,
     kinship: [...kin].filter((r) => regionLoad(d, byId, r) > 0).length,
@@ -201,15 +203,15 @@ function regionLoad(day, byId, region) {
   return n;
 }
 
-/** Heaviest day for a muscle, and the lightest day that could take one of them. */
+/** Der schwerste Tag für einen Muskel und der leichteste, der eine Übung davon übernehmen kann. */
 function findMove(plan, byId, region) {
   const scored = (plan.days || []).map((d) => ({ d, load: regionLoad(d, byId, region) }));
   const from = [...scored].sort((a, b) => b.load - a.load)[0];
   const to = [...scored].sort((a, b) => a.load - b.load)[0];
   if (!from || !to || from.d.id === to.d.id) return null;
 
-  // Move a movement whose *main* job is this muscle; shifting a compound that
-  // only touches it as a secondary would move the wrong load.
+  // Verschoben wird eine Übung, deren HAUPTaufgabe dieser Muskel ist. Eine
+  // Grundübung, die ihn nur nebenbei trifft, würde die falsche Last mitnehmen.
   const item = from.d.items.find((i) => {
     const ex = byId.get(i.exerciseId);
     return ex && (ex.primary || []).includes(region);

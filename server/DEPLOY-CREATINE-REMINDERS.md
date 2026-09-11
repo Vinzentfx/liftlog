@@ -9,7 +9,7 @@
    supabase functions deploy send-training-invite
    ```
 
-3. In Supabase unter **Integrations → Cron → Jobs → Create job** einen HTTP-Job
+3. In Supabase unter **Integrations > Cron > Jobs > Create job** einen HTTP-Job
    anlegen:
 
    - Zeitplan: `*/5 * * * *`

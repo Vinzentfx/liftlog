@@ -1,7 +1,7 @@
-// Same-origin map tile relay for Cloudflare Pages. Some mobile privacy filters
-// block third-party tile hosts even though the app itself is allowed. Values
-// are strictly numeric and the upstream is fixed, so this cannot become an
-// open proxy.
+// Kartenkacheln über dieselbe Herkunft, für Cloudflare Pages. Manche
+// Datenschutzfilter auf Handys sperren fremde Kachel-Server, obwohl die App selbst
+// erlaubt ist. Die Werte sind streng numerisch und das Ziel ist fest, daraus kann
+// also kein offener Proxy werden.
 export async function onRequestGet({ request }) {
   const url = new URL(request.url);
   const zoom = integer(url.searchParams.get('z'));

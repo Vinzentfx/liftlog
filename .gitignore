@@ -2,23 +2,27 @@
 .DS_Store
 ._*
 
-# editors
+# Editoren
 .vscode/
 .idea/
 *.swp
 
-# local backups exported from the app
+# lokale Sicherungen, aus der App exportiert
 liftlog-backup-*.json
 
-# build scratch (the generators read from /tmp)
+# Zwischenstände beim Bauen (die Generatoren lesen aus /tmp)
 *.tar.gz
 tools/.cache/
 server/.vapid-secrets
 
-# Supabase CLI local state: which project this checkout is linked to
+# lokaler Zustand der Supabase-CLI: mit welchem Projekt dieser Checkout verknüpft ist
 supabase/.temp/
 
-# dev tooling
+# Entwicklungswerkzeuge
 node_modules/
 test-results/
 playwright-report/
+
+# lokale Werkzeug-Einstellungen
+CLAUDE.md
+.claude/

@@ -1,5 +1,5 @@
--- Patch 003: separate one-time invite codes from revocable ongoing access.
--- Apply after patch-002-device-capabilities.sql.
+-- Patch 003: einmalige Einladungscodes vom entziehbaren dauerhaften Zugang trennen.
+-- Nach patch-002-device-capabilities.sql einspielen.
 
 create table if not exists public.access_grants (
   user_id uuid primary key references auth.users on delete cascade,
@@ -12,9 +12,9 @@ create table if not exists public.access_grants (
   )
 );
 alter table public.access_grants enable row level security;
--- No policies: grants are administered in SQL and exposed only as a boolean RPC.
+-- Keine Policies: Freigaben werden per SQL verwaltet und nur als boolesche RPC gezeigt.
 
--- Existing invited profiles remain active when this migration is introduced.
+-- Bestehende eingeladene Profile bleiben mit dieser Migration aktiv.
 insert into public.access_grants(user_id, active, granted_at)
 select id, true, created_at from public.profiles
 on conflict (user_id) do nothing;
@@ -32,7 +32,7 @@ returns boolean language sql stable security definer set search_path = public as
   select public.has_active_access();
 $$;
 
--- Claiming a new invite can create a profile or reactivate an existing account.
+-- Eine neue Einladung einzulösen kann ein Profil anlegen oder ein bestehendes Konto wieder aktivieren.
 create or replace function public.claim_invite(invite_code text)
 returns void language plpgsql security definer set search_path = public as $$
 declare claimed text;
@@ -88,8 +88,8 @@ returns boolean language sql stable security definer set search_path = public, e
   );
 $$;
 
--- This harmless heartbeat must be access-controlled too; otherwise a revoked
--- token could still mutate server state even though all meaningful data is shut.
+-- Auch dieses harmlose Lebenszeichen braucht Zugriffsschutz, sonst könnte ein entzogenes
+-- Token weiter Zustand auf dem Server ändern, obwohl alle wichtigen Daten zu sind.
 create or replace function public.touch_device(device uuid, owner_token text default null)
 returns void language plpgsql security definer set search_path = public as $$
 begin
@@ -99,8 +99,8 @@ begin
 end;
 $$;
 
--- Revoked people must still be able to exercise their right to deletion. This
--- RPC validates the device capability directly, without requiring active access.
+-- Wem der Zugang entzogen wurde, muss sein Recht auf Löschung trotzdem ausüben können. Diese
+-- RPC prüft die Geräteberechtigung direkt, ohne aktiven Zugang zu verlangen.
 create or replace function public.delete_cloud_data(owner_token text)
 returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
@@ -122,10 +122,10 @@ grant execute on function public.has_active_access() to authenticated;
 revoke all on function public.access_status() from public, anon;
 grant execute on function public.access_status() to authenticated;
 
--- Admin examples:
--- Revoke without deleting anything:
+-- Beispiele für den Admin:
+-- Entziehen, ohne etwas zu löschen:
 --   update public.access_grants set active = false, revoked_at = now()
 --   where user_id = '<USER UUID>';
--- Reactivate without a new invite:
+-- Wieder aktivieren ohne neue Einladung:
 --   update public.access_grants set active = true, revoked_at = null,
 --     granted_at = now() where user_id = '<USER UUID>';

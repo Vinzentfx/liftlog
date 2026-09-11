@@ -22,8 +22,8 @@ const handler = withSupabase({ auth: "user" }, async (request, ctx) => {
       return reply(400, { code: "INVALID_REQUEST" });
     }
 
-    // The browser-supplied id is never trusted. For a new invitation the caller
-    // must be its sender; for an answer the caller must be its recipient.
+    // Der ID aus dem Browser wird nie vertraut. Bei einer neuen Einladung muss der
+    // Aufrufer ihr Absender sein, bei einer Antwort ihr Empfänger.
     const query = ctx.supabaseAdmin.from("training_invites")
       .select("id,sender,recipient,training_at,note,status,response_note,answered_at,response_push_sent_at")
       .eq("id", inviteId);
@@ -37,8 +37,8 @@ const handler = withSupabase({ auth: "user" }, async (request, ctx) => {
         || Date.now() - new Date(invite.answered_at).getTime() > 15 * 60 * 1000) {
         return reply(409, { code: "RESPONSE_ALREADY_SENT" });
       }
-      // Claim the one permitted notification before sending it. The conditional
-      // update prevents repeated requests from becoming a push-spam endpoint.
+      // Die eine erlaubte Benachrichtigung erst beanspruchen, dann senden. Das
+      // bedingte Update verhindert, dass wiederholte Anfragen zur Push-Schleuder werden.
       const { data: claimed } = await ctx.supabaseAdmin.from("training_invites")
         .update({ response_push_sent_at: new Date().toISOString() }).eq("id", invite.id)
         .is("response_push_sent_at", null).select("id").maybeSingle();

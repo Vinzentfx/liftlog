@@ -1,22 +1,23 @@
-# Social invitations and notifications
+# Trainingseinladungen und Benachrichtigungen
 
-Run these commands from the LiftLog repository, not in the Supabase SQL editor.
+Die Befehle laufen im LiftLog-Ordner im Terminal, nicht im SQL-Editor von Supabase.
 
-1. Run `server/patch-010-social-plans-invites.sql` once in the Supabase SQL editor.
-   For invitation replies and response notifications, also run
-   `server/patch-015-training-invite-responses.sql` once.
-2. Link the local folder if it is not linked already:
+1. `server/patch-010-social-plans-invites.sql` einmal im SQL-Editor von Supabase
+   ausführen. Für Antworten auf Einladungen und die Benachrichtigung darüber
+   zusätzlich einmal `server/patch-015-training-invite-responses.sql`.
+2. Den lokalen Ordner verknüpfen, falls noch nicht geschehen:
 
    ```sh
    supabase link --project-ref txjikhreoshmkjuyomki
    ```
 
-3. Upload the private Web Push keys from the gitignored local file and deploy:
+3. Die privaten Web-Push-Schlüssel aus der gitignorierten lokalen Datei hochladen
+   und veröffentlichen:
 
    ```sh
    supabase secrets set --env-file server/.vapid-secrets
    supabase functions deploy send-training-invite
    ```
 
-The public VAPID key is intentionally part of the app. The private key in
-`server/.vapid-secrets` must never be committed or pasted into client code.
+Der öffentliche VAPID-Schlüssel gehört mit Absicht zur App. Der private in
+`server/.vapid-secrets` darf nie committet oder in Client-Code kopiert werden.

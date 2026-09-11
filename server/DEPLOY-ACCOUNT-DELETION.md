@@ -1,21 +1,22 @@
-# Complete account deletion
+# Konto vollständig löschen
 
-The web client never receives the Supabase `service_role` key. Complete account
-deletion therefore uses a Supabase Edge Function.
+Der Web-Client bekommt den `service_role`-Schlüssel von Supabase nie zu sehen. Das
+vollständige Löschen eines Kontos läuft deshalb über eine Edge Function.
 
-1. Run `patch-007-account-deletion.sql` in the Supabase SQL editor.
-2. Install and authenticate the Supabase CLI.
-3. From the repository root, link the project and deploy:
+1. `patch-007-account-deletion.sql` im SQL-Editor von Supabase ausführen.
+2. Die Supabase CLI installieren und anmelden.
+3. Im Hauptordner des Repos das Projekt verknüpfen und veröffentlichen:
 
    ```sh
    supabase link --project-ref txjikhreoshmkjuyomki
    supabase functions deploy delete-account
    ```
 
-The current Supabase runtime provides the authenticated `ctx.supabase` client
-and privileged `ctx.supabaseAdmin` client to the function. Never add a secret or
-service-role key to this repository, the function source, or Cloudflare.
+Die aktuelle Laufzeit von Supabase gibt der Funktion den angemeldeten Client
+`ctx.supabase` und den privilegierten `ctx.supabaseAdmin`. Nie ein Secret oder
+einen Service-Role-Schlüssel in dieses Repo, den Quelltext der Funktion oder
+Cloudflare eintragen.
 
-After deployment, test with a disposable account. The function first verifies
-the device-local owner capability and then deletes the Auth identity; foreign
-keys with `on delete cascade` remove its LiftLog database rows.
+Nach dem Veröffentlichen mit einem Wegwerfkonto testen. Die Funktion prüft zuerst
+die Besitzer-Berechtigung auf dem Gerät und löscht dann die Auth-Identität. Die
+Fremdschlüssel mit `on delete cascade` räumen danach die Zeilen in der Datenbank weg.

@@ -1,31 +1,32 @@
-// What to hang on the bar.
+// Was auf die Stange muss.
 //
-// Pure arithmetic, but the kind nobody wants to do between sets with a phone in
-// one hand: a barbell is loaded symmetrically, so the interesting number is half
-// the load minus half the bar, expressed in the discs a gym actually owns.
+// Reine Rechnerei, aber genau die, auf die zwischen zwei Sätzen mit dem Handy in
+// der Hand keiner Lust hat: eine Langhantel wird symmetrisch beladen, gesucht ist
+// also die halbe Last minus die halbe Stange, ausgedrückt in Scheiben, die es im
+// Studio wirklich gibt.
 //
-// It answers honestly when it cannot hit the number exactly. Most gyms have
-// nothing below 1.25 kg, so a 101 kg target is not loadable and saying "101 kg"
-// with a plate list that adds to 100 would be a small lie told daily.
+// Geht das Ziel nicht genau auf, wird das auch so gesagt. Die meisten Studios
+// haben nichts unter 1,25 kg, 101 kg lassen sich also nicht stecken. "101 kg" mit
+// einer Scheibenliste anzuzeigen, die 100 ergibt, wäre eine kleine tägliche Lüge.
 
 /**
- * Standard commercial sets. Not a finding, just what is on the rack — a gym
- * with different discs is handled by the fact that the answer names every one
- * of them, so a missing size is obvious rather than silently assumed.
+ * Übliche Scheibensätze. Keine Erkenntnis, einfach das, was im Ständer liegt.
+ * Hat ein Studio andere Scheiben, fällt das auf, weil die Antwort jede einzelne
+ * nennt. Eine fehlende Größe wird also nicht stillschweigend angenommen.
  */
 export const PLATES = {
   kg: [25, 20, 15, 10, 5, 2.5, 1.25],
   lb: [45, 35, 25, 10, 5, 2.5],
 };
 
-/** Olympic bars. The setting overrides it; this is only the starting value. */
+/** Olympia-Stangen. Die Einstellung hat Vorrang, das hier ist nur der Startwert. */
 export const DEFAULT_BAR = { kg: 20, lb: 45 };
 
 /**
  * @returns {{perSide: number[], loaded: number, off: number, exact: boolean,
  *            barOnly: boolean} | null}
- *   `off` is signed: how far the loadable total lands from what was asked for.
- *   null when the target is below the bar — there is nothing to say about it.
+ *   `off` hat ein Vorzeichen: wie weit die steckbare Last vom Wunsch abweicht.
+ *   null, wenn das Ziel unter der Stange liegt, dann gibt es nichts zu sagen.
  */
 export function platePlan(target, barWeight, units = 'kg') {
   const total = Number(target);
@@ -38,7 +39,7 @@ export function platePlan(target, barWeight, units = 'kg') {
   const chosen = [];
 
   for (const plate of sizes) {
-    // A hair of tolerance: 0.1 kg of floating-point residue is not a plate.
+    // Etwas Spielraum: 0,1 kg Rundungsrest ist keine Scheibe.
     while (perSide + 1e-9 >= plate) {
       chosen.push(plate);
       perSide -= plate;
@@ -55,7 +56,7 @@ export function platePlan(target, barWeight, units = 'kg') {
   };
 }
 
-/** "2 × 20, 1 × 5" — how you would say it out loud. */
+/** "2 × 20, 1 × 5", so wie man es laut sagen würde. */
 export function describePlates(perSide) {
   if (!perSide.length) return 'just the bar';
   const counts = [];

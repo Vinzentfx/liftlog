@@ -1,5 +1,5 @@
--- Optional, privacy-first social layer. Training backups remain encrypted and
--- untouched; only the small values a user explicitly publishes live here.
+-- Freiwilliger sozialer Bereich mit Datenschutz zuerst. Die Trainingssicherungen bleiben
+-- verschlüsselt und unberührt, hier liegen nur die kleinen Werte, die jemand ausdrücklich freigibt.
 
 create table if not exists public.social_profiles (
   user_id uuid primary key references auth.users on delete cascade,
@@ -37,8 +37,8 @@ create table if not exists public.social_weekly_stats (
 alter table public.social_profiles enable row level security;
 alter table public.social_friendships enable row level security;
 alter table public.social_weekly_stats enable row level security;
--- Deliberately no direct table policies. All reads/writes go through the narrow
--- functions below, which prevents the REST API becoming a user-directory dump.
+-- Absichtlich keine direkten Policies auf den Tabellen. Alles Lesen und Schreiben geht über
+-- die schmalen Funktionen unten, damit die REST-API kein Verzeichnis aller Nutzer ausspuckt.
 
 create or replace function public.save_social_profile(
   new_handle text, new_display_name text, is_discoverable boolean, joins_leaderboard boolean

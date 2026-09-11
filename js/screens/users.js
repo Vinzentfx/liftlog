@@ -1,5 +1,5 @@
-// Opt-in social hub. The encrypted workout backup is never read here; only the
-// weekly totals the user chose to publish are sent to the social tables.
+// Freiwilliger sozialer Bereich. Die verschlüsselte Trainingssicherung wird hier nie
+// gelesen, an die sozialen Tabellen gehen nur die Wochenwerte, die man selbst freigibt.
 
 import { el, emptyState, toast, openSheet, closeSheet, confirmSheet, authField } from '../ui.js';
 import { rankBadge } from '../rank-art.js';
@@ -32,11 +32,11 @@ const challengeMetricLabel = (key) => key === 'sets'
 export default function renderUsers({ actions, fresh }) {
   actions.append(el('button.icon-btn', { id: 'settings-btn', 'aria-label': t('common.settings') }, ['⚙']));
   const root = el('div');
-  // With no account this screen has nothing to show, so the empty state carries
-  // the way out of it. Saying "sign in" and then offering no button was a dead
-  // end on one of the five tabs.
-  // The preview is the exception: it cannot reach the cloud at all, so the
-  // button would be the dead end. It says what lives here instead.
+  // Ohne Konto hat dieser Screen nichts zu zeigen, also enthält der leere Zustand den
+  // Weg hinaus. "Melde dich an" zu sagen und dann keinen Knopf anzubieten war auf
+  // einem der fünf Tabs eine Sackgasse.
+  // Die Ausnahme ist die Vorschau: sie kommt gar nicht an die Cloud, dort wäre der
+  // Knopf die Sackgasse. Sie sagt stattdessen, was hier normalerweise steht.
   if (DEMO) return emptyState(t('users.signInTitle'), t('demo.cloudBody'));
   if (!cloud.isSignedIn()) {
     return emptyState(t('users.signInTitle'), t('users.signInBody'),
@@ -44,11 +44,12 @@ export default function renderUsers({ actions, fresh }) {
         [t('cloud.setUp')]));
   }
   if (fresh) { hub = null; extras = { groups: [], challenges: [], prs: [], visibility: {} }; problem = null; }
-  // `!problem` is what makes the card below reachable. Without it the failed
-  // load starts another one on the very render that was meant to report it, so
-  // the screen fell straight back into the spinner and stayed there: no error,
-  // no retry button, not even by leaving the tab and coming back. Arriving on
-  // the screen clears `problem` above, which is the deliberate way to try again.
+  // Durch `!problem` ist die Karte unten überhaupt erreichbar. Ohne das startet ein
+  // fehlgeschlagenes Laden im selben Zeichnen, das den Fehler melden sollte, gleich
+  // das nächste, und der Screen fiel sofort zurück in den Ladekreis und blieb dort:
+  // kein Fehler, kein Knopf zum Wiederholen, nicht einmal, wenn man den Tab wechselt
+  // und zurückkommt. Beim Betreten wird `problem` oben gelöscht, das ist der gewollte
+  // Weg, es noch einmal zu versuchen.
   if (!hub && !loading && !problem) loadHub();
   if (loading && !hub) return el('div.card', {}, [el('div.muted', { text: t('users.loading') })]);
   if (problem && !hub) return unavailable(problem);
@@ -91,9 +92,8 @@ function challengeValue(challenge) {
     sum + (entry.sets || []).filter(isCounted).length, 0), 0);
 }
 
-// Called by the normal online maintenance as well as this screen. That makes a
-// scheduled workout visible to friends without requiring the user to open the
-// social tab first.
+// Wird von der normalen Online-Wartung und von diesem Screen aufgerufen. So sehen
+// Freunde ein eingeplantes Training, ohne dass man vorher den sozialen Tab öffnen muss.
 export async function syncPresence() {
   if (!cloud.isSignedIn()) return;
   let current = await cloud.socialHub();
@@ -521,7 +521,7 @@ function answerInvite(invite, accept) {
   ]));
 }
 
-/** The same rank chip Home uses, so a friend's rank reads identically to yours. */
+/** Derselbe Rang-Chip wie auf Home, damit der Rang eines Freundes genauso aussieht wie der eigene. */
 function rankChip(rank) {
   if (!rank) return null;
   return el('span.tier-chip.with-badge', {}, [
@@ -550,10 +550,10 @@ function leaderboardSection() {
       el('span.leader-rank', { text: String(i + 1) }),
       el('div.avatar.small', { text: person.display_name.slice(0, 1).toUpperCase() }),
       el('div.grow', {}, [el('strong', { text: person.display_name }), el('div.small.faint', { text: `@${person.handle}` })]),
-      // Strength is shown as a rank, not as the 0-100 it sorts by. Two friends
-      // reading "41" and "47" learn nothing except that one of them is behind;
-      // reading "Diamant II" and "Meister III" they learn where each of them
-      // actually stands. The number is still what orders the list.
+      // Stärke wird als Rang gezeigt, nicht als die 0 bis 100, nach denen sortiert
+      // wird. Wer bei zwei Freunden "41" und "47" liest, erfährt nur, dass einer
+      // hinten liegt. Bei "Diamant II" und "Meister III" sieht man, wo jeder wirklich
+      // steht. Sortiert wird die Liste trotzdem nach der Zahl.
       leaderboardMode === 'strength'
         ? el(`div.leader-value.tier-${tierIndex(person.strength_score)}`, {}, [rankChip(rankOf(person.strength_score))])
         : el('div.leader-value', {}, [

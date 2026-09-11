@@ -1,27 +1,27 @@
-// What ties the three halves together: the log in js/store.js, the encryption
-// in js/crypto.js, and the network in js/cloud.js.
+// Was die drei Hälften zusammenhält: das Log in js/store.js, die Verschlüsselung in
+// js/crypto.js und das Netz in js/cloud.js.
 //
-// Nothing above this line knows about the others, on purpose. The store has
-// never heard of a server, the crypto has never heard of a schema, and the
-// network has never seen a training session. This module is the only place
-// where those meet, which makes it the only place to look when a backup does
-// something surprising.
+// Keins davon weiß von den anderen, mit Absicht. Der Store hat nie von einem Server
+// gehört, die Verschlüsselung nie von einem Schema, und das Netz hat nie eine
+// Trainingseinheit gesehen. Nur in diesem Modul treffen sie sich, und deshalb ist es
+// der einzige Ort, an dem man suchen muss, wenn eine Sicherung etwas Seltsames macht.
 //
-// The rules it enforces, all of them consequences of decisions made earlier:
+// Die Regeln, die es durchsetzt, alle als Folge früherer Entscheidungen:
 //
-//   Approved writers. Every approved device may upload. Before it does, it
-//                     folds newer cloud records into its local snapshot. The
-//                     server version is still an atomic compare-and-swap, so a
-//                     race becomes STALE and is retried rather than overwriting.
-//   Never silent.    Every outcome lands in `state` and gets shown. A backup
-//                    feature that fails quietly is worse than none, because it
-//                    replaces a habit with a false sense of safety.
-//   Never automatic  Consent is off until switched on, and the wording version
-//   without consent. is recorded next to the timestamp.
+//   Freigegebene     Jedes freigegebene Gerät darf hochladen. Vorher arbeitet es
+//   Schreiber        neuere Einträge aus der Cloud in seinen Stand ein. Die Version
+//                    auf dem Server ist weiterhin ein atomares Vergleichen und
+//                    Tauschen, ein Wettlauf wird also zu STALE und wiederholt, statt
+//                    zu überschreiben.
+//   Nie still        Jedes Ergebnis landet in `state` und wird gezeigt. Eine
+//                    Sicherung, die leise scheitert, ist schlimmer als keine, weil sie
+//                    eine Gewohnheit durch falsche Sicherheit ersetzt.
+//   Nie ohne         Die Zustimmung ist aus, bis man sie einschaltet, und die Version
+//   Zustimmung       des Textes steht neben dem Zeitstempel.
 //
-// There is no background sync. iOS home-screen apps have none to offer, so this
-// runs when the app is opened and when someone asks for it. Since the app gets
-// opened to train, that is in practice several times a week.
+// Es gibt keine Synchronisation im Hintergrund. Apps auf dem iOS-Homescreen haben so
+// etwas nicht, das hier läuft also beim Öffnen der App und wenn jemand darum bittet.
+// Weil man die App zum Trainieren öffnet, ist das in der Praxis mehrmals pro Woche.
 
 import * as db from './db.js';
 import * as store from './store.js';
@@ -29,17 +29,17 @@ import * as cloud from './cloud.js';
 import * as crypto from './crypto.js';
 import { CONSENT_VERSION } from './cloud-config.js';
 
-/* ============================== device keys ============================== */
+/* ============================== Geräteschlüssel ============================== */
 
 const DEVICE_ROW = 'device';
 
 /**
- * This device's identity: an ECDH keypair whose private half is stored as a
- * non-extractable CryptoKey, so not even code running in the page can read the
- * bytes. It can ask the browser to use the key and nothing more.
+ * Die Identität dieses Geräts: ein ECDH-Schlüsselpaar, dessen private Hälfte als nicht
+ * exportierbarer CryptoKey liegt. Nicht einmal Code auf der Seite kann die Bytes lesen,
+ * er kann den Browser nur bitten, den Schlüssel zu benutzen.
  *
- * Kept in its own object store, never in settings, because settings are copied
- * into every exported backup.
+ * Liegt in einem eigenen Store und nie in den Einstellungen, weil die in jede
+ * exportierte Sicherung kopiert werden.
  */
 export async function deviceKeys() {
   const saved = await db.get(db.STORES.keys, DEVICE_ROW);
@@ -51,8 +51,8 @@ export async function deviceKeys() {
     privateKey: pair.privateKey,
     publicKey: pair.publicKey,
     jwk: await crypto.exportPublicKey(pair),
-    // Only ever shown back to the person approving it, so it should read like
-    // something they recognise rather than a user-agent string.
+    // Wird nur der Person gezeigt, die freigibt, soll also nach etwas aussehen, das sie
+    // wiedererkennt, und nicht nach einem User-Agent-Text.
     name: guessDeviceName(),
     createdAt: Date.now(),
   };
@@ -70,7 +70,7 @@ function guessDeviceName() {
   return 'Gerät';
 }
 
-/** The server's id for this device, once it has been registered. */
+/** Die ID des Servers für dieses Gerät, sobald es angemeldet ist. */
 async function localMeta() {
   return (await db.get(db.STORES.keys, 'meta')) || { id: 'meta' };
 }
@@ -96,45 +96,45 @@ async function requireOwnerToken() {
   return token;
 }
 
-/* ================================= state ================================= */
+/* ================================= Zustand ================================= */
 
 /**
- * Everything the screens need to describe the situation, and nothing they have
- * to work out for themselves.
+ * Alles, was die Screens brauchen, um die Lage zu beschreiben, und nichts, was sie
+ * selbst ausrechnen müssen.
  */
 export const state = {
-  enabled: false,        // consent given and syncing switched on
+  enabled: false,        // Zustimmung gegeben und Synchronisation an
   signedIn: false,
   profile: null,
   deviceId: null,
-  isOwner: false,        // main device: may approve, block and delete
-  canBackup: false,      // approved devices may write backups; owner is admin
-  ownerAuthorized: false,// this install holds the server-side write capability
+  isOwner: false,        // Hauptgerät: darf freigeben, sperren und löschen
+  canBackup: false,      // freigegebene Geräte dürfen sichern, der Besitzer verwaltet
+  ownerAuthorized: false,// diese Installation hat die Schreibberechtigung auf dem Server
   lastSyncAt: null,
-  lastError: null,       // an error code, never a raw message
+  lastError: null,       // ein Fehlercode, nie eine rohe Meldung
   serverVersion: null,
   busy: false,
-  pendingDevices: [],    // requests waiting for this device to approve them
+  pendingDevices: [],    // Anfragen, die auf die Freigabe durch dieses Gerät warten
 };
 
 const listeners = new Set();
 export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 function emit() { listeners.forEach((fn) => fn()); }
 
-// Objects here are small server rows and short device lists, so comparing them
-// as JSON is both exact enough and cheaper than the render it prevents.
+// Die Objekte hier sind kleine Serverzeilen und kurze Gerätelisten. Sie als JSON zu
+// vergleichen ist genau genug und billiger als das Neuzeichnen, das es verhindert.
 const same = (a, b) => a === b
   || (a !== null && b !== null && typeof a === 'object' && typeof b === 'object'
       && JSON.stringify(a) === JSON.stringify(b));
 
 /**
- * Update the state, and notify only if something actually changed.
+ * Den Zustand ändern und nur Bescheid geben, wenn sich wirklich etwas geändert hat.
  *
- * The subscriber is a full screen re-render. Online maintenance calls `load()`
- * every minute and writes the same eight values back every time, so without
- * this the Train screen was torn down and rebuilt once a minute during a
- * workout, taking the focused input and the caret with it: type a weight
- * slowly and the field could empty itself under your thumb.
+ * Der Abonnent zeichnet einen ganzen Screen neu. Die Online-Wartung ruft jede Minute
+ * `load()` auf und schreibt jedes Mal dieselben acht Werte zurück. Ohne das hier wurde
+ * der Trainieren-Screen während eines Trainings einmal pro Minute abgerissen und neu
+ * gebaut, mitsamt dem Feld, in dem man gerade tippte, und dem Cursor. Wer ein Gewicht
+ * langsam eintippte, konnte zusehen, wie sich das Feld unter dem Daumen leerte.
  */
 function set(patch) {
   let changed = false;
@@ -146,16 +146,16 @@ function set(patch) {
   if (changed) emit();
 }
 
-/* ============================== the data key ============================== */
+/* ============================== der Datenschlüssel ============================== */
 
-// Held in memory only, for as long as the app is open. Writing it to disk
-// unwrapped would undo the point of wrapping it, and re-deriving it costs one
-// unwrap against a key this device already holds.
+// Nur im Speicher, solange die App offen ist. Ihn ausgepackt auf die Platte zu
+// schreiben würde das Einpacken sinnlos machen, und ihn neu zu gewinnen kostet ein
+// Auspacken mit einem Schlüssel, den dieses Gerät ohnehin hat.
 let dataKey = null;
 
 export const hasDataKey = () => !!dataKey;
 
-/** Whether this installation can authorize deletion without active access. */
+/** Ob diese Installation das Löschen ohne aktiven Zugang freigeben kann. */
 export async function canDeleteCloudData() {
   return !!(await localMeta()).ownerToken;
 }
@@ -164,10 +164,10 @@ export async function deleteAccount() {
   const ownerToken = await requireOwnerToken();
   await cloud.deleteAccount(ownerToken);
   dataKey = null;
-  // The Auth identity is gone, so this installation must not keep the local
-  // invite gate or a device id that can never exist on the server again.
-  // Training data stays untouched and can still be exported after signing in
-  // with another authorised account.
+  // Die Auth-Identität ist weg, diese Installation darf also weder die lokale
+  // Einladungssperre noch eine Geräte-ID behalten, die es auf dem Server nie wieder geben
+  // kann. Die Trainingsdaten bleiben unberührt und lassen sich nach dem Anmelden mit
+  // einem anderen berechtigten Konto weiterhin exportieren.
   await Promise.all([
     db.remove(db.STORES.keys, 'gate'),
     db.remove(db.STORES.keys, 'meta'),
@@ -178,12 +178,11 @@ export async function deleteAccount() {
 }
 
 /**
- * Get this device's copy of the data key, unwrapping it with the shared secret
- * the main device left for us.
+ * Die Kopie des Datenschlüssels für dieses Gerät holen und mit dem gemeinsamen
+ * Geheimnis auspacken, das das Hauptgerät hinterlassen hat.
  *
- * Fails with NOT_APPROVED rather than throwing something vague, because that is
- * a normal state with a clear answer: go to the main device and approve this
- * one.
+ * Scheitert mit NOT_APPROVED statt mit etwas Unklarem, weil das ein normaler Zustand
+ * mit einer klaren Antwort ist: zum Hauptgerät gehen und dieses hier freigeben.
  */
 async function loadDataKey(devices) {
   const meta = await localMeta();
@@ -203,15 +202,16 @@ async function loadDataKey(devices) {
   return dataKey;
 }
 
-/* ============================== setting up ============================== */
+/* ============================== Einrichten ============================== */
 
 /**
- * First device on a new account: make the data key, wrap it for the recovery
- * key, wrap it for this device, and record the consent.
+ * Erstes Gerät eines neuen Kontos: Datenschlüssel erzeugen, für den
+ * Wiederherstellungsschlüssel einpacken, für dieses Gerät einpacken und die Zustimmung
+ * festhalten.
  *
- * The recovery key is returned once and never stored. Showing it again later is
- * impossible by construction, which is the property that makes it worth
- * writing down.
+ * Der Wiederherstellungsschlüssel kommt einmal zurück und wird nie gespeichert. Ihn
+ * später noch einmal zu zeigen ist vom Aufbau her unmöglich, und genau deshalb lohnt es
+ * sich, ihn aufzuschreiben.
  */
 export async function createAccount({ consent }) {
   if (!consent) throw Object.assign(new Error('NO_CONSENT'), { code: 'NO_CONSENT' });
@@ -229,9 +229,9 @@ export async function createAccount({ consent }) {
     const verifierSalt = crypto.randomBytes(16);
     const wrapped = await crypto.wrapDataKey(await crypto.keyFromRecovery(recovery, salt), dataKey);
 
-    // The first device wraps the key for itself the same way it will later wrap
-    // it for others: ECDH against its own public key. One code path, so the
-    // unusual case cannot rot while the common one keeps working.
+    // Das erste Gerät packt den Schlüssel für sich genauso ein, wie es ihn später für
+    // andere einpackt: ECDH mit seinem eigenen öffentlichen Schlüssel. Ein Codeweg, damit
+    // der seltene Fall nicht verrottet, während der häufige weiter funktioniert.
     const selfShared = await crypto.sharedKey(keys.privateKey, keys.jwk);
     const forSelf = await crypto.wrapDataKey(selfShared, dataKey);
 
@@ -256,7 +256,7 @@ export async function createAccount({ consent }) {
   }
 }
 
-/** A second device asking to be let in. Returns once the request is filed. */
+/** Ein zweites Gerät bittet um Einlass. Kommt zurück, sobald die Anfrage abgelegt ist. */
 export async function requestAccess() {
   const keys = await deviceKeys();
   const meta = await localMeta();
@@ -267,9 +267,9 @@ export async function requestAccess() {
   }
   if (current) return current.id;
 
-  // A previous version forgot the device id on sign-out but kept the private
-  // key. Reuse the server row belonging to that key instead of registering the
-  // same physical device a second time.
+  // Eine frühere Version hat beim Abmelden die Geräte-ID vergessen, aber den privaten
+  // Schlüssel behalten. Die Serverzeile zu diesem Schlüssel wiederverwenden, statt
+  // dasselbe Gerät ein zweites Mal anzumelden.
   const matching = devices.find((d) => samePublicKey(d.public_key, keys.jwk));
   if (matching?.status === 'revoked') {
     throw Object.assign(new Error('DEVICE_REVOKED'), { code: 'DEVICE_REVOKED' });
@@ -287,7 +287,7 @@ export async function requestAccess() {
   return device.id;
 }
 
-/** Server-authoritative status of this installation's registered device. */
+/** Status des angemeldeten Geräts dieser Installation laut Server. */
 export async function currentDeviceStatus() {
   if (!cloud.isSignedIn()) return 'signed-out';
   const meta = await localMeta();
@@ -296,7 +296,7 @@ export async function currentDeviceStatus() {
   return mine?.status || 'missing';
 }
 
-/** From the main device: let a waiting one in, and hand it the key. */
+/** Vom Hauptgerät aus: ein wartendes Gerät hereinlassen und ihm den Schlüssel geben. */
 export async function approve(deviceId) {
   const devices = await cloud.listDevices();
   const target = devices.find((d) => d.id === deviceId);
@@ -319,12 +319,12 @@ export async function revoke(deviceId) {
 }
 
 /**
- * The escape hatch: this device takes the account over using the recovery key.
+ * Der Notausgang: dieses Gerät übernimmt das Konto mit dem Wiederherstellungsschlüssel.
  *
- * Two separate things happen, and both are needed. The verifier convinces the
- * server to move ownership and revoke the old devices, which it can check. The
- * unwrap gives this device the data key, which the server cannot help with at
- * all.
+ * Es passieren zwei getrennte Dinge, und beide sind nötig. Der Prüfwert überzeugt den
+ * Server, den Besitz zu verschieben und die alten Geräte zu entziehen, das kann er
+ * prüfen. Das Auspacken gibt diesem Gerät den Datenschlüssel, und dabei kann der
+ * Server überhaupt nicht helfen.
  */
 export async function recoverWith(recoveryKey) {
   set({ busy: true, lastError: null });
@@ -337,7 +337,7 @@ export async function recoverWith(recoveryKey) {
       throw Object.assign(new Error('NO_RECOVERY_SET'), { code: 'NO_RECOVERY_SET' });
     }
 
-    // Unwrap first. If the key is wrong, nothing on the server has been touched.
+    // Erst auspacken. Ist der Schlüssel falsch, wurde auf dem Server noch nichts angefasst.
     const unwrapKey = await crypto.keyFromRecovery(
       recoveryKey, crypto.fromBase64(profile.recovery_salt));
     const key = await crypto.unwrapDataKey(unwrapKey, {
@@ -351,7 +351,7 @@ export async function recoverWith(recoveryKey) {
       deviceId, ownerToken,
     );
 
-    // Re-wrap for this device so the next launch needs no recovery key.
+    // Für dieses Gerät neu einpacken, damit der nächste Start keinen Wiederherstellungsschlüssel braucht.
     const keys = await deviceKeys();
     const wrapped = await crypto.wrapDataKey(await crypto.sharedKey(keys.privateKey, keys.jwk), key);
     await cloud.approveDevice(deviceId, {
@@ -367,9 +367,9 @@ export async function recoverWith(recoveryKey) {
   }
 }
 
-/* =============================== the sync =============================== */
+/* =============================== die Synchronisation =============================== */
 
-/** Read where things stand, without changing anything. */
+/** Lesen, wie es steht, ohne etwas zu ändern. */
 export async function load() {
   if (!cloud.isSignedIn()) {
     set({ signedIn: false, enabled: false, profile: null, isOwner: false, canBackup: false, pendingDevices: [] });
@@ -379,8 +379,8 @@ export async function load() {
     const [profile, devices, meta, savedLocal, keys] = await Promise.all([
       cloud.getProfile(), cloud.listDevices(), cloud.latestMeta(), localMeta(), deviceKeys(),
     ]);
-    // Repair duplicate rows created by the old sign-out behaviour. The owner
-    // row wins when it carries this installation's exact public key.
+    // Doppelte Zeilen reparieren, die das alte Abmelden erzeugt hat. Die Besitzerzeile
+    // gewinnt, wenn sie genau den öffentlichen Schlüssel dieser Installation trägt.
     const owner = devices.find((d) => d.id === profile?.owner_device);
     const local = owner && samePublicKey(owner.public_key, keys.jwk)
       ? await saveMeta({ deviceId: owner.id })
@@ -405,13 +405,13 @@ export async function load() {
 }
 
 /**
- * Seal what is on this device and push it as the next version.
+ * Versiegeln, was auf diesem Gerät ist, und als nächste Version hochschieben.
  *
- * Deliberately reads the server's version first rather than counting locally: a
- * device that has been offline has no idea what happened meanwhile, and guessing
- * would be the exact overwrite the version numbers exist to prevent. If the push
- * is refused as STALE anyway, that is a second device having uploaded between
- * the read and the write, and the answer is the same as it would have been.
+ * Liest absichtlich zuerst die Version des Servers, statt lokal zu zählen: ein Gerät,
+ * das offline war, hat keine Ahnung, was inzwischen passiert ist, und Raten wäre genau
+ * das Überschreiben, gegen das es die Versionsnummern gibt. Wird der Upload trotzdem
+ * als STALE abgelehnt, hat ein zweites Gerät zwischen Lesen und Schreiben hochgeladen,
+ * und die Antwort ist dieselbe wie sonst auch.
  */
 export async function backupNow({ force = false } = {}) {
   if (!cloud.isSignedIn()) return { ok: false, code: 'AUTH' };
@@ -472,10 +472,10 @@ export async function backupNow({ force = false } = {}) {
 }
 
 /**
- * Pull a version from the server and make it what this device holds.
+ * Eine Version vom Server holen und zu dem machen, was dieses Gerät hat.
  *
- * This replaces everything, which is why nothing calls it on its own. It is the
- * "new phone" and "I have made a mess" path, and the screen asks first.
+ * Das ersetzt alles, deshalb ruft es nichts von allein auf. Es ist der Weg für "neues
+ * Handy" und "ich habe Mist gebaut", und der Screen fragt vorher.
  */
 export async function restore(version = null) {
   set({ busy: true, lastError: null });
@@ -528,20 +528,19 @@ export async function restoreBackupSession(version, sessionId) {
 }
 
 /**
- * Called once on boot, after the store has loaded.
+ * Wird einmal beim Start aufgerufen, nachdem der Store geladen ist.
  *
- * Everything here is best-effort and none of it may block the app from opening:
- * the log on the device is the thing that matters, and the cloud is a copy of
- * it. A phone with no signal must behave exactly as it did before any of this
- * existed.
+ * Alles hier ist nur ein Versuch, und nichts davon darf das Öffnen der App aufhalten:
+ * das Log auf dem Gerät ist das, worauf es ankommt, die Cloud ist eine Kopie davon. Ein
+ * Handy ohne Empfang muss sich genau so verhalten wie vor alldem.
  */
 /**
- * How long a routine automatic backup waits after the last one.
+ * Wie lange eine normale automatische Sicherung nach der letzten wartet.
  *
- * Every version is a full sealed snapshot and the server keeps only the last
- * few, so uploading once a minute through a ninety-minute workout would push
- * every rollback point out of reach by the time it ended. The moments actually
- * worth capturing ask for `immediate` and ignore this.
+ * Jede Version ist ein vollständiger versiegelter Stand, und der Server behält nur die
+ * letzten paar. Einmal pro Minute durch ein Training von neunzig Minuten hochzuladen
+ * würde jeden Punkt zum Zurückgehen verdrängen, bevor es vorbei ist. Die Momente, die
+ * sich wirklich lohnen, verlangen `immediate` und ignorieren das hier.
  */
 export const AUTO_BACKUP_MIN_GAP_MS = 5 * 60 * 1000;
 
@@ -552,23 +551,23 @@ export async function onAppOpen({ immediate = false } = {}) {
   if (!state.enabled) return { ok: false, code: 'DISABLED' };
   if (!state.canBackup) return { ok: false, code: 'READ_ONLY' };
 
-  // Download before deciding whether to upload. The fingerprint check below
-  // answers "has this device changed since it last pushed", which is a
-  // different question from "is the server ahead of this device", and only the
-  // first one used to get asked. A phone that just sat there therefore never
-  // picked up what the other phone had logged.
+  // Herunterladen, bevor entschieden wird, ob hochgeladen wird. Die Prüfung mit dem
+  // Fingerabdruck unten beantwortet "hat sich dieses Gerät seit dem letzten Upload
+  // geändert", und das ist eine andere Frage als "ist der Server weiter als dieses
+  // Gerät". Früher wurde nur die erste gestellt. Ein Handy, das einfach nur dalag, hat
+  // also nie mitbekommen, was auf dem anderen eingetragen wurde.
   const pulled = await pullIfNewer();
-  // A failed pull is reported, but it must not stop the upload: getting this
-  // device's own training to the server is the more important half, and the
-  // most likely reason a pull fails is that there is nothing to pull from.
+  // Ein fehlgeschlagenes Holen wird gemeldet, darf den Upload aber nicht aufhalten: das
+  // eigene Training auf den Server zu bringen ist die wichtigere Hälfte, und der
+  // häufigste Grund für ein gescheitertes Holen ist, dass es nichts zu holen gibt.
   if (!pulled.ok && !['DISABLED', 'BUSY', 'TRAINING', 'NO_BACKUP'].includes(pulled.code)) {
     set({ lastError: pulled.code });
   }
 
-  // Upload as soon as the app's next online maintenance sees a real change,
-  // while never creating a new server version for an identical snapshot.
-  // Cloud bookkeeping itself is excluded from the fingerprint so completing a
-  // backup cannot immediately make the next check look dirty again.
+  // Hochladen, sobald die nächste Online-Wartung eine echte Änderung sieht, aber nie eine
+  // neue Serverversion für einen identischen Stand anlegen. Die Buchführung der Cloud
+  // selbst ist aus dem Fingerabdruck herausgenommen, damit eine fertige Sicherung die
+  // nächste Prüfung nicht gleich wieder wie eine Änderung aussehen lässt.
   const last = Number(store.state.settings.cloudLastSyncAt) || 0;
   const fingerprint = backupFingerprint();
   if (store.state.settings.cloudLastFingerprint === fingerprint) {
@@ -586,16 +585,16 @@ function backupFingerprint() {
   const payload = store.exportData();
   const settings = Object.fromEntries(Object.entries(payload.settings || {})
     .filter(([key]) => !key.startsWith('cloud') && key !== 'syncDeletions'));
-  // exportedAt necessarily changes on every call; everything else is real app
-  // state, including edits to today's water or a set that retained the same id.
+  // exportedAt ändert sich zwangsläufig bei jedem Aufruf. Alles andere ist echter Zustand
+  // der App, auch Änderungen am Wasser von heute oder ein Satz, der dieselbe ID behalten hat.
   const { exportedAt: _volatile, settings: _settings, ...data } = payload;
   return JSON.stringify({ ...data, settings });
 }
 
-/** Plain, non-secret facts used by the Settings diagnostics screen. */
+/** Einfache, nicht geheime Angaben für die Diagnose in den Einstellungen. */
 export async function diagnostics() {
   let latest = null;
-  try { latest = await cloud.latestMeta(); } catch { /* state.lastError explains it */ }
+  try { latest = await cloud.latestMeta(); } catch { /* state.lastError erklärt es */ }
   const active = store.state.sessions.filter((session) => !session.finishedAt);
   return {
     online: navigator.onLine,
@@ -617,27 +616,27 @@ export async function diagnostics() {
 }
 
 /**
- * Take a newer cloud version and fold it into what this device holds.
+ * Eine neuere Version aus der Cloud nehmen und in das einarbeiten, was dieses Gerät hat.
  *
- * This is the half of syncing that was missing. `backupNow` already merges
- * before it pushes, so a phone that had changed something did end up with the
- * other one's training. A phone that had changed nothing never got that far:
- * `onAppOpen` compared fingerprints and returned before anything looked at the
- * server. Two devices on one account could stay different indefinitely, each
- * of them convinced it was current, and the difference only ever showed up as
- * missing workouts.
+ * Das ist die Hälfte der Synchronisation, die gefehlt hat. `backupNow` führt vor dem
+ * Hochladen schon zusammen, ein Handy, das etwas geändert hatte, hat also am Ende das
+ * Training des anderen gehabt. Ein Handy, das nichts geändert hatte, kam nie so weit:
+ * `onAppOpen` hat Fingerabdrücke verglichen und ist zurückgekehrt, bevor irgendetwas
+ * den Server angeschaut hat. Zwei Geräte an einem Konto konnten so beliebig lange
+ * verschieden bleiben, jedes überzeugt, aktuell zu sein, und der Unterschied fiel nur
+ * als fehlende Trainings auf.
  *
- * It merges rather than replaces. `restore()` replaces, but a person asked for
- * that and was warned; this runs by itself on launch, so it must not be able to
- * drop a session that only exists here.
+ * Es wird zusammengeführt, nicht ersetzt. `restore()` ersetzt, aber darum hat jemand
+ * gebeten und wurde gewarnt. Das hier läuft von selbst beim Start und darf deshalb
+ * keine Einheit verlieren können, die es nur hier gibt.
  */
 export async function pullIfNewer() {
   if (!cloud.isSignedIn()) return { ok: false, code: 'AUTH' };
   if (!state.enabled) return { ok: false, code: 'DISABLED' };
   if (state.busy) return { ok: false, code: 'BUSY' };
-  // Rewriting every object store under a workout in progress would pull the
-  // open session out from under the screen that is displaying it. The download
-  // can wait for the end of the session; nothing about it is urgent.
+  // Jeden Store unter einem laufenden Training neu zu schreiben würde die offene Einheit
+  // unter dem Screen wegziehen, der sie anzeigt. Das Herunterladen kann bis zum Ende der
+  // Einheit warten, eilig ist daran nichts.
   if (store.activeSession()) return { ok: false, code: 'TRAINING' };
 
   set({ busy: true });
@@ -659,10 +658,10 @@ export async function pullIfNewer() {
     await store.setSetting('cloudBaseVersion', latestVersion);
     await store.setSetting('cloudLastMergeSummary', { ...summary, at: Date.now(), version: latestVersion });
 
-    // Nothing of ours survived that the server did not already have, so this
-    // device now holds exactly that version. Recording the fingerprint stops
-    // the push below from uploading an identical copy as the next version,
-    // which the other phone would pull and answer in kind, forever.
+    // Nichts von uns hat überlebt, was der Server nicht schon hatte, dieses Gerät hat
+    // jetzt also genau diese Version. Den Fingerabdruck festzuhalten verhindert, dass der
+    // Upload unten eine identische Kopie als nächste Version hochlädt, die das andere
+    // Handy dann holt und genauso beantwortet, für immer.
     if (!mine || !tookLocal) {
       await store.setSetting('cloudLastFingerprint', backupFingerprint());
       await store.setSetting('cloudLastSyncAt', Date.now());
@@ -686,25 +685,25 @@ const MERGE_KEYS = {
 const changedAt = (row) => Number(row?.updatedAt || row?.finishedAt || row?.at
   || row?.date || row?.createdAt || row?.startedAt || 0);
 
-/** Remote is authoritative for equal records; genuinely newer local edits win. */
+/** Bei gleichen Einträgen hat die Gegenseite recht, wirklich neuere lokale Änderungen gewinnen. */
 export function mergeSnapshots(local, remote) {
   return mergeDetailed(local, remote).merged;
 }
 
 /**
- * The merge, plus whether anything on this device survived it.
+ * Das Zusammenführen, und ob etwas von diesem Gerät dabei überlebt hat.
  *
- * `tookLocal` is what stops two phones pushing versions at each other forever.
- * A device that pulls a newer snapshot and contributes nothing of its own now
- * holds exactly what the server holds, so it must not turn round and upload an
- * identical copy as the next version — which the other phone would then pull,
- * and answer in kind. The flag comes out of the merge itself rather than a
- * second comparison, so there is only one rule about what counts as newer.
+ * `tookLocal` verhindert, dass zwei Handys sich für immer gegenseitig Versionen
+ * zuschieben. Ein Gerät, das einen neueren Stand holt und nichts Eigenes beiträgt, hat
+ * jetzt genau das, was der Server hat, und darf nicht umgekehrt eine identische Kopie
+ * als nächste Version hochladen, die das andere Handy dann holt und genauso beantwortet.
+ * Die Markierung kommt aus dem Zusammenführen selbst und nicht aus einem zweiten
+ * Vergleich, damit es nur eine Regel dafür gibt, was als neuer zählt.
  */
 export function mergeDetailed(local, remote) {
-  // Device bookkeeping is never taken from a snapshot. `cloudBaseVersion` and
-  // friends describe this installation's relationship to the server, so a
-  // remote copy of them is not merely stale, it is about a different phone.
+  // Die Buchführung des Geräts wird nie aus einem Stand übernommen. `cloudBaseVersion` und
+  // Co. beschreiben das Verhältnis dieser Installation zum Server. Eine Kopie von der
+  // Gegenseite ist also nicht nur alt, sie handelt von einem anderen Handy.
   const remoteSettings = Object.fromEntries(Object.entries(remote.settings || {})
     .filter(([key]) => !key.startsWith('cloud') && key !== 'syncDeletions'));
   const remoteDeletionRows = new Map((remote.deletions || remote.settings?.syncDeletions || [])
@@ -720,16 +719,17 @@ export function mergeDetailed(local, remote) {
     }
   }
   const deletions = [...deletionRows.values()];
-  // Settings used to be a flat spread with remote on top, so a change made on
-  // this device and not yet uploaded was dropped the moment a newer snapshot
-  // arrived from another one. That is not hypothetical: machineSetups lives
-  // here, so a stack maximum typed in at the gym could vanish because a tablet
-  // uploaded first. Each key now carries the time it was last written, and the
-  // more recent write wins, exactly the way the rows below already work.
+  // Die Einstellungen waren früher ein flaches Zusammenwerfen mit der Gegenseite oben,
+  // eine Änderung auf diesem Gerät, die noch nicht hochgeladen war, ging also verloren,
+  // sobald ein neuerer Stand von einem anderen kam. Das ist nicht ausgedacht:
+  // machineSetups liegt hier, ein im Studio eingetipptes Maximum an einer Maschine
+  // konnte also verschwinden, weil ein Tablet zuerst hochgeladen hat. Jeder Schlüssel
+  // trägt jetzt den Zeitpunkt, an dem er zuletzt geschrieben wurde, und das neuere
+  // Schreiben gewinnt, genau wie bei den Zeilen weiter unten.
   //
-  // Undated keys keep the old behaviour. Snapshots written before this existed
-  // have no times at all, and remote-wins is the right answer when neither
-  // side can say when it changed.
+  // Schlüssel ohne Zeitpunkt verhalten sich wie früher. Stände von vor dieser Änderung
+  // haben gar keine Zeiten, und "die Gegenseite gewinnt" ist die richtige Antwort, wenn
+  // keine Seite sagen kann, wann sie sich geändert hat.
   const localTimes = local.settingsUpdatedAt || {};
   const remoteTimes = remote.settingsUpdatedAt || {};
   const settings = { ...(local.settings || {}) };
@@ -787,9 +787,9 @@ function hasUserData(payload) {
 
 export async function signOutEverywhere({ forgetDevice = false } = {}) {
   dataKey = null;
-  // A normal sign-out keeps this installation's device identity and encrypted
-  // key material so signing back in does not manufacture a second device.
-  // Full local erasure explicitly opts into forgetting it.
+  // Ein normales Abmelden behält die Geräteidentität und das verschlüsselte
+  // Schlüsselmaterial dieser Installation, damit ein erneutes Anmelden kein zweites Gerät
+  // erzeugt. Nur das vollständige lokale Löschen vergisst sie ausdrücklich.
   await db.remove(db.STORES.keys, 'gate');
   if (forgetDevice) await db.remove(db.STORES.keys, 'meta');
   await cloud.signOut();
@@ -797,7 +797,7 @@ export async function signOutEverywhere({ forgetDevice = false } = {}) {
   await load();
 }
 
-/** For a deletion request. Wipes the cloud copy, leaves this device untouched. */
+/** Für eine Löschanfrage. Löscht die Cloud-Kopie und lässt dieses Gerät in Ruhe. */
 export async function deleteCloudData() {
   await cloud.deleteEverything(await requireOwnerToken());
   dataKey = null;

@@ -4,7 +4,7 @@ import { estimatePlanDuration, lastPerformance } from './models.js';
 import { t, tn } from './i18n.js';
 import { startWorkout } from './app.js';
 
-/** Start immediately, or show the optional plan-day preview first. */
+/** Sofort starten oder erst die optionale Vorschau des Plantags zeigen. */
 export async function requestWorkoutStart(options = {}) {
   const plan = options.planId && store.state.plans.find((row) => row.id === options.planId);
   const day = plan && plan.days.find((row) => row.id === options.dayId);

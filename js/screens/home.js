@@ -1,4 +1,4 @@
-// Home — overall strength rating, the muscle map, and training-at-a-glance.
+// Home: Gesamtwertung, Muskelkarte und das Training auf einen Blick.
 
 import {
   el, add, fmtNum, fmtDecimal, fmtVolume, fmtWeight, fmtDate, fmtDuration, emptyState, listItem,
@@ -30,37 +30,36 @@ import { navigate } from '../app.js';
 import { requestWorkoutStart } from '../workout-start.js';
 import { profileForm, doExport } from './settings.js';
 
-// Which map the user last looked at. Module-level so switching tabs and coming
-// back does not silently reset it.
+// Welche Karte zuletzt angeschaut wurde. Auf Modulebene, damit ein Tabwechsel mit
+// Rückkehr sie nicht still zurücksetzt.
 let mapMode = 'strength';
 
 /**
- * How many lifts each of the two record lists shows before it is expanded.
+ * Wie viele Übungen jede der beiden Rekordlisten zeigt, bevor sie aufgeklappt wird.
  *
- * Five is a preview, not a limit: somebody who trains twenty movements had no
- * way to see the other fifteen from this screen at all. Expanded state is
- * module-level for the same reason `mapMode` is — a logged set re-renders Home,
- * and collapsing the list under the user every time would be worse than never
- * expanding it.
+ * Fünf sind eine Vorschau, keine Grenze: wer zwanzig Bewegungen trainiert, konnte die
+ * anderen fünfzehn von hier aus gar nicht sehen. Der aufgeklappte Zustand liegt aus
+ * demselben Grund wie `mapMode` auf Modulebene: ein eingetragener Satz zeichnet Home neu,
+ * und die Liste jedes Mal unter dem Finger zuzuklappen wäre schlimmer, als sie nie aufzuklappen.
  */
 const RECORD_PREVIEW = 5;
 let showAllLifts = false;
 let showAllMachines = false;
 
 /**
- * The button under a truncated record list, or nothing when it all fits.
+ * Der Knopf unter einer gekürzten Rekordliste, oder nichts, wenn alles passt.
  *
- * @param total  how many there are
- * @param open   whether the list is currently expanded
- * @param toggle called with the new state
+ * @param total  wie viele es gibt
+ * @param open   ob die Liste gerade aufgeklappt ist
+ * @param toggle bekommt den neuen Zustand
  */
 function showAllToggle(total, open, toggle) {
   if (total <= RECORD_PREVIEW) return null;
   return el('button.btn.quiet.full.sm', {
     style: { marginTop: '2px' },
     'aria-expanded': String(open),
-    // navigate rather than render: this module imports the former, and on the
-    // route it is already on navigate re-renders in place and keeps the scroll.
+    // navigate statt render: dieses Modul importiert das Erste, und auf der Route, auf der
+    // man schon ist, zeichnet navigate an Ort und Stelle neu und behält die Scrollposition.
     onclick: () => { toggle(!open); navigate('home'); },
   }, [open ? t('home.rating.showTop', { n: RECORD_PREVIEW }) : t('home.rating.showAll', { n: total })]);
 }
@@ -68,13 +67,13 @@ let machineCommunity = {};
 let machineSyncSignature = null;
 let machineSyncing = false;
 
-// Where each rank sits among everyone who logs the same thing. Keyed the way
-// the server keys it: 'overall', 'lift:<name>', 'region:<id>'.
+// Wo jeder Rang unter allen liegt, die dasselbe eintragen. Die Schlüssel sind wie auf
+// dem Server: 'overall', 'lift:<name>', 'region:<id>'.
 let rankPercentiles = {};
 let rankSyncSignature = null;
 let rankSyncing = false;
 
-/** Drop the cached distribution when the opt-in is withdrawn mid-session. */
+/** Die zwischengespeicherte Verteilung wegwerfen, wenn die Zustimmung mitten in der Sitzung zurückgezogen wird. */
 export function resetRankComparison() {
   rankPercentiles = {};
   rankSyncSignature = null;
@@ -87,9 +86,9 @@ export default function renderHome({ actions }) {
   const done = store.state.sessions.filter((s) => s.finishedAt);
   const s = store.state.settings;
 
-  // ---------- storage failure ----------
-  // Above everything else, including a workout in progress: if writes are
-  // failing, nothing else on this screen can be trusted to survive the night.
+  // ---------- Speicherfehler ----------
+  // Über allem anderen, auch über einem laufenden Training: wenn das Schreiben scheitert,
+  // kann man sich bei nichts anderem auf diesem Screen darauf verlassen, dass es die Nacht übersteht.
   if (store.state.storageError) {
     const problem = store.state.storageError;
     root.append(
@@ -104,7 +103,7 @@ export default function renderHome({ actions }) {
     );
   }
 
-  // ---------- active workout nudge ----------
+  // ---------- Hinweis auf laufendes Training ----------
   const active = store.activeSession();
   const stale = store.staleSession();
   if (active && !stale) {
@@ -120,13 +119,13 @@ export default function renderHome({ actions }) {
       ])
     );
   }
-  // A workout nobody closed is not "in progress" — and until it is dealt with,
-  // starting a new one silently reopens this one instead.
+  // Ein Training, das nie beendet wurde, "läuft" nicht. Und solange man sich nicht darum
+  // kümmert, öffnet ein neues Training still dieses hier wieder.
   if (stale) root.append(staleCard(stale));
 
   if (s.regenerationEnabled) root.append(regenerationCard());
 
-  // ---------- backup nudge ----------
+  // ---------- Hinweis zur Sicherung ----------
   const backup = store.backupStatus();
   if (backup.due) {
     root.append(
@@ -157,18 +156,18 @@ export default function renderHome({ actions }) {
     return root;
   }
 
-  // ---------- what's on today ----------
-  // First, because it is the only thing on this screen anybody opens the app in
-  // a gym to do. It used to sit fourth, roughly four screens down, behind the
-  // rank card, the muscle map and two tables of records.
+  // ---------- was heute dran ist ----------
+  // Zuerst, weil es das Einzige auf diesem Screen ist, wofür man die App im Studio öffnet.
+  // Früher stand es an vierter Stelle, etwa vier Bildschirme weiter unten, hinter der
+  // Rangkarte, der Muskelkarte und zwei Tabellen mit Rekorden.
   root.append(todayCard(done));
 
-  // ---------- rating ----------
+  // ---------- Wertung ----------
   if (s.showRatings) {
     root.append(ratingSection(done, s));
   }
 
-  // ---------- this week ----------
+  // ---------- diese Woche ----------
   const weekStart = startOfWeek(Date.now());
   const thisWeek = done.filter((x) => x.startedAt >= weekStart);
   const weekSets = thisWeek.reduce(
@@ -189,15 +188,15 @@ export default function renderHome({ actions }) {
 
   root.append(monthlyReportCard(done));
 
-  // ---------- done vs planned ----------
+  // ---------- gemacht gegen geplant ----------
   root.append(weekVsPlan(done));
 
-  // ---------- weekly workload ----------
+  // ---------- Belastung pro Woche ----------
   const buckets = weeklyMuscleSets(done, store.state.exerciseById, 10);
   root.append(el('div.section-head', {}, [
     el('h2', { text: t('home.workload.title') }),
-    // The Progress tab has no slot on the tab bar, so every section that hints
-    // at a trend needs to offer the way in.
+    // Der Fortschritt-Tab hat keinen Platz in der Tab-Leiste, also muss jeder Abschnitt, der
+    // einen Verlauf andeutet, den Weg dorthin anbieten.
     el('button.btn.quiet.sm', { onclick: () => navigate('progress') }, [`${t('home.link.charts')} ›`]),
   ]));
   root.append(
@@ -215,7 +214,7 @@ export default function renderHome({ actions }) {
     ])
   );
 
-  // ---------- bodyweight ----------
+  // ---------- Körpergewicht ----------
   const bw = [...store.state.bodyweight].sort((a, b) => a.date - b.date);
   if (bw.length >= 2) {
     const delta = bw[bw.length - 1].weight - bw[0].weight;
@@ -240,7 +239,7 @@ export default function renderHome({ actions }) {
     );
   }
 
-  // ---------- recent ----------
+  // ---------- zuletzt ----------
   root.append(el('div.section-head', {}, [
     el('h2', { text: t('home.recent.title') }),
     el('button.btn.quiet.sm', { onclick: () => navigate('calendar') }, [`${t('route.calendar')} ›`]),
@@ -254,18 +253,18 @@ export default function renderHome({ actions }) {
     }));
   }
 
-  // ---------- the two screens without a tab ----------
-  // Five tabs is the ceiling a thumb can aim at, and Food earned one by being a
-  // several-times-a-day screen. Calendar and Progress are both weekly reads, so
-  // they live here instead — but they have to be *visible*, not a link buried in
-  // a section head, which is how the calendar went missing the moment it lost
-  // its slot.
+  // ---------- die zwei Screens ohne Tab ----------
+  // Fünf Tabs sind das Maximum, das ein Daumen treffen kann, und Essen hat sich einen
+  // verdient, weil man es mehrmals am Tag öffnet. Kalender und Fortschritt schaut man
+  // wöchentlich an, sie wohnen deshalb hier. Aber sie müssen SICHTBAR sein und kein Link in
+  // einer Abschnittsüberschrift, genau so ist der Kalender verloren gegangen, sobald er
+  // seinen Platz verlor.
   root.append(
     el('div.stat-grid.two', { style: { marginTop: '18px' } }, [
       wayIn(t('route.calendar'), t('home.wayIn.calendar'), () => navigate('calendar')),
       wayIn(t('route.progress'), t('home.wayIn.progress'), () => navigate('progress')),
-      // Three into two columns leaves one tile stranded at half width. The odd
-      // one out spans instead, which also reads as a row rather than a gap.
+      // Drei in zwei Spalten lässt eine Kachel mit halber Breite allein. Die übrige geht
+      // deshalb über die ganze Breite, das liest sich auch eher wie eine Reihe als wie eine Lücke.
       wayIn(t('route.library'), t('home.wayIn.library'), () => navigate('library'), 'span'),
     ])
   );
@@ -294,9 +293,9 @@ function monthlyReportCard(done) {
   }
   const month = now.toLocaleDateString(locale(), { month: 'long' });
   const head = el('div.section-head', {}, [el('h2', { text: t('home.month.title', { month }) })]);
-  // Four tiles of zero say the same thing as one sentence and take five times
-  // the screen for it. Early in a month, or after a lay-off, that used to be
-  // eight zeroes in a row with the week above saying it too.
+  // Vier Kacheln mit null sagen dasselbe wie ein Satz und brauchen fünfmal so viel Platz.
+  // Früh im Monat oder nach einer Pause standen dort früher acht Nullen hintereinander,
+  // und die Woche darüber sagte es auch noch.
   if (!sessions.length) {
     return el('div', {}, [head, el('div.small.faint', { text: t('home.month.empty', { month }) })]);
   }
@@ -315,9 +314,9 @@ function monthlyReportCard(done) {
 }
 
 function regenerationCard() {
-  // dayKey, not toISOString: the rest of the app stamps days in local time,
-  // and an ISO stamp is still on yesterday until 02:00 in a summer CEST
-  // morning, so a late-night entry landed on the wrong day.
+  // dayKey, nicht toISOString: der Rest der App stempelt Tage in Ortszeit, und ein
+  // ISO-Stempel steht an einem Sommermorgen in MESZ bis 2 Uhr noch auf gestern. Ein Eintrag
+  // spät in der Nacht landete also am falschen Tag.
   const today = dayKey();
   const log = store.state.settings.regenerationLog || [];
   const saved = log.find((x) => x.date === today);
@@ -380,11 +379,11 @@ function wayIn(title, sub, onclick, span = null) {
 }
 
 /**
- * A workout left open.
+ * Ein offen gelassenes Training.
  *
- * Offers the two honest ways out and says what happens to the sets either way.
- * Finishing keeps only what was ticked — the same rule as finishing normally —
- * so a session with nothing ticked is worth nothing and says so.
+ * Bietet die zwei ehrlichen Auswege an und sagt, was so oder so mit den Sätzen passiert.
+ * Beenden behält nur, was abgehakt ist, dieselbe Regel wie beim normalen Beenden. Eine
+ * Einheit ohne abgehakte Sätze ist also nichts wert und sagt das auch.
  */
 function staleCard({ session, hours }) {
   const logged = session.entries.reduce((n, e) => n + e.sets.filter(isCounted).length, 0);
@@ -422,15 +421,15 @@ function staleCard({ session, hours }) {
   ]);
 }
 
-/* ==================== today ==================== */
+/* ==================== heute ==================== */
 
 /**
- * What the plan says to do today.
+ * Was laut Plan heute dran ist.
  *
- * Only appears once weekdays are assigned — without a schedule "today" has no
- * answer, and the Train tab's least-recently-trained suggestion is already the
- * right one. Nothing here is shown while a workout is in progress; the resume
- * card above already covers that.
+ * Erscheint erst, wenn Wochentage vergeben sind. Ohne Wochenplan hat "heute" keine Antwort,
+ * und der Vorschlag des Trainieren-Tabs (was am längsten her ist) ist dann schon der
+ * richtige. Während eines laufenden Trainings steht hier nichts, das deckt die Karte zum
+ * Fortsetzen oben ab.
  */
 function todayCard(done) {
   const wrap = el('div');
@@ -485,12 +484,12 @@ function todayCard(done) {
   return wrap;
 }
 
-/* ==================== this week vs the plan ==================== */
+/* ==================== diese Woche gegen den Plan ==================== */
 
 /**
- * The number the plan rating promises, measured against what you actually did.
- * Same fractional counting on both sides — see js/log-analysis.js for why that
- * had to be said out loud.
+ * Die Zahl, die die Planbewertung verspricht, gemessen an dem, was wirklich gemacht wurde.
+ * Auf beiden Seiten dieselbe anteilige Zählung, warum das extra gesagt werden musste,
+ * steht in js/log-analysis.js.
  */
 function weekVsPlan(done) {
   const byId = store.state.exerciseById;
@@ -529,15 +528,15 @@ function weekVsPlan(done) {
       text: t('home.vsPlan.nothing') }));
   }
 
-  // Green means "on pace for how far into the plan you are", not "finished".
-  // Grading a Tuesday against a whole week would paint everything red until
-  // Sunday and stop meaning anything.
+  // Grün heißt "im Soll für die Stelle im Plan, an der man ist", nicht "fertig". Einen
+  // Dienstag an der ganzen Woche zu messen würde bis Sonntag alles rot malen, und dann
+  // bedeutet es nichts mehr.
   const pace = Math.max(0.15, verdict.pace);
   for (const r of rows) {
     const pct = Math.min(1, r.target > 0 ? r.ratio : 1);
-    // A muscle the plan never asked for has no pace to be on. Its ratio is
-    // reported as 1, which used to paint it the same green as a target you
-    // actually hit — full marks for work nobody was measuring.
+    // Ein Muskel, den der Plan nie verlangt hat, hat kein Soll. Sein Verhältnis wird als 1
+    // gemeldet, und das hat ihn früher im selben Grün gemalt wie ein wirklich getroffenes
+    // Ziel. Volle Punktzahl für Arbeit, die niemand gemessen hat.
     const tone = r.target === 0
       ? 'var(--t0)'
       : r.ratio >= pace * 0.9
@@ -557,8 +556,8 @@ function weekVsPlan(done) {
       text: t('home.vsPlan.grey') }));
   }
 
-  // Effort coverage. Stated as a share rather than an average, because a mean
-  // RIR over sets you never rated would be a made-up number.
+  // Abdeckung der Anstrengung. Als Anteil und nicht als Durchschnitt, weil ein mittleres
+  // RIR über Sätze, die man nie bewertet hat, eine ausgedachte Zahl wäre.
   if (week.totalSets) {
     card.append(el('div.small.faint', { style: { marginTop: '12px' },
       text: (week.effort.logged
@@ -576,9 +575,9 @@ function weekVsPlan(done) {
 
 const trimNum = (n) => (Number.isInteger(n) ? String(n) : fmtDecimal(n));
 
-/* ======================= nutrition ======================= */
+/* ======================= Ernährung ======================= */
 
-/* ======================= rating ======================= */
+/* ======================= Wertung ======================= */
 
 function ratingSection(done, settings) {
   const wrap = el('div');
@@ -619,19 +618,19 @@ function ratingSection(done, settings) {
   const rank = rating.overallRank;
   const idx = rank.tierIndex;
 
-  // No 0-100 number here any more. It read as a percentage, and a percentage
-  // that tops out at "beyond a national record in every muscle group" is a
-  // number whose upper half nobody will ever see: it made a perfectly good
-  // Grandmaster feel like a fail mark. The rank says the same thing with a name
-  // on it, and the rail underneath says exactly how far along that is. The
-  // score still exists, and still sorts the leaderboard, it is just not the
-  // thing shouted at somebody who opened the app to feel good about training.
+  // Hier steht keine Zahl von 0 bis 100 mehr. Sie las sich wie ein Prozentwert, und ein
+  // Prozentwert, der erst bei "über einem nationalen Rekord in jeder Muskelgruppe" voll ist,
+  // hat eine obere Hälfte, die niemand je sieht. Ein ordentlicher Grandmaster fühlte sich
+  // damit wie eine Fünf an. Der Rang sagt dasselbe mit einem Namen, und die Leiste darunter
+  // sagt genau, wie weit man darin ist. Die Zahl gibt es weiterhin, und sie sortiert die
+  // Rangliste, sie ist nur nicht mehr das, was jemandem entgegengerufen wird, der die App
+  // öffnet, um sich übers Training zu freuen.
   const hero = el(`div.card.glow.tier-${idx}`, {}, [
     el('div.rating-hero', {}, [
       el('div.rank-hero-badge', {}, [rankBadge(idx, { size: 96, glow: true })]),
-      // One line, not two. The division on a line of its own was a solitary
-      // roman numeral floating under a heading, which reads as a stray
-      // character rather than as part of the name it belongs to.
+      // Eine Zeile, nicht zwei. Die Division allein in einer Zeile war eine einsame römische
+      // Zahl unter einer Überschrift und sah aus wie ein verirrtes Zeichen, nicht wie ein Teil
+      // des Namens, zu dem sie gehört.
       el('div.rank-hero-name', {}, [
         el('span', { text: tTier(rank.tier.key) }),
         el('span.rank-hero-division', { text: rank.division }),
@@ -640,19 +639,18 @@ function ratingSection(done, settings) {
         text: t('home.rating.overall', { rated: rating.ratedRegions, total: rating.totalRegions }),
       }),
     ]),
-    // What the rank is *worth*, which the ladder alone does not say, and
-    // therefore the second thing to read rather than the seventh. Legend is the
-    // ninth name of twelve, so it reads as mid-table to anybody who has not
-    // been told the three above it are competition territory. See
-    // js/percentile.js.
+    // Was der Rang WERT ist, das sagt die Leiter allein nicht, und deshalb kommt es als
+    // Zweites und nicht als Siebtes. Legend ist der neunte von zwölf Namen und wirkt für
+    // alle, denen niemand gesagt hat, dass die drei darüber schon Wettkampfgebiet sind, wie
+    // Mittelfeld. Siehe js/percentile.js.
     populationNote(rating.overall, settings.sex),
     rankTrack(rank, rating.overall),
     el('div.small.muted', { style: { marginTop: '12px' }, text: t(`tier.${rank.tier.key}.note`) }),
     percentileBar('overall'),
   ]);
 
-  // The live moment, kept apart from the eight-week summary below it: this one
-  // fires once, for a step that was actually just crossed.
+  // Der Moment live, getrennt von der Zusammenfassung über acht Wochen darunter: der hier
+  // kommt einmal, für eine Stufe, die gerade wirklich überschritten wurde.
   announceRankUp(rank);
 
   const change = recentRankChange(rating.overall, rating.ratedRegions);
@@ -673,20 +671,20 @@ function ratingSection(done, settings) {
 
   wrap.append(hero);
 
-  // body map
+  // Muskelkarte
   wrap.append(mapSection(rating));
 
-  // strongest / weakest lifts
+  // stärkste und schwächste Übungen
   if (rating.lifts.length) {
     const shown = showAllLifts ? rating.lifts : rating.lifts.slice(0, RECORD_PREVIEW);
     wrap.append(el('div.section-head', {}, [el('h2', { text: t('home.rating.yourLifts') })]));
     for (const lift of shown) {
       const li = tierIndex(lift.score);
       wrap.append(
-        // Stacked, not a single row. Three columns had to share 375 pixels with
-        // a badge chip and a word like GROSSMEISTER in it, and the exercise name
-        // came out at two words per line with the target broken over three. The
-        // name gets the full width, everything else lines up underneath it.
+        // Übereinander, nicht in einer Zeile. Drei Spalten mussten sich 375 Pixel mit einem
+        // Abzeichen und einem Wort wie GROSSMEISTER teilen, der Übungsname kam mit zwei Wörtern
+        // pro Zeile heraus und das Ziel über drei Zeilen gebrochen. Der Name bekommt die
+        // ganze Breite, alles andere steht darunter.
         el(`div.card.tight.tier-${li}`, {}, [
           el('div.row.between', { style: { gap: '10px', alignItems: 'flex-start' } }, [
             el('div.grow', { style: { fontWeight: '640', minWidth: '0' }, text: lift.name }),
@@ -696,13 +694,12 @@ function ratingSection(done, settings) {
               'aria-label': t('home.rating.explainLift', { name: lift.name }),
             }, [t('plans.details')]),
           ]),
-          // The chip gets a line to itself. GROSSMEISTER II with a badge on it
-          // is 320 of the 343 pixels available, so anything sharing the row
-          // with it ends up printed on top of it.
+          // Der Chip bekommt eine eigene Zeile. GROSSMEISTER II mit Abzeichen belegt 320 der
+          // 343 verfügbaren Pixel, alles in derselben Zeile wird darübergedruckt.
           el('div', { style: { marginTop: '7px' } }, [rankChip(lift.rank)]),
-          // The next *division* is the number worth printing: at 36 steps the
-          // next rank can be forty kilos away, and a target nobody can picture
-          // reaching is not a target.
+          // Die nächste DIVISION ist die Zahl, die sich zu drucken lohnt: bei 36 Stufen kann der
+          // nächste Rang vierzig Kilo entfernt sein, und ein Ziel, das man sich nicht vorstellen
+          // kann, ist keins.
           el('div.row.between', { style: { gap: '10px', marginTop: '7px' } }, [
             el('span.small.faint', {
               text: lift.nextDivision
@@ -737,26 +734,25 @@ function ratingSection(done, settings) {
 }
 
 /**
- * Fire the celebration once, for a step that was genuinely just gained.
+ * Die Feier einmal auslösen, für eine Stufe, die wirklich gerade gewonnen wurde.
  *
- * The rating is rebuilt from the whole log on every render, so there is no
- * event to hang this on; the stored step is the event. Three rules keep it
- * from becoming noise:
+ * Die Wertung wird bei jedem Zeichnen aus dem ganzen Log neu gebaut, es gibt also kein
+ * Ereignis, an dem man das aufhängen könnte, die gespeicherte Stufe ist das Ereignis. Drei
+ * Regeln verhindern, dass daraus Lärm wird:
  *
- *   * A device that has never stored a step gets nothing. Otherwise every
- *     existing user is congratulated the first time they open the new version,
- *     for something they did months ago.
- *   * A drop stores silently. Being told you went down is what the banner is
- *     for, and it says it in a quieter voice than a full-screen overlay.
- *   * More than one step at once still fires once, and names where you came
- *     from, because "you gained three steps" is the better sentence anyway.
+ *   * Ein Gerät, das noch nie eine Stufe gespeichert hat, bekommt nichts. Sonst würde jeder
+ *     bestehende Nutzer beim ersten Öffnen der neuen Version beglückwünscht, für etwas,
+ *     das Monate her ist.
+ *   * Ein Abstieg wird still gespeichert. Das sagt das Banner, und zwar leiser als ein
+ *     Overlay über den ganzen Bildschirm.
+ *   * Mehrere Stufen auf einmal lösen trotzdem nur einmal aus und nennen, woher man kam,
+ *     "drei Stufen aufgestiegen" ist ohnehin der bessere Satz.
  */
 function announceRankUp(rank) {
   const seen = store.state.settings.lastSeenRankStep;
-  // Explicitly against null, not through Number(): Number(null) is 0, which is
-  // finite, so a device that has never recorded a step read as "was on step 0"
-  // and every existing user was congratulated on first launch for work they did
-  // months ago.
+  // Ausdrücklich gegen null geprüft und nicht über Number(): Number(null) ist 0, und das ist
+  // endlich. Ein Gerät, das nie eine Stufe gespeichert hatte, galt also als "war auf Stufe 0",
+  // und jeder bestehende Nutzer wurde beim ersten Start für Arbeit von vor Monaten beglückwünscht.
   if (seen === null || seen === undefined || !Number.isFinite(Number(seen))) {
     store.setSetting('lastSeenRankStep', rank.step);
     return;
@@ -777,12 +773,12 @@ function announceRankUp(rank) {
 }
 
 /**
- * How old a personal best has to be before the app admits it is history.
+ * Wie alt ein Bestwert sein muss, bevor die App zugibt, dass er Geschichte ist.
  *
- * Six months. The rank is an all-time record by design and stays one, because
- * taking away something that was earned is worse than showing it late. But a
- * number from three years ago printed as "your strength" is its own kind of
- * lie, so past this the record keeps its rank and gains a date.
+ * Sechs Monate. Der Rang ist mit Absicht ein Rekord aller Zeiten und bleibt einer, weil
+ * es schlimmer ist, etwas Verdientes wegzunehmen, als es spät zu zeigen. Aber eine Zahl
+ * von vor drei Jahren als "deine Stärke" zu drucken ist auch eine Art Lüge. Danach behält
+ * der Rekord also seinen Rang und bekommt ein Datum dazu.
  */
 const STALE_BEST_DAYS = 182;
 
@@ -791,7 +787,7 @@ const round1 = (n) => Math.round(n * 10) / 10;
 const bestAgeDays = (lift) =>
   lift.achievedAt ? Math.floor((Date.now() - lift.achievedAt) / 86400000) : null;
 
-/** The short tail on a lift row: "best from 14 months ago". */
+/** Das kurze Anhängsel an einer Übungszeile: "Bestwert von vor 14 Monaten". */
 function staleBestLabel(lift) {
   const days = bestAgeDays(lift);
   if (days === null || days < STALE_BEST_DAYS) return null;
@@ -799,7 +795,7 @@ function staleBestLabel(lift) {
     text: t('home.rating.bestAge', { when: relMonths(days) }) });
 }
 
-/** The same fact with the reasoning, on the detail sheet. */
+/** Dieselbe Tatsache mit Begründung, im Detail-Sheet. */
 function staleBestNote(lift) {
   const days = bestAgeDays(lift);
   if (days === null || days < STALE_BEST_DAYS) return null;
@@ -810,11 +806,11 @@ function staleBestNote(lift) {
 const relMonths = (days) => tn(Math.max(1, Math.round(days / 30.44)), 'unit.month');
 
 /**
- * The per-machine corrections, keyed the way the rating wants them.
+ * Die Korrekturen je Maschine, so geschlüsselt, wie die Wertung sie will.
  *
- * Stored per exercise id on the machine setup, read out by name because the
- * standards tables are keyed by name. Nothing here touches a logged set: it
- * describes how a machine *reports* load, not what was lifted.
+ * Pro Übungs-ID in der Maschineneinstellung gespeichert und nach Namen ausgelesen, weil
+ * die Tabellen der Standards am Namen hängen. Nichts hier fasst einen eingetragenen Satz
+ * an: es beschreibt, wie eine Maschine Last ANZEIGT, nicht was gehoben wurde.
  */
 function machineCorrections() {
   const setups = store.state.settings.machineSetups || {};
@@ -829,12 +825,11 @@ function machineCorrections() {
 }
 
 /**
- * How well corroborated a rank is.
+ * Wie gut ein Rang abgesichert ist.
  *
- * The rank is the best demonstration and stays that way, so this is the honest
- * place to put what a lifter would otherwise have to guess: whether three
- * movements agree on it or one movement is carrying it alone, and whether the
- * movements that should agree actually do.
+ * Der Rang ist die beste gezeigte Leistung und bleibt das. Hier steht deshalb ehrlich, was
+ * man sonst raten müsste: ob drei Bewegungen sich einig sind oder eine allein ihn trägt,
+ * und ob die Bewegungen, die sich einig sein sollten, es auch sind.
  */
 function supportLine(info) {
   const drivers = Number(info.drivers) || 1;
@@ -850,17 +845,17 @@ function supportLine(info) {
 }
 
 /**
- * "Any of these would rank it", listing only movements this library actually has.
+ * "Jede davon würde ihn einstufen", nur mit Bewegungen, die es in dieser Bibliothek gibt.
  *
- * Filtered against the user's own exercises rather than the whole curated table:
- * naming a machine their gym does not own is worse than naming nothing.
+ * Gegen die eigenen Übungen gefiltert und nicht gegen die ganze gepflegte Tabelle: eine
+ * Maschine zu nennen, die das eigene Studio nicht hat, ist schlimmer, als nichts zu nennen.
  */
 function unlockList(region) {
   const names = store.state.exercises
     .filter((ex) => canRank(ex.name, region))
-    // Strongest driver first, then the shortest name. The catalogue is full of
-    // entries like "Bosu Ball Cable Crunch With Side Bends", and leading a
-    // suggestion with one of those makes a good idea sound ridiculous.
+    // Der stärkste Treiber zuerst, dann der kürzeste Name. Der Katalog ist voll von Einträgen
+    // wie "Bosu Ball Cable Crunch With Side Bends", und mit so einem angefangen klingt eine
+    // gute Idee lächerlich.
     .sort((a, b) => drivesRegion(b.name, region) - drivesRegion(a.name, region)
       || a.name.length - b.name.length)
     .map((ex) => ex.name)
@@ -872,12 +867,12 @@ function unlockList(region) {
   ]);
 }
 
-/** The "this one does not belong" row, with the fix attached. */
+/** Die Zeile "diese passt nicht dazu", mit der Lösung gleich dabei. */
 function outlierNotice(lift, settings) {
   if (settings.outlierHints === false) return null;
-  // Machines and cables only. Every cause the sheet explains is about how a
-  // machine reports load, and offering "count half of it" for a barbell squat
-  // or a pull-up is an offer to make the log wrong.
+  // Nur Maschinen und Kabel. Jede Ursache, die das Sheet erklärt, betrifft, wie eine
+  // Maschine Last anzeigt, und "die Hälfte zählen" bei Kniebeugen mit der Langhantel oder
+  // Klimmzügen anzubieten hieße, das Log falsch zu machen.
   if (!lift.machine) return null;
   if (!lift.outlier && !lift.overStack) return null;
   const ex = store.state.exercises.find((e) => e.name === lift.name);
@@ -898,13 +893,12 @@ function outlierNotice(lift, settings) {
 }
 
 /**
- * Tell the app what the number on this machine means.
+ * Der App sagen, was die Zahl an dieser Maschine bedeutet.
  *
- * Deliberately a correction to the *reading*, not to the log. Halving a
- * recorded set would rewrite what somebody actually did and would make their
- * own history disagree with their own memory; halving the interpretation
- * changes only the comparison against a standard, which is the thing that was
- * wrong.
+ * Absichtlich eine Korrektur der ANZEIGE, nicht des Logs. Einen eingetragenen Satz zu
+ * halbieren würde umschreiben, was jemand wirklich gemacht hat, und der eigene Verlauf
+ * würde der eigenen Erinnerung widersprechen. Die Deutung zu halbieren ändert nur den
+ * Vergleich mit einem Standard, und genau der war falsch.
  */
 function loadCorrectionSheet(ex, lift) {
   const setup = store.state.settings.machineSetups?.[ex.id] || {};
@@ -947,7 +941,7 @@ function loadCorrectionSheet(ex, lift) {
       [t('home.rating.outlierHalve')]),
     el('div.small.faint', { style: { marginTop: '6px' }, text: t('home.rating.outlierHalveNote') }),
 
-    // No stack field for a bar with plates on it: there is no stack to max.
+    // Kein Feld für den Block bei einer Stange mit Scheiben, da gibt es keinen Block mit Maximum.
     lift.plateLoaded ? null : el('label.field', { style: { marginTop: '16px' } }, [
       el('span', { text: t('home.rating.stackMax', { units: store.units() }) }), stack,
       el('small', { text: t('home.rating.stackMaxNote') }),
@@ -970,9 +964,9 @@ function loadCorrectionSheet(ex, lift) {
   ]));
 }
 
-/* ===================== the rank ladder on screen ===================== */
+/* ===================== die Rangleiter auf dem Screen ===================== */
 
-/** "Diamond II" as one chip, coloured by rank. */
+/** "Diamond II" als ein Chip, in der Farbe des Rangs. */
 function rankChip(rank, { badge = true } = {}) {
   if (!rank) return null;
   return el(`span.tier-chip.tier-${rank.tierIndex}${badge ? '.with-badge' : ''}`, {}, [
@@ -982,22 +976,22 @@ function rankChip(rank, { badge = true } = {}) {
   ]);
 }
 
-/** The same thing as plain text, for lines that already have a chip on them. */
+/** Dasselbe als einfacher Text, für Zeilen, die schon einen Chip haben. */
 function rankName(rank) {
   return rank ? `${tTier(rank.tier.key)} ${rank.division}` : '';
 }
 
 /**
- * Where you stand, what is next, and how far it is.
+ * Wo man steht, was als Nächstes kommt und wie weit es ist.
  *
- * This replaced a strip of one notch per step. At nine ranks that was 27
- * notches and already thin; at twelve it would be 36 slivers three pixels wide,
- * which is a texture rather than a scale. One segment per *rank* is legible,
- * and the partial fill of the current segment carries the division, so nothing
- * is lost by dropping the finer strip.
+ * Das hat einen Streifen mit einer Kerbe pro Stufe ersetzt. Bei neun Rängen waren das 27
+ * Kerben und schon dünn, bei zwölf wären es 36 Splitter mit drei Pixeln Breite, eine
+ * Textur und keine Skala. Ein Abschnitt pro RANG ist lesbar, und die teilweise Füllung des
+ * aktuellen Abschnitts zeigt die Division, durch den Wegfall des feineren Streifens geht
+ * also nichts verloren.
  *
- * The badges are what make it a ladder rather than a progress bar: the one you
- * hold, and the one you are working towards, side by side.
+ * Die Abzeichen machen daraus eine Leiter und keinen Fortschrittsbalken: das, das man hat,
+ * und das, auf das man hinarbeitet, nebeneinander.
  */
 function rankTrack(rank, score) {
   const nextRank = rank.tierIndex < TIERS.length - 1 ? rank.tierIndex + 1 : null;
@@ -1020,8 +1014,8 @@ function rankTrack(rank, score) {
           }),
         ]),
       ]),
-      // No "next:" label. It cost two wrapped lines and said nothing the arrow
-      // and the position do not already say.
+      // Kein "als Nächstes:". Das hat zwei umgebrochene Zeilen gekostet und nichts gesagt, was
+      // Pfeil und Position nicht schon sagen.
       rank.top ? null : el(`div.rank-track-next.tier-${target.tierIndex}`, {}, [
         el('span.rank-track-arrow', { text: '→', 'aria-hidden': 'true' }),
         rankBadge(nextRank === null ? rank.tierIndex : target.tierIndex, { size: 26 }),
@@ -1029,11 +1023,11 @@ function rankTrack(rank, score) {
       ]),
     ]),
     bar,
-    // How far through the current step, in per cent. It used to print the raw
-    // gap on the 0-100 scale — "1.0 to Grandmaster I" — which is the very
-    // number the card above deliberately stopped showing, now stripped of even
-    // the scale that would have made it readable. One point out of a hundred is
-    // most of a division, and nothing on the screen said so.
+    // Wie weit man in der aktuellen Stufe ist, in Prozent. Früher stand hier der rohe Abstand
+    // auf der Skala von 0 bis 100 ("1.0 bis Grandmaster I"), also genau die Zahl, die die
+    // Karte darüber absichtlich nicht mehr zeigt, jetzt sogar ohne die Skala, die sie lesbar
+    // gemacht hätte. Ein Punkt von hundert ist der Großteil einer Division, und nichts auf dem
+    // Screen hat das gesagt.
     el('div.small.faint', { style: { marginTop: '7px', textAlign: 'right' },
       text: rank.top ? t('home.rating.ladderTop') : t('home.rating.toNextStep', {
         pct: Math.max(1, Math.min(99, Math.round(rank.progress * 100))), rank: rankName(target),
@@ -1041,31 +1035,30 @@ function rankTrack(rank, score) {
   ]);
 }
 
-/** How much of the current rank's segment is coloured in: the division. */
+/** Wie viel vom Abschnitt des aktuellen Rangs eingefärbt ist: die Division. */
 function divisionFill(rank) {
   return (rank.divisionIndex + rank.progress) / DIVISIONS.length;
 }
 
-/** The score at which the next division starts. */
+/** Die Wertung, bei der die nächste Division anfängt. */
 function nextStepScore(score) {
   const step = Math.floor(score / (BAND / DIVISIONS.length)) + 1;
   return Math.min(100, step * (BAND / DIVISIONS.length));
 }
 
 /**
- * A step gained or lost in the last eight weeks, or null.
+ * Eine Stufe, die in den letzten acht Wochen gewonnen oder verloren wurde, oder null.
  *
- * Deliberately backward-looking rather than a live celebration: the rating is
- * rebuilt from the whole log on every render, so "you just ranked up" would fire
- * again every time the screen redrew. Comparing against where the ladder stood
- * eight weeks ago says the same thing once, calmly, and keeps saying it for as
- * long as it is true.
+ * Mit Absicht ein Blick zurück und keine Feier live: die Wertung wird bei jedem Zeichnen
+ * aus dem ganzen Log neu gebaut, "du bist gerade aufgestiegen" käme also bei jedem
+ * Neuzeichnen wieder. Mit dem Stand von vor acht Wochen zu vergleichen sagt dasselbe
+ * einmal, ruhig, und sagt es weiter, solange es stimmt.
  *
- * It reports a drop as well as a climb, and this is the part worth being
- * careful about. A ladder that only ever announces good news is a scoreboard
- * nobody believes — but a demotion is usually bodyweight moving, or eight weeks
- * of illness, not a verdict on the lifter. So it is stated flatly, in the same
- * words, without a colour that reads as a telling-off.
+ * Es meldet auch einen Abstieg, und da muss man vorsichtig sein. Eine Leiter, die nur gute
+ * Nachrichten verkündet, ist eine Anzeigetafel, der niemand glaubt. Ein Abstieg ist aber
+ * meistens ein verändertes Körpergewicht oder acht Wochen Krankheit und kein Urteil über
+ * jemanden. Er wird also nüchtern gesagt, mit denselben Worten und ohne eine Farbe, die
+ * wie eine Rüge wirkt.
  */
 function recentRankChange(currentScore, ratedNow = null) {
   const weeks = 8;
@@ -1074,15 +1067,14 @@ function recentRankChange(currentScore, ratedNow = null) {
   if (!then || then.overall === null) return null;
   const from = rankOf(then.overall), to = rankOf(currentScore);
   if (!from || !to || to.step === from.step) return null;
-  // Whether the average is now taken over more muscle groups than it was.
+  // Ob der Durchschnitt jetzt über mehr Muskelgruppen gebildet wird als vorher.
   //
-  // This is the honest answer to a complaint that is entirely fair: log an
-  // overhead press for the first time, discover your front delts are two ranks
-  // behind everything else, and the overall drops — so the app appears to have
-  // punished you for measuring something. It did not. The number went down
-  // because it got more accurate, and the only thing wrong was that the screen
-  // offered bodyweight as the sole explanation and let the lifter conclude the
-  // other one.
+  // Das ist die ehrliche Antwort auf eine völlig berechtigte Beschwerde: man trägt zum ersten
+  // Mal Schulterdrücken ein, stellt fest, dass die vordere Schulter zwei Ränge hinter allem
+  // anderen liegt, und die Gesamtwertung fällt. Die App scheint einen fürs Messen bestraft zu
+  // haben. Hat sie nicht. Die Zahl ist gefallen, weil sie genauer geworden ist, und falsch war
+  // nur, dass der Screen als einzige Erklärung das Körpergewicht angeboten und einen die
+  // andere hat selbst schließen lassen.
   const measuredMore = ratedNow !== null && then.ratedRegions !== undefined
     && ratedNow > then.ratedRegions;
   return { from, to, weeks, up: to.step > from.step, steps: Math.abs(to.step - from.step),
@@ -1090,11 +1082,10 @@ function recentRankChange(currentScore, ratedNow = null) {
 }
 
 function machineRecords(lifts) {
-  // The exercise behind the name can be missing: the rank survives a rename or
-  // a deleted custom movement, and this list is matched by name rather than by
-  // id. Before the list could be expanded that was hard to reach; over twenty
-  // machines it is not, and an undefined `ex` here takes the whole Home screen
-  // down with it.
+  // Die Übung hinter dem Namen kann fehlen: der Rang übersteht eine Umbenennung oder eine
+  // gelöschte eigene Übung, und diese Liste wird über den Namen abgeglichen, nicht über die
+  // ID. Bevor sich die Liste aufklappen ließ, kam man da schwer hin, bei über zwanzig
+  // Maschinen nicht mehr, und ein undefined `ex` hier reißt den ganzen Home-Screen mit.
   const all = lifts.filter((lift) => lift.machine)
     .map((lift) => ({ ...lift, ex: store.state.exercises.find((e) => e.name === lift.name) }))
     .sort((a, b) => b.score - a.score);
@@ -1182,24 +1173,24 @@ function machineProfileSheet(ex) {
 }
 
 /**
- * Contribute the current ranks and pick up the distribution around them.
+ * Die aktuellen Ränge beisteuern und die Verteilung drumherum abholen.
  *
- * What leaves the device is a list of 0-100 scores against fixed keys. No
- * weight, no repetition count, no exercise you invented, no identity: a score
- * has already been divided by bodyweight and adjusted for sex and age, so it
- * says far less about a person than "142.5 kg" would. Nothing is sent at all
- * without `shareRankComparison`, and `forgetRankScores` takes it all back.
+ * Was das Gerät verlässt, ist eine Liste von Werten zwischen 0 und 100 zu festen
+ * Schlüsseln. Kein Gewicht, keine Wiederholungen, keine selbst erfundene Übung, keine
+ * Identität: eine Wertung ist schon durchs Körpergewicht geteilt und nach Geschlecht und
+ * Alter angepasst, sie sagt also viel weniger über eine Person als "142,5 kg". Ohne
+ * `shareRankComparison` geht gar nichts raus, und `forgetRankScores` nimmt alles zurück.
  *
- * Same shape as refreshMachineStandards, including the signature guard, because
- * this runs inside a render that can fire on any keystroke elsewhere in the app.
+ * Dieselbe Form wie refreshMachineStandards, samt Schutz über die Signatur, weil das in
+ * einem Zeichnen läuft, das bei jedem Tastendruck irgendwo in der App kommen kann.
  */
 async function refreshRankPercentiles(rating, settings) {
   if (rankSyncing || !settings.shareRankComparison || !cloud.isSignedIn() || !navigator.onLine) return;
   if (rating.overall === null) return;
 
   const entries = [{ key: 'overall', score: round1(rating.overall) }];
-  // Only benchmark lifts by name. A custom exercise called "Chest Day Finisher"
-  // would be a population of one, and its name would be the identifying part.
+  // Nur Referenzübungen über den Namen. Eine eigene Übung namens "Chest Day Finisher" wäre
+  // eine Gruppe aus einer Person, und ihr Name wäre genau das, woran man sie erkennt.
   for (const lift of rating.lifts) {
     if (!isBenchmark(lift.name) || lift.extrapolated) continue;
     entries.push({ key: `lift:${lift.name}`, score: round1(lift.score) });
@@ -1207,8 +1198,8 @@ async function refreshRankPercentiles(rating, settings) {
   for (const [region, info] of Object.entries(rating.regions)) {
     entries.push({ key: `region:${region}`, score: round1(info.score) });
   }
-  // The server takes 40 in one call; regions plus the benchmark lifts fit, but
-  // the cap is enforced here too rather than discovered as an exception.
+  // Der Server nimmt 40 pro Aufruf. Regionen plus Referenzübungen passen, aber die Grenze
+  // wird auch hier eingehalten und nicht erst als Exception entdeckt.
   const payload = entries.slice(0, 40);
 
   const signature = JSON.stringify(payload);
@@ -1220,13 +1211,13 @@ async function refreshRankPercentiles(rating, settings) {
     rankSyncSignature = signature;
     if (location.hash.replace(/^#\/?/, '').split('/')[0] === 'home') (await import('../app.js')).render();
   } catch {
-    // An older server without patch 016 must not be asked again on every
-    // render. A reload after installing it starts a fresh attempt.
+    // Ein älterer Server ohne Patch 016 darf nicht bei jedem Zeichnen neu gefragt werden.
+    // Ein Neuladen nach dem Einspielen startet einen frischen Versuch.
     rankSyncSignature = signature;
   } finally { rankSyncing = false; }
 }
 
-/** "62% of the people who log this are below you", or null. */
+/** "62 % der Leute, die das eintragen, liegen unter dir", oder null. */
 function percentileLine(key) {
   const stats = rankPercentiles[key];
   if (!stats || !Number.isFinite(Number(stats.below))) return null;
@@ -1235,11 +1226,11 @@ function percentileLine(key) {
 }
 
 /**
- * The same fact with a bar under it, for the two places that have the room.
+ * Dieselbe Tatsache mit einem Balken darunter, für die zwei Stellen, die Platz dafür haben.
  *
- * A bar rather than a bigger number because the point is *where in a spread*,
- * and a spread is a shape. The marker is a position, not a score: nothing here
- * is ordered against a named person, and there is nobody to be above.
+ * Ein Balken statt einer größeren Zahl, weil es um die Lage IN EINER VERTEILUNG geht, und
+ * eine Verteilung ist eine Form. Die Markierung ist eine Position, keine Wertung: nichts
+ * hier wird gegen eine benannte Person geordnet, und es gibt niemanden, über dem man steht.
  */
 function percentileBar(key) {
   const stats = rankPercentiles[key];
@@ -1280,24 +1271,24 @@ async function refreshMachineStandards(best, settings) {
     machineSyncSignature = signature;
     if (location.hash.replace(/^#\/?/, '').split('/')[0] === 'home') (await import('../app.js')).render();
   } catch {
-    // An older server without patch 013 must not be hammered on every render.
-    // A reload after installing the patch starts a fresh attempt.
+    // Ein älterer Server ohne Patch 013 darf nicht bei jedem Zeichnen bombardiert werden. Ein
+    // Neuladen nach dem Einspielen startet einen frischen Versuch.
     machineSyncSignature = signature;
   } finally { machineSyncing = false; }
 }
 
 /**
- * The muscle map, two ways.
+ * Die Muskelkarte, auf zwei Arten.
  *
- * "Strength" is the tier map: how you compare against published standards. It
- * only lights the regions a benchmark lift trains, and it always will — there
- * are about seventeen lifts with standards worth having, and no honest way to
- * add a machine chest press to that list.
+ * "Stärke" ist die Stufenkarte: wie man im Vergleich zu veröffentlichten Standards steht.
+ * Sie färbt nur Regionen, die eine Referenzübung trainiert, und das wird auch so bleiben.
+ * Es gibt etwa siebzehn Übungen mit Standards, die sich lohnen, und keinen ehrlichen Weg,
+ * eine Brustpresse an der Maschine auf diese Liste zu setzen.
  *
- * "Progress" answers the other half: are you getting stronger, measured against
- * yourself. That needs no standard, so every exercise you log counts — which is
- * the map that actually reflects a machine-based session. Two scales, never
- * mixed, each with its own legend.
+ * "Fortschritt" beantwortet die andere Hälfte: wird man stärker, gemessen an sich selbst.
+ * Dafür braucht es keinen Standard, jede eingetragene Übung zählt, und das ist die Karte,
+ * die eine Einheit an Maschinen wirklich abbildet. Zwei Skalen, nie gemischt, jede mit
+ * eigener Legende.
  */
 function mapSection(rating) {
   const wrap = el('div');
@@ -1320,12 +1311,12 @@ function mapSection(rating) {
 
   function paint() {
     if (mapMode === 'strength') {
-      // Ranked regions in their rank colour, touched-but-unranked ones in a
-      // muted grey. Painting an indirect region with a rank colour is what made
-      // "your trapezius is Diamond" out of "you did a row".
+      // Eingestufte Regionen in ihrer Rangfarbe, trainierte, aber nicht eingestufte in einem
+      // gedämpften Grau. Eine indirekt trainierte Region in einer Rangfarbe zu malen hat aus
+      // "du hast gerudert" ein "dein Trapez ist Diamond" gemacht.
       const fills = { ...rating.regions };
-      // Visibly grey, not invisible: the point is that the app reaches this
-      // muscle and cannot measure it, which is different from never touching it.
+      // Sichtbar grau, nicht unsichtbar: es geht darum, dass die App diesen Muskel erreicht,
+      // ihn aber nicht messen kann, und das ist etwas anderes als ihn nie zu treffen.
       for (const region of Object.keys(rating.indirect)) fills[region] = 'var(--text-faint)';
       host.replaceChildren(
         bodyMap(fills, { onSelect: (region) => regionSheet(region, rating) }),
@@ -1384,8 +1375,8 @@ function regionSheet(region, rating) {
   const body = el('div', {}, [
     info
       ? el(`div.tier-${tierIndex(info.score)}`, {}, [
-          // The rank, not the number. Same reason as on Home: a score out of a
-          // hundred whose top nobody reaches reads as a mark out of a hundred.
+          // Der Rang, nicht die Zahl. Aus demselben Grund wie auf Home: eine Wertung von
+          // hundert, deren oberes Ende niemand erreicht, liest sich wie eine Note von hundert.
           el('div.rating-hero', { style: { paddingBottom: '10px' } }, [
             el('div.rank-hero-badge', {}, [rankBadge(tierIndex(info.score), { size: 58, glow: true })]),
             el('div.rank-hero-name', { style: { fontSize: '24px' } }, [
@@ -1415,21 +1406,21 @@ function regionSheet(region, rating) {
           rating.indirect[region]
             ? el('div.small.faint', { style: { marginTop: '8px' }, text: t('home.region.indirectWhy') })
             : null,
-          // A grey muscle is not a dead end, and the app should not make
-          // somebody guess which movement opens it.
+          // Ein grauer Muskel ist keine Sackgasse, und die App soll niemanden raten lassen,
+          // welche Bewegung ihn freischaltet.
           unlockList(region),
         ]),
     el('div.section-head', {}, [el('h2', { text: t('home.region.tierScale') })]),
-    // The point ranges used to sit here. With the score no longer shown
-    // anywhere they referred to a number nobody sees, so the ladder now marks
-    // where this muscle stands on it instead.
+    // Hier standen früher die Punktbereiche. Seit die Wertung nirgends mehr gezeigt wird,
+    // bezogen sie sich auf eine Zahl, die niemand sieht. Die Leiter zeigt stattdessen, wo
+    // dieser Muskel auf ihr steht.
     el('div', {}, TIERS.map((tier, i) => {
       const here = info && tierIndex(info.score) === i;
       return el(`div.row.between.tier-${i}`, {
         style: { padding: '7px 0', borderBottom: '1px solid var(--line-soft)', opacity: here ? '1' : '.55' },
       }, [
-        // .with-badge hides the chip's dot, or the row carries both a dot and a
-        // shield and reads as two markers for one thing.
+        // .with-badge versteckt den Punkt des Chips, sonst hat die Zeile einen Punkt und ein
+        // Schild und liest sich wie zwei Markierungen für eine Sache.
         el('span.tier-chip.with-badge', {}, [rankBadge(i, { size: 15 }), tTier(tier.key)]),
         here ? el('span.small', { style: { color: 'var(--tier)', fontWeight: '700' },
           text: t('home.region.youAreHere') }) : null,

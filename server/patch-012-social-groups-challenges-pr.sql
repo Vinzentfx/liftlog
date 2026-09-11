@@ -1,5 +1,5 @@
--- Private groups, group challenges, PR reactions and per-stat visibility.
--- Apply after patch-010-social-plans-invites.sql.
+-- Private Gruppen, Gruppen-Challenges, Reaktionen auf Rekorde und Sichtbarkeit je Wert.
+-- Nach patch-010-social-plans-invites.sql einspielen.
 
 alter table public.social_profiles add column if not exists show_workouts boolean not null default true;
 alter table public.social_profiles add column if not exists show_sets boolean not null default true;
@@ -168,8 +168,8 @@ select jsonb_build_object(
   'prs',coalesce((select jsonb_agg(to_jsonb(prs)) from prs),'[]'::jsonb));
 $$;
 
--- Rebuild the existing hub with server-side field filtering. Hiding only in the
--- client would still leak the values through the RPC response.
+-- Den vorhandenen Bereich mit Filterung der Felder auf dem Server neu bauen. Nur im Client
+-- zu verstecken würde die Werte über die Antwort der RPC trotzdem verraten.
 create or replace function public.social_hub()
 returns jsonb language sql stable security definer set search_path=public as $$
 with me as (
