@@ -132,8 +132,9 @@ Actions**. The workflow runs on every push to `main` and every Monday, so the
 sample keeps ending yesterday instead of drifting into the past.
 
 Two things the preview leaves out on purpose. The offline copy: its `sw.js` is
-an empty stand-in, because the real worker would serve last week's sample from
-cache. And the two map endpoints in `functions/`, which need Cloudflare and are
+`tools/preview-sw.js`, which clears what the real app cached at this address in
+July and then serves nothing, because the real worker would serve last week's
+sample from cache. And the two map endpoints in `functions/`, which need Cloudflare and are
 simply absent there.
 
 ### Then, on the iPhone
@@ -375,6 +376,7 @@ warnings that do matter.
 | `js/demo.js` | Whether this build is the public preview; always `false` in the repo |
 | `.github/workflows/test.yml` | Both test suites on every push and pull request |
 | `.github/workflows/pages.yml` | Publishes the public preview to GitHub Pages |
+| `tools/preview-sw.js` | The preview's service worker: clears the old app, serves nothing |
 | `js/sync.js` | Store plus crypto plus cloud: the only place the three meet |
 | `js/screens/account.js` | Sign-up, consent, recovery key, devices, restore |
 | `js/screens/gate.js` | The invite gate, asked once per device |

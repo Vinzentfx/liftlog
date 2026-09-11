@@ -11,7 +11,7 @@
 //     Supabase host at all, so a stray call fails in the browser rather than
 //     reaching the real project
 //   - an empty device is filled from showcase-backup.json on first launch
-//   - no offline copy: the published sw.js is an empty stand-in, because
+//   - no offline copy: the published sw.js is tools/preview-sw.js, because
 //     bootstrap.js registers a worker before any module could say otherwise,
 //     and the real one would keep serving last week's sample data
 export const DEMO = false;

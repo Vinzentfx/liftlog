@@ -807,3 +807,16 @@ test('the repository never ships the public preview', async () => {
   assert.match(pages, /export const DEMO = true;/);
   assert.match(pages, /sed -i .*supabase/, 'the workflow strips the Supabase host from the CSP');
 });
+
+test('the preview worker clears the old app and never answers a request', async () => {
+  // Code only: the header explains, in words, the very calls it avoids.
+  const worker = (await read('tools/preview-sw.js')).replace(/^\s*\/\/.*$/gm, '');
+  assert.match(worker, /skipWaiting\(\)/);
+  assert.match(worker, /caches\.delete/);
+  assert.match(worker, /\.navigate\(/);
+  assert.doesNotMatch(worker, /addEventListener\('fetch'/);
+  // claim() would take over a first visit too, and then the navigate() above
+  // would reload a page that is already current.
+  assert.doesNotMatch(worker, /clients\.claim\(/);
+  assert.match(await read('.github/workflows/pages.yml'), /cp tools\/preview-sw\.js _site\/sw\.js/);
+});

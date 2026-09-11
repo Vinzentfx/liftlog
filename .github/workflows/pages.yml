@@ -42,11 +42,10 @@ jobs:
           cp -R index.html legal.html privacy.html manifest.webmanifest css js icons assets _site/
           node tools/build_showcase.mjs > _site/showcase-backup.json
           printf 'export const DEMO = true;\n' > _site/js/demo.js
-          # An empty worker instead of the real one. bootstrap.js registers
-          # ./sw.js before app.js could decline, so a missing file is a 404 in
-          # the console; the real worker would cache last week's sample. This
-          # one has no fetch handler and never claims the page: it does nothing.
-          printf '// Preview: no offline copy. See js/demo.js.\n' > _site/sw.js
+          # The preview's own worker instead of the real one, which would cache
+          # last week's sample. It clears what the app left here in July and
+          # then serves nothing; tools/preview-sw.js says how.
+          cp tools/preview-sw.js _site/sw.js
           # Take the real project off the CSP, so nothing can reach it.
           sed -i 's# https://txjikhreoshmkjuyomki\.supabase\.co##' _site/index.html
           if grep -q 'supabase' _site/index.html; then
