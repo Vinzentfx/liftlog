@@ -9,6 +9,7 @@ import * as sync from './sync.js';
 import * as cloud from './cloud.js';
 import { loadGymLocation, saveGymLocation, currentPosition, nearbyPlannedWorkout } from './gym-location.js';
 import { dayKey } from './models.js';
+import { DEMO } from './demo.js';
 
 import renderHome from './screens/home.js';
 import renderTrain from './screens/train.js';
@@ -175,6 +176,14 @@ export function render() {
     clear($('#topbar-actions'));
 
     const host = clear(screen);
+    // Said on every screen, because a visitor can arrive at any of them from a
+    // shared link and the numbers there are not anyone's real training.
+    if (DEMO) host.append(el('div.card.tight', {
+      style: { borderColor: 'var(--accent)', marginBottom: '12px' },
+    }, [
+      el('div', { style: { fontWeight: '680' }, text: t('demo.title') }),
+      el('div.small.muted', { text: t('demo.body') }),
+    ]));
     if (!navigator.onLine) host.append(el('div.card.tight', {
       style: { borderColor: 'var(--warn)', marginBottom: '12px' },
     }, [
@@ -263,6 +272,18 @@ async function boot() {
     return;
   }
 
+  // The public preview opens on half a year of sample data rather than an empty
+  // log. Only on a device with no training yet, so whatever a visitor logs
+  // survives a reload instead of being overwritten by the sample again.
+  if (DEMO && !store.state.sessions.length) {
+    try {
+      const response = await fetch('./showcase-backup.json', { cache: 'no-store' });
+      await store.importData(await response.json());
+    } catch (err) {
+      console.error('[liftlog] preview data failed', err);
+    }
+  }
+
   applyTheme(store.state.settings.theme);
 
   // Installed iOS PWAs sometimes restore a small stale document offset before
@@ -294,16 +315,16 @@ async function boot() {
   // with no reception behaves exactly as it did before any of this existed.
   const browserTest = ['localhost', '127.0.0.1'].includes(location.hostname)
     && new URL(location.href).searchParams.get('e2e') === '1';
-  let deviceUnlocked = browserTest || await gate.isUnlocked();
+  let deviceUnlocked = browserTest || DEMO || await gate.isUnlocked();
   // Repair the state left by older builds after a successful Auth-account
   // deletion: the session was gone but the IndexedDB gate survived, making the
   // deleted account appear to remain inside the app forever. A real offline
   // launch still has its persisted session, so it is unaffected.
-  if (deviceUnlocked && !browserTest && !cloud.isSignedIn()) {
+  if (deviceUnlocked && !browserTest && !DEMO && !cloud.isSignedIn()) {
     await gate.lock();
     deviceUnlocked = false;
   }
-  if (deviceUnlocked) openApp({ skipInstallHint: browserTest });
+  if (deviceUnlocked) openApp({ skipInstallHint: browserTest || DEMO });
   else {
     // A browser tab must explain installation before it can become the main
     // device. Otherwise the first login silently binds ownership to Safari or
@@ -316,7 +337,7 @@ async function boot() {
   // is for in a gym and exactly wrong on a dev server: an edited file keeps
   // being served from the last install, so a change looks like it did nothing
   // and the obvious conclusion is that the code is broken rather than stale.
-  if ('serviceWorker' in navigator && !browserTest) {
+  if ('serviceWorker' in navigator && !browserTest && !DEMO) {
     // Only meaningful over https/localhost; silently skipped elsewhere.
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   } else if (browserTest && 'serviceWorker' in navigator) {
@@ -338,6 +359,8 @@ function openApp({ skipInstallHint = false } = {}) {
   // The cloud copy is a copy. It must never delay the app opening, never block
   // on a phone with no signal, and never be the reason a screen does not draw,
   // so it runs after the first render and nothing waits on it.
+  // The preview has no account to back up to and no community to show.
+  if (DEMO) return;
   sync.subscribe(render);
   runCloudMaintenance();
   startCloudMaintenance();

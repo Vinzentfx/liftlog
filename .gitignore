@@ -17,3 +17,8 @@ server/.vapid-secrets
 
 # Supabase CLI local state: which project this checkout is linked to
 supabase/.temp/
+
+# dev tooling
+node_modules/
+test-results/
+playwright-report/

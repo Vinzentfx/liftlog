@@ -12,6 +12,7 @@ import {
 } from '../standards.js';
 import { todaysDays } from '../schedule.js';
 import { openCloudSetup } from './account.js';
+import { DEMO } from '../demo.js';
 import * as push from '../push.js';
 
 let hub = null;
@@ -34,6 +35,9 @@ export default function renderUsers({ actions, fresh }) {
   // With no account this screen has nothing to show, so the empty state carries
   // the way out of it. Saying "sign in" and then offering no button was a dead
   // end on one of the five tabs.
+  // The preview is the exception: it cannot reach the cloud at all, so the
+  // button would be the dead end. It says what lives here instead.
+  if (DEMO) return emptyState(t('users.signInTitle'), t('demo.cloudBody'));
   if (!cloud.isSignedIn()) {
     return emptyState(t('users.signInTitle'), t('users.signInBody'),
       el('button.btn.primary', { style: { marginTop: '16px' }, onclick: () => openCloudSetup() },

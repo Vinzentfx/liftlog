@@ -1,0 +1,61 @@
+# The public preview on GitHub Pages: the same app, opened without the invite
+# gate, filled with sample data, and unable to reach the real backend.
+# js/demo.js lists what the flag changes. The app friends use is not touched:
+# it is deployed from this repository separately and keeps DEMO = false.
+name: Preview
+
+on:
+  push:
+    branches: [main]
+  # Every Monday, so the sample keeps ending yesterday instead of drifting into
+  # the past: tools/build_showcase.mjs counts back from the day it runs.
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      - name: Assemble the preview
+        run: |
+          mkdir _site
+          # A list, not a copy of everything: tests, tools, server SQL and the
+          # Supabase CLI state have no business on a public page.
+          cp -R index.html legal.html privacy.html manifest.webmanifest css js icons assets _site/
+          node tools/build_showcase.mjs > _site/showcase-backup.json
+          printf 'export const DEMO = true;\n' > _site/js/demo.js
+          # An empty worker instead of the real one. bootstrap.js registers
+          # ./sw.js before app.js could decline, so a missing file is a 404 in
+          # the console; the real worker would cache last week's sample. This
+          # one has no fetch handler and never claims the page: it does nothing.
+          printf '// Preview: no offline copy. See js/demo.js.\n' > _site/sw.js
+          # Take the real project off the CSP, so nothing can reach it.
+          sed -i 's# https://txjikhreoshmkjuyomki\.supabase\.co##' _site/index.html
+          if grep -q 'supabase' _site/index.html; then
+            echo 'The preview CSP still allows Supabase'; exit 1
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

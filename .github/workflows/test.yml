@@ -1,0 +1,36 @@
+# Both suites on every push and pull request. The README has promised this
+# since the tests were written; this file is what makes it true.
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+
+      - name: Maths, crypto, language and security
+        run: npm test
+
+      - name: Chromium for the browser suite
+        run: npx playwright install --with-deps chromium
+      - name: Workout flows in a phone-sized browser
+        run: npm run test:browser
+
+      # playwright.config.js keeps a trace of every failed case. Without this
+      # step it would vanish with the runner.
+      - name: Keep the traces of a failed browser run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7

@@ -202,7 +202,7 @@ test('deleting the cloud account also returns this installation to the login gat
 
 test('a legacy deleted account repairs its stale local gate on the next launch', async () => {
   const app = await read('js/app.js');
-  assert.match(app, /deviceUnlocked = browserTest \|\| await gate\.isUnlocked\(\)[\s\S]*deviceUnlocked && !browserTest && !cloud\.isSignedIn\(\)[\s\S]*await gate\.lock\(\)[\s\S]*deviceUnlocked = false/);
+  assert.match(app, /deviceUnlocked = browserTest \|\| DEMO \|\| await gate\.isUnlocked\(\)[\s\S]*deviceUnlocked && !browserTest && !DEMO && !cloud\.isSignedIn\(\)[\s\S]*await gate\.lock\(\)[\s\S]*deviceUnlocked = false/);
   assert.match(app, /\['localhost', '127\.0\.0\.1'\]\.includes\(location\.hostname\)[\s\S]*searchParams\.get\('e2e'\) === '1'/);
 });
 
@@ -264,7 +264,7 @@ test('mobile browsers get a one-time home-screen installation hint', async () =>
 
 test('the installation hint cannot interrupt browser tests', async () => {
   const app = await read('js/app.js');
-  assert.match(app, /openApp\(\{ skipInstallHint: browserTest \}\)/);
+  assert.match(app, /openApp\(\{ skipInstallHint: browserTest \|\| DEMO \}\)/);
   assert.match(app, /if \(!skipInstallHint\) scheduleInstallHint\(\)/);
 });
 
@@ -791,4 +791,19 @@ test('duplicating cannot claim success when another workout is active', async ()
   const calendar = await read('js/screens/calendar.js');
   assert.match(app, /duplicateWorkout\(source\)[\s\S]{0,300}if \(existing\) return null/);
   assert.match(calendar, /if \(!duplicated\) \{ toast\(t\('calendar\.activeWorkout'\)\); navigate\('train'\); return; \}/);
+});
+
+test('the repository never ships the public preview', async () => {
+  // Committed as true, this would drop the invite gate and switch off cloud
+  // backup for every friend on the next deploy. Only the Pages workflow flips
+  // it, and only in the copy it publishes.
+  const { DEMO } = await import('../js/demo.js');
+  assert.equal(DEMO, false);
+  // app.js imports the flag, so a phone offline needs it in the shell too.
+  const shell = (await read('sw.js')).split('const SHELL = [')[1].split('\n];')[0];
+  assert.match(shell, /'\.\/js\/demo\.js'/);
+  // The published copy must not be able to reach the real project at all.
+  const pages = await read('.github/workflows/pages.yml');
+  assert.match(pages, /export const DEMO = true;/);
+  assert.match(pages, /sed -i .*supabase/, 'the workflow strips the Supabase host from the CSP');
 });

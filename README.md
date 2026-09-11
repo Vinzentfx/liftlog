@@ -116,21 +116,25 @@ The service worker needs a **secure context**, so offline support only works ove
 HTTPS (or localhost). That rules out serving it from your Mac over plain
 `http://192.168.x.x` — it would still run, but with no offline caching.
 
-### Recommended: GitHub Pages (free, HTTPS, permanent)
+### The public preview on GitHub Pages
 
-The repo is already initialised on `main`, with nothing committed yet:
+`.github/workflows/pages.yml` publishes a preview of the app to
+`https://<your-username>.github.io/liftlog/`: no invite gate, half a year of
+sample data from `tools/build_showcase.mjs`, and no way to reach the real
+backend, because the published copy's CSP no longer names it. `js/demo.js`
+lists everything the flag changes. The repository always keeps it `false`, and
+`tests/security.test.js` fails if it ever is not, so the app friends use is
+never affected.
 
-```bash
-cd ~/liftlog && git add -A && git commit -m "LiftLog v1" && gh repo create liftlog --private --source=. --push
-```
+To switch it on: make the repository public (on a free account, Pages only
+serves public repositories), then **Settings → Pages → Source: GitHub
+Actions**. The workflow runs on every push to `main` and every Monday, so the
+sample keeps ending yesterday instead of drifting into the past.
 
-Then in the repo: **Settings → Pages → Source: deploy from branch `main`, folder
-`/ (root)`**. After a minute it's live at
-`https://<your-username>.github.io/liftlog/`.
-
-A private repo still publishes a public Pages site on the free plan. There's no
-personal data in the code — your workouts never leave your phone — but the URL is
-guessable, so treat it as public.
+Two things the preview leaves out on purpose. The offline copy: its `sw.js` is
+an empty stand-in, because the real worker would serve last week's sample from
+cache. And the two map endpoints in `functions/`, which need Cloudflare and are
+simply absent there.
 
 ### Then, on the iPhone
 
@@ -368,6 +372,9 @@ warnings that do matter.
 | `js/crypto.js` | End-to-end encryption for the cloud backup |
 | `js/cloud.js` | Talking to Supabase over plain fetch, errors normalised |
 | `js/cloud-config.js` | Project URL and anon key, both public on purpose |
+| `js/demo.js` | Whether this build is the public preview; always `false` in the repo |
+| `.github/workflows/test.yml` | Both test suites on every push and pull request |
+| `.github/workflows/pages.yml` | Publishes the public preview to GitHub Pages |
 | `js/sync.js` | Store plus crypto plus cloud: the only place the three meet |
 | `js/screens/account.js` | Sign-up, consent, recovery key, devices, restore |
 | `js/screens/gate.js` | The invite gate, asked once per device |

@@ -19,6 +19,7 @@ import * as cloud from '../cloud.js';
 import * as sync from '../sync.js';
 import { t, tn, locale } from '../i18n.js';
 import { CONSENT_VERSION } from '../cloud-config.js';
+import { DEMO } from '../demo.js';
 
 /* ============================== entry point ============================== */
 
@@ -27,6 +28,12 @@ export function cloudSection() {
   const wrap = el('div');
   wrap.append(el('div.section-head', {}, [el('h2', { text: t('cloud.title') })]));
 
+  // The preview cannot reach the cloud, so it describes it instead of offering
+  // a sign-up that would fail. See js/demo.js.
+  if (DEMO) {
+    wrap.append(el('div.card', {}, [el('div.small.muted', { text: t('demo.cloudBody') })]));
+    return wrap;
+  }
   if (!cloud.isSignedIn()) {
     wrap.append(
       el('div.card', {}, [

@@ -1,5 +1,5 @@
 // Offline shell. Bump CACHE when shipping changes so clients pick them up.
-const CACHE = 'liftlog-v149';
+const CACHE = 'liftlog-v150';
 
 /**
  * The bulk data tables, in their own cache with their own version.
@@ -41,6 +41,7 @@ const SHELL = [
   './js/crypto.js',
   './js/cloud.js',
   './js/cloud-config.js',
+  './js/demo.js',
   './js/push.js',
   './js/sync.js',
   './js/strings.js',
