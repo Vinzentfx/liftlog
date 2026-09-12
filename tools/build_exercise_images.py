@@ -29,7 +29,7 @@ DEST = ROOT / "assets" / "exercises"
 WIDTH = 320          # reicht bei 2x auf einer Handykarte
 ALPHA_LEVELS = 8     # Stufen beim Runden, 8 sieht man bei Strichen nicht
 
-# everkinetic-Slug -> genauer Name in der Bibliothek. Nur für Paare, die der Token-Abgleich
+# je everkinetic-Slug: genauer Name in der Bibliothek. Nur für Paare, die der Token-Abgleich
 # nicht erreicht, und für die Referenzübungen, bei denen ein falscher Treffer schlimmer wäre
 # als keiner.
 ALIASES = {
@@ -81,7 +81,7 @@ ALIASES = {
 # danach sucht. Diese fallen auf die Muskelkarte zurück.
 NO_ART = ("Deadlift", "Barbell Row", "Pendlay Row", "Hip Thrust", "Sumo Deadlift")
 
-# --- everkinetic-Metadaten (für Übungen, die wir ganz übernehmen) -------------------
+# everkinetic-Metadaten (für Übungen, die wir ganz übernehmen)
 
 EK_JSON = Path("/tmp/ek.json")
 
@@ -123,7 +123,7 @@ EK_EQUIP = [
 
 
 def ek_meta():
-    """Slug -> Eintrag in Bibliotheksform, für übernommene everkinetic-Übungen."""
+    """Je Slug ein Eintrag in Bibliotheksform, für übernommene everkinetic-Übungen."""
     if not EK_JSON.exists():
         return {}
     out = {}
@@ -182,13 +182,13 @@ def tokens(s: str) -> frozenset:
         if not w or w in STOPWORDS:
             continue
         if len(w) > 3 and w.endswith("s") and not w.endswith("ss"):
-            w = w[:-1]          # grobe Einzahl: shrugs -> shrug
+            w = w[:-1]          # grobe Einzahl: aus shrugs wird shrug
         out.add(w)
     return frozenset(out)
 
 
 def render(src: Path, dest: Path) -> None:
-    """Schwarze Striche -> weiße Striche im Alphakanal, gerundet und verlustfrei."""
+    """Macht aus schwarzen Strichen weiße im Alphakanal, gerundet und verlustfrei."""
     im = Image.open(src)
     w = WIDTH
     h = round(im.height * (w / im.width))
@@ -312,17 +312,17 @@ def main() -> None:
 
     adopted.sort(key=lambda r: r["n"])
     (ROOT / "js" / "exercise-extra.js").write_text(
-        "// ERZEUGT, bitte nicht von Hand ändern. Neu bauen mit tools/build_exercise_images.py\n"
+        "// Erzeugt, bitte nicht von Hand ändern. Neu bauen mit tools/build_exercise_images.py\n"
         "//\n"
         "// Übungen aus everkinetic (CC-BY-SA 4.0), übernommen, weil sie Bilder mitbringen,\n"
         "// aber im Katalog von free-exercise-db kein Gegenstück hatten.\n"
         "// Gleicher Aufbau wie js/exercise-library.js.\n"
         f"export const LIBRARY_EXTRA = {json.dumps(adopted, ensure_ascii=False, separators=(',', ':'))};\n"
     )
-    print(f"adopted {len(adopted)} extra exercises -> js/exercise-extra.js")
+    print(f"adopted {len(adopted)} extra exercises in js/exercise-extra.js")
 
     (ROOT / "js" / "exercise-images.js").write_text(
-        "// ERZEUGT, bitte nicht von Hand ändern. Neu bauen mit tools/build_exercise_images.py\n"
+        "// Erzeugt, bitte nicht von Hand ändern. Neu bauen mit tools/build_exercise_images.py\n"
         "//\n"
         "// Bilder zu den Übungen aus everkinetic (CC-BY-SA 4.0).\n"
         "// https://github.com/everkinetic/data\n"

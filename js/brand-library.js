@@ -1,4 +1,4 @@
-// ERZEUGT von tools/build_brands.py, bitte nicht von Hand ändern.
+// Erzeugt von tools/build_brands.py, bitte nicht von Hand ändern.
 //
 // Markenprodukte aus Open Food Facts, gefiltert auf Artikel, die in Deutschland
 // verkauft werden. Werte pro 100 g oder 100 ml, so wie sie eingetragen wurden.

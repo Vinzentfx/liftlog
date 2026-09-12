@@ -134,7 +134,7 @@ export function lineChart(points, opts = {}) {
     const sx = (x) => padL + (xMax === xMin ? plotW / 2 : ((x - xMin) / (xMax - xMin)) * plotW);
     const sy = (y) => padT + plotH - ((y - yMin) / (yMax - yMin || 1)) * plotH;
 
-    // --- dezentes Raster und y-Beschriftung ---
+    // dezentes Raster und y-Beschriftung
     for (const tick of niceTicks(yMin, yMax, 4)) {
       const y = sy(tick);
       svg.append(svgEl('line', { class: 'grid', x1: padL, x2: W - padR, y1: y, y2: y }));
@@ -143,7 +143,7 @@ export function lineChart(points, opts = {}) {
       svg.append(label);
     }
 
-    // --- x-Beschriftung: nur erste und letzte, dann können sie sich nicht überlappen ---
+    // x-Beschriftung: nur erste und letzte, dann können sie sich nicht überlappen
     if (xLabels) [[data[0], 'start'], [data[data.length - 1], 'end']].forEach(([p, anchor]) => {
       const label = svgEl('text', {
         class: 'axis', x: anchor === 'start' ? padL : W - padR,
@@ -185,7 +185,7 @@ export function lineChart(points, opts = {}) {
       data.forEach((p) => svg.append(svgEl('circle', { class: 'dot', cx: sx(p.x), cy: sy(p.y), r: 3.5 })));
     }
 
-    // --- Fadenkreuz und Tooltip ---
+    // Fadenkreuz und Tooltip
     const cross = svgEl('line', { class: 'cross', y1: padT, y2: padT + plotH, x1: 0, x2: 0, opacity: 0 });
     const focus = svgEl('circle', { class: 'dot', r: 5, cx: 0, cy: 0, opacity: 0 });
     svg.append(cross, focus);

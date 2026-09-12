@@ -12,10 +12,10 @@
 3. In Supabase unter **Integrations > Cron > Jobs > Create job** einen HTTP-Job
    anlegen:
 
-   - Zeitplan: `*/5 * * * *`
-   - Methode: `POST`
-   - URL: `https://txjikhreoshmkjuyomki.supabase.co/functions/v1/send-creatine-reminders`
-   - Header: `x-cron-secret` mit dem Wert `CREATINE_CRON_SECRET` aus der lokalen,
+   * Zeitplan: `*/5 * * * *`
+   * Methode: `POST`
+   * URL: `https://txjikhreoshmkjuyomki.supabase.co/functions/v1/send-creatine-reminders`
+   * Header: `x-cron-secret` mit dem Wert `CREATINE_CRON_SECRET` aus der lokalen,
      gitignorierten Datei `server/.vapid-secrets`
 
 Die Funktion läuft alle fünf Minuten, verschickt aber pro Person höchstens die

@@ -55,7 +55,7 @@ const rgba = (hex, a) => {
 
 const BODY_ART = ['assets/body-front.svg', 'assets/body-back.svg'];
 
-/* ============================== Daten ============================== */
+/* Daten */
 
 const nextWeek = (weekStart) => {
   const d = new Date(weekStart);
@@ -120,7 +120,7 @@ export function weekSummary({
           steps: rankOf(rating.overall).steps,
           rated: rating.ratedRegions,
           total: rating.totalRegions,
-          // Differenz der GERUNDETEN Werte, nicht die gerundete Differenz. Die Karte
+          // Differenz der gerundeten Werte, nicht die gerundete Differenz. Die Karte
           // zeigt ganze Zahlen, und eine Woche von 28,5 auf 29,4 darf keine 29 neben
           // "keine Änderung" zeigen, wenn die Karte der Vorwoche eine 28 hatte.
           delta: startRating
@@ -161,8 +161,8 @@ function weekLabel(weekStart, weekEnd) {
  * eine Wand aus Rekorden, und der ganze Abschnitt wäre wertlos.
  */
 function newBests(finished, exerciseById, weekStart, weekEnd) {
-  const before = new Map();   // Übungs-ID -> bestes e1RM vor dieser Woche
-  const during = new Map();   // Übungs-ID -> bester Satz dieser Woche
+  const before = new Map();   // je Übungs-ID: bestes e1RM vor dieser Woche
+  const during = new Map();   // je Übungs-ID: bester Satz dieser Woche
 
   for (const s of finished) {
     if (s.startedAt > weekEnd) continue;    // spätere Einheiten gehören nicht zu dieser Woche
@@ -257,7 +257,7 @@ function muscleMap(mapMode, { finished, exerciseById, rating, weekEnd }) {
   };
 }
 
-/* ============================= Zeichnen ============================= */
+/* Zeichnen */
 
 /** @returns {Promise<HTMLCanvasElement>} */
 export async function renderCard(summary, { scale = 2 } = {}) {
@@ -338,7 +338,7 @@ function header(ctx, d, y) {
   return y + 17;
 }
 
-/* ---------- Kopf ---------- */
+/* Kopf */
 
 function hero(ctx, d, y) {
   const h = 128;
@@ -391,7 +391,7 @@ function deltaBadge(ctx, v, y) {
   });
 }
 
-/* ---------- Kennzahlen ---------- */
+/* Kennzahlen */
 
 function stats(ctx, d, y) {
   const gap = 8;
@@ -423,7 +423,7 @@ function stats(ctx, d, y) {
   return y + h;
 }
 
-/* ---------- Muskelkarte ---------- */
+/* Muskelkarte */
 
 function map(ctx, d, art, y, measure = false) {
   const top = sectionHead(ctx, t('home.map.title'), y, d.mapTitle);
@@ -498,7 +498,7 @@ function layoutLegend(ctx, items, max) {
   return rows;
 }
 
-/* ---------- neue Bestwerte ---------- */
+/* neue Bestwerte */
 
 function bests(ctx, d, y) {
   const top = sectionHead(ctx, t('weekCard.newBests'), y, t('progress.metric.e1rmNoun'));
@@ -521,7 +521,7 @@ function bests(ctx, d, y) {
   return top + h;
 }
 
-/* ---------- Volumen gegen Plan ---------- */
+/* Volumen gegen Plan */
 
 function volume(ctx, d, y) {
   const top = sectionHead(ctx, t('plans.part.volume'), y,
@@ -602,7 +602,7 @@ function volume(ctx, d, y) {
   return top + h;
 }
 
-/* ---------- Fußzeile ---------- */
+/* Fußzeile */
 
 function footer(ctx, d, y) {
   ctx.strokeStyle = C.lineSoft;
@@ -629,7 +629,7 @@ function appUrl() {
   }
 }
 
-/* ---------- Kleinteile ---------- */
+/* Kleinteile */
 
 function panel(ctx, x, y, w, h, { glow = null } = {}) {
   const grad = ctx.createLinearGradient(x, y, x + w * 0.4, y + h);

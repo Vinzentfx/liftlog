@@ -9,7 +9,7 @@
 // Rückfall auf Englisch ist genau das, was verhindert werden soll. Deshalb ist der
 // Rückfall laut: er warnt, und der Test wird rot.
 //
-// Übungsnamen, Anleitungen und die Lebensmittel werden NICHT übersetzt. Das sind
+// Übungsnamen, Anleitungen und die Lebensmittel werden nicht übersetzt. Das sind
 // erzeugte Datendateien (free-exercise-db, USDA FoodData Central, Open Food Facts)
 // ohne deutsche Quelle. Der Übungsname ist außerdem der Schlüssel, über den
 // `plan-share.js` einen geteilten Plan auflöst. Ihn zu übersetzen würde jeden Link
@@ -27,7 +27,7 @@ const FALLBACK = 'en';
 
 let current = 'en';
 
-/** 'de' | 'en' | null -> eine Sprache, die es gibt. null oder 'auto' folgt dem Gerät. */
+/** Macht aus 'de' | 'en' | null eine Sprache, die es gibt. null oder 'auto' folgt dem Gerät. */
 export function resolveLanguage(pref) {
   if (pref && STRINGS[pref]) return pref;
   const device = typeof navigator === 'undefined'

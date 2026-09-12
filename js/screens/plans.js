@@ -44,7 +44,7 @@ export default function renderPlans({ param, actions }) {
   return listView();
 }
 
-/* ============================ Liste ============================ */
+/* Liste */
 
 function listView() {
   const root = el('div');
@@ -191,7 +191,7 @@ function blueprintSheet(bp, preview = previewBlueprint(bp)) {
   openSheet(bp.name, body);
 }
 
-/* ============================ Plan ============================ */
+/* Plan */
 
 function planView(planId) {
   const plan = store.state.plans.find((p) => p.id === planId);
@@ -659,7 +659,7 @@ function exerciseRow(plan, day, item) {
   ]);
 }
 
-/* ============================ Menüs ============================ */
+/* Menüs */
 
 function itemMenu(plan, day, item, ex) {
   const itemIndex = day.items.indexOf(item);

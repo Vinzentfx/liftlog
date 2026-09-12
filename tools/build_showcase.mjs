@@ -24,7 +24,7 @@ import {
 } from '../js/models.js';
 import { PLAN_BLUEPRINTS, buildPlanDays } from '../js/plan-builder.js';
 
-/* ============================ Wiederholbarkeit ============================ */
+/* Wiederholbarkeit */
 
 /** Mit festem Startwert, damit ein neuer Lauf dieselbe Datei ergibt. Eine Vorführung soll nicht wandern. */
 function rng(seed) {
@@ -44,7 +44,7 @@ const chance = (p) => rand() < p;
 let counter = 0;
 const uid = (prefix = '') => `${prefix}sc${(counter++).toString(36).padStart(4, '0')}`;
 
-/* ============================== Profil ============================== */
+/* Profil */
 
 const WEEKS = 26;
 const START_BW = 78.5;
@@ -58,7 +58,7 @@ const dayOffset = (n) => {
   return d;
 };
 
-/* ============================= Übungen ============================= */
+/* Übungen */
 
 const exercises = seedExercises(uid);
 const byName = new Map(exercises.map((e) => [normName(e.name), e]));
@@ -76,7 +76,7 @@ for (const [name, rating] of [
   if (rating >= 4) ex.favourite = true;
 }
 
-/* =============================== Plan =============================== */
+/* Plan */
 
 const blueprint = PLAN_BLUEPRINTS.find((b) => b.key === 'pplul') || PLAN_BLUEPRINTS[0];
 const days = buildPlanDays(blueprint, exercises, { sets: 2, reps: '6-10' });
@@ -98,7 +98,7 @@ const plan = {
   updatedAt: today.getTime(),
 };
 
-/* ============================= Training ============================= */
+/* Training */
 
 /**
  * Wo jede Übung anfängt und wie schnell sie steigt.
@@ -233,7 +233,7 @@ for (let week = WEEKS - 1; week >= 0; week--) {
   }
 }
 
-/* ============================ Körpergewicht ============================ */
+/* Körpergewicht */
 
 const bodyweight = [];
 for (let d = WEEKS * 7; d >= 0; d--) {
@@ -251,7 +251,7 @@ for (let d = WEEKS * 7; d >= 0; d--) {
   });
 }
 
-/* ============================== Essen ============================== */
+/* Essen */
 
 /** Name, Portion, Eiweiß, kcal, Kohlenhydrate, Fett, Ballaststoffe */
 const FOODS = [
@@ -376,7 +376,7 @@ for (let d = FOOD_WEEKS * 7; d >= 0; d--) {
   if (chance(0.85)) water.push({ day: key, ml: 250 * Math.round(between(5, 11)) });
 }
 
-/* ========================== gespeicherte Mahlzeiten ========================== */
+/* gespeicherte Mahlzeiten */
 
 const templates = [
   newTemplate(uid, {
@@ -407,7 +407,7 @@ for (const f of foods) {
   f.uses = meals.filter((m) => m.foodId === f.id).length;
 }
 
-/* ============================= Ausgabe ============================= */
+/* Ausgabe */
 
 const settings = {
   ...DEFAULT_SETTINGS,

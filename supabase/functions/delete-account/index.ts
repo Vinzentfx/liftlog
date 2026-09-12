@@ -1,5 +1,5 @@
 // Konto vollständig löschen. Zur privilegierten Löschung in Auth kommt nur, wer
-// angemeldet ist UND die Besitzer-Berechtigung des Hauptgeräts hat.
+// angemeldet ist und die Besitzer-Berechtigung des Hauptgeräts hat.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "jsr:@supabase/server@^1";
 

@@ -9,7 +9,7 @@
 // Was sie wirklich bringt: niemand stolpert zufällig hinein und benutzt sie, und
 // ohne Code erreicht nichts den Server. Eine Tür, kein Tresor.
 //
-// Die Regel, die wichtiger ist als die Sperre selbst: SIE FRAGT EINMAL. Ist ein
+// Die Regel, die wichtiger ist als die Sperre selbst: sie fragt einmal. Ist ein
 // Gerät einmal entsperrt, bleibt es das, offline und unbegrenzt. Die eine Stelle, an
 // der die App nie versagen darf, ist mitten im Satz in einem Keller ohne Empfang,
 // und eine Anmeldeprüfung bei jedem Start würde genau dort versagen.
@@ -85,7 +85,7 @@ export async function recheck() {
   }
 }
 
-/* ================================ der Screen ================================ */
+/* der Screen */
 
 /** Legt sich über alles und ruft `onOpen` auf, sobald das Gerät entsperrt ist. */
 export async function show(onOpen) {

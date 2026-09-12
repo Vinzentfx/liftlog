@@ -254,7 +254,7 @@ const SEED = [
   ['Seated Dip Machine', 'Triceps', 'Machine'],
 ];
 
-/** Grobe Muskelgruppe -> Regionen der Muskelkarte, für die gepflegten Einträge. */
+/** Regionen der Muskelkarte je grober Muskelgruppe, für die gepflegten Einträge. */
 const COARSE_REGIONS = {
   Chest: ['chest'], Back: ['lats'], Shoulders: ['delts-front'],
   Biceps: ['biceps'], Triceps: ['triceps'], Quads: ['quads'],
@@ -276,7 +276,7 @@ export function regionsForMuscle(muscle) {
 export const LIBRARY_VERSION = 11;
 
 /**
- * Wird für einmalige Reparaturen an GESPEICHERTEN Einträgen erhöht, unabhängig vom
+ * Wird für einmalige Reparaturen an gespeicherten Einträgen erhöht, unabhängig vom
  * Katalog. Absichtlich getrennt von LIBRARY_VERSION: eine Datenreparatur muss auch dann
  * laufen, wenn sich die Übungsliste nicht geändert hat, und die Katalogversion zu
  * erhöhen, um eine Migration auszulösen, würde das Auffüllen umsonst noch einmal laufen lassen.
@@ -301,11 +301,11 @@ function tokenSet(name) {
 }
 
 /**
- * Vom ähnlichsten Katalogeintrag NUR die Beschreibung leihen, mit strenger Schwelle.
+ * Vom ähnlichsten Katalogeintrag nur die Beschreibung leihen, mit strenger Schwelle.
  *
  * Anatomie wird absichtlich nie geliehen. Ein unscharfer Namensvergleich reicht, um Text
  * zu leihen, aber nicht, um Muskeln zuzuordnen. Eine frühe Version hat daraus
- * "Deadlift -> Latissimus" und "Barbell Row -> vordere Schulter" abgeleitet, und das hätte
+ * "Deadlift trifft Latissimus" und "Barbell Row trifft vordere Schulter" abgeleitet, und das hätte
  * die Muskelkarte still verfälscht. Regionen kommen aus CONTRIB (von Hand, pro Übung)
  * oder der groben Zuordnung, nie aus einer Vermutung.
  */
@@ -425,7 +425,7 @@ export function normName(name) {
 
 /**
  * free-exercise-db legt jede Schulterübung in denselben Topf "shoulders", Reverse Flys und
- * Face Pulls kommen also als VORDERE Schulter an. So gelassen gäbe es im ganzen Katalog
+ * Face Pulls kommen also als vordere Schulter an. So gelassen gäbe es im ganzen Katalog
  * nur zwei Übungen für die hintere Schulter, der Plan-Generator verhungert, und die
  * Muskelkarte stimmt nicht.
  *
@@ -441,7 +441,7 @@ export function refineRegions(name, primary = [], secondary = []) {
   return { primary: p, secondary: s };
 }
 
-// ---------- Fabriken ----------
+// Fabriken
 
 export function newSession(uid, {
   name = 'Workout', planId = null, dayId = null, entries = [], plannedDurationMs = null,
@@ -565,7 +565,7 @@ const optionalGrams = (v) => {
  *
  * Die Einträge verweisen über die ID auf Lebensmittel und kopieren keine Werte, anders
  * als eine eingetragene Mahlzeit. Das ist gewollt: eine eingetragene Mahlzeit ist Verlauf
- * und darf sich nie ändern, eine Vorlage ist ein REZEPT, und korrigiert man das Eiweiß
+ * und darf sich nie ändern, eine Vorlage ist ein Rezept, und korrigiert man das Eiweiß
  * beim Quark, soll das beim nächsten eingetragenen Frühstück mitkommen.
  */
 export function newTemplate(uid, { name, items = [], slot = null }) {
@@ -593,7 +593,7 @@ export function newSet(prev = null) {
   return {
     weight: prev ? prev.weight : null,
     reps: prev ? prev.reps : null,
-    // Wiederholungen in Reserve. Absichtlich NICHT vom vorigen Satz übernommen: Gewicht und
+    // Wiederholungen in Reserve. Absichtlich nicht vom vorigen Satz übernommen: Gewicht und
     // Wiederholungen sind ein Plan, den man wiederholt, die Anstrengung ist eine
     // Beobachtung hinterher, und sie vorauszufüllen würde daraus einen Standardwert machen,
     // den keiner korrigiert.
@@ -610,7 +610,7 @@ export function newSet(prev = null) {
   };
 }
 
-// ---------- Rechnerei ----------
+// Rechnerei
 
 const E1RM_WINDOW = THRESHOLDS.e1rmWindow;
 
@@ -695,7 +695,7 @@ export function estimatePlanDuration(items, restSeconds = 180) {
 }
 
 /**
- * Die letzte ABGESCHLOSSENE Einheit mit echter Arbeit für diese Übung. Daraus kommt die
+ * Die letzte abgeschlossene Einheit mit echter Arbeit für diese Übung. Daraus kommt die
  * Zeile "letztes Mal", die wichtigste Zahl auf dem Screen zum Eintragen.
  */
 export function lastPerformance(sessions, exerciseId, excludeSessionId = null) {
@@ -790,7 +790,7 @@ export function personalRecords(sessions, exerciseId) {
 }
 
 /**
- * Das beste geschätzte 1RM je Übung aller Zeiten, nach Übungs-NAME (die Tabellen der
+ * Das beste geschätzte 1RM je Übung aller Zeiten, nach Übungsname (die Tabellen der
  * Kraftstandards hängen am Namen, nicht an der ID).
  * @returns {Map<string, number>}
  */
@@ -872,7 +872,7 @@ export function bestOneRepMaxByName(sessions, exerciseById, profile = null) {
   return best;
 }
 
-/** Kleinste-Quadrate-Gerade über [x, y]-Paare -> { slope, intercept } oder null. */
+/** Kleinste-Quadrate-Gerade über [x, y]-Paare, ergibt { slope, intercept } oder null. */
 export function linearFit(points) {
   const n = points.length;
   if (n < 2) return null;

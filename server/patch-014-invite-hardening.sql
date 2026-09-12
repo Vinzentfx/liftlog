@@ -4,7 +4,7 @@
 -- Zwei getrennte Probleme, gefunden durch Lesen dessen, was die Transaktion tut, und nicht
 -- dessen, was die Funktion sagt.
 --
--- 1. DIE GRENZEN HABEN NIE GEZÄHLT. `consume_security_attempt` hält einen Versuch fest und
+-- 1. Die Grenzen haben nie gezählt. `consume_security_attempt` hält einen Versuch fest und
 --    gibt zurück, ob er im Rahmen lag. Jeder Aufrufer meldet einen falschen Code dann mit
 --    `raise exception`, das bricht die Transaktion ab, in der die RPC läuft, und rollt die
 --    Zeile zurück, die gerade geschrieben wurde. Ein falscher Versuch ließ den Zähler also
@@ -13,7 +13,7 @@
 --    einen Status als Text zurück und schreiben fest, ein gezählter Versuch bleibt also
 --    gezählt. `claim_ownership` hatte denselben Fehler und ist genauso behoben.
 --
--- 2. DIE GRENZE HATTE OHNEHIN DIE FALSCHE FORM. Sie hängt an `auth.uid()`, und registrieren
+-- 2. Die Grenze hatte ohnehin die falsche Form. Sie hängt an `auth.uid()`, und registrieren
 --    kann sich jeder, zehn Versuche pro Gratiskonto sind also unbegrenztes Raten. Das war
 --    nur wichtig, weil die Codes kurz und selbst ausgedacht waren, in der Form `MARCEL-2026`:
 --    ein Vorname und ein Jahr.
@@ -31,7 +31,7 @@
 -- Der Client kommt mit beiden Versionen der Funktionen zurecht, die App läuft also zwischen
 -- dem Einspielen hiervon und dem Ausliefern des passenden JavaScripts weiter.
 
--- ------------------------------------------------------------- globale Sperre --
+-- globale Sperre
 
 create table if not exists public.invite_guard (
   id boolean primary key default true check (id),
@@ -71,7 +71,7 @@ returns boolean language sql stable security definer set search_path = public as
   ), false);
 $$;
 
--- ------------------------------------------------------------ claim_invite --
+-- claim_invite
 
 -- Gibt einen Status zurück, statt zu werfen, damit ein gezählter Versuch den Aufruf übersteht.
 -- 'OK' bei Erfolg, sonst der Grund. Der Rumpf ist sonst der aus Patch 004, ganz übernommen,
@@ -144,7 +144,7 @@ begin
 end;
 $$;
 
--- --------------------------------------------------------- claim_ownership --
+-- claim_ownership
 
 -- Derselbe Fehler beim Zurückrollen, dieselbe Lösung. Der Wiederherstellungsschlüssel hat 128
 -- Bit, die Grenze stand also nie zwischen einem Angreifer und einem Konto. Behoben wird es,
@@ -176,7 +176,7 @@ begin
   return 'OK';
 end; $$;
 
--- ------------------------------------------------------------ Codes erzeugen --
+-- Codes erzeugen
 
 -- 16 Zeichen aus einem Alphabet mit 30 Zeichen: knapp über 78 Bit. Das Alphabet lässt 0/O/1/I/L/U
 -- weg, damit man einen Code am Telefon vorlesen kann, ohne über die Schreibweise zu streiten,
@@ -211,7 +211,7 @@ grant execute on function public.claim_ownership(text, uuid, text) to authentica
 
 notify pgrst, 'reload schema';
 
--- -------------------------------------------------------------------- so geht's --
+-- so geht's
 --
 -- Einen Code erzeugen und einmal auslesen:
 --   select public.new_invite('Marcel');

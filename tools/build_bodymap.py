@@ -23,7 +23,7 @@ ASSETS = ROOT / "assets"
 # Die viewBoxen der Quelle: Vorder- und Rückseite liegen nebeneinander in einem Koordinatenraum.
 VIEWBOX = {"front": "0 0 35 93", "back": "37 0 35 93"}
 
-# Präfix der Quell-ID (ohne -left/-right) -> unser Regionsschlüssel.
+# je Präfix der Quell-ID (ohne left/right am Ende): unser Regionsschlüssel.
 # Alles, was nicht aufgeführt ist, wird zu body-base ohne Muskel (Kopf, Hände, Füße, Gelenke).
 REGION_OF = {
     "chest-upper": "chest", "chest-lower": "chest",
@@ -85,7 +85,7 @@ def build(entries, view: str) -> str:
     label = "Front" if view == "front" else "Back"
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="{VIEWBOX[view]}" role="img" aria-label="{label} view muscle map">
   <!--
-    ERZEUGT, neu bauen mit tools/build_bodymap.py
+    Erzeugt, neu bauen mit tools/build_bodymap.py
 
     Muskelpfade aus body-muscles (https://github.com/vulovix/body-muscles),
     Lizenz Apache-2.0. Die rund 90 feinen Muskeln sind auf die 15 Regionen
@@ -122,7 +122,7 @@ def main() -> None:
 
         regions = sorted({r for _, _, r, _ in entries if r})
         unmapped = sorted({b for _, b, r, _ in entries if not r})
-        print(f"{view}: {len(entries)} paths -> {dest.name} ({dest.stat().st_size // 1024} KB)")
+        print(f"{view}: {len(entries)} paths in {dest.name} ({dest.stat().st_size // 1024} KB)")
         print(f"   regions: {', '.join(regions)}")
         print(f"   body-base: {', '.join(unmapped)}")
 

@@ -1,4 +1,4 @@
-/* ============ Tokens ============
+/* Tokens
    Absichtlich nur dunkel: der Leuchteffekt unten gibt der App ihren Look, und auf einer
    hellen Fläche sieht Leuchten wie Schmutz aus. */
 :root {
@@ -143,7 +143,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 2px; }
 input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
 
-/* ============ Layout ============ */
+/* Layout */
 #app {
   position: relative; width: 100%; height: 100vh; height: 100dvh;
   min-height: 0; overflow: hidden;
@@ -242,7 +242,7 @@ body.resting #screen { padding-bottom: 102px; }
   background: var(--accent-hi); box-shadow: 0 0 10px 1px rgba(96, 165, 250, .9);
 }
 
-/* ============ Grundbausteine ============ */
+/* Grundbausteine */
 .card {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, .025), transparent 42%),
@@ -692,7 +692,7 @@ label.field > span {
 .list-item .li-sub { font-size: 13px; color: var(--text-dim); margin-top: 1px; }
 .list-item .chev { color: var(--text-faint); font-size: 18px; }
 
-/* ============ Wertung ============ */
+/* Wertung */
 .tier-0 { --tier: var(--t0); }
 .tier-1 { --tier: var(--t1); }
 .tier-2 { --tier: var(--t2); }
@@ -767,7 +767,7 @@ label.field > span {
 }
 .outlier .btn { color: var(--warn); font-weight: 700; }
 
-/* ============ Rangabzeichen ============ */
+/* Rangabzeichen */
 
 /* Das Abzeichen erbt --tier von einem Vorfahren .tier-N oder bringt es selbst mit. Es ist
    in 64x64 gezeichnet und skaliert, eine Definition reicht also für Chip und Feier. */
@@ -820,7 +820,7 @@ label.field > span {
 /* Auf einer Übungskarte ist der Hinweis eine graue Zeile unter mehreren, kein Kasten. */
 .pop-line { line-height: 1.35; }
 
-/* ============ Aufstieg ============ */
+/* Aufstieg */
 
 .rank-up-overlay {
   position: fixed; inset: 0; z-index: 60;
@@ -945,7 +945,7 @@ label.field > span {
   background: linear-gradient(90deg, var(--accent), var(--accent-hi));
 }
 
-/* ============ Ernährung ============ */
+/* Ernährung */
 
 /* Die Aufteilung der Energie des Tages. Ein Balken, drei Abschnitte, jeder beschriftet. Die
    Farbe unterscheidet sie, trägt aber nie allein die Zahl. */
@@ -1012,7 +1012,7 @@ label.field > span {
 }
 .rating-sub { font-size: 13px; color: var(--text-dim); margin-top: 7px; }
 
-/* ============ Übungsbilder ============ */
+/* Übungsbilder */
 /* Vorschaubild in der Zeile. Ein fester Platz in jeder Zeile, ob es ein Bild gibt oder
    nicht, damit die Titel in einer Liste von 898 trotzdem untereinander stehen. */
 .ex-thumb {
@@ -1043,9 +1043,9 @@ label.field > span {
   color: var(--text-faint); margin-top: 4px;
 }
 
-/* ============ Muskelkarte ============ */
+/* Muskelkarte */
 .bodymap { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-/* Die viewBox der Vorlage ist 35x93, also sehr hoch. Die BREITE deckeln, nicht die Höhe:
+/* Die viewBox der Vorlage ist 35x93, also sehr hoch. Die Breite deckeln, nicht die Höhe:
    max-height bei einem eingebetteten SVG mit width:100% verzerrt es, weil die Breite nicht
    mitschrumpft. 130 px Breite ergeben eine Figur von ~345 px. */
 .bodymap svg { display: block; width: 100%; max-width: 130px; height: auto; margin: 0 auto; }
@@ -1064,7 +1064,7 @@ label.field > span {
   text-transform: uppercase; color: var(--text-faint); margin-top: 2px;
 }
 
-/* ============ laufendes Training ============ */
+/* laufendes Training */
 .exercise-block { margin-bottom: 14px; }
 .exercise-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .exercise-head h3 { margin: 0; font-size: 17px; font-weight: 680; letter-spacing: -0.012em; flex: 1; }
@@ -1235,7 +1235,7 @@ button.suggest .row { align-items: baseline; }
 }
 .machine-line:active { color: var(--text-dim); }
 
-/* ============ Pausentimer ============ */
+/* Pausentimer */
 #rest-bar {
   position: absolute; left: 10px; right: 10px;
   bottom: calc(var(--above-tabbar) + 10px);
@@ -1266,7 +1266,7 @@ button.suggest .row { align-items: baseline; }
   transition: transform .95s linear;
 }
 
-/* ============ Sheet ============ */
+/* Sheet */
 #sheet-host { position: fixed; inset: 0; z-index: 60; }
 #sheet-host[hidden] { display: none; }
 #sheet-scrim { position: absolute; inset: 0; background: rgba(2, 5, 12, .68); backdrop-filter: blur(2px); animation: fade .16s ease; }
@@ -1313,7 +1313,7 @@ button.suggest .row { align-items: baseline; }
 @keyframes slideup { from { transform: translateY(100%); } }
 @keyframes fade { from { opacity: 0; } }
 
-/* ============ Toast ============ */
+/* Toast */
 #toast {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(var(--above-tabbar) + 20px); z-index: 70;
@@ -1332,7 +1332,7 @@ button.suggest .row { align-items: baseline; }
   text-transform: uppercase; letter-spacing: .04em;
 }
 
-/* ============ Kennzahlen und Diagramme ============ */
+/* Kennzahlen und Diagramme */
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
 .stat-grid.two { grid-template-columns: repeat(2, 1fr); }
 .stat-grid .span-all { grid-column: 1 / -1; }

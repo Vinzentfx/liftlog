@@ -50,7 +50,7 @@ def main() -> None:
     port = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get("PORT", 5173))
     handler = partial(NoCacheHandler, directory=str(ROOT))
     with ThreadingHTTPServer(("127.0.0.1", port), handler) as httpd:
-        print(f"LiftLog dev server → http://localhost:{port}  (no-store)")
+        print(f"LiftLog Entwicklungsserver auf http://localhost:{port}  (no-store)")
         httpd.serve_forever()
 
 

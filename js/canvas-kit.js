@@ -5,7 +5,7 @@
 // html2canvas wäre eine Abhängigkeit, und der übliche Trick, HTML in ein
 // <svg><foreignObject> zu packen und zu rastern, funktioniert in WebKit gar nicht.
 // Und WebKit ist der einzige Browser, in dem die App auf dem Handy läuft, für das
-// sie gebaut ist. Die Karte wird also mit diesen Grundformen GEZEICHNET.
+// sie gebaut ist. Die Karte wird also mit diesen Grundformen gezeichnet.
 //
 // Das Einzige, was sich nicht von Hand zeichnen lässt, ist die Muskelkarte. Deren
 // Formen sind aber schon Vektoren, also liest `loadPaths` dieselben zwei SVG-Dateien,
@@ -17,7 +17,7 @@ const FAMILY = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sy
 
 export const font = (size, weight = 400) => `${weight} ${size}px ${FAMILY}`;
 
-/* ============================ Formen ============================ */
+/* Formen */
 
 /** ctx.roundRect gibt es erst ab Safari 16, so läuft die Karte auch auf älteren Handys. */
 export function roundRect(ctx, x, y, w, h, r) {
@@ -44,7 +44,7 @@ export function strokeRound(ctx, x, y, w, h, r, stroke, width = 1) {
   ctx.stroke();
 }
 
-/* ============================= Text ============================= */
+/* Text */
 
 /**
  * @param o {size, weight, color, align, baseline, track, max}
@@ -122,7 +122,7 @@ export function wrapLines(ctx, str, max, { size = 13, weight = 400 } = {}) {
   return lines;
 }
 
-/* =========================== SVG-Pfade =========================== */
+/* SVG-Pfade */
 
 const artCache = new Map();
 
@@ -205,7 +205,7 @@ function contentBox(svgNode) {
 /**
  * Geladene Pfade in einen Kasten mit vorgegebener Breite zeichnen, mit festem Seitenverhältnis.
  *
- * @param fillFor  Region -> Farbe, oder null für unbeleuchtet
+ * @param fillFor  Farbe je Region, oder null für unbeleuchtet
  * @returns die Höhe, die die Zeichnung gebraucht hat
  */
 export function drawPaths(ctx, art, x, y, width, opts = {}) {

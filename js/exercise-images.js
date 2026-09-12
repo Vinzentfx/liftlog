@@ -1,4 +1,4 @@
-// ERZEUGT, bitte nicht von Hand ändern. Neu bauen mit tools/build_exercise_images.py
+// Erzeugt, bitte nicht von Hand ändern. Neu bauen mit tools/build_exercise_images.py
 //
 // Bilder zu den Übungen aus everkinetic (CC-BY-SA 4.0).
 // https://github.com/everkinetic/data

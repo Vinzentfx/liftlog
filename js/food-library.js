@@ -1,4 +1,4 @@
-// ERZEUGT von tools/build_foods.py, bitte nicht von Hand ändern.
+// Erzeugt von tools/build_foods.py, bitte nicht von Hand ändern.
 //
 // Allgemeine Lebensmittel aus USDA FoodData Central (Foundation Foods und SR
 // Legacy). Das sind Werke der US-Bundesregierung und damit gemeinfrei. Werte pro

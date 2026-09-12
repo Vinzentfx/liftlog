@@ -3,7 +3,7 @@
 // Die alte Version steckte in einer Funktion auf dem Trainieren-Screen und stellte eine
 // einzige Frage: haben letztes Mal alle Sätze das obere Ende des Wiederholungsbereichs
 // geschafft? Diese Regel ist in beide Richtungen gleichzeitig falsch. Sie verweigert mehr
-// Gewicht, weil Satz vier auf sieben Wiederholungen gefallen ist, und genau das SOLL Satz
+// Gewicht, weil Satz vier auf sieben Wiederholungen gefallen ist, und genau das soll Satz
 // vier tun. Und sie weiß nicht, ob die letzte Einheit die erste Übung des Tages war oder
 // die fünfte. Zwei Leute mit gleichem Log, einer hat frisch gedrückt und einer nach neun
 // Sätzen Brust, bekamen denselben Rat.
@@ -21,7 +21,7 @@
 //     Einheiten sind die Untergrenze, darunter gibt es nur die letzte.
 //
 //  4. Der erste Arbeitssatz entscheidet. Spätere Sätze fallen aus Gründen ab, die nichts
-//     damit zu tun haben, ob das Gewicht passte. Sie fließen also in den Rat INNERHALB
+//     damit zu tun haben, ob das Gewicht passte. Sie fließen also in den Rat innerhalb
 //     einer Einheit ein und nie in den zwischen Einheiten.
 //
 // Zwei Konstanten unten sind Annahmen und keine Befunde und auch so markiert. Beide werden
@@ -32,7 +32,7 @@ import { e1rm, isCounted, effectiveSetWeight, linearFit, bodyweightLoadMode } fr
 import { platePlan } from './plates.js';
 import { anatomyOf, DIRECT_CONTRIBUTION } from './standards.js';
 
-/* ===================== Anstrengung ===================== */
+/* Anstrengung */
 
 /**
  * Was ein Satz über die Maximalkraft sagt, mit dem gezählt, was in Reserve blieb.
@@ -63,7 +63,7 @@ const hasEffort = (set) => set.rir !== null && set.rir !== undefined;
 const reserveOf = (set, assumedRir = 0) =>
   hasEffort(set) ? Math.max(0, Number(set.rir)) : Math.max(0, Math.min(4, Number(assumedRir) || 0));
 
-/* ===================== wo in der Einheit ===================== */
+/* wo in der Einheit */
 
 /**
  * Die Ermüdung durch einen schon gemachten Satz, pro Satz, bevor diese Übung anfängt.
@@ -87,16 +87,16 @@ const MAX_FATIGUE = 0.15;
  * zwei Dinge gleichzeitig falsch gemacht. Sie hat einen Treffer gegen `primary.size`
  * gezählt, eine Übung, die der Katalog unter drei Muskeln führt, kam also von keinem
  * einzelnen über ein Drittel hinaus. Und sie hat nie in ANATOMY geschaut, die von Hand
- * bewertete Tabelle, die die Bewertung seit einem Jahr benutzt. Der REST der App wusste
+ * bewertete Tabelle, die die Bewertung seit einem Jahr benutzt. Der Rest der App wusste
  * also, dass eine Rudermaschine mit Bruststütze 1,0 Trapez ist, diese Funktion nicht.
  *
  * Der Ersatz stellt die Frage, um die es der Korrektur wirklich geht: von den Muskeln, die
- * diese Übung ANFÜHRT, wie viel wurde schon gearbeitet. Gemittelt nur über die führenden
+ * diese Übung anführt, wie viel wurde schon gearbeitet. Gemittelt nur über die führenden
  * Regionen, gewichtet danach, wie stark die frühere Bewegung jede davon antreibt.
  *
  *     Anteil = Σ w_diese(r) · w_frühere(r) / Σ w_diese(r),  über die r, die diese anführt
  *
- * Nur führende Regionen, und das trägt Last, es ist keine Ordnungsliebe. Über JEDE Region zu
+ * Nur führende Regionen, und das trägt Last, es ist keine Ordnungsliebe. Über jede Region zu
  * summieren, die eine Übung berührt, bringt die eigene vordere Schulter und den Trizeps
  * vom Bankdrücken in den Nenner, ein Butterfly vor dem Bankdrücken käme dann auf 0,48
  * statt 1. Das ist vielleicht die wahrere Aussage über die gesamte Muskelarbeit, hier aber
@@ -123,7 +123,7 @@ function overlap(exercise, earlier) {
 }
 
 /**
- * Setzt diese frühere Übung den SCHWERPUNKT auf das, wofür diese hier da ist?
+ * Setzt diese frühere Übung den Schwerpunkt auf das, wofür diese hier da ist?
  *
  * Eine andere Frage als `overlap`, und getrennt ist sie wegen der Zeile, die der
  * Trainieren-Screen druckt. "Sätze für diesen Muskel davor" muss eine Zahl von Sätzen sein,
@@ -157,22 +157,22 @@ const isPlanned = (set) => set.type === 'working' && !set.done;
  *
  * Zwei Fragen, nicht eine, und welche gestellt wird, hängt davon ab, ob die Einheit vorbei ist.
  *
- * EINE ABGESCHLOSSENE EINHEIT ist eine Aufzeichnung. Die einzige Arbeit vor einer Übung
+ * Eine abgeschlossene Einheit ist eine Aufzeichnung. Die einzige Arbeit vor einer Übung
  * ist die, die darüber abgehakt wurde, und die Position ist die einzige Auskunft über die
  * Reihenfolge, die es gibt, Sätze haben keinen Zeitstempel. Das ist der Standard, und
  * `exerciseHistory` und `pooledOrderCost` wollen genau das.
  *
- * EINE LAUFENDE EINHEIT ist ein Plan, der gerade umgesetzt wird, und die ehrliche Frage ist,
- * WAS PASSIERT SEIN WIRD, WENN DIESE ÜBUNG ANFÄNGT. Zwei Dinge macht die Regel nach Position
+ * Eine laufende Einheit ist ein Plan, der gerade umgesetzt wird, und die ehrliche Frage ist,
+ * was passiert sein wird, wenn diese Übung anfängt. Zwei Dinge macht die Regel nach Position
  * dort falsch:
  *
- *  - Arbeit über dieser Übung, die noch nicht gemacht ist, zählte als nichts. Man öffnet
+ *  * Arbeit über dieser Übung, die noch nicht gemacht ist, zählte als nichts. Man öffnet
  *    einen Push-Tag, und das Bankdrücken, drittes auf der Liste hinter sechs Sätzen Flys,
  *    bekam einen Rat, als wäre es das Erste am Morgen. Macht man die Flys, fiel derselbe
  *    Vorschlag still um eine Wiederholung. Eine Übung, zwei Zahlen in einer Einheit, und
  *    die zuerst gezeigte war die falsche. In der Reihenfolge, die man selbst festgelegt
  *    hat, kommt diese Arbeit, also zählt `live` sie.
- *  - Arbeit AUSSER der Reihe zählte auch als nichts. Zur letzten Übung springen, sie machen,
+ *  * Arbeit außer der Reihe zählte auch als nichts. Zur letzten Übung springen, sie machen,
  *    dann zur ersten zurück, und die erste bekam einen Rat, als wäre man frisch, obwohl
  *    schon drei Sätze hinter einem lagen. Abgehakt ist abgehakt, also zählt `live` es,
  *    egal wo es auf der Liste steht.
@@ -193,7 +193,7 @@ const isPlanned = (set) => set.type === 'working' && !set.done;
  *
  * @param entries   die Einträge der Einheit, in der Reihenfolge, in der sie gemacht werden
  * @param index     um welchen Eintrag es geht
- * @param byId      Map Übungs-ID -> Übung
+ * @param byId      Map von Übungs-ID auf Übung
  * @param live      true für die laufende Einheit, false für eine Aufzeichnung
  * @returns { same, other, direct, total, warmedRegions, planned, regions }
  */
@@ -281,14 +281,14 @@ export function observedOrderCost(rows) {
 /**
  * Dieselbe Messung, über jede Übung im Log gebündelt.
  *
- * `observedOrderCost` kann erst antworten, wenn EINE Übung von genug verschiedenen
+ * `observedOrderCost` kann erst antworten, wenn eine Übung von genug verschiedenen
  * Positionen aus trainiert wurde, und das ist für die meisten Monate entfernt und für
  * manche nie: steht Bankdrücken immer zuerst und Flys immer an vierter Stelle, bekommt
  * diese Übung nie die Streuung, die sie braucht, egal wie lang das Log wird.
  *
  * Bündeln repariert die Rechnung, nicht das Training. Die Schätzungen jeder Übung werden
  * zuerst durch den eigenen Mittelwert dieser Übung geteilt, eine Kniebeuge mit 140 kg und
- * ein Seitheben mit 20 kg tragen also dieselbe FORM bei, statt dass die Kniebeuge das
+ * ein Seitheben mit 20 kg tragen also dieselbe Form bei, statt dass die Kniebeuge das
  * Seitheben übertönt. Die Teilung in leicht und schwer läuft dann über alles zugleich.
  * Das antwortet viel früher und wird nur benutzt, wo die eigene Messung der Übung es nicht kann.
  *
@@ -333,7 +333,7 @@ export function pooledOrderCost(sessions, byId, { minExercises = 3, minRows = 12
   return value;
 }
 
-/* ===================== das Log, vergleichbar gemacht ===================== */
+/* das Log, vergleichbar gemacht */
 
 /**
  * Jede vergangene Einheit einer Übung, auf eine gemeinsame Grundlage korrigiert.
@@ -366,7 +366,7 @@ export function exerciseHistory(sessions, exerciseId, byId,
       position: index,
       sets,
       firstSet: sets[0],
-      // Das Gewicht, mit dem die Übung ANGEFANGEN hat. Daraus muss ein Rat für den ersten
+      // Das Gewicht, mit dem die Übung angefangen hat. Daraus muss ein Rat für den ersten
       // Satz gebaut werden. Das ist nicht dasselbe wie der schwerste Satz: viele steigern über
       // ihre Arbeitssätze, und die Wiederholungen von Satz eins gegen die Last von Satz drei zu
       // messen hat einen Rat ergeben, der jede Einheit um zwei Schritte daneben lag.
@@ -449,12 +449,12 @@ export function setDecay(rows, assumedRir = 0) {
   return { value: Math.max(0.005, Math.min(0.12, median)), measured: true };
 }
 
-/* ===================== Runden ===================== */
+/* Runden */
 
 export function parseReps(spec) {
   if (!spec) return null;
   // "3x8" sind drei Sätze mit acht, kein Bereich von drei bis acht. So geschrieben hat es
-  // das Ziel früher auf 3-8 erweitert, die Berechnung jagte acht Wiederholungen als OBERES
+  // das Ziel früher auf 3-8 erweitert, die Berechnung jagte acht Wiederholungen als oberes
   // Ende eines Bereichs, dessen unteres Ende drei war, und empfahl mehr Gewicht nach einem
   // Satz mit drei.
   const text = String(spec).replace(/^\s*\d+\s*[x×*]\s*/i, '');
@@ -534,7 +534,7 @@ const loadFor = (capacity, reps, reserve) => capacity / (1 + (reps + reserve) / 
  *
  * Diese Zahl macht eine Vorhersage mit dem Log vergleichbar, aus dem sie gebaut ist, und
  * sie falsch zu haben hat genau die Beschwerde erzeugt, mit der dieser Umbau angefangen
- * hat. `rawE1rm` liest einen vergangenen Satz als `reps + reserve`. Mit einer ANDEREN
+ * hat. `rawE1rm` liest einen vergangenen Satz als `reps + reserve`. Mit einer anderen
  * Reserve vorherzusagen beantwortet also eine andere Frage als die, die der Verlauf
  * gestellt hat. Mit fest einer Wiederholung in Reserve, wie früher, las die Berechnung
  * 135 x 8 und antwortete "135 x 7". Rechnerisch stimmig, und von jedem, der es sah, als
@@ -565,7 +565,7 @@ function openingReserve(rows, assumedRir = 0) {
 const BACK_OFF_MARGIN = 2;
 
 
-/* ===================== was heute drin ist ===================== */
+/* was heute drin ist */
 
 /**
  * Wie viele Wiederholungen eine Last gerade hergibt, oder null, wenn sich nichts sagen lässt.
@@ -582,7 +582,7 @@ export const predictReps = (capacity, weight, reserve = 0) =>
 /**
  * Die andere Richtung: Wiederholungen eingetippt, Anstrengung folgt daraus.
  *
- * Absichtlich NICHT dieselbe Frage. Steht eine Wiederholungszahl in der Zeile, hat man "wie
+ * Absichtlich nicht dieselbe Frage. Steht eine Wiederholungszahl in der Zeile, hat man "wie
  * viele gehen" selbst beantwortet, offen ist, wie nah man damit an der Grenze ist. Dort mit
  * einer Vorhersage von Wiederholungen zu antworten hieße, dass die App mit einer gerade
  * getippten Zahl streitet.
@@ -596,11 +596,11 @@ export const predictReserve = (capacity, weight, reps) =>
  * Ein Leser für beide Hälften der Einheit, weil die beiden sich uneins sind, woher die
  * Zahl kommt, und der Screen darf das nicht sein.
  *
- * NOCH NICHTS EINGETRAGEN: die Hochrechnung aus vergangenen Einheiten, abgezogen die
+ * Noch nichts eingetragen: die Hochrechnung aus vergangenen Einheiten, abgezogen die
  * Arbeit vor dieser Übung. Genau darauf baut `openingSet`, deshalb bewegt sich das hier
  * auch, wenn man eine Übung in der Liste nach oben schiebt.
  *
- * HEUTE SCHON ETWAS EINGETRAGEN: die eigenen Sätze von heute, auf frisch zurückgerechnet.
+ * Heute schon etwas eingetragen: die eigenen Sätze von heute, auf frisch zurückgerechnet.
  * Ein abgeschlossener Satz sagt mehr über heute als vier Einheiten Verlauf, und ab da
  * trägt der Verlauf nur noch das Nachlassen von Satz zu Satz bei.
  *
@@ -633,7 +633,7 @@ export function capacityToday(doneSets, rows, {
   return { capacity: fresh * left(at), reserve, live: false };
 }
 
-/* ===================== zwischen den Einheiten ===================== */
+/* zwischen den Einheiten */
 
 /**
  * Womit man heute anfängt.
@@ -669,7 +669,7 @@ export function openingSet(rows, {
   const firstReserve = reserveOf(last.firstSet, assumedRir);
   const reserveLogged = hasEffort(last.firstSet);
 
-  // Die Regel, um die gebeten wurde: es reicht, wenn der ERSTE Arbeitssatz das Ziel schafft.
+  // Die Regel, um die gebeten wurde: es reicht, wenn der erste Arbeitssatz das Ziel schafft.
   // Dass Satz drei und vier nachlassen, ist Ermüdung und kein Urteil über das Gewicht, und
   // den Fortschritt an ihnen festzuhalten ist der Grund, warum früher monatelang dieselbe
   // Zahl empfohlen wurde.
@@ -684,7 +684,7 @@ export function openingSet(rows, {
   // Eine Bewegung, deren Last der eigene Körper ist, hat keine Gewichtssteigerung zu bieten,
   // und so zu tun, als ob, ergab den schlechtesten Vorschlag der App: zehn Klimmzüge bei
   // einem Ziel von 6-10 wurden mit "Ziel 6" beantwortet. Die Berechnung war in den Zweig
-  // `up` gegangen, hatte dem KÖRPERGEWICHT einen Schritt draufgelegt und ehrlich die
+  // `up` gegangen, hatte dem Körpergewicht einen Schritt draufgelegt und ehrlich die
   // Wiederholungen gemeldet, die ein Körper mit 90 kg schaffen würde. Die eine Einheit, die
   // den Bereich geschafft hat, sollte also vier Wiederholungen weniger machen.
   //
@@ -720,7 +720,7 @@ export function openingSet(rows, {
    * Doppelte Progression, ausgeschrieben: die Last bleibt, und das Wiederholungsziel steigt
    * um eins, bis das obere Ende des Bereichs erreicht ist. Dieses "+1" ist der ganze
    * Mechanismus, und die alte Version hatte ihn nicht. Sie druckte eine rohe Schätzung des
-   * Modells, und die ist bei gleichem Gewicht per Konstruktion DIE ZAHL VOM LETZTEN MAL.
+   * Modells, und die ist bei gleichem Gewicht per Konstruktion die Zahl vom letzten Mal.
    * Der Screen sagte also "halten" und verlangte dann genau das, was schon gemacht war,
    * oder weniger. Nichts davon sagt einem, was eine gute Einheit wäre.
    *
@@ -728,7 +728,7 @@ export function openingSet(rows, {
    * dort steigt stattdessen das Gewicht. Sie legt keine Wiederholung drauf, solange der
    * Verlauf rückwärts geht, denn auf dem Weg nach unten mehr zu verlangen kostet einen
    * Vorschlag seine Glaubwürdigkeit. Und wenn heute messbar weniger frisch ist als die
-   * Einheit, mit der verglichen wird, fängt das WIEDERHOLUNGSZIEL das auf und nicht das
+   * Einheit, mit der verglichen wird, fängt das Wiederholungsziel das auf und nicht das
    * Gewicht: drei Sätze Flys vorher kosten etwa eine Wiederholung, und das zu sagen ist
    * viel nützlicher, als still 5 kg von der Stange zu nehmen.
    */
@@ -806,7 +806,7 @@ export function openingSet(rows, {
       weight = roundLoad(last.openingWeight + step, exercise, { units, barWeight, step: stackStep });
     }
     // Ehrlich, nicht hoffnungsvoll. Eine schwerere Stange bringt weniger Wiederholungen, das
-    // macht sie schwerer. Die Antwort in den Bereich hochzudrücken hat "60 kg x 10 -> 65 kg
+    // macht sie schwerer. Die Antwort in den Bereich hochzudrücken hat "60 kg x 10 wird zu 65 kg
     // x 10" gedruckt, also zwei Einheiten Fortschritt in einer Zeile behauptet. Was sie darf,
     // ist bis zum unteren Ende des Bereichs zu fallen und nicht weiter, dafür ist der Schritt bemessen.
     reps = Math.min(range.high, Math.max(1, predict(weight)));
@@ -862,7 +862,7 @@ export function openingSet(rows, {
 
   // Die Verlaufslinie, wenn sie überhaupt etwas sagt. Eine Steigung über ein halbes Kilo
   // pro Woche in eine Richtung ist eine Richtung, alles darunter ist eine flache Linie mit
-  // Rauschen. Früher hieß hier auch eine FALLENDE "flach", weil es nur die zwei Schlüssel
+  // Rauschen. Früher hieß hier auch eine fallende "flach", weil es nur die zwei Schlüssel
   // hoch und nicht-hoch gab.
   if (projected.slope !== null && Math.abs(projected.slope) >= 0.5) {
     reasons.push({
@@ -886,7 +886,7 @@ export function openingSet(rows, {
   };
 }
 
-/* ===================== innerhalb einer Einheit ===================== */
+/* innerhalb einer Einheit */
 
 /**
  * Was man für den nächsten Satz auflegt, je nachdem, wie die davor heute liefen.
@@ -915,7 +915,7 @@ export function nextSet(doneSets, rows, {
   // der erste. Mit Untergrenze, sonst würde eine lange genug Einheit rechnerisch bei null landen.
   const left = (i) => Math.max(0.6, 1 - decay.value * i);
 
-  // Die Leistung von heute, aus JEDEM schon gemachten Satz auf frisch zurückgerechnet und
+  // Die Leistung von heute, aus jedem schon gemachten Satz auf frisch zurückgerechnet und
   // nicht nur aus dem ersten. Nur Satz eins zu lesen nimmt an, dass Satz eins der schwerste
   // war. Das stimmt, wenn die Sätze fallen, und ist falsch, sobald jemand steigert: mit 60 x
   // 10 anfangen und dann 100 auflegen hat die Berechnung früher den Rest der Einheit von den
@@ -934,7 +934,7 @@ export function nextSet(doneSets, rows, {
   // Dieselbe Lesart wie zwischen den Einheiten: Wiederholungen plus Reserve ist das, was der
   // Satz wirklich wert war. Zwei über dem oberen Ende heißt, das Gewicht ist leicht, und der
   // nächste Satz soll das nicht wiederholen. Beurteilt am gerade fertigen Satz und nicht nur
-  // am ersten: ein dritter Satz mit noch zwei im Tank ist ein STÄRKERES Signal als ein
+  // am ersten: ein dritter Satz mit noch zwei im Tank ist ein stärkeres Signal als ein
   // erster, und die alte Version konnte nur auf Satz eins reagieren.
   const blewPast = Number(recent.reps) + reserveOf(recent, assumedRir) >= range.high + 2;
 

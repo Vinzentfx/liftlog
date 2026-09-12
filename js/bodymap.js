@@ -112,7 +112,7 @@ export function muscleHighlight(primary = [], secondary = []) {
  * Zeilen mit Abkürzungen um, und im Deutschen wurden mehrere zu Unsinn gekürzt.
  * Bei zwölf ist es in keiner Sprache mehr lesbar. Die Abkürzungen waren ohnehin
  * die falsche Antwort: niemand liest eine Legende, um zu lernen, dass "GM"
- * Grandmaster heißt, sondern um zu sehen, WELCHES Ende welches ist.
+ * Grandmaster heißt, sondern um zu sehen, welches Ende welches ist.
  *
  * Deshalb wird sie als das gezeichnet, was sie ist: eine geordnete Farbskala, die
  * beiden Enden mit Namen und Abzeichen, die Mitte spricht für sich. Die ganze Skala

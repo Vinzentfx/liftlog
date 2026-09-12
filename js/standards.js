@@ -3,7 +3,7 @@
 // Die Wertung vergleicht ein geschätztes 1RM mit veröffentlichten Kraftstandards,
 // bezogen auf Körpergewicht, Geschlecht und Alter. Zwei bewusste Grenzen:
 //
-//  1. Die Körpergröße ist KEINE Eingabe. Kein veröffentlichter Standard benutzt sie, sie
+//  1. Die Körpergröße ist keine Eingabe. Kein veröffentlichter Standard benutzt sie, sie
 //     beeinflusst die Hebel, ist aber in keiner Normierung enthalten. Sie aufzunehmen wäre
 //     ausgedachte Genauigkeit.
 //  2. Eine Bewegung wird nur bewertet, wenn es etwas gibt, woran man sie messen kann: einen
@@ -226,7 +226,7 @@ export const CONTRIB = {
  * worauf man normieren könnte, eine Stufe wäre also eine Zahl ohne Bedeutung dahinter.
  */
 export const CONTRIB_EXTRA = {
-  // --- Rudern und Ziehen ---
+  // Rudern und Ziehen
   // Mit Bruststütze trifft es am meisten den oberen Rücken: das Polster nimmt den Rumpf raus,
   // und genau das lässt den mittleren Rücken die Arbeit machen.
   'Chest-Supported T-Bar Row': { traps: 1, lats: 0.9, 'delts-rear': 0.8, biceps: 0.5 },
@@ -242,7 +242,7 @@ export const CONTRIB_EXTRA = {
   'Machine Pullover':          { lats: 1, chest: 0.4, triceps: 0.3 },
   'Assisted Pull-Up Machine':  { lats: 1, biceps: 0.6, 'delts-rear': 0.3 },
 
-  // --- Drücken ---
+  // Drücken
   'Machine Chest Press':       { chest: 1, 'delts-front': 0.55, triceps: 0.55 },
   'Incline Machine Press':     { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
   'Machine Chest Fly':         { chest: 1, 'delts-front': 0.3 },
@@ -253,7 +253,7 @@ export const CONTRIB_EXTRA = {
   'Smith Machine Incline Bench Press': { chest: 0.95, 'delts-front': 0.7, triceps: 0.5 },
   'Smith Machine Squat':       { quads: 1, glutes: 0.7, 'lower-back': 0.3 },
 
-  // --- Arme und Schultern ---
+  // Arme und Schultern
   'Machine Lateral Raise':     { 'delts-front': 1, traps: 0.3 },
   'Lateral Raise Machine':     { 'delts-front': 1, traps: 0.3 },
   'Machine Rear Delt Fly':     { 'delts-rear': 1, traps: 0.4 },
@@ -271,7 +271,7 @@ export const CONTRIB_EXTRA = {
   'Rope Triceps Pushdown':     { triceps: 1 },
   'Machine Dip':               { triceps: 1, chest: 0.75, 'delts-front': 0.45 },
 
-  // --- Unterkörper und Rumpf ---
+  // Unterkörper und Rumpf
   'Machine Hip Abduction':     { glutes: 1 },
   'Machine Hip Adduction':     { adductors: 1 },
   'Machine Crunch':            { abs: 1, obliques: 0.35 },
@@ -321,7 +321,7 @@ export const ANATOMY = { ...CONTRIB_EXTRA, ...CONTRIB };
 export const BENCHMARKS = Object.keys(CONTRIB);
 export const isBenchmark = (name) => Object.hasOwn(CONTRIB, benchmarkName(name));
 
-/* ===================== Maschinen bekommen einen echten Standard ===================== */
+/* Maschinen bekommen einen echten Standard */
 
 /**
  * Woran eine Übung an der Maschine gemessen wird.
@@ -329,8 +329,8 @@ export const isBenchmark = (name) => Object.hasOwn(CONTRIB, benchmarkName(name))
  * Im August 2026 neu eingestellt, an den gemessenen vollen Gewichtsblöcken eines echten
  * Studios, weil das die einzigen harten Daten dafür sind: das Maximum eines Blocks
  * beantwortet die Frage, die ein Trainingsstandard nicht beantworten kann, nämlich was es
- * HEISST, genau dieses Gerät auszureizen. Die Regel war LEGEND ≈ VOLLER BLOCK FÜR ETWA ZEHN
- * WIEDERHOLUNGEN, denn genau dort lag schon die eine Bewegung mit veröffentlichtem Standard
+ * heißt, genau dieses Gerät auszureizen. Die Regel war Legend ≈ voller Block für etwa zehn
+ * Wiederholungen, denn genau dort lag schon die eine Bewegung mit veröffentlichtem Standard
  * und bekanntem Block (ein Latzug-Block mit 105 kg gegen ein Legend von 138 kg). Die
  * Maschinen wurden also so eingestellt, dass sie dazu passen.
  *
@@ -340,13 +340,13 @@ export const isBenchmark = (name) => Object.hasOwn(CONTRIB, benchmarkName(name))
  * Standard hat und nie durch diese Tabelle ging, landet an derselben Stelle.
  *
  * Eine zweite Runde an den echten Arbeitsgewichten eines Menschen hat die Regel geteilt.
- * Der Maschinenrang im Vergleich zum LANGHANTEL-Rang derselben Person für denselben Muskel
+ * Der Maschinenrang im Vergleich zum Langhantelrang derselben Person für denselben Muskel
  * lag bei der Brust einen halben Rang auseinander und beim Rücken ein Drittel, die blieben
  * also genau so. Die Beine lagen 2,8 Ränge auseinander (ein Beinstrecker über der Kniebeuge
  * derselben Person, und das machen Beine nicht), und die eingelenkigen Maschinen für Arme
  * und Schultern lagen durchgehend zu hoch.
  *
- * Mehrgelenksmaschinen behalten also LEGEND ≈ VOLLER BLOCK FÜR ZEHN WIEDERHOLUNGEN,
+ * Mehrgelenksmaschinen behalten also Legend ≈ voller Block für zehn Wiederholungen,
  * eingelenkige brauchen stattdessen etwa das 1,6-Fache eines vollen Blocks.
  *
  * Eine dritte Runde hat erwischt, was diese Regel allein nicht sieht: sie behandelt jede
@@ -376,7 +376,7 @@ export const isBenchmark = (name) => Object.hasOwn(CONTRIB, benchmarkName(name))
  * getraut hat. Maschinenarbeit hat den Rang also aufgebläht und zur Karte fast nichts beigetragen.
  *
  * Das hier ist die ehrliche Fassung derselben Idee. Eine Maschine hat keinen eigenen
- * veröffentlichten Standard, aber das VERHÄLTNIS zwischen einer Maschine und der
+ * veröffentlichten Standard, aber das Verhältnis zwischen einer Maschine und der
  * Langhantelübung, der sie entspricht, ist stabil genug, um es aufzuschreiben: eine
  * Brustpresse im Sitzen ist etwas leichter als Bankdrücken, eine Schulterpresse an der
  * Maschine etwas schwerer als stehendes Überkopfdrücken, weil der Sitz den Rumpf rausnimmt,
@@ -389,10 +389,10 @@ export const isBenchmark = (name) => Object.hasOwn(CONTRIB, benchmarkName(name))
  * und genau dort mischt `scoreForMachine` Daten der Gemeinschaft zum selben Modell ein,
  * sobald es welche gibt. LOW_CONFIDENCE bringt diesen Hinweis auf den Screen.
  *
- * @type {Object<string, [string, number]>}  Name -> [Langhantelübung, Faktor]
+ * @type {Object<string, [string, number]>}  je Name: [Langhantelübung, Faktor]
  */
 const MACHINE_ANCHOR = {
-  // --- Rudern und Ziehen ---
+  // Rudern und Ziehen
   // Das Rudern mit Bruststütze hatte einen Aufschlag von 10 % auf das Langhantelrudern, mit
   // der Begründung, dass man mehr zieht, wenn unterer Rücken und Hüfte raus sind. Das stimmt
   // auch. Übersehen wurde die andere Seite des Vergleichs: Langhantelrudern wird als Stange
@@ -421,7 +421,7 @@ const MACHINE_ANCHOR = {
   'Single-Arm Lat Pulldown':    ['Lat Pulldown', 0.50],
   'Lat Pulldown Machine':       ['Lat Pulldown', 1.00],
 
-  // --- Drücken ---
+  // Drücken
   'Machine Chest Press':        ['Barbell Bench Press', 0.96],
   'Iso-Lateral Chest Press':    ['Barbell Bench Press', 0.96],
   'Smith Machine Bench Press':  ['Barbell Bench Press', 1.00],
@@ -436,7 +436,7 @@ const MACHINE_ANCHOR = {
   'Machine Dip':                ['Close-Grip Bench Press', 0.90],
   'Seated Dip Machine':         ['Close-Grip Bench Press', 0.90],
 
-  // --- Arme und Schultern ---
+  // Arme und Schultern
   'Machine Lateral Raise':      ['Overhead Press', 1.13],
   'Lateral Raise Machine':      ['Overhead Press', 1.13],
   'Cable Y-Raise':              ['Overhead Press', 0.56],
@@ -462,7 +462,7 @@ const MACHINE_ANCHOR = {
   'Rope Triceps Pushdown':      ['Close-Grip Bench Press', 0.86],
   'Overhead Rope Triceps Extension': ['Close-Grip Bench Press', 1.43],
 
-  // --- Unterkörper und Rumpf ---
+  // Unterkörper und Rumpf
   'Hack Squat':                 ['Back Squat', 1.15],
   'Pendulum Squat':             ['Back Squat', 0.95],
   'Belt Squat':                 ['Back Squat', 0.95],
@@ -549,7 +549,7 @@ const ALIAS = {
   'Barbell Curls Lying Against An Incline': 'Barbell Curl',
   'Lying High Bench Barbell Curl': 'Barbell Curl',
   'Seated Close-Grip Concentration Barbell Curl': 'Barbell Curl',
-  // Hier absichtlich KEIN Alias: ein einfaches "Preacher Curl" ist in manchen Studios eine
+  // Hier absichtlich kein Alias: ein einfaches "Preacher Curl" ist in manchen Studios eine
   // Bank und in anderen ein Block, und MACHINE_ANCHOR hat den an der Maschine schon. Zu raten,
   // was gemeint ist, ist genau der Weg, auf dem ein Rang auf dem falschen Standard landet.
 
@@ -621,7 +621,7 @@ export const canonical = (name) => ALIAS[name] || BENCHMARK_ALIAS[name] || name;
 /**
  * Bewegungen, bei denen sich eine Last überhaupt nicht einstufen lässt, egal was das Gerät sagt.
  *
- * Eine Maschine für unterstützte Klimmzüge zählt RÜCKWÄRTS: die Zahl am Block ist, wie
+ * Eine Maschine für unterstützte Klimmzüge zählt rückwärts: die Zahl am Block ist, wie
  * viel von einem die Maschine trägt, eine höhere Zahl heißt also schwächer. Das einzustufen
  * würde für alle, die sie benutzen, die ganze Leiter umdrehen.
  */
@@ -635,7 +635,7 @@ const UNRATEABLE = new Set(['Assisted Pull-Up Machine', 'Reverse Nordic Curl']);
  *
  * Die müssen mit MACHINE_ANCHOR im Gleichschritt bleiben und waren es einmal nicht: als die
  * Isolationsmaschinen mit Anker strenger wurden, blieb diese Tabelle zurück. `upperIsolation`
- * lag bei einem Legend von 85 kg, während jede ERKANNTE Isolationsmaschine 110 bis 175
+ * lag bei einem Legend von 85 kg, während jede erkannte Isolationsmaschine 110 bis 175
  * verlangte. Die 63 Bewegungen in der Bibliothek ohne Anker wurden so zum leichtesten Weg zu
  * einem Rang in der ganzen App, ein voller Kabelturm beim Handgelenkcurl kam als Radiant
  * heraus. Eine unerkannte Maschine darf nie ein leichterer Weg sein als eine erkannte, und
@@ -688,7 +688,7 @@ export const RATED_EQUIPMENT = new Set(['Machine', 'Cable']);
  * Freie Gewichte, die über einen Anker eingestuft werden statt über eine eigene Tabelle.
  *
  * Ob etwas bewertbar ist, hing früher nur am Gerät: eine Referenzübung oder Maschine oder
- * Kabel. Die Folge war, dass DIESELBE BEWEGUNG einen Rang bekam oder nicht, je nachdem,
+ * Kabel. Die Folge war, dass dieselbe Bewegung einen Rang bekam oder nicht, je nachdem,
  * was man in der Hand hielt. "Standing Biceps Cable Curl" gab dem Bizeps einen Rang,
  * "Wide-Grip Standing Barbell Curl" gar nichts, und 292 Übungen mit Lang- und Kurzhantel im
  * Katalog trugen zu keinem Muskel und keiner Wertung bei. Das ist keine Frage der
@@ -763,7 +763,7 @@ export function ratedMachineNames(exercises = []) {
     .map((ex) => ex.name));
 }
 
-/* ===================== die Leiter ===================== */
+/* die Leiter */
 
 const geo = (a, b) => Math.sqrt(a * b);
 
@@ -779,7 +779,7 @@ const geo = (a, b) => Math.sqrt(a * b);
 const BEYOND_ELITE = [1.10, 1.22, 1.38];
 
 /**
- * Vier veröffentlichte Anker -> die elf Grenzen der Leiter mit zwölf Rängen.
+ * Aus vier veröffentlichten Ankern werden die elf Grenzen der Leiter mit zwölf Rängen.
  *
  * Jede veröffentlichte Zahl behält ihre Bedeutung, die neuen Ränge werden dazwischen
  * geschoben und ersetzen sie nicht:
@@ -814,7 +814,7 @@ export const EXTRAPOLATED_TIERS = new Set(['challenger', 'immortal', 'radiant'])
  * Alles in dieser Datei ist in Kilo, die App aber nicht.
  *
  * Die veröffentlichten Standards sind Vielfache des Körpergewichts gegen eine Referenz von
- * 60 oder 80 kg, und durch den allometrischen Exponenten ist die Rechnung NICHT
+ * 60 oder 80 kg, und durch den allometrischen Exponenten ist die Rechnung nicht
  * einheitenfrei: Pfund hineinzugeben hebt sich nicht auf, es bläht auf. Derselbe Mensch
  * kam in Pfund eingetragen anderthalb Ränge stärker heraus als in Kilo, still, solange es
  * die Einstellung gibt. Das Verhältnis wird also immer in Kilo gerechnet, egal was die App
@@ -829,16 +829,16 @@ const fromKg = (value, units) => (units === 'lb' ? value * LB_PER_KG : value);
  *
  * Zwei Formen, und welche gilt, ist eine Eigenschaft der Übung.
  *
- * ALLOMETRISCH, für alles mit einer Last, die man wählt. Der Muskelquerschnitt wächst mit
+ * Allometrisch, für alles mit einer Last, die man wählt. Der Muskelquerschnitt wächst mit
  * etwa der Masse hoch zwei Drittel, von jemand Schwererem erwartet man also absolut mehr
  * und pro Kilo eigenem Gewicht weniger. Das Referenzgewicht ist das, bei dem die
  * veröffentlichten Tabellen geschrieben wurden, wer genau so viel wiegt, bekommt also
  * genau das, was die Tabelle sagt.
  *
- * RELATIV ZUM KÖRPERGEWICHT, für Klimmzüge, Chin-Ups und Dips, wo die Last der Mensch IST.
+ * Relativ zum Körpergewicht, für Klimmzüge, Chin-Ups und Dips, wo die Last der Mensch ist.
  * Die allometrische Form zählt dort das Körpergewicht auf beiden Seiten des Bruchs, und die
  * heben sich nicht auf: ohne Zusatzgewicht bleibt `(bw / reference) ^ 0.33`, eine Zahl, die
- * von nichts abhängt als der Waage im Bad. Das Ergebnis war ein Rang, der STIEG, wenn man
+ * von nichts abhängt als der Waage im Bad. Das Ergebnis war ein Rang, der stieg, wenn man
  * zugenommen hat und genauso viele Klimmzüge schaffte wie vorher: drei Stufen, von Silver I
  * bei 70 kg zu Gold II bei 100 kg, für dieselbe einzelne Wiederholung. Jede andere Übung in
  * der App bewegt sich andersherum, zu Recht, und die Wirklichkeit auch.
@@ -1055,7 +1055,7 @@ export function nextThresholds(score) {
  * Die Last, die eine Zielwertung verlangt, in Kilo auf der Stange.
  *
  * Bei einer Bewegung mit Körpergewicht ist der Standard gegen das ganze System geschrieben,
- * die Antwort ist also, was man DRAUFLEGEN muss, und das nimmt ein Klimmzuggürtel.
+ * die Antwort ist also, was man drauflegen muss, und das nimmt ein Klimmzuggürtel.
  */
 export function weightForScore(liftName, targetScore, profile, { machine = false, community = null } = {}) {
   const bounds = boundsFor(liftName, profile, { machine, community });
@@ -1091,8 +1091,8 @@ export function toNextDivision(liftName, score, profile, opts = {}) {
  *
  * Das gibt es wegen eines Denkfehlers, der lange drin war. Die Wertung einer Region ist
  * `Wertung der Übung × wie stark die Übung sie trainiert`, und diese zweite Zahl ist ein
- * BEITRAGS-Gewicht: wie stark die Kniebeuge die Beinbeuger reizt. Gelesen wurde sie aber
- * als Abschlag auf die STÄRKE. Wer als einzigen Beleg für die Beinbeuger eine Kniebeuge
+ * Beitragsgewicht: wie stark die Kniebeuge die Beinbeuger reizt. Gelesen wurde sie aber
+ * als Abschlag auf die Stärke. Wer als einzigen Beleg für die Beinbeuger eine Kniebeuge
  * hatte, bekam Beinbeuger = 35 % seines Kniebeuge-Rangs, und das ging direkt in den Durchschnitt.
  *
  * Die Wirkung war heftig und ging nur in eine Richtung. Bei einem echten Log lagen die
@@ -1101,13 +1101,13 @@ export function toNextDivision(liftName, score, profile, opts = {}) {
  * App hat nicht gesagt, dass die Beinbeuger schwach sind. Sie hat gesagt, dass sie nie
  * hingeschaut hat, nur in einem Ton, der wie ein Urteil klang.
  *
- * Das Gewicht ist deshalb jetzt eine SCHWELLE und kein FAKTOR. Ab diesem Wert treibt die
+ * Das Gewicht ist deshalb jetzt eine Schwelle und kein Faktor. Ab diesem Wert treibt die
  * Übung die Region hauptsächlich oder fast hauptsächlich an, und die Region bekommt einfach
  * den Rang der Übung, ohne Abschlag: ist das Schrägbankdrücken Grandmaster, ist die Brust
  * Grandmaster und nicht 95 % davon. Darunter gibt es gar keinen Rang. Die Region wird als
  * indirekt berührt gemeldet, mit Namen, und bleibt grau.
  *
- * Dieser letzte Teil hat zwei Anläufe gebraucht. Die Regionen aus dem DURCHSCHNITT zu
+ * Dieser letzte Teil hat zwei Anläufe gebraucht. Die Regionen aus dem Durchschnitt zu
  * nehmen reichte nicht, weil die abgeschlagene Zahl weiter auf der Karte und im Sheet der
  * Region stand. Ein Trapez mit "Diamond II", gerechnet als `Rang beim Rudern x 0,7`, ist kein
  * schwacher Trapez, sondern Rudern.
@@ -1127,7 +1127,7 @@ export const DIRECT_CONTRIBUTION = 0.8;
  * eine Langhantelübung und eine Maschine eine Region auf dieselbe Zahl, wird die Übung als
  * Quelle genannt, die gegen einen veröffentlichten Standard gemessen ist.
  *
- * @param bestByLift Map Übungsname -> bestes geschätztes 1RM
+ * @param bestByLift Map von Übungsname auf bestes geschätztes 1RM
  */
 /**
  * Wie weit eine Übung über dem Rest des eigenen Trainings liegen muss, bevor die App etwas
@@ -1156,13 +1156,13 @@ const median = (values) => {
 };
 
 /**
- * @param loadFactors  Name -> Faktor, mit dem die Schätzung vor dem Einstufen multipliziert
- *                     wird. Das korrigiert, wie eine Maschine Last ANZEIGT. Das Log selbst
+ * @param loadFactors  je Name der Faktor, mit dem die Schätzung vor dem Einstufen multipliziert
+ *                     wird. Das korrigiert, wie eine Maschine Last anzeigt. Das Log selbst
  *                     wird nie angefasst, denn was eingetippt wurde, wurde gemacht.
- * @param stackMax     Name -> das Höchste, was der Block hergibt, wenn der Nutzer es gesagt
+ * @param stackMax     je Name das Höchste, was der Block hergibt, wenn der Nutzer es gesagt
  *                     hat. Macht aus "das sieht hoch aus" ein "das ist das 1,7-Fache eines
  *                     vollen Blocks", und das ist ein Beleg statt eines Bauchgefühls.
- * @param regionsByName Name -> { Region: Gewicht }, aus den Übungen selbst. Der Rückfall
+ * @param regionsByName je Name { Region: Gewicht }, aus den Übungen selbst. Der Rückfall
  *                     für alles, was die gepflegte Tabelle ANATOMY nie gehört hat.
  */
 export function buildRating(bestByLift, profile,
@@ -1176,7 +1176,7 @@ export function buildRating(bestByLift, profile,
   // die sie berührt. Absichtlich keine Wertung: eine Zahl hier war die Ursache des Fehlers,
   // den das ersetzt hat.
   const indirect = {};
-  // Jede Übung, die eine Region einstufen KÖNNTE, damit die Wertung sagen kann, ob ein Rang
+  // Jede Übung, die eine Region einstufen könnte, damit die Wertung sagen kann, ob ein Rang
   // abgesichert ist oder an einer Bewegung hängt.
   const support = {};
   const lifts = [];
@@ -1189,7 +1189,7 @@ export function buildRating(bestByLift, profile,
     const orm = rawOrm * factor;
     // Zwei verschiedene Fragen. `anchored` entscheidet, aus welcher Tabelle die Wertung gelesen
     // wird, alles ohne eigenen veröffentlichten Standard geht über MACHINE_ANCHOR. `machine`
-    // sagt, was die Übung IST, und bleibt bei einem freien Gewicht false, damit ein
+    // sagt, was die Übung ist, und bleibt bei einem freien Gewicht false, damit ein
     // Langhantelcurl einen Gleichstand gewinnt wie das freie Gewicht, das er ist, und nie unter
     // "deine Maschinenrekorde" auftaucht.
     const derivedFree = !isBenchmark(name) && DERIVED_FREE_WEIGHT.has(canonical(name));
@@ -1201,7 +1201,7 @@ export function buildRating(bestByLift, profile,
       : scoreFor(name, orm, profile);
     if (score === null) continue;
     const sample = Number(community[name]?.count) || 0;
-    // `anchored`, nicht `machine`: das entscheidet, aus welcher Tabelle das NÄCHSTE Ziel
+    // `anchored`, nicht `machine`: das entscheidet, aus welcher Tabelle das nächste Ziel
     // gelesen wird, und das muss dieselbe sein, aus der die Wertung kam. Mit `machine` hat ein
     // Langhantelcurl nach seinem eigenen veröffentlichten Standard gesucht, nichts gefunden
     // und bei einer Übung auf Master II mit noch sechs Rängen darüber "oberstes Ende der
@@ -1302,7 +1302,7 @@ export function buildRating(bestByLift, profile,
   }
 
   const rated = Object.values(regions);
-  // Insgesamt ist der Mittelwert der DIREKT gemessenen Regionen. Eine unbewertete Region ist
+  // Insgesamt ist der Mittelwert der direkt gemessenen Regionen. Eine unbewertete Region ist
   // keine Null, sondern fehlende Information, und eine Region, die man nur durch die Übung
   // von etwas anderem sieht, ist viel näher an fehlender Information als an einer Messung,
   // siehe DIRECT_CONTRIBUTION. Wurde gar nichts direkt trainiert, fällt es auf alles

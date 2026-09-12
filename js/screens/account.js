@@ -21,7 +21,7 @@ import { t, tn, locale } from '../i18n.js';
 import { CONSENT_VERSION } from '../cloud-config.js';
 import { DEMO } from '../demo.js';
 
-/* ============================== Einstieg ============================== */
+/* Einstieg */
 
 /** Die Zeile in den Einstellungen und alles, was man von dort erreicht. */
 export function cloudSection() {
@@ -152,7 +152,7 @@ async function diagnosticsSheet() {
       row(t('cloud.diagPermission'), value(d.canBackup, 'cloud.diagAllowed', 'cloud.diagBlocked')),
       row(t('cloud.diagLocalChanges'), value(!d.unsyncedChanges, 'cloud.diagSynced', 'cloud.diagWaiting')),
       row(t('cloud.diagLocalVersion'), d.baseVersion),
-      row(t('cloud.diagServerVersion'), d.serverVersion || '–'),
+      row(t('cloud.diagServerVersion'), d.serverVersion || '?'),
       row(t('cloud.diagDeletions'), d.deletionCount),
       row(t('cloud.diagActive'), d.activeElsewhere ? t('cloud.diagOtherDevice') : d.activeWorkouts),
       d.lastMerge ? row(t('cloud.diagLastMerge'), t('cloud.diagMergeSummary', d.lastMerge)) : null,
@@ -204,7 +204,7 @@ function statusLine(s) {
   });
 }
 
-/* ============================== Einrichten ============================== */
+/* Einrichten */
 
 /**
  * Die Weiche zwischen Anmelden und Registrieren, für Aufrufer außerhalb dieses Moduls.
@@ -423,7 +423,7 @@ function inviteSheet() {
   ]));
 }
 
-/* ============================ Wiederherstellungsschlüssel ============================ */
+/* Wiederherstellungsschlüssel */
 
 /**
  * Wird genau einmal gezeigt und ist so gebaut, dass man nicht darüber hinweglesen kann.
@@ -507,7 +507,7 @@ function recoverSheet() {
   ]));
 }
 
-/* ================================ Geräte ================================ */
+/* Geräte */
 
 function approveSheet(device) {
   openSheet(t('cloud.approveTitle'), el('div', {}, [
@@ -609,7 +609,7 @@ async function devicesSheet() {
   );
 }
 
-/* ============================ Wiederherstellen und verwalten ============================ */
+/* Wiederherstellen und verwalten */
 
 async function restoreSheet() {
   const body = el('div', {}, [el('div.small.faint', { text: t('cloud.working') })]);

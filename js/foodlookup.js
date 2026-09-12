@@ -5,7 +5,7 @@
 // Trainingsseite, funktioniert im Flugmodus. Klappt eine Abfrage nicht, tippt man
 // die Zahlen eben ein, das hätte man sonst auch getan.
 //
-// Kein Barcode-SCANNEN: kein Browser unter iOS hat BarcodeDetector, und die
+// Kein Barcodescannen: kein Browser unter iOS hat BarcodeDetector, und die
 // WebAssembly-Alternativen würden "keine Abhängigkeiten, kein Build-Schritt"
 // brechen. Man tippt die 13 Ziffern unter den Strichen einmal pro neuem Produkt
 // ein und nie wieder. Der Code wird am Lebensmittel gespeichert, eine erneute
@@ -137,7 +137,7 @@ export async function lookupBarcode(code, { signal } = {}) {
  * Pro 100 g ist das Einzige, worauf man sich verlassen kann: das hat jeder
  * Eintrag, während `serving_size` bei den meisten fehlt und sonst das ist, was der
  * Hersteller gerade Portion nennen wollte. Die App behält also die Werte pro 100 g
- * und fragt DICH, wie viel du isst. Da gehört die Entscheidung auch hin, denn nur
+ * und fragt dich, wie viel du isst. Da gehört die Entscheidung auch hin, denn nur
  * du weißt, was auf dem Teller gelandet ist.
  */
 function toDraft(code, p) {

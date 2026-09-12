@@ -1,6 +1,6 @@
 // Plan-Vorlagen und die Übungsauswahl, die sie füllt.
 //
-// Eine Vorlage beschreibt einen Tag als Muskel-PLÄTZE statt fester Übungsnamen:
+// Eine Vorlage beschreibt einen Tag als Muskelplätze statt fester Übungsnamen:
 // "Push = 3 Brust, 2 vordere Schulter, 2 Trizeps". Jeder Platz ist eine Übung mit
 // SETS_PER_EXERCISE Sätzen. Dadurch ist "mehr Übungen, weniger Sätze pro Übung"
 // der Normalfall und nichts, was man sich von Hand zusammenbauen muss.
@@ -112,7 +112,7 @@ function rankFor(region, exercises, { used, preferCompound }) {
     if (ex.myRating) score += (ex.myRating - 3) * 2.5;
     // Referenzübungen sind die mit veröffentlichten Standards und dem meisten
     // Anleitungsmaterial. Der Bonus muss groß bleiben: die Bewertung benotet, was
-    // eine Bewegung IST, und danach schneiden "Chair Squat" und "Lunge Sprint"
+    // eine Bewegung ist, und danach schneiden "Chair Squat" und "Lunge Sprint"
     // (Ausreißer im Katalog, als Maschine markiert) so gut ab wie eine Hackenschmidt-
     // Kniebeuge. Nur dieser Bonus sorgt dafür, dass ein erzeugter Plan aus Übungen
     // besteht, die es in echten Studios gibt.

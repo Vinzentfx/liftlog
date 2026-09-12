@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 93" role="img" aria-label="Front view muscle map">
   <!--
-    ERZEUGT, neu bauen mit tools/build_bodymap.py
+    Erzeugt, neu bauen mit tools/build_bodymap.py
 
     Muskelpfade aus body-muscles (https://github.com/vulovix/body-muscles),
     Lizenz Apache-2.0. Die rund 90 feinen Muskeln sind auf die 15 Regionen

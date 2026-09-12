@@ -182,7 +182,7 @@ const comparators = {
   name: (a, b) => a.name.localeCompare(b.name),
 };
 
-/* =========================== Detail =========================== */
+/* Detail */
 
 function detailView(id) {
   const ex = store.state.exerciseById.get(id);

@@ -194,7 +194,7 @@ test('cables are ranked and assisted machines never are', () => {
 test('a muscle seen only through somebody else\'s lift gets no rank at all', () => {
   // Der Fehler, den das ersetzt hat, in zwei Hälften. Die Wertung einer Region war
   // `Wertung der Übung x wie stark die Übung sie trainiert`, und diese zweite Zahl ist ein
-  // BEITRAGS-Gewicht, kein Abschlag auf die Stärke. So gelesen sah jemand, dessen einziger
+  // Beitragsgewicht, kein Abschlag auf die Stärke. So gelesen sah jemand, dessen einziger
   // Beleg für den Trapez ein T-Bar-Rudern war, "Diamond II", gerechnet als
   // `Rang beim Rudern x 0,7`. Das ist kein schwacher Trapez, das ist Rudern.
   //
@@ -339,7 +339,7 @@ test('a free-weight lift keeps a region it ties a machine on', () => {
   assert.equal(rating.regions.chest.machine, false);
 });
 
-/* ===================== die Rangleiter ===================== */
+/* die Rangleiter */
 
 test('the ladder keeps every published anchor where it was', () => {
   // Die Version mit fünf Stufen hatte Anfänger, Fortgeschritten, Weit fortgeschritten und
@@ -612,7 +612,7 @@ test('cloud bookkeeping is never taken from the other device snapshot', () => {
 
 const INDIRECT = THRESHOLDS.indirectSetWeight.value;
 
-/* ============================ Testdaten ============================ */
+/* Testdaten */
 
 const at = (y, m, d, h = 10) => new Date(y, m - 1, d, h).getTime();
 
@@ -633,7 +633,7 @@ const entry = (exerciseId, sets) => ({ exerciseId, sets, note: '' });
 const BENCH = exercise('ex_bench', 'Barbell Bench Press', ['chest'], ['triceps']);
 const byId = new Map([[BENCH.id, BENCH]]);
 
-/* ============================== Rechnerei ============================== */
+/* Rechnerei */
 
 test('e1rm: a single rep is the weight itself', () => {
   assert.equal(e1rm(100, 1), 100);
@@ -709,7 +709,7 @@ test('plural counts one of a thing correctly', () => {
   assert.equal(plural(1, 'exercise', 'exercises'), '1 exercise');
 });
 
-/* ============================== Datum ============================== */
+/* Datum */
 
 test('the fixed test timezone is in effect', () => {
   // Ohne das beweisen die zwei Fälle mit Zeitumstellung unten still gar nichts.
@@ -752,7 +752,7 @@ test('weekStreak: unfinished sessions do not keep a streak alive', () => {
   assert.equal(weekStreak([open], at(2026, 7, 28)), 0);
 });
 
-/* ================== die zwei Zählungen, die übereinstimmen müssen ================== */
+/* die zwei Zählungen, die übereinstimmen müssen */
 
 test('planned and done are counted the same way', () => {
   // Für genau diese Regel gibt es js/log-analysis.js: sagt der Plan "Brust 4", darf die
@@ -807,7 +807,7 @@ test('weekVerdict says nothing about sessions it cannot count', () => {
   assert.match(weekVerdict(week, rows, 5).headline, /of 5 sessions in/);
 });
 
-/* ========================== Zeitfenster ========================== */
+/* Zeitfenster */
 
 test('regionProgress cannot see past the moment it was asked about', () => {
   // Eine Karte über die letzte Woche darf sich nicht ändern, wenn diese Woche eingetragen wird.
@@ -843,7 +843,7 @@ test('bodyweightAt reads the entry in force at a moment', () => {
   assert.equal(bodyweightAt(log, at(2026, 8, 1)), 82);
 });
 
-/* ============================ Ernährung ============================ */
+/* Ernährung */
 
 const meal = (over = {}) => ({
   id: `m_${Math.random()}`, day: '2026-07-28', at: at(2026, 7, 28), slot: 'lunch',
@@ -1019,7 +1019,7 @@ test('the goal moves calories in the right direction', () => {
   assert.ok(Math.abs(gain.kgPerWeek) < 0.5, 'and slow');
 });
 
-/* ========================== eine Stange beladen ========================== */
+/* eine Stange beladen */
 
 test('platePlan splits the load evenly and names every disc', () => {
   const plan = platePlan(100, 20, 'kg');
@@ -1055,7 +1055,7 @@ test('platePlan uses the pound rack for pounds', () => {
   assert.equal(describePlates(plan.perSide), '2 × 45');
 });
 
-/* ========================== Aufwärmen ========================== */
+/* Aufwärmen */
 
 test('the ramp tops out near the working weight, not well below it', () => {
   // Ribeiro 2020: nur leichte Aufwärmsätze haben gegen beide Alternativen verloren. Der letzte
@@ -1108,7 +1108,7 @@ test('warm-up sets do not repeat the same weight twice', () => {
   assert.equal(new Set(weights).size, weights.length);
 });
 
-/* ===================== was als Nächstes aufgelegt wird ===================== */
+/* was als Nächstes aufgelegt wird */
 
 /** Eine Reihe von Einheiten, in denen diese Übung zuerst kam und nichts davor. */
 const solo = (weights, { reps = 8, rir = null, from = at(2026, 6, 1) } = {}) =>
@@ -1140,7 +1140,7 @@ test('a ramp across the working sets is judged on the set it opened with', () =>
     `${tip.weight} is more than three steps off the opening set`);
 });
 
-/* --- die Familie "gleiches Gewicht, weniger Wiederholungen" --- */
+/* die Familie "gleiches Gewicht, weniger Wiederholungen" */
 
 test('holding a weight asks for more reps than last time, never fewer', () => {
   // Die Beschwerde, für die es diese ganze Familie gibt: 135 x 8 eingetragen, und die App kam
@@ -1192,7 +1192,7 @@ test('work done earlier in the session costs reps, not kilos', () => {
       entry(BENCH.id, [])], 1, both),
   });
   // Drei Sätze Flys sind ein paar Prozent, also etwa eine Wiederholung. Das ist kein Grund,
-  // die Stange zu verändern, und "135 x 8 -> 130 x 7" war genau der Vorschlag, der für
+  // die Stange zu verändern, und "135 x 8 wird zu 130 x 7" war genau der Vorschlag, der für
   // niemanden Sinn ergab, der ihn gelesen hat.
   assert.equal(tired.change, 'hold');
   assert.equal(tired.weight, 135);
@@ -1219,7 +1219,7 @@ test('a step back needs a real gap, and has to actually buy a lighter bar', () =
 test('a pull-up that clears the range is told to do more, not fewer', () => {
   // Der schlechteste Vorschlag, den die App je gemacht hat: zehn Klimmzüge gegen ein Ziel
   // von 6-10 kamen als "Ziel 6" zurück. Die Berechnung war im Zweig für mehr Gewicht, hatte
-  // dem KÖRPERGEWICHT einen Schritt draufgelegt und ehrlich gemeldet, was ein Körper mit 90 kg
+  // dem Körpergewicht einen Schritt draufgelegt und ehrlich gemeldet, was ein Körper mit 90 kg
   // an Wiederholungen schafft.
   const pull = { ...exercise('ex_pull', 'Pull-Up', ['lats']), equipment: 'Bodyweight' };
   const byPull = new Map([[pull.id, pull]]);
@@ -1271,7 +1271,7 @@ test('rep progression never moves the load, however tired the day is', () => {
   assert.equal(tip.weight, 100, 'the one rule that exists to not change the weight changed it');
 });
 
-/* --- die Einstellung "im Wiederholungsbereich bleiben" --- */
+/* die Einstellung "im Wiederholungsbereich bleiben" */
 
 test('with the range setting on, a fading set loses weight instead of reps', () => {
   const rows = exerciseHistory(solo([135], { reps: 8 }).reverse(), BENCH.id, byId);
@@ -1385,7 +1385,7 @@ test('an exercise moved later in the session is not read as a regression', () =>
   assert.ok(tired.reasons.some((r) => r.key === 'later'), 'and it says why');
 });
 
-/* --- die Anordnung auf dem Screen, so wie sie gerade ist --- */
+/* die Anordnung auf dem Screen, so wie sie gerade ist */
 
 test('a finished session counts only what was ticked off above the exercise', () => {
   const fly = exercise('ex_fly', 'Butterfly', ['chest']);
@@ -1568,7 +1568,7 @@ test('a barbell still gets real plates, not a rounded increment', () => {
   assert.equal(roundLoad(101, BENCH, { units: 'kg', barWeight: 20 }), 100);
 });
 
-/* ===================== woraus eine Schätzung gebaut werden darf ===================== */
+/* woraus eine Schätzung gebaut werden darf */
 
 test('the rank prefers sets a 1RM estimate is valid for', () => {
   const machine = { id: 'ex_ext', name: 'Leg Extension' };
@@ -1617,7 +1617,7 @@ test('the overall weighs a region by how well it is measured', () => {
     machineNames: new Set(['Leg Extension']), extrapolated: new Set(['Leg Extension']),
   });
   // Der Beinstrecker ist die schwächere der beiden. Ihm weniger zu trauen muss den Durchschnitt
-  // ZUR Übung ziehen, der getraut wird, und nicht von ihr weg.
+  // zur Übung ziehen, der getraut wird, und nicht von ihr weg.
   assert.ok(solid.regions.quads.score < solid.regions.chest.score);
   assert.ok(shaky.overall > solid.overall,
     'a doubted weak region dragged the average down as hard as a certain one');
@@ -1703,7 +1703,7 @@ test('the barbell curl ladder lands where the published standard does', () => {
 });
 
 test('gaining weight does not earn a better pull-up rank', () => {
-  // Die Last beim Klimmzug IST der Mensch, der allometrische Nenner hat das Körpergewicht also
+  // Die Last beim Klimmzug ist der Mensch, der allometrische Nenner hat das Körpergewicht also
   // auf beiden Seiten gezählt, und die haben sich nicht aufgehoben: ohne Zusatzgewicht blieb
   // (bw / 80) ^ 0.33, eine Zahl, die an nichts hängt als der Waage im Bad. Eine Wiederholung
   // bei 70 kg war Silver I, dieselbe bei 100 kg Gold II. Drei Stufen fürs Essen.
@@ -2004,7 +2004,7 @@ test('a manual exercise is never given a number it did not ask for', () => {
   assert.equal(openingSet([], { exercise: BENCH }), null);
 });
 
-/* ===================== geht es noch voran ===================== */
+/* geht es noch voran */
 
 /**
  * n Einheiten einer Übung, eine pro Woche, mit gleicher oder steigender Last.
@@ -2108,7 +2108,7 @@ test('a week boundary is a calendar week, not seven times 86400000', () => {
   assert.equal(ownWeek.bodyweight, 80, 'and it does land in its own week');
 });
 
-/* ============ was eine Wiederherstellung nicht zerstören darf ============ */
+/* was eine Wiederherstellung nicht zerstören darf */
 
 test('the device key store is not in the list a restore wipes', () => {
   // Eine Wiederherstellung leert jeden Store und schreibt die Sicherung hinein. `keys` enthält die
@@ -2124,7 +2124,7 @@ test('the device key store is not in the list a restore wipes', () => {
   assert.equal(wiped.length, Object.values(STORES).length - 1, 'exactly one exception');
 });
 
-/* ============ die zwei Körpergewichte der App ============ */
+/* die zwei Körpergewichte der App */
 
 test('macro targets refuse to answer without a protein band', () => {
   // Erreichbar: der Bedarf kommt aus dem Wiegelog, der Eiweißbereich aus dem Profil, und nur das
@@ -2159,7 +2159,7 @@ test('latestWeight is the newest weigh-in, whatever order the log is in', () => 
   assert.equal(latestWeight([]), null);
 });
 
-/* ================= Essen neben dem Training ================= */
+/* Essen neben dem Training */
 
 /** `n` Tage zurück von `at`, als der Tagesschlüssel, unter dem Mahlzeiten gespeichert sind. */
 /**
@@ -2259,7 +2259,7 @@ test('the timeline waits for a second week rather than drawing one point', () =>
   assert.equal(timelineReady(timeline({ meals: twoWeeks }, { weeks: 4, now: TIMELINE_NOW })), true);
 });
 
-/* ======================= einen Plan teilen ======================= */
+/* einen Plan teilen */
 
 test('a plan survives the round trip through a link', async () => {
   const plan = {
@@ -2297,7 +2297,7 @@ test('import resolves by name and reports what is missing', () => {
   assert.equal(missing[0].name, 'Cable Fly');
 });
 
-/* ===================== was die Karte behaupten darf ===================== */
+/* was die Karte behaupten darf */
 
 const PROFILE = { sex: 'male', age: 30, bodyweight: 82, showRatings: true };
 const CARD_INPUT = (over = {}) => ({
@@ -2408,7 +2408,7 @@ test('strengthAt is the score as it stood then, not as it stands now', () => {
 });
 
 
-/* ===================== wo ein Rang in der Bevölkerung liegt ===================== */
+/* wo ein Rang in der Bevölkerung liegt */
 
 test('the ladder reads back to the percentiles its standards were written at', () => {
   // Keine Vorliebe. Diese vier bedeuten, was die veröffentlichten Tabellen meinen: Anfänger ist
@@ -2451,7 +2451,7 @@ test('the top of the ladder is still a slice somebody can read', () => {
   assert.ok(zForScore(0) < zForScore(BAND));
 });
 
-/* ===================== was vor dieser Übung stand ===================== */
+/* was vor dieser Übung stand */
 
 test('preceding work is counted as sets that trained the muscle, not as fractions', () => {
   // Der Fehler, den das ersetzt hat: drei Sätze Bankdrücken vor Trizepsdrücken ergaben bei der
@@ -2485,7 +2485,7 @@ test('a movement that leads on the same muscle counts whole sets', () => {
   assert.deepEqual(leadingRegions(bench), ['chest']);
 });
 
-/* ===================== die Schätzung unter einer Satzzeile ===================== */
+/* die Schätzung unter einer Satzzeile */
 
 test('a load you typed yourself gets the same answer the suggestion gets', () => {
   const rows = exerciseHistory(

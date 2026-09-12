@@ -1,7 +1,7 @@
 // Aufwärmsätze für das Gewicht, das gleich kommt.
 //
 // Früher stand hier am Anfang, dass es für eine Aufwärmrampe keine Studienlage
-// gibt. Für die ANZAHL der Sätze stimmte das und stimmt meistens immer noch, für
+// gibt. Für die Anzahl der Sätze stimmte das und stimmt meistens immer noch, für
 // die Form aber nie. Und genau die Form, die die App vorgeschlagen hat (etwa die
 // Hälfte für fünf Wiederholungen, dann drei Viertel für drei), ist die Variante,
 // die im Vergleich verliert.
@@ -13,7 +13,7 @@
 //    Aufwärmvarianten: nur leicht, nur schwer, erst leicht dann schwer. Nur leicht
 //    war bei beiden Übungen am schlechtesten. Bei der Kniebeuge war der schwere
 //    Satz am besten, beim Bankdrücken das Paar. Der letzte Aufwärmsatz gehört also
-//    NAHE an das Arbeitsgewicht, nicht weit darunter.
+//    nahe an das Arbeitsgewicht, nicht weit darunter.
 //
 //  * Eine Crossover-Studie von 2025 mit 29 Trainierten (SOURCES.warmup2025) hat
 //    kein spezielles Aufwärmen, einen Satz mit 3 bis 4 Wiederholungen bei 75 % und

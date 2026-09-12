@@ -52,13 +52,13 @@ export function exerciseRatingCard(ex) {
   return card;
 }
 
-/* ===================== eigene Bewertung ===================== */
+/* eigene Bewertung */
 
 /**
  * Die eigene 1 bis 5, bewusst getrennt von der Wertung aus den Studien.
  *
  * Die beiden beantworten verschiedene Fragen, "ist die Übung gut" gegen "ist sie
- * gut FÜR MICH". Zu Letzterem gehören die Schulter, die sich meldet, die Maschine,
+ * gut für mich". Zu Letzterem gehören die Schulter, die sich meldet, die Maschine,
  * die das eigene Studio nicht hat, und die Übung, die man nie an der richtigen
  * Stelle spürt. Zu einer Zahl gemittelt würden sie sich nur gegenseitig aufheben,
  * deshalb zeigt die App zwei.
@@ -95,7 +95,7 @@ export function myRatingRow(ex, { onChange } = {}) {
   return row;
 }
 
-/* ===================== Alternativen ===================== */
+/* Alternativen */
 
 export function swapSheet(ex, swaps = suggestSwaps(ex, store.state.exercises), onPick = null) {
   const body = el('div', {}, [

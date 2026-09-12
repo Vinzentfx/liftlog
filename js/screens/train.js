@@ -57,7 +57,7 @@ function remoteWorkoutView(session) {
   ]);
 }
 
-/* ============================ Startbildschirm ============================ */
+/* Startbildschirm */
 
 function launcherView() {
   const done = store.state.sessions.filter((s) => s.finishedAt);
@@ -145,14 +145,14 @@ function launcherView() {
   return root;
 }
 
-/* ========================= laufendes Training ========================= */
+/* laufendes Training */
 
 function activeView(session) {
   const units = store.units();
   const root = el('div');
   const st = sessionStats(session);
 
-  // --- Kopf mit Übersicht ---
+  // Kopf mit Übersicht
   const elapsed = el('span.stat-val', { text: fmtDuration(st.durationMs) });
   const header = el('div.card', {}, [
     el('div.row.between', { style: { marginBottom: '12px' } }, [
@@ -197,7 +197,7 @@ function activeView(session) {
     elapsed.textContent = fmtDuration(sessionStats(session).durationMs);
   }, 30000);
 
-  // --- Übungen ---
+  // Übungen
   if (!session.entries.length) {
     root.append(emptyState(t('train.noExercises'), t('train.noExercisesHint')));
   }
@@ -205,7 +205,7 @@ function activeView(session) {
     root.append(exerciseBlock(session, entry, index));
   });
 
-  // --- Aktionen ---
+  // Aktionen
   root.append(
     el('button.btn.ghost.full', {
       style: { marginTop: '4px' },
@@ -248,7 +248,7 @@ function exerciseBlock(session, entry, entryIndex) {
   );
 
   // Alles, woraus der Rat gebaut ist: das ganze Log zu dieser Übung, jede Einheit korrigiert
-  // um die Stelle, an der es in der Einheit passiert ist, und dazu die Stelle in DIESER
+  // um die Stelle, an der es in der Einheit passiert ist, und dazu die Stelle in dieser
   // Einheit, an der wir gerade stehen.
   // Was ein leeres RIR wert ist. Null, während die Spalte an ist und der Nutzer sie nur
   // leer gelassen hat, wäre eine Vermutung über genau diesen Satz. Die Einstellung ist eine
@@ -479,12 +479,12 @@ function setRow(session, entry, set, index, last, ex, advice = null, estimator =
   const weight = normaliseOnBlur(numberInput({
     decimal: true,
     value: set.weight ?? '',
-    placeholder: hint ? String(hint.weight) : '–',
+    placeholder: hint ? String(hint.weight) : '',
     'aria-label': loadMode === 'added' ? t('train.addedWeight') : t('train.weight'),
   }));
   const reps = normaliseOnBlur(numberInput({
     value: set.reps ?? '',
-    placeholder: hint ? String(hint.reps) : '–',
+    placeholder: hint ? String(hint.reps) : '',
     'aria-label': t('train.col.reps'),
   }), { integer: true });
 
@@ -515,7 +515,7 @@ function setRow(session, entry, set, index, last, ex, advice = null, estimator =
   const rir = normaliseOnBlur(numberInput({
     class: 'rir',
     value: set.rir ?? '',
-    placeholder: '–',
+    placeholder: '',
     'aria-label': t('train.rirFor', { n: workingNo }),
     title: t('train.rirTitleLong'),
   }), { integer: true });
@@ -566,9 +566,9 @@ function setRow(session, entry, set, index, last, ex, advice = null, estimator =
  * Zwei verschiedene Fragen, und welche gestellt wird, hängt davon ab, was schon in der
  * Zeile steht:
  *
- *  - EIN GEWICHT UND KEINE WIEDERHOLUNGEN. "Wie viele gehen damit." Das hat der Vorschlag
+ *  * Ein Gewicht und keine Wiederholungen. "Wie viele gehen damit." Das hat der Vorschlag
  *    schon immer für seine eigene Last beantwortet, jetzt geht es für jede.
- *  - EIN GEWICHT UND WIEDERHOLUNGEN. Die Frage nach den Wiederholungen hat man selbst
+ *  * Ein Gewicht und Wiederholungen. Die Frage nach den Wiederholungen hat man selbst
  *    beantwortet, sie noch einmal zu beantworten hieße, dass die App mit einer gerade
  *    getippten Zahl streitet. Offen ist, wie nah man damit an der Grenze ist, also geht
  *    es um die Reserve.
@@ -628,9 +628,9 @@ function unilateralSetRow(session, entry, set, index, last, ex, advice = null) {
   const makeSide = (side, short) => {
     const weightKey = `${side}Weight`, repsKey = `${side}Reps`;
     const weight = normaliseOnBlur(numberInput({ decimal: true, value: set[weightKey] ?? '',
-      placeholder: hint ? String(hint.weight) : '–', 'aria-label': t('train.sideWeight', { side: short }) }));
+      placeholder: hint ? String(hint.weight) : '', 'aria-label': t('train.sideWeight', { side: short }) }));
     const reps = normaliseOnBlur(numberInput({ value: set[repsKey] ?? '',
-      placeholder: hint ? String(hint.reps) : '–', 'aria-label': t('train.sideReps', { side: short }) }), { integer: true });
+      placeholder: hint ? String(hint.reps) : '', 'aria-label': t('train.sideReps', { side: short }) }), { integer: true });
     weight.addEventListener('input', () => { set[weightKey] = parseNumber(weight.value); saveSoon(session); });
     reps.addEventListener('input', () => {
       const value = parseNumber(reps.value); set[repsKey] = value === null ? null : Math.round(value); saveSoon(session);
@@ -791,7 +791,7 @@ function reasonedSuggestion(exerciseId, headline, reason) {
   ]);
 }
 
-/* ======================= Anstrengung und Progression ======================= */
+/* Anstrengung und Progression */
 
 /** Das Anhängsel "· 1-2 RIR" an der Zeile vom letzten Mal, wenn es festgehalten wurde. */
 function lastRirLabel(sets) {
@@ -848,7 +848,7 @@ const round1 = (n) => Math.round(n * 10) / 10;
  * dass die Bank besetzt war und der Butterfly zuerst kam. Es zu benennen ist die Hälfte
  * dessen, was das Messen wert ist.
  *
- * Es muss RICHTIG benannt werden, und das war es lange nicht. Gedruckt wurde
+ * Es muss richtig benannt werden, und das war es lange nicht. Gedruckt wurde
  * `prior.same`, die gewichtete Überschneidung, auf eine ganze Zahl gerundet: drei Sätze
  * Bankdrücken vor Trizepsdrücken am Kabel ergaben 1,5, und der Screen sagte "2 Sätze für
  * diesen Muskel davor", obwohl nichts davor den Trizeps als Aufgabe trainiert hatte. Eine
@@ -888,7 +888,7 @@ function orderLabel(rows, prior, session, entryIndex) {
 
   // Bernstein für den Fall, der einen etwas kostet, und nichts Lauteres als der Rest der
   // Zeile für den Fall, der es zurückgibt. Früher waren beide in der Warnfarbe gemalt. Eine
-  // Übung, die in der Einheit FRÜHER kam, also frischer als letzte Woche und damit eine gute
+  // Übung, die in der Einheit früher kam, also frischer als letzte Woche und damit eine gute
   // Nachricht, war auf dem Screen genauso eingefärbt wie ein Problem.
   const later = movedDirect
     ? prior.direct > (was.direct ?? 0)
@@ -1096,7 +1096,7 @@ function plateSheet(entry, ex, initialWeight = null) {
   ]));
 }
 
-/* ============================ Menüs ============================ */
+/* Menüs */
 
 function exerciseMenu(session, entry, index, name) {
   const move = async (delta) => {
@@ -1284,7 +1284,7 @@ function renameSession(session) {
   openSheet(t('train.renameTitle'), body);
 }
 
-/* ============================ Abschluss ============================ */
+/* Abschluss */
 
 async function finishFlow(session) {
   const completed = session.entries.reduce((n, e) => n + e.sets.filter(isCounted).length, 0);

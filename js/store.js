@@ -66,7 +66,7 @@ export const state = {
   templates: [],      // gespeicherte Mahlzeiten: ein Name und eine Liste von Lebensmitteln
   meals: [],          // die neuesten zuerst
   settings: { ...DEFAULT_SETTINGS },
-  // Schlüssel -> wann er auf diesem Gerät zuletzt geändert wurde. Nur das Zusammenführen
+  // je Schlüssel: wann er auf diesem Gerät zuletzt geändert wurde. Nur das Zusammenführen
   // bei der Synchronisation liest das, alles andere will die einfachen Werte oben.
   settingsUpdatedAt: {},
   exerciseById: new Map(),
@@ -320,7 +320,7 @@ export const machineStep = (exercise) => {
   return step > 0 ? step : null;
 };
 
-// ---------- Einstellungen ----------
+// Einstellungen
 
 export async function setSetting(key, value) {
   const updatedAt = Date.now();
@@ -330,7 +330,7 @@ export async function setSetting(key, value) {
   emit();
 }
 
-// ---------- Übungen ----------
+// Übungen
 
 export async function addExercise({ name, muscle, equipment }) {
   const ex = {
@@ -424,7 +424,7 @@ export function planUsageCount(id) {
     n + (p.days || []).filter((d) => d.items.some((i) => i.exerciseId === id)).length, 0);
 }
 
-// ---------- Pläne ----------
+// Pläne
 
 export function activePlan() {
   const id = state.settings.activePlanId;
@@ -564,7 +564,7 @@ export async function deletePlan(id) {
   }
 }
 
-// ---------- Einheiten ----------
+// Einheiten
 
 async function persistSession(session) {
   session.updatedAt = Date.now();
@@ -659,7 +659,7 @@ export async function resumeSession(id) {
  * Einträge sind per Definition einfache Daten (sie stehen auch so in der
  * Sicherungsdatei), die Kopie ist also exakt und braucht kein structuredClone.
  *
- * Die Abmachung, damit das funktioniert: `mutate` muss JEDE Änderung enthalten. Ein
+ * Die Abmachung, damit das funktioniert: `mutate` muss jede Änderung enthalten. Ein
  * Aufrufer, der die Einheit vorher ändert und das hier dann mit leerem Callback aufruft,
  * bekommt eine Kopie der schon geänderten Einheit, und das Zurückrollen macht still nichts.
  */
@@ -742,7 +742,7 @@ async function recordDeletion(collection, id, rowUpdatedAt = 0) {
   await db.put(db.STORES.settings, { key: 'syncDeletions', value: deletions });
 }
 
-// ---------- Ernährung ----------
+// Ernährung
 
 export async function addFood(fields) {
   const food = newFood(db.uid, fields);
@@ -861,7 +861,7 @@ function shiftToDay(at, day) {
   return new Date(y, m - 1, d, from.getHours(), from.getMinutes()).getTime();
 }
 
-// ---------- gespeicherte Mahlzeiten ----------
+// gespeicherte Mahlzeiten
 
 /**
  * Eine Kombination von Lebensmitteln unter einem Namen speichern.
@@ -917,7 +917,7 @@ export async function logTemplate(id, { day = dayKey(), slot = null } = {}) {
   return { logged, missing, name: template.name };
 }
 
-// ---------- Wasser ----------
+// Wasser
 
 /** Milliliter an einem Tag, 0, wenn nichts eingetragen ist. */
 export function waterOn(day = dayKey()) {
@@ -947,7 +947,7 @@ export function mealsOn(day = dayKey()) {
   return state.meals.filter((m) => m.day === day).sort((a, b) => a.at - b.at);
 }
 
-// ---------- Körpergewicht ----------
+// Körpergewicht
 
 export async function logBodyweight(weight, date = Date.now()) {
   const day = new Date(date); day.setHours(12, 0, 0, 0);
@@ -989,7 +989,7 @@ export async function deleteBodyweight(id) {
   emit();
 }
 
-// ---------- Sicherung ----------
+// Sicherung
 
 /**
  * Ob es Zeit ist, an eine Sicherung zu erinnern, und warum.

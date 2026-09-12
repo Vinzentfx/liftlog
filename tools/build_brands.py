@@ -58,7 +58,7 @@ CATEGORIES = [
     "eggs", "olive-oils", "vegetable-oils", "vinegars", "mustards",
 ]
 
-# Nährwertschlüssel von OFF -> was die App speichert. Dieselben, die der Barcode-Weg liest,
+# je Nährwertschlüssel von OFF: was die App speichert. Dieselben, die der Barcode-Weg liest,
 # ein Produkt von hier und eins, das später gescannt wird, haben also dieselbe Form.
 FIELDS = {
     "proteins_100g": "protein",
@@ -105,7 +105,7 @@ def num(v):
 
 def clean_name(product):
     name = (product.get("product_name_de") or product.get("product_name") or "").strip()
-    # Namen von OFF schleppen allerlei Müll mit: Größen, NUR GROSSBUCHSTABEN, doppelte Leerzeichen.
+    # Namen von OFF schleppen allerlei Müll mit: Größen, nur Großbuchstaben, doppelte Leerzeichen.
     name = re.sub(r"\s+", " ", name)
     if len(name) < 3 or len(name) > 60:
         return None
@@ -147,7 +147,7 @@ def to_entry(product):
     if "sodium" not in per100:
         salt = num(n.get("salt_100g"))
         if salt is not None:
-            per100["sodium"] = round(salt * 400)      # Salz g -> Natrium mg
+            per100["sodium"] = round(salt * 400)      # Salz in g ergibt Natrium in mg
 
     brand = (product.get("brands") or "").split(",")[0].strip()
     entry = {
@@ -188,7 +188,7 @@ def main():
     rows.sort(key=lambda r: r["name"].lower())
     body = ",\n".join("  " + json.dumps(r, ensure_ascii=False, sort_keys=True) for r in rows)
     OUT.write_text(
-        "// ERZEUGT von tools/build_brands.py, bitte nicht von Hand ändern.\n"
+        "// Erzeugt von tools/build_brands.py, bitte nicht von Hand ändern.\n"
         "//\n"
         "// Markenprodukte aus Open Food Facts, gefiltert auf Artikel, die in Deutschland\n"
         "// verkauft werden. Werte pro 100 g oder 100 ml, so wie sie eingetragen wurden.\n"

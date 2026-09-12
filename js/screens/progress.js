@@ -47,7 +47,7 @@ export default function renderProgress({ param, actions }) {
   return param ? exerciseView(param) : overview();
 }
 
-/* =========================== Überblick =========================== */
+/* Überblick */
 
 function overview() {
   const units = store.units();
@@ -58,7 +58,7 @@ function overview() {
     return emptyState(t('progress.empty'), t('progress.emptyHint'));
   }
 
-  // --- Kennzahlen oben ---
+  // Kennzahlen oben
   const weekStart = startOfWeek(Date.now());
   const thisWeek = done.filter((s) => s.startedAt >= weekStart);
   const weekSets = thisWeek.reduce((n, s) => n + s.entries.reduce((m, e) => m + e.sets.filter(isCounted).length, 0), 0);
@@ -89,7 +89,7 @@ function overview() {
       [t('progress.shareWeek')])
   );
 
-  // --- Einstieg zu den einzelnen Übungen (das, was man eigentlich will) ---
+  // Einstieg zu den einzelnen Übungen (das, was man eigentlich will)
   root.append(el('div.section-head', {}, [el('h2', { text: t('progress.exerciseProgress') })]));
   root.append(
     el('button.btn.primary.full', {
@@ -109,24 +109,24 @@ function overview() {
     )));
   }
 
-  // --- Stärke über die Zeit ---
+  // Stärke über die Zeit
   root.append(strengthSection(done));
 
-  // --- was sich bewegt ---
+  // was sich bewegt
   root.append(moversSection(done, units));
 
-  // --- geht es überhaupt noch voran ---
+  // geht es überhaupt noch voran
   root.append(stallSection(done));
 
-  // --- Essen und Training auf einer Achse ---
+  // Essen und Training auf einer Achse
   root.append(timelineSection(units));
 
-  // --- Arbeit pro Woche ---
+  // Arbeit pro Woche
   const buckets = weeklyMuscleSets(done, store.state.exerciseById, 10);
   root.append(el('div.section-head', {}, [el('h2', { text: t('progress.weeklyWorkload') })]));
   root.append(workloadSection(done, units));
 
-  // --- Verteilung auf die Muskeln in den letzten 4 Wochen ---
+  // Verteilung auf die Muskeln in den letzten 4 Wochen
   const recent = buckets.slice(-4);
   const byMuscle = {};
   for (const b of recent) {
@@ -148,7 +148,7 @@ function overview() {
     );
   }
 
-  // --- Regelmäßigkeit ---
+  // Regelmäßigkeit
   root.append(el('div.section-head', {}, [el('h2', { text: t('progress.consistency') })]));
   const dayMap = new Map();
   for (const s of done) {
@@ -169,7 +169,7 @@ function overview() {
     ])
   );
 
-  // --- Körpergewicht ---
+  // Körpergewicht
   root.append(el('div.section-head', {}, [
     el('h2', { text: t('home.bodyweight.title') }),
     el('button.btn.quiet.sm', { onclick: bodyweightForm }, [t('progress.logShort')]),
@@ -282,7 +282,7 @@ function noteHistory(exerciseId) {
   return wrap;
 }
 
-/* ===================== Stärke über die Zeit ===================== */
+/* Stärke über die Zeit */
 
 /**
  * Die Gesamtstärke, wie sie jede Woche stand, nicht wie sie heute steht.
@@ -377,7 +377,7 @@ function strengthSection(done) {
 /**
  * Wie weit es bis zur nächsten Stufe ist, in den Einheiten, in denen das Diagramm gezeichnet ist.
  *
- * Die nächste DIVISION, nicht der nächste Rang: auf einer Leiter mit 27 Stufen kann der
+ * Die nächste Division, nicht der nächste Rang: auf einer Leiter mit 27 Stufen kann der
  * Rang darüber zehn Punkte entfernt sein, und so ein Abstand fühlt sich nicht nach
  * "fast da" an.
  */
@@ -393,7 +393,7 @@ function nextTierNote(score) {
   });
 }
 
-/* ===================== was sich bewegt ===================== */
+/* was sich bewegt */
 
 /** Welche Übungen steigen und welche sich seit Monaten nicht bewegt haben. */
 /**
@@ -483,7 +483,7 @@ function moversSection(done, units) {
   return wrap;
 }
 
-/* ===================== Essen neben dem Training ===================== */
+/* Essen neben dem Training */
 
 /**
  * Die zwei Hälften der App in denselben Wochen.
@@ -594,7 +594,7 @@ function timelineSection(units) {
   return wrap;
 }
 
-/* ===================== Belastung ===================== */
+/* Belastung */
 
 /**
  * Dieselben Wochen, auf drei Arten. Sätze sind das, worauf die Planbewertung schaut,
@@ -655,7 +655,7 @@ function workloadSection(done, units) {
   return host;
 }
 
-/* ======================= einzelne Übung ======================= */
+/* einzelne Übung */
 
 function exerciseView(exerciseId) {
   const units = store.units();
@@ -700,7 +700,7 @@ function exerciseView(exerciseId) {
     return root;
   }
 
-  // --- Rekorde ---
+  // Rekorde
   const prs = personalRecords(store.state.sessions, exerciseId);
   root.append(
     el('div.stat-grid.compact', { style: { marginBottom: '4px' } }, [
@@ -719,7 +719,7 @@ function exerciseView(exerciseId) {
     ].filter(Boolean))
   );
 
-  // --- Umschalter für die Größe ---
+  // Umschalter für die Größe
   const METRICS = {
     e1rm:   { label: t('progress.metric.e1rm'), noun: t('progress.metric.e1rmNoun'), pick: (p) => p.e1rm,
               caption: t('progress.metric.e1rmCaption') },
@@ -804,7 +804,7 @@ function exerciseView(exerciseId) {
 
   root.append(noteHistory(exerciseId));
 
-  // --- Tabelle der Einheiten (die barrierefreie Alternative zum Diagramm) ---
+  // Tabelle der Einheiten (die barrierefreie Alternative zum Diagramm)
   root.append(el('div.section-head', {}, [el('h2', { text: t('progress.everySession') })]));
   for (const p of [...series].reverse()) {
     root.append(listItem({
@@ -817,7 +817,7 @@ function exerciseView(exerciseId) {
   return root;
 }
 
-/* ============================ Helfer ============================ */
+/* Helfer */
 
 function mostTrained(sessions, limit) {
   const counts = new Map();

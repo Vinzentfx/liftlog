@@ -4,7 +4,7 @@
 // keine Faulheit. Die Sammlungen, die sich lohnen würden, sind game-icons.net (CC BY
 // 3.0), das Noun Project, Flaticon und Vecteezy. Alle lassen sich mit Quellenangabe
 // benutzen, und dafür hat die App schon alles (NOTICE, Einstellungen, Credits). Das
-// Problem ist nicht die Lizenz, sondern dass keine davon eine LEITER ist. Eine
+// Problem ist nicht die Lizenz, sondern dass keine davon eine Leiter ist. Eine
 // Bronzemedaille aus der einen Sammlung, ein Diamant aus der zweiten und eine Krone
 // aus der dritten teilen weder Umriss noch Strichstärke noch optische Größe, und der
 // ganze Sinn von siebenundzwanzig Stufen ist, dass die Abzeichen wie eine Familie
@@ -195,7 +195,7 @@ export function rankBadge(tierIndex, { size = 34, glow = false } = {}) {
   return svg;
 }
 
-/* ===================== Einordnung in eine Bevölkerung ===================== */
+/* Einordnung in eine Bevölkerung */
 
 /**
  * Ein Anteil als Prozent, mit so vielen Nachkommastellen, wie das obere Ende der Skala braucht.
@@ -284,7 +284,7 @@ export function populationSheet(sex) {
   ]));
 }
 
-/* ===================== der Moment, in dem man eins bekommt ===================== */
+/* der Moment, in dem man eins bekommt */
 
 /**
  * Die Feier beim Aufstieg.

@@ -24,7 +24,7 @@ const SAMPLE = {
   })),
 };
 
-/* ========================= den Inhalt versiegeln ========================= */
+/* den Inhalt versiegeln */
 
 test('a sealed payload comes back exactly as it went in', async () => {
   const key = await generateDataKey();
@@ -80,7 +80,7 @@ test('a payload the size of a real backup survives the round trip', async () => 
   assert.deepEqual(await open(key, blob), big);
 });
 
-/* =========================== Wiederherstellungsschlüssel =========================== */
+/* Wiederherstellungsschlüssel */
 
 test('a recovery key survives being written down and typed back in', () => {
   const key = generateRecoveryKey();
@@ -158,7 +158,7 @@ test('the verifier proves the recovery key without revealing it', async () => {
   assert.notEqual(verifier, raw);
 });
 
-/* ========================== ein Gerät verbinden ========================== */
+/* ein Gerät verbinden */
 
 test('an approved device gets the key, a third device does not', async () => {
   const main = await generateDeviceKeys();

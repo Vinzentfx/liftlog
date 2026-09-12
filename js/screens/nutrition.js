@@ -7,7 +7,7 @@
 //
 // Eiweiß und Kalorien tragen die Aussagen. Kohlenhydrate, Fett, Ballaststoffe und Wasser
 // werden festgehalten und ohne Aussage gezeigt. Was nicht ausgefüllt ist, bleibt
-// UNBEKANNT und wird nicht zu null, deshalb kann sich die Energieaufteilung weigern, sich
+// unbekannt und wird nicht zu null, deshalb kann sich die Energieaufteilung weigern, sich
 // zu zeichnen.
 
 import {
@@ -72,7 +72,7 @@ export default function renderNutrition({ actions, fresh }) {
   return root;
 }
 
-/* ======================= Ziele ======================= */
+/* Ziele */
 
 /**
  * Worauf man zielt und wie viel davon heute noch übrig ist.
@@ -199,7 +199,7 @@ function targetsSheet(targets) {
   ]));
 }
 
-/* ======================= Makros ======================= */
+/* Makros */
 
 /**
  * Woher die Energie des Tages kam.
@@ -266,7 +266,7 @@ function macroKey(colour, label, grams, share) {
   ]);
 }
 
-/* ======================= Wasser ======================= */
+/* Wasser */
 
 /**
  * Wasser in Gläsern, weil niemand in Millilitern denkt.
@@ -306,7 +306,7 @@ function waterCard(day) {
   ]);
 }
 
-/* ======================= zwischen Tagen wechseln ======================= */
+/* zwischen Tagen wechseln */
 
 function dayHeader(day, isToday) {
   const step = (delta) => {
@@ -338,7 +338,7 @@ function dayHeader(day, isToday) {
   ]);
 }
 
-/* ======================= Ziel ======================= */
+/* Ziel */
 
 /**
  * Der Tag auf einen Blick: zuerst die Energie, darunter die drei Makros.
@@ -485,7 +485,7 @@ function targetSheet() {
   ]));
 }
 
-/* ======================= Mahlzeiten von heute ======================= */
+/* Mahlzeiten von heute */
 
 const SLOT_KEY = {
   breakfast: 'food.slot.breakfast', lunch: 'food.slot.lunch',
@@ -741,7 +741,7 @@ function previousDay(day) {
   return dayKey(d.getTime());
 }
 
-/* ======================= die Lebensmittelliste ======================= */
+/* die Lebensmittelliste */
 
 function quickAdd(day) {
   const wrap = el('div');
@@ -1030,7 +1030,7 @@ function foodForm(existing = null, day = dayKey(), draft = null) {
   ]));
 }
 
-/* ======================= Barcode ======================= */
+/* Barcode */
 
 /**
  * Die Zahl unter den Strichen eintippen. Keine Kamera: kein Browser unter iOS hat
@@ -1138,15 +1138,15 @@ function manageSheet() {
   openSheet(t('food.myFoods'), body);
 }
 
-/* ======================= Verläufe ======================= */
+/* Verläufe */
 
 /**
  * Die letzten vierzehn Tage, je Größe.
  *
  * Lange war Eiweiß das Einzige mit Diagramm, weil es als Einziges ein Ziel hatte. Jetzt
  * haben Kalorien, Kohlenhydrate und Fett auch eins (siehe macroTargets) und bekommen
- * dieselbe Behandlung, mit demselben Bereich und derselben Regel darunter: EIN TAG OHNE
- * EINTRÄGE IST LEER, NICHT NULL. Nullen mitzurechnen würde zwei Wochen ordentliches Essen
+ * dieselbe Behandlung, mit demselben Bereich und derselben Regel darunter: ein Tag ohne
+ * Einträge ist leer, nicht null. Nullen mitzurechnen würde zwei Wochen ordentliches Essen
  * mit zwei vergessenen Tagen wie ein Scheitern aussehen lassen, und so hört man am
  * schnellsten auf einzutragen.
  */

@@ -1,4 +1,4 @@
-// ERZEUGT, bitte nicht von Hand ändern. Neu bauen mit tools/build_library.py
+// Erzeugt, bitte nicht von Hand ändern. Neu bauen mit tools/build_library.py
 //
 // Übungsdaten aus free-exercise-db (gemeinfrei).
 // https://github.com/yuhonas/free-exercise-db

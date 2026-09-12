@@ -6,16 +6,16 @@
 // vergleichen kann.
 //
 // Stil, in beiden Sprachen:
-//   - Keine langen Gedankenstriche. Die unterbrechen den Satz, wenn man ihn auf
+//   * Keine langen Gedankenstriche. Die unterbrechen den Satz, wenn man ihn auf
 //     dem Handy liest. Lieber Doppelpunkt, Komma oder ein zweiter Satz.
-//   - '–' allein ist der Platzhalter für einen leeren Wert, kein Satzzeichen.
-//   - Platzhalter heißen {name}, und beide Sprachen benutzen dieselben.
-//   - Beschreiben, nie vorschreiben. Das muss auch das Deutsche halten: kein
+//   * '·' allein ist der Platzhalter für einen leeren Wert.
+//   * Platzhalter heißen {name}, und beide Sprachen benutzen dieselben.
+//   * Beschreiben, nie vorschreiben. Das muss auch das Deutsche halten: kein
 //     "solltest", kein "musst", kein "zu viel".
 
 export const STRINGS = {
   en: {
-    // ---------- Grundgerüst ----------
+    // Grundgerüst
     'tab.home': 'Home',
     'tab.train': 'Train',
     'tab.food': 'Food',
@@ -51,7 +51,7 @@ export const STRINGS = {
     'app.write.failed': 'Not saved: that entry did not reach the disk',
     'app.error.generic': 'Something went wrong',
 
-    // ---------- gemeinsame Wörter ----------
+    // gemeinsame Wörter
     'common.save': 'Save',
     'common.saved': 'Saved',
     'common.cancel': 'Cancel',
@@ -67,7 +67,7 @@ export const STRINGS = {
     'common.lastWeek': 'Last week',
     'common.daysAgo': '{n} days ago',
     'common.all': 'All',
-    'common.empty': '–',
+    'common.empty': '·',
     'common.share': 'Share',
     'common.of': '{a} of {b}',
     'common.stars': '{n} out of 5 stars',
@@ -92,13 +92,13 @@ export const STRINGS = {
     'unit.item.one': '{n} item',
     'unit.item.other': '{n} items',
 
-    // ---------- Pausentimer ----------
+    // Pausentimer
     'rest.label': 'Rest',
     'rest.done': 'Done',
     'rest.stop': 'Stop rest timer',
     'rest.add30': 'Add 30 seconds',
 
-    // ---------- Muskelgruppen (gespeichert wird weiter Englisch) ----------
+    // Muskelgruppen (gespeichert wird weiter Englisch)
     'muscle.chest': 'Chest',
     'muscle.back': 'Back',
     'muscle.shoulders': 'Shoulders',
@@ -111,7 +111,7 @@ export const STRINGS = {
     'muscle.core': 'Core',
     'muscle.other': 'Other',
 
-    // ---------- Geräte ----------
+    // Geräte
     'equipment.barbell': 'Barbell',
     'equipment.dumbbell': 'Dumbbell',
     'equipment.cable': 'Cable',
@@ -121,7 +121,7 @@ export const STRINGS = {
     'equipment.bands': 'Bands',
     'equipment.other': 'Other',
 
-    // ---------- Regionen der Muskelkarte ----------
+    // Regionen der Muskelkarte
     'region.chest': 'Chest',
     'region.delts-front': 'Front Delts',
     'region.delts-rear': 'Rear Delts',
@@ -139,7 +139,7 @@ export const STRINGS = {
     'region.calves': 'Calves',
     'region.adductors': 'Adductors',
 
-    // ---------- Stärkestufen ----------
+    // Stärkestufen
     'tier.bronze': 'Bronze',
     'tier.silver': 'Silver',
     'tier.gold': 'Gold',
@@ -177,7 +177,7 @@ export const STRINGS = {
     'tier.elite.note': 'Approaching the published elite standard.',
     'tier.legend.note': 'At or beyond the published elite standard.',
 
-    // ---------- Wochentage ----------
+    // Wochentage
     'weekday.0': 'Sunday',
     'weekday.1': 'Monday',
     'weekday.2': 'Tuesday',
@@ -196,7 +196,7 @@ export const STRINGS = {
     'schedule.fewer': '{scheduled} of {expected} sessions a week are on the calendar. The rating counts all {expected}.',
     'schedule.more': '{scheduled} sessions scheduled, but the plan describes {expected} a week.',
 
-    // ---------- Übungsauswahl ----------
+    // Übungsauswahl
     'picker.title': 'Add Exercise',
     'picker.search': 'Search exercises…',
     'picker.noMatch': 'No match',
@@ -218,7 +218,7 @@ export const STRINGS = {
     'picker.createExercise': 'Create exercise',
     'picker.added': 'Added {name}',
 
-    // ---------- Muskelkarte ----------
+    // Muskelkarte
     'bodymap.aria': 'Muscle rating map',
     'bodymap.scaleAria': 'Colour scale across {n} ranks, weakest on the left',
     'bodymap.scaleHint': '{n} ranks',
@@ -226,7 +226,7 @@ export const STRINGS = {
     'bodymap.back': 'Back',
     'bodymap.unavailable': 'Body map unavailable.',
 
-    // ---------- Diagramme ----------
+    // Diagramme
     'chart.line': 'Line chart',
     'chart.bar': 'Bar chart',
     'chart.noData': 'No data yet',
@@ -234,7 +234,7 @@ export const STRINGS = {
     'chart.restDay': 'rest',
 
 
-    // ---------- Home ----------
+    // Home
     'common.settings': 'Settings',
     'common.export': 'Export',
     'common.more': 'More',
@@ -292,7 +292,7 @@ export const STRINGS = {
     'home.rating.calculationNote': 'The score compares the estimated 1RM with the standard after allometric body-mass scaling. This reduces the former advantage for light lifters while still showing absolute strength separately.',
     'home.rating.heightNote': 'Height is shown in your profile but is not used: its leverage effect differs by lift, so one universal correction would be misleading.',
 
-    // ---------- Nutzer ----------
+    // Nutzer
     'users.loading': 'Loading your people…',
     'users.signInTitle': 'Cloud account required',
     'users.signInBody': 'Sign in to use friends, training status and leaderboards.',
@@ -531,7 +531,7 @@ export const STRINGS = {
     'home.region.tierScale': 'Tier scale',
 
 
-    // ---------- Trainieren ----------
+    // Trainieren
     'unit.warmupSet.one': '{n} warm-up set',
     'unit.warmupSet.other': '{n} warm-up sets',
     'train.startEmpty': 'Start empty workout',
@@ -726,7 +726,7 @@ export const STRINGS = {
     'train.rel.weeks': '{n}w ago',
 
 
-    // ---------- Bibliothek ----------
+    // Bibliothek
     'library.sort.muscle': 'By muscle',
     'library.sort.rating': 'Best rated first',
     'library.sort.mine': 'My rating first',
@@ -761,7 +761,7 @@ export const STRINGS = {
     'library.deleted': 'Exercise deleted',
 
 
-    // ---------- Pläne ----------
+    // Pläne
     'unit.change.one': '{n} change',
     'unit.change.other': '{n} changes',
     'plans.presetTitle': 'Start from a preset',
@@ -884,7 +884,7 @@ export const STRINGS = {
     'plans.renameTitle': 'Rename plan',
 
 
-    // ---------- Kalender ----------
+    // Kalender
     'weekday.0.initial': 'S',
     'weekday.1.initial': 'M',
     'weekday.2.initial': 'T',
@@ -922,7 +922,7 @@ export const STRINGS = {
     'calendar.deleteSetTitle': 'Delete this set',
 
 
-    // ---------- Einstellungen ----------
+    // Einstellungen
     'unit.workout.one': '{n} workout',
     'unit.person.one': '{n} person',
     'unit.person.other': '{n} people',
@@ -1025,7 +1025,7 @@ export const STRINGS = {
     'settings.rankShareWithdrawFailed': 'Switched off here, but the server could not be reached. It will keep trying.',
     'home.rank.below': '{pct}% of the {n} people who log this are below you',
 
-    // ---------- Einordnung des Rangs in eine Bevölkerung ----------
+    // Einordnung des Rangs in eine Bevölkerung
     'rank.pop.worldMale': 'Stronger than an estimated {pct}% of adult men',
     'rank.pop.worldFemale': 'Stronger than an estimated {pct}% of adult women',
     'rank.pop.top': 'Top {pct}% of people who train',
@@ -1138,7 +1138,7 @@ export const STRINGS = {
     'credits.shareAlike': 'That extracted database carries share-alike; see NOTICE.',
 
 
-    // ---------- Fortschritt ----------
+    // Fortschritt
     'unit.note.one': '{n} note',
     'unit.note.other': '{n} notes',
     'unit.lift.one': '{n} lift',
@@ -1213,7 +1213,7 @@ export const STRINGS = {
     'progress.logged': 'Logged',
 
 
-    // ---------- geteilter Plan ----------
+    // geteilter Plan
     'share.nothing': 'Nothing to import',
     'share.nothingHint': 'Open a plan link someone sent you and it lands here.',
     'share.decoding': 'Decoding…',
@@ -1234,7 +1234,7 @@ export const STRINGS = {
     'share.noThanks': 'No thanks',
 
 
-    // ---------- Essen ----------
+    // Essen
     'unit.meal.one': '{n} meal',
     'unit.meal.other': '{n} meals',
     'unit.match.one': '{n} match',
@@ -1426,7 +1426,7 @@ export const STRINGS = {
     'food.oneConstant': 'The one constant',
 
 
-    // ---------- Belege ----------
+    // Belege
     'evidence.disclaimer': 'Ratings are a reading of the current literature, not a measurement. The numbers below are group averages from studies on other people; where the evidence is thin the app says so rather than inventing a number.',
     'evidence.acsm2026.short': 'ACSM 2026 Position Stand',
     'evidence.acsm2026.note': '137 systematic reviews, >30,000 participants. First update since 2009.',
@@ -1481,7 +1481,7 @@ export const STRINGS = {
     'evidence.variation2024.says': 'Muscles do not grow evenly, and different exercises grow different regions. A couple of movements per muscle covers more of it than one, but the variation has to be systematic; swapping exercises at random costs you more than it buys.',
 
 
-    // ---------- Übungswissen ----------
+    // Übungswissen
     'science.label.long': 'Loaded at long muscle length',
     'science.label.mixed': 'Loaded through the middle of the range',
     'science.label.short': 'Loaded at short muscle length',
@@ -1549,7 +1549,7 @@ export const STRINGS = {
     'science.stabilityNormal': 'No unusual stability advantage or limitation is known, so this is scored neutrally',
 
 
-    // ---------- Übungsbewertung ----------
+    // Übungsbewertung
     'unit.region.one': '{n} muscle region',
     'unit.region.other': '{n} muscle regions',
     'unit.option.one': '{n} better option',
@@ -1599,7 +1599,7 @@ export const STRINGS = {
     'rating.lastReviewed': 'Evidence last reviewed July 2026.',
 
 
-    // ---------- Planbewertung ----------
+    // Planbewertung
     'planRating.why.volume': 'The single best-supported lever there is. More weekly sets, more growth, with diminishing returns.',
     'planRating.why.coverage': 'A muscle you never train does not grow. Cheap to fix, so it is worth real weight.',
     'planRating.why.session': 'Sets past roughly 11 for one muscle in one workout stop paying for themselves.',
@@ -1630,7 +1630,7 @@ export const STRINGS = {
     'planRating.andMore': ', +{n} more',
 
 
-    // ---------- Plan-Doktor, Alternativen, Vorlagen ----------
+    // Plan-Doktor, Alternativen, Vorlagen
     'planDoctor.coverTitle': 'Add {muscle} to {day}',
     'planDoctor.coverDetail': '{exercise}, {sets} sets. {muscle} is not trained at all right now.',
     'planDoctor.volumeTitle': 'Add a {muscle} exercise to {day}',
@@ -1695,7 +1695,7 @@ export const STRINGS = {
     'verdict.loseFast': 'Losing at {rate}, fast enough to cost you strength',
 
 
-    // ---------- Stillstand, Wochenurteil, Regionsverlauf, Wochenkarte ----------
+    // Stillstand, Wochenurteil, Regionsverlauf, Wochenkarte
     'fatigue.allClimbing': 'All {tracked} lifts with enough data are still climbing over the last {weeks} weeks.',
     'fatigue.stalled': '{stalled} of {tracked} tracked lifts have not gained over the last {weeks} weeks: {list}.',
     'fatigue.stalledFalling': '{stalled} of {tracked} tracked lifts have not gained over the last {weeks} weeks, and {falling} of them are going backwards: {list}.',
@@ -1757,7 +1757,7 @@ export const STRINGS = {
     'weekCard.workoutOther': 'workouts',
 
 
-    // ---------- Essen neben dem Training ----------
+    // Essen neben dem Training
     'timeline.title': 'Eating and training',
     'timeline.notYet': 'Only {weeks} so far carry enough food logging to line up against your training. A week counts once it has {min} logged days, which is a convention rather than a finding: below that the average says more about which days you remembered than about what you ate.',
     'timeline.rowKcal': 'Calories a day, averaged over the week',
@@ -1773,7 +1773,7 @@ export const STRINGS = {
     'timeline.wayIn': 'See this next to your training',
 
 
-    // ---------- Cloud-Sicherung ----------
+    // Cloud-Sicherung
     'cloud.title': 'Cloud backup',
     'cloud.pitch': 'A second copy, encrypted on this phone before it leaves it, so a lost or broken device does not take your training with it. Off until you switch it on.',
     'cloud.setUp': 'Set up cloud backup',
@@ -1806,7 +1806,7 @@ export const STRINGS = {
     'cloud.useRecovery': 'Use my recovery key instead',
     'cloud.newDeviceNote': 'Open LiftLog on your main device and the request will be waiting there. If that device is gone, the recovery key is the way in.',
     'cloud.requestSent': 'Request sent. Open LiftLog on your main device to allow it.',
-    'cloud.pendingAlert': 'A new device is waiting for approval. Open Settings → Cloud backup.',
+    'cloud.pendingAlert': 'A new device is waiting for approval. Open Settings > Cloud backup.',
     'cloud.enterInvite': 'Enter invite code',
     'cloud.inviteIntro': 'Your account exists but has no invite yet, so it cannot store anything.',
     'cloud.redeem': 'Redeem',
@@ -1951,7 +1951,7 @@ export const STRINGS = {
     'cloud.err.undefined': 'That did not work.',
 
 
-    // ---------- Einladungssperre ----------
+    // Einladungssperre
     'gate.title': 'LiftLog is invite-only',
     'gate.access': 'Private access',
     'gate.intro': 'You need a code from whoever runs this. It is asked for once on this device; after that the app works offline, with or without reception.',
@@ -1967,7 +1967,7 @@ export const STRINGS = {
     'gate.waitingEyebrow': 'Device approval',
     'gate.waitingTitle': 'Waiting for your main device',
     'gate.waitingIntro': 'This device stays locked until your main device allows it. LiftLog checks automatically.',
-    'gate.waitingStepOne': 'Open LiftLog on your main device and go to Settings → Cloud backup → Devices.',
+    'gate.waitingStepOne': 'Open LiftLog on your main device and go to Settings > Cloud backup > Devices.',
     'gate.waitingStepTwo': 'Open this device’s request and choose “Yes, that is me”.',
     'gate.waitingAutomatic': 'Checking automatically…',
     'gate.waitingStill': 'Still waiting for approval.',
@@ -1986,7 +1986,7 @@ export const STRINGS = {
   },
 
   de: {
-    // ---------- Grundgerüst ----------
+    // Grundgerüst
     'tab.home': 'Start',
     'tab.train': 'Training',
     'tab.food': 'Essen',
@@ -2020,7 +2020,7 @@ export const STRINGS = {
     'app.write.failed': 'Nicht gespeichert: dieser Eintrag hat die Platte nicht erreicht',
     'app.error.generic': 'Da ist etwas schiefgegangen',
 
-    // ---------- gemeinsame Wörter ----------
+    // gemeinsame Wörter
     'common.save': 'Speichern',
     'common.saved': 'Gespeichert',
     'common.cancel': 'Abbrechen',
@@ -2036,7 +2036,7 @@ export const STRINGS = {
     'common.lastWeek': 'Letzte Woche',
     'common.daysAgo': 'vor {n} Tagen',
     'common.all': 'Alle',
-    'common.empty': '–',
+    'common.empty': '·',
     'common.share': 'Teilen',
     'common.of': '{a} von {b}',
     'common.stars': '{n} von 5 Sternen',
@@ -2061,13 +2061,13 @@ export const STRINGS = {
     'unit.item.one': '{n} Eintrag',
     'unit.item.other': '{n} Einträge',
 
-    // ---------- Pausentimer ----------
+    // Pausentimer
     'rest.label': 'Pause',
     'rest.done': 'Fertig',
     'rest.stop': 'Pausentimer stoppen',
     'rest.add30': '30 Sekunden dazu',
 
-    // ---------- Muskelgruppen (gespeichert wird weiter Englisch) ----------
+    // Muskelgruppen (gespeichert wird weiter Englisch)
     'muscle.chest': 'Brust',
     'muscle.back': 'Rücken',
     'muscle.shoulders': 'Schultern',
@@ -2080,7 +2080,7 @@ export const STRINGS = {
     'muscle.core': 'Rumpf',
     'muscle.other': 'Sonstige',
 
-    // ---------- Geräte ----------
+    // Geräte
     'equipment.barbell': 'Langhantel',
     'equipment.dumbbell': 'Kurzhantel',
     'equipment.cable': 'Kabelzug',
@@ -2090,7 +2090,7 @@ export const STRINGS = {
     'equipment.bands': 'Bänder',
     'equipment.other': 'Sonstiges',
 
-    // ---------- Regionen der Muskelkarte ----------
+    // Regionen der Muskelkarte
     // Absichtlich kurz: die Balkenzeilen und die Wochenkarte geben einem Muskelnamen
     // eine Spalte von 84 px, und die war für Englisch bemessen. "Hintere Schulter"
     // wird dort abgeschnitten, "Hintere Delts" sagt man im Studio sowieso, und es passt.
@@ -2111,7 +2111,7 @@ export const STRINGS = {
     'region.calves': 'Waden',
     'region.adductors': 'Adduktoren',
 
-    // ---------- Stärkestufen ----------
+    // Stärkestufen
     // Die Leiter muss auch auf Deutsch durchgehend steigend klingen. Die wörtlichen
     // Übersetzungen gehen deshalb nicht: "Fortgeschritten" ist ein stärkeres Wort
     // als "Geübt" und kann nicht darunter stehen.
@@ -2152,7 +2152,7 @@ export const STRINGS = {
     'tier.elite.note': 'Kurz vor dem publizierten Elite-Standard.',
     'tier.legend.note': 'Auf oder über dem publizierten Elite-Standard.',
 
-    // ---------- Wochentage ----------
+    // Wochentage
     'weekday.0': 'Sonntag',
     'weekday.1': 'Montag',
     'weekday.2': 'Dienstag',
@@ -2171,7 +2171,7 @@ export const STRINGS = {
     'schedule.fewer': '{scheduled} von {expected} Trainings pro Woche stehen im Kalender. Die Bewertung rechnet mit allen {expected}.',
     'schedule.more': '{scheduled} Trainings eingeplant, der Plan beschreibt aber {expected} pro Woche.',
 
-    // ---------- Übungsauswahl ----------
+    // Übungsauswahl
     'picker.title': 'Übung hinzufügen',
     'picker.search': 'Übungen suchen…',
     'picker.noMatch': 'Kein Treffer',
@@ -2193,7 +2193,7 @@ export const STRINGS = {
     'picker.createExercise': 'Übung anlegen',
     'picker.added': '{name} hinzugefügt',
 
-    // ---------- Muskelkarte ----------
+    // Muskelkarte
     'bodymap.aria': 'Körperkarte mit Bewertung',
     'bodymap.scaleAria': 'Farbskala über {n} Ränge, schwächster Rang links',
     'bodymap.scaleHint': '{n} Ränge',
@@ -2201,7 +2201,7 @@ export const STRINGS = {
     'bodymap.back': 'Hinten',
     'bodymap.unavailable': 'Körperkarte nicht verfügbar.',
 
-    // ---------- Diagramme ----------
+    // Diagramme
     'chart.line': 'Liniendiagramm',
     'chart.bar': 'Balkendiagramm',
     'chart.noData': 'Noch keine Daten',
@@ -2209,7 +2209,7 @@ export const STRINGS = {
     'chart.restDay': 'Pause',
 
 
-    // ---------- Home ----------
+    // Home
     'common.settings': 'Einstellungen',
     'common.export': 'Exportieren',
     'common.more': 'Mehr',
@@ -2267,7 +2267,7 @@ export const STRINGS = {
     'home.rating.calculationNote': 'Der Wert vergleicht das geschätzte 1RM nach allometrischer Körpermassen-Skalierung mit dem Standard. Dadurch wird der frühere Vorteil leichter Nutzer reduziert, während die absolute Kraft getrennt sichtbar bleibt.',
     'home.rating.heightNote': 'Die Größe steht im Profil, fließt aber nicht ein: ihr Hebeleffekt ist je Übung verschieden, deshalb wäre eine allgemeine Korrektur irreführend.',
 
-    // ---------- Nutzer ----------
+    // Nutzer
     'users.loading': 'Nutzerbereich wird geladen…',
     'users.signInTitle': 'Cloud-Konto erforderlich',
     'users.signInBody': 'Melde dich an, um Freunde, Trainingsstatus und Ranglisten zu nutzen.',
@@ -2506,7 +2506,7 @@ export const STRINGS = {
     'home.region.tierScale': 'Stufen-Skala',
 
 
-    // ---------- Trainieren ----------
+    // Trainieren
     'unit.warmupSet.one': '{n} Aufwärmsatz',
     'unit.warmupSet.other': '{n} Aufwärmsätze',
     'train.startEmpty': 'Leeres Training starten',
@@ -2701,7 +2701,7 @@ export const STRINGS = {
     'train.rel.weeks': 'vor {n} W.',
 
 
-    // ---------- Bibliothek ----------
+    // Bibliothek
     'library.sort.muscle': 'Nach Muskel',
     'library.sort.rating': 'Bestbewertete zuerst',
     'library.sort.mine': 'Meine Bewertung zuerst',
@@ -2736,7 +2736,7 @@ export const STRINGS = {
     'library.deleted': 'Übung gelöscht',
 
 
-    // ---------- Pläne ----------
+    // Pläne
     'unit.change.one': '{n} Änderung',
     'unit.change.other': '{n} Änderungen',
     'plans.presetTitle': 'Fang mit einer Vorlage an',
@@ -2859,7 +2859,7 @@ export const STRINGS = {
     'plans.renameTitle': 'Plan umbenennen',
 
 
-    // ---------- Kalender ----------
+    // Kalender
     'weekday.0.initial': 'So',
     'weekday.1.initial': 'Mo',
     'weekday.2.initial': 'Di',
@@ -2897,7 +2897,7 @@ export const STRINGS = {
     'calendar.deleteSetTitle': 'Diesen Satz löschen',
 
 
-    // ---------- Einstellungen ----------
+    // Einstellungen
     'unit.workout.one': '{n} Training',
     'unit.person.one': '{n} Person',
     'unit.person.other': '{n} Personen',
@@ -3000,7 +3000,7 @@ export const STRINGS = {
     'settings.rankShareWithdrawFailed': 'Hier ausgeschaltet, aber der Server war nicht erreichbar. Es wird weiter versucht.',
     'home.rank.below': '{pct}% der {n} Leute, die das loggen, liegen unter dir',
 
-    // ---------- Einordnung des Rangs in eine Bevölkerung ----------
+    // Einordnung des Rangs in eine Bevölkerung
     'rank.pop.worldMale': 'Stärker als geschätzt {pct}% aller erwachsenen Männer',
     'rank.pop.worldFemale': 'Stärker als geschätzt {pct}% aller erwachsenen Frauen',
     'rank.pop.top': 'Top {pct}% unter Leuten, die trainieren',
@@ -3113,7 +3113,7 @@ export const STRINGS = {
     'credits.shareAlike': 'Diese extrahierte Datenbank trägt Share-alike; siehe NOTICE.',
 
 
-    // ---------- Fortschritt ----------
+    // Fortschritt
     'unit.note.one': '{n} Notiz',
     'unit.note.other': '{n} Notizen',
     'unit.lift.one': '{n} Übung',
@@ -3188,7 +3188,7 @@ export const STRINGS = {
     'progress.logged': 'Eingetragen',
 
 
-    // ---------- geteilter Plan ----------
+    // geteilter Plan
     'share.nothing': 'Nichts zu importieren',
     'share.nothingHint': 'Öffne einen Plan-Link, den dir jemand geschickt hat, dann landet er hier.',
     'share.decoding': 'Wird entschlüsselt…',
@@ -3209,7 +3209,7 @@ export const STRINGS = {
     'share.noThanks': 'Nein danke',
 
 
-    // ---------- Essen ----------
+    // Essen
     'unit.meal.one': '{n} Mahlzeit',
     'unit.meal.other': '{n} Mahlzeiten',
     'unit.match.one': '{n} Treffer',
@@ -3401,7 +3401,7 @@ export const STRINGS = {
     'food.oneConstant': 'Die eine Konstante',
 
 
-    // ---------- Belege ----------
+    // Belege
     'evidence.disclaimer': 'Bewertungen sind eine Lesart der aktuellen Literatur, keine Messung. Die Zahlen unten sind Gruppenmittelwerte aus Studien an anderen Menschen; wo die Evidenz dünn ist, sagt die App das, statt eine Zahl zu erfinden.',
     'evidence.acsm2026.short': 'ACSM-Positionspapier 2026',
     'evidence.acsm2026.note': '137 systematische Übersichtsarbeiten, über 30.000 Teilnehmende. Erste Aktualisierung seit 2009.',
@@ -3456,7 +3456,7 @@ export const STRINGS = {
     'evidence.variation2024.says': 'Muskeln wachsen nicht gleichmäßig, und verschiedene Übungen lassen verschiedene Regionen wachsen. Ein paar Bewegungen pro Muskel decken mehr davon ab als eine, aber die Variation muss systematisch sein; Übungen zufällig zu tauschen kostet mehr, als es bringt.',
 
 
-    // ---------- Übungswissen ----------
+    // Übungswissen
     'science.label.long': 'Last bei langer Muskellänge',
     'science.label.mixed': 'Last in der Mitte des Bewegungsbereichs',
     'science.label.short': 'Last bei kurzer Muskellänge',
@@ -3524,7 +3524,7 @@ export const STRINGS = {
     'science.stabilityNormal': 'Kein ungewöhnlicher Stabilitätsvorteil oder Nachteil bekannt, deshalb neutral bewertet',
 
 
-    // ---------- Übungsbewertung ----------
+    // Übungsbewertung
     'unit.region.one': '{n} Muskelregion',
     'unit.region.other': '{n} Muskelregionen',
     'unit.option.one': '{n} bessere Option',
@@ -3574,7 +3574,7 @@ export const STRINGS = {
     'rating.lastReviewed': 'Evidenz zuletzt geprüft im Juli 2026.',
 
 
-    // ---------- Planbewertung ----------
+    // Planbewertung
     'planRating.why.volume': 'Der am besten belegte Hebel überhaupt. Mehr Sätze pro Woche, mehr Wachstum, mit abnehmendem Ertrag.',
     'planRating.why.coverage': 'Ein Muskel, den du nie trainierst, wächst nicht. Billig zu beheben, deshalb zählt es ordentlich.',
     'planRating.why.session': 'Sätze jenseits von etwa 11 für einen Muskel in einem Training zahlen sich nicht mehr aus.',
@@ -3605,7 +3605,7 @@ export const STRINGS = {
     'planRating.andMore': ', +{n} weitere',
 
 
-    // ---------- Plan-Doktor, Alternativen, Vorlagen ----------
+    // Plan-Doktor, Alternativen, Vorlagen
     'planDoctor.coverTitle': '{muscle} zu {day} hinzufügen',
     'planDoctor.coverDetail': '{exercise}, {sets} Sätze. {muscle} wird gerade gar nicht trainiert.',
     'planDoctor.volumeTitle': 'Eine Übung für {muscle} zu {day} hinzufügen',
@@ -3670,7 +3670,7 @@ export const STRINGS = {
     'verdict.loseFast': 'Abnahme mit {rate}, schnell genug, um dich Kraft zu kosten',
 
 
-    // ---------- Stillstand, Wochenurteil, Regionsverlauf, Wochenkarte ----------
+    // Stillstand, Wochenurteil, Regionsverlauf, Wochenkarte
     'fatigue.allClimbing': 'Alle {tracked} Übungen mit genug Daten legen über die letzten {weeks} Wochen weiter zu.',
     'fatigue.stalled': '{stalled} von {tracked} verfolgten Übungen haben über die letzten {weeks} Wochen nicht zugelegt: {list}.',
     'fatigue.stalledFalling': '{stalled} von {tracked} verfolgten Übungen haben über die letzten {weeks} Wochen nicht zugelegt, und {falling} davon gehen zurück: {list}.',
@@ -3732,7 +3732,7 @@ export const STRINGS = {
     'weekCard.workoutOther': 'Trainings',
 
 
-    // ---------- Essen neben dem Training ----------
+    // Essen neben dem Training
     'timeline.title': 'Essen und Training',
     'timeline.notYet': 'Bisher tragen nur {weeks} genug Ernährungs-Einträge, um sie neben dein Training zu legen. Eine Woche zählt ab {min} geloggten Tagen, und das ist eine Konvention, kein Studienergebnis: darunter sagt der Schnitt mehr darüber, an welche Tage du gedacht hast, als darüber, was du gegessen hast.',
     'timeline.rowKcal': 'Kalorien am Tag, über die Woche gemittelt',
@@ -3748,7 +3748,7 @@ export const STRINGS = {
     'timeline.wayIn': 'Neben dein Training legen',
 
 
-    // ---------- Cloud-Sicherung ----------
+    // Cloud-Sicherung
     'cloud.title': 'Cloud-Sicherung',
     'cloud.pitch': 'Eine zweite Kopie, auf diesem Handy verschlüsselt, bevor sie es verlässt. Ein verlorenes oder kaputtes Gerät nimmt dein Training dann nicht mit. Aus, bis du es einschaltest.',
     'cloud.setUp': 'Cloud-Sicherung einrichten',
@@ -3781,7 +3781,7 @@ export const STRINGS = {
     'cloud.useRecovery': 'Stattdessen Wiederherstellungsschlüssel',
     'cloud.newDeviceNote': 'Öffne LiftLog auf deinem Hauptgerät, dort wartet dann die Anfrage. Wenn dieses Gerät weg ist, führt der Wiederherstellungsschlüssel hinein.',
     'cloud.requestSent': 'Anfrage gestellt. Öffne LiftLog auf deinem Hauptgerät, um sie zu erlauben.',
-    'cloud.pendingAlert': 'Ein neues Gerät wartet auf Freigabe. Öffne Einstellungen → Cloud-Sicherung.',
+    'cloud.pendingAlert': 'Ein neues Gerät wartet auf Freigabe. Öffne Einstellungen > Cloud-Sicherung.',
     'cloud.enterInvite': 'Einladungscode eingeben',
     'cloud.inviteIntro': 'Dein Konto gibt es, aber es hat noch keine Einladung und kann deshalb nichts speichern.',
     'cloud.redeem': 'Einlösen',
@@ -3926,7 +3926,7 @@ export const STRINGS = {
     'cloud.err.undefined': 'Das hat nicht funktioniert.',
 
 
-    // ---------- Einladungssperre ----------
+    // Einladungssperre
     'gate.title': 'LiftLog gibt es nur auf Einladung',
     'gate.access': 'Privater Zugang',
     'gate.intro': 'Du brauchst einen Code von demjenigen, der das betreibt. Danach wird auf diesem Gerät nie wieder gefragt: die App läuft offline weiter, mit oder ohne Empfang.',
@@ -3942,7 +3942,7 @@ export const STRINGS = {
     'gate.waitingEyebrow': 'Gerätefreigabe',
     'gate.waitingTitle': 'Warte auf dein Hauptgerät',
     'gate.waitingIntro': 'Dieses Gerät bleibt gesperrt, bis dein Hauptgerät es erlaubt. LiftLog prüft automatisch.',
-    'gate.waitingStepOne': 'Öffne LiftLog auf deinem Hauptgerät und gehe zu Einstellungen → Cloud-Sicherung → Geräte.',
+    'gate.waitingStepOne': 'Öffne LiftLog auf deinem Hauptgerät und gehe zu Einstellungen > Cloud-Sicherung > Geräte.',
     'gate.waitingStepTwo': 'Öffne die Anfrage dieses Geräts und wähle „Ja, das bin ich“.',
     'gate.waitingAutomatic': 'Wird automatisch geprüft…',
     'gate.waitingStill': 'Die Freigabe steht noch aus.',

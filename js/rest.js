@@ -170,10 +170,10 @@ function tick() {
   timer = setTimeout(tick, 200);
 }
 
-/* ===================== die Seite unter iOS wachhalten ===================== */
+/* die Seite unter iOS wachhalten */
 
 // iOS hält eine Web-Ansicht im Hintergrund an: keine Timer, kein Ton, nichts. Eine
-// Seite, die MEDIEN ABSPIELT, läuft aber weiter, so funktioniert Webradio. Während eine
+// Seite, die Medien abspielt, läuft aber weiter, so funktioniert Webradio. Während eine
 // Pause läuft, spielt deshalb eine stille Schleife, und die Seite bleibt lange genug
 // wach, um ihr eigenes Ende zu erreichen und es zu sagen.
 //

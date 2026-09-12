@@ -68,7 +68,7 @@ test('no em dash anywhere in the interface', () => {
   const offenders = [];
   for (const lang of LANGS) {
     for (const [key, value] of Object.entries(STRINGS[lang])) {
-      if (value.includes('—')) offenders.push(`${lang}/${key}`);
+      if (/[—–]/.test(value)) offenders.push(`${lang}/${key}`);
     }
   }
   assert.deepEqual(offenders, []);

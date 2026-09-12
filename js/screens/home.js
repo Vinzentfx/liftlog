@@ -86,7 +86,7 @@ export default function renderHome({ actions }) {
   const done = store.state.sessions.filter((s) => s.finishedAt);
   const s = store.state.settings;
 
-  // ---------- Speicherfehler ----------
+  // Speicherfehler
   // Über allem anderen, auch über einem laufenden Training: wenn das Schreiben scheitert,
   // kann man sich bei nichts anderem auf diesem Screen darauf verlassen, dass es die Nacht übersteht.
   if (store.state.storageError) {
@@ -103,7 +103,7 @@ export default function renderHome({ actions }) {
     );
   }
 
-  // ---------- Hinweis auf laufendes Training ----------
+  // Hinweis auf laufendes Training
   const active = store.activeSession();
   const stale = store.staleSession();
   if (active && !stale) {
@@ -125,7 +125,7 @@ export default function renderHome({ actions }) {
 
   if (s.regenerationEnabled) root.append(regenerationCard());
 
-  // ---------- Hinweis zur Sicherung ----------
+  // Hinweis zur Sicherung
   const backup = store.backupStatus();
   if (backup.due) {
     root.append(
@@ -156,18 +156,18 @@ export default function renderHome({ actions }) {
     return root;
   }
 
-  // ---------- was heute dran ist ----------
+  // was heute dran ist
   // Zuerst, weil es das Einzige auf diesem Screen ist, wofür man die App im Studio öffnet.
   // Früher stand es an vierter Stelle, etwa vier Bildschirme weiter unten, hinter der
   // Rangkarte, der Muskelkarte und zwei Tabellen mit Rekorden.
   root.append(todayCard(done));
 
-  // ---------- Wertung ----------
+  // Wertung
   if (s.showRatings) {
     root.append(ratingSection(done, s));
   }
 
-  // ---------- diese Woche ----------
+  // diese Woche
   const weekStart = startOfWeek(Date.now());
   const thisWeek = done.filter((x) => x.startedAt >= weekStart);
   const weekSets = thisWeek.reduce(
@@ -188,10 +188,10 @@ export default function renderHome({ actions }) {
 
   root.append(monthlyReportCard(done));
 
-  // ---------- gemacht gegen geplant ----------
+  // gemacht gegen geplant
   root.append(weekVsPlan(done));
 
-  // ---------- Belastung pro Woche ----------
+  // Belastung pro Woche
   const buckets = weeklyMuscleSets(done, store.state.exerciseById, 10);
   root.append(el('div.section-head', {}, [
     el('h2', { text: t('home.workload.title') }),
@@ -214,7 +214,7 @@ export default function renderHome({ actions }) {
     ])
   );
 
-  // ---------- Körpergewicht ----------
+  // Körpergewicht
   const bw = [...store.state.bodyweight].sort((a, b) => a.date - b.date);
   if (bw.length >= 2) {
     const delta = bw[bw.length - 1].weight - bw[0].weight;
@@ -239,7 +239,7 @@ export default function renderHome({ actions }) {
     );
   }
 
-  // ---------- zuletzt ----------
+  // zuletzt
   root.append(el('div.section-head', {}, [
     el('h2', { text: t('home.recent.title') }),
     el('button.btn.quiet.sm', { onclick: () => navigate('calendar') }, [`${t('route.calendar')} ›`]),
@@ -253,10 +253,10 @@ export default function renderHome({ actions }) {
     }));
   }
 
-  // ---------- die zwei Screens ohne Tab ----------
+  // die zwei Screens ohne Tab
   // Fünf Tabs sind das Maximum, das ein Daumen treffen kann, und Essen hat sich einen
   // verdient, weil man es mehrmals am Tag öffnet. Kalender und Fortschritt schaut man
-  // wöchentlich an, sie wohnen deshalb hier. Aber sie müssen SICHTBAR sein und kein Link in
+  // wöchentlich an, sie wohnen deshalb hier. Aber sie müssen sichtbar sein und kein Link in
   // einer Abschnittsüberschrift, genau so ist der Kalender verloren gegangen, sobald er
   // seinen Platz verlor.
   root.append(
@@ -421,7 +421,7 @@ function staleCard({ session, hours }) {
   ]);
 }
 
-/* ==================== heute ==================== */
+/* heute */
 
 /**
  * Was laut Plan heute dran ist.
@@ -484,7 +484,7 @@ function todayCard(done) {
   return wrap;
 }
 
-/* ==================== diese Woche gegen den Plan ==================== */
+/* diese Woche gegen den Plan */
 
 /**
  * Die Zahl, die die Planbewertung verspricht, gemessen an dem, was wirklich gemacht wurde.
@@ -575,9 +575,9 @@ function weekVsPlan(done) {
 
 const trimNum = (n) => (Number.isInteger(n) ? String(n) : fmtDecimal(n));
 
-/* ======================= Ernährung ======================= */
+/* Ernährung */
 
-/* ======================= Wertung ======================= */
+/* Wertung */
 
 function ratingSection(done, settings) {
   const wrap = el('div');
@@ -639,7 +639,7 @@ function ratingSection(done, settings) {
         text: t('home.rating.overall', { rated: rating.ratedRegions, total: rating.totalRegions }),
       }),
     ]),
-    // Was der Rang WERT ist, das sagt die Leiter allein nicht, und deshalb kommt es als
+    // Was der Rang wert ist, das sagt die Leiter allein nicht, und deshalb kommt es als
     // Zweites und nicht als Siebtes. Legend ist der neunte von zwölf Namen und wirkt für
     // alle, denen niemand gesagt hat, dass die drei darüber schon Wettkampfgebiet sind, wie
     // Mittelfeld. Siehe js/percentile.js.
@@ -682,7 +682,7 @@ function ratingSection(done, settings) {
       const li = tierIndex(lift.score);
       wrap.append(
         // Übereinander, nicht in einer Zeile. Drei Spalten mussten sich 375 Pixel mit einem
-        // Abzeichen und einem Wort wie GROSSMEISTER teilen, der Übungsname kam mit zwei Wörtern
+        // Abzeichen und einem Wort wie Großmeister teilen, der Übungsname kam mit zwei Wörtern
         // pro Zeile heraus und das Ziel über drei Zeilen gebrochen. Der Name bekommt die
         // ganze Breite, alles andere steht darunter.
         el(`div.card.tight.tier-${li}`, {}, [
@@ -694,10 +694,10 @@ function ratingSection(done, settings) {
               'aria-label': t('home.rating.explainLift', { name: lift.name }),
             }, [t('plans.details')]),
           ]),
-          // Der Chip bekommt eine eigene Zeile. GROSSMEISTER II mit Abzeichen belegt 320 der
+          // Der Chip bekommt eine eigene Zeile. Großmeister II mit Abzeichen belegt 320 der
           // 343 verfügbaren Pixel, alles in derselben Zeile wird darübergedruckt.
           el('div', { style: { marginTop: '7px' } }, [rankChip(lift.rank)]),
-          // Die nächste DIVISION ist die Zahl, die sich zu drucken lohnt: bei 36 Stufen kann der
+          // Die nächste Division ist die Zahl, die sich zu drucken lohnt: bei 36 Stufen kann der
           // nächste Rang vierzig Kilo entfernt sein, und ein Ziel, das man sich nicht vorstellen
           // kann, ist keins.
           el('div.row.between', { style: { gap: '10px', marginTop: '7px' } }, [
@@ -810,7 +810,7 @@ const relMonths = (days) => tn(Math.max(1, Math.round(days / 30.44)), 'unit.mont
  *
  * Pro Übungs-ID in der Maschineneinstellung gespeichert und nach Namen ausgelesen, weil
  * die Tabellen der Standards am Namen hängen. Nichts hier fasst einen eingetragenen Satz
- * an: es beschreibt, wie eine Maschine Last ANZEIGT, nicht was gehoben wurde.
+ * an: es beschreibt, wie eine Maschine Last anzeigt, nicht was gehoben wurde.
  */
 function machineCorrections() {
   const setups = store.state.settings.machineSetups || {};
@@ -895,7 +895,7 @@ function outlierNotice(lift, settings) {
 /**
  * Der App sagen, was die Zahl an dieser Maschine bedeutet.
  *
- * Absichtlich eine Korrektur der ANZEIGE, nicht des Logs. Einen eingetragenen Satz zu
+ * Absichtlich eine Korrektur der Anzeige, nicht des Logs. Einen eingetragenen Satz zu
  * halbieren würde umschreiben, was jemand wirklich gemacht hat, und der eigene Verlauf
  * würde der eigenen Erinnerung widersprechen. Die Deutung zu halbieren ändert nur den
  * Vergleich mit einem Standard, und genau der war falsch.
@@ -964,7 +964,7 @@ function loadCorrectionSheet(ex, lift) {
   ]));
 }
 
-/* ===================== die Rangleiter auf dem Screen ===================== */
+/* die Rangleiter auf dem Screen */
 
 /** "Diamond II" als ein Chip, in der Farbe des Rangs. */
 function rankChip(rank, { badge = true } = {}) {
@@ -986,7 +986,7 @@ function rankName(rank) {
  *
  * Das hat einen Streifen mit einer Kerbe pro Stufe ersetzt. Bei neun Rängen waren das 27
  * Kerben und schon dünn, bei zwölf wären es 36 Splitter mit drei Pixeln Breite, eine
- * Textur und keine Skala. Ein Abschnitt pro RANG ist lesbar, und die teilweise Füllung des
+ * Textur und keine Skala. Ein Abschnitt pro Rang ist lesbar, und die teilweise Füllung des
  * aktuellen Abschnitts zeigt die Division, durch den Wegfall des feineren Streifens geht
  * also nichts verloren.
  *
@@ -1228,7 +1228,7 @@ function percentileLine(key) {
 /**
  * Dieselbe Tatsache mit einem Balken darunter, für die zwei Stellen, die Platz dafür haben.
  *
- * Ein Balken statt einer größeren Zahl, weil es um die Lage IN EINER VERTEILUNG geht, und
+ * Ein Balken statt einer größeren Zahl, weil es um die Lage in einer Verteilung geht, und
  * eine Verteilung ist eine Form. Die Markierung ist eine Position, keine Wertung: nichts
  * hier wird gegen eine benannte Person geordnet, und es gibt niemanden, über dem man steht.
  */

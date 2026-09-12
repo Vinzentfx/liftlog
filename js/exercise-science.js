@@ -30,7 +30,7 @@ const LONG = 'long', MIXED = 'mixed', SHORT = 'short';
 const LENGTH_RULES = [
   { re: /decline.{0,32}press|press.{0,32}decline/i,
     bias: SHORT, why: 'science.declinePress' },
-  // --- Ausnahmen, die vor den allgemeinen Regeln weiter unten greifen müssen ---
+  // Ausnahmen, die vor den allgemeinen Regeln weiter unten greifen müssen
   // "Reverse Machine Flyes" muss an dieser Regel hängen bleiben und nicht an der für
   // Brust-Flys weiter unten, deshalb die erlaubte Lücke statt eines festen "reverse fly".
   { re: /reverse.{0,16}(fly|flye|pec deck)|rear (delt|deltoid)|bent[- ]?over.{0,12}(lateral|rear|fly|flye)/i,
@@ -41,7 +41,7 @@ const LENGTH_RULES = [
   { re: /cable.{0,16}(lateral|side) raise|lean[- ]?away|cross[- ]?body (lateral|raise)/i,
     bias: MIXED, why: 'science.cableLateralSide' },
 
-  // --- long: die Last kommt auf den gedehnten Muskel ---
+  // long: die Last kommt auf den gedehnten Muskel
   { re: /pullover/i, bias: LONG, why: 'science.pullover' },
   { re: /incline.{0,16}curl|bayesian/i,
     bias: LONG, why: 'science.inclineCurlBayesian' },
@@ -85,7 +85,7 @@ const LENGTH_RULES = [
   { re: /deadlift/i,
     bias: LONG, why: 'science.deadlift' },
 
-  // --- short: der größte Widerstand kommt, wenn der Muskel schon verkürzt ist ---
+  // short: der größte Widerstand kommt, wenn der Muskel schon verkürzt ist
   { re: /hip thrust|glute bridge|kick[- ]?back|glute machine|bridg(e|ing)|hip (extension|lift) with band/i,
     bias: SHORT, why: 'science.hipThrustGlute' },
   { re: /rack pull/i,
@@ -103,7 +103,7 @@ const LENGTH_RULES = [
   { re: /(lateral|side) raise/i,
     bias: SHORT, why: 'science.lateralSideRaise' },
 
-  // --- mixed: Spannung über den ganzen Weg, oder es hängt von der Ausführung ab ---
+  // mixed: Spannung über den ganzen Weg, oder es hängt von der Ausführung ab
   { re: /leg extension/i,
     bias: MIXED, why: 'science.legExtension' },
   { re: /leg press/i, bias: MIXED, why: 'science.legPress' },

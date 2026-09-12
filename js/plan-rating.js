@@ -4,21 +4,21 @@
 // warum: die alten Zahlen waren ein vernünftiger Konsens von etwa 2019, den drei
 // neuere Arbeiten verschoben haben.
 //
-//   - Die Obergrenze fürs Wochenvolumen ist weg. Die alte Bewertung hat einem Plan
+//   * Die Obergrenze fürs Wochenvolumen ist weg. Die alte Bewertung hat einem Plan
 //     ab 26 Sätzen pro Muskel und Woche kräftig abgezogen. Pelland et al. fanden das
 //     Wachstum am oberen Ende des untersuchten Bereichs noch steigend und ohne
 //     Plateau. Es gibt keinen Beleg für eine Satzzahl, ab der mehr Volumen Muskeln
 //     kostet. Viel Volumen bekommt jetzt einen Hinweis zu Erholung und
 //     Durchhalten, aber keinen Abzug.
-//   - Die Frequenz ist von 30 % der Wertung auf 10 % gefallen. Bei gleichem
+//   * Die Frequenz ist von 30 % der Wertung auf 10 % gefallen. Bei gleichem
 //     Wochenvolumen ist ihr eigener Einfluss aufs Wachstum verschwindend klein. Die
 //     10 % behält sie, weil sie der Hebel ist, der eine einzelne Einheit unter dem
 //     Punkt hält, ab dem weitere Sätze nichts mehr bringen.
-//   - Dieser Punkt wird jetzt pro Muskel und Einheit bewertet, nicht pro Einheit
+//   * Dieser Punkt wird jetzt pro Muskel und Einheit bewertet, nicht pro Einheit
 //     insgesamt: etwa 11 anteilige Sätze für einen Muskel in einem Training
 //     (Remmert et al.). Ein Beintag mit 30 Sätzen ist nicht das Problem, 16 Sätze
 //     Quadrizeps darin schon.
-//   - Die Übungsauswahl wird überhaupt bewertet, mit 15 %. Wo die Last auf den
+//   * Die Übungsauswahl wird überhaupt bewertet, mit 15 %. Wo die Last auf den
 //     Muskel trifft, ist die einzige Stellschraube auf Ebene der Übung mit echten
 //     Belegen, und ein Plan nur aus Übungen in verkürzter Position ist bei gleichem
 //     Volumen der schlechtere.
@@ -94,14 +94,14 @@ export function sessionScore(m) {
 
 /**
  * @param plan      {days:[{name, items:[{exerciseId,targetSets,targetReps}]}]}
- * @param byId      Map Übungs-ID -> Übung
+ * @param byId      Map von Übungs-ID auf Übung
  * @param perWeek   wie oft der ganze Plan pro Woche läuft (meistens 1)
  */
 export function analysePlan(plan, byId, perWeek = plan.perWeek || 1) {
-  const volume = {};        // Region -> anteilige Sätze pro Woche
-  const frequency = {};     // Region -> Einheiten pro Woche, die sie treffen
-  const exercisesPer = {};  // Region -> Set der Übungs-IDs
-  const peakSession = {};   // Region -> meiste anteilige Sätze in einer Einheit
+  const volume = {};        // je Region:anteilige Sätze pro Woche
+  const frequency = {};     // je Region:Einheiten pro Woche, die sie treffen
+  const exercisesPer = {};  // je Region:Set der Übungs-IDs
+  const peakSession = {};   // je Region:meiste anteilige Sätze in einer Einheit
   const sessions = [];
   const repFlags = [];
 
@@ -167,16 +167,16 @@ export function analysePlan(plan, byId, perWeek = plan.perWeek || 1) {
   const trained = MAJOR.filter((r) => (volume[r] || 0) >= 2);
   const untrained = MAJOR.filter((r) => (volume[r] || 0) < 2);
 
-  // ---- Volumen (35 %) ----
+  // Volumen (35 %)
   const volScore = trained.length ? avg(trained.map((r) => volumeScore(volume[r] || 0))) : 0;
 
-  // ---- Abdeckung (15 %) ----
+  // Abdeckung (15 %)
   const coverScore = MAJOR.length ? trained.length / MAJOR.length : 0;
 
-  // ---- Aufbau der Einheiten (15 %) ----
+  // Aufbau der Einheiten (15 %)
   const sessScore = trained.length ? avg(trained.map((r) => sessionScore(peakSession[r] || 0))) : 0;
 
-  // ---- Übungsauswahl (15 %) ----
+  // Übungsauswahl (15 %)
   const meanStars = ratedSets ? starSum / ratedSets : 0;
   const longShare = totalSets ? longSets / totalSets : 0;
   const stableShare = totalSets ? stableSets / totalSets : 0;
@@ -184,7 +184,7 @@ export function analysePlan(plan, byId, perWeek = plan.perWeek || 1) {
     ? 0.7 * ((meanStars - 1) / 4) + 0.2 * longShare + 0.1 * stableShare
     : 0;
 
-  // ---- Abwechslung (10 %) ----
+  // Abwechslung (10 %)
   const varScore = trained.length ? avg(trained.map((r) => {
     const n = (exercisesPer[r] || new Set()).size;
     if ((volume[r] || 0) < 6) return 0.7;   // zu wenig Volumen, als dass Abwechslung eine Rolle spielt
@@ -193,7 +193,7 @@ export function analysePlan(plan, byId, perWeek = plan.perWeek || 1) {
     return 0.55;
   })) : 0;
 
-  // ---- Frequenz (10 %) ----
+  // Frequenz (10 %)
   const freqScore = trained.length ? avg(trained.map((r) => {
     const f = frequency[r] || 0;
     if (f >= THRESHOLDS.minFrequency.value) return 1;
@@ -225,7 +225,7 @@ function verdict(a) {
   const missing = [];
   const name = tRegion;
 
-  // --- Volumen ---
+  // Volumen
   const atFloor = a.trained.filter((r) => a.volume[r] >= FLOOR);
   if (atFloor.length && atFloor.length === a.trained.length) {
     good.push(t('planRating.allClearFloor', { floor: FLOOR }));
@@ -245,7 +245,7 @@ function verdict(a) {
     missing.push(t('planRating.overUncharted', { uncharted: UNCHARTED, muscles: listOf(high.map(name)) }));
   }
 
-  // --- Last pro Einheit ---
+  // Last pro Einheit
   const crowded = a.trained
     .filter((r) => (a.peakSession[r] || 0) > PER_SESSION)
     .sort((x, y) => a.peakSession[y] - a.peakSession[x]);
@@ -260,11 +260,11 @@ function verdict(a) {
     good.push(t('planRating.sessionOk', { perSession: PER_SESSION }));
   }
 
-  // --- Abdeckung ---
+  // Abdeckung
   if (a.untrained.length) missing.push(t('planRating.untrained', { muscles: a.untrained.map(name).join(', ') }));
   else if (a.trained.length) good.push(t('planRating.allCovered'));
 
-  // --- Frequenz ---
+  // Frequenz
   const once = a.trained.filter((r) => (a.frequency[r] || 0) < THRESHOLDS.minFrequency.value);
   if (once.length) {
     missing.push(t('planRating.onceAWeek', { muscles: listOf(once.map(name)) }));
@@ -272,7 +272,7 @@ function verdict(a) {
     good.push(t('planRating.twiceAWeek'));
   }
 
-  // --- Übungsauswahl ---
+  // Übungsauswahl
   if (a.longShare >= 0.5) {
     good.push(t('planRating.longShareGood', { pct: Math.round(a.longShare * 100) }));
   } else if (a.exerciseCount && a.longShare < 0.3) {
@@ -287,13 +287,13 @@ function verdict(a) {
     missing.push(t('planRating.stabilityLow', { pct: Math.round(a.stableShare * 100) }));
   }
 
-  // --- Abwechslung ---
+  // Abwechslung
   const single = a.trained.filter((r) => (a.exercisesPer[r] || 0) === 1 && a.volume[r] >= 8);
   if (single.length) {
     missing.push(t('planRating.oneMovement', { muscles: listOf(single.map(name)) }));
   }
 
-  // --- Wiederholungsziele ---
+  // Wiederholungsziele
   if (a.repFlags.length) {
     missing.push(t('planRating.repFlags', {
       low: THRESHOLDS.repWindow.low, high: THRESHOLDS.repWindow.high,
@@ -301,7 +301,7 @@ function verdict(a) {
     }));
   }
 
-  // --- Gleichgewicht (Praxis, keine Belege) ---
+  // Gleichgewicht (Praxis, keine Belege)
   const push = sum(PUSH.map((r) => a.volume[r] || 0));
   const pull = sum(PULL.map((r) => a.volume[r] || 0));
   if (push > 0 && pull > 0) {
@@ -312,7 +312,7 @@ function verdict(a) {
   return { good, missing };
 }
 
-/** '8-12' / '10' / '6–10' -> {low, high} */
+/** Liest '8-12' oder '10' als {low, high}, auch mit langem Strich im Bereich */
 function repRange(spec) {
   if (!spec) return null;
   const nums = String(spec).match(/\d+/g);

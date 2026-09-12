@@ -1,6 +1,6 @@
 // Ende-zu-Ende-Verschlüsselung für die Cloud-Sicherung.
 //
-// Die Regel, für die es diese Datei gibt: NICHTS LESBARES VERLÄSST DAS HANDY. Der
+// Die Regel, für die es diese Datei gibt: nichts Lesbares verlässt das Handy. Der
 // Server speichert Chiffrat und öffentliche Schlüssel und sieht nie einen Schlüssel,
 // der etwas öffnet. Das ist hier kein nettes Extra, sondern der Grund, warum man
 // Trainings- und Körpergewichtsdaten anderer Leute überhaupt verantworten kann.
@@ -20,7 +20,7 @@
 //                   Ein Gerät freizugeben heißt: das Hauptgerät macht ECDH mit dem
 //                   öffentlichen Schlüssel des neuen und packt dataKey dafür ein.
 //
-// Das Login-Passwort steht absichtlich NICHT in dieser Liste. Es meldet beim Server an
+// Das Login-Passwort steht absichtlich nicht in dieser Liste. Es meldet beim Server an
 // und sonst nichts. Wer das Passwort kennt, kann das Chiffrat abholen und kommt damit
 // nicht weiter, und genau das will die Gerätefreigabe: das Passwort bringt einem die
 // Kiste, ein freigegebenes Gerät oder der Wiederherstellungsschlüssel den Deckel.
@@ -36,7 +36,7 @@ const dec = new TextDecoder();
 /** Die Untergrenze von OWASP für PBKDF2-SHA256, Stand beim Schreiben. */
 const PBKDF2_ROUNDS = 600000;
 
-/* ============================ kleine Helfer ============================ */
+/* kleine Helfer */
 
 export function randomBytes(n) {
   return globalThis.crypto.getRandomValues(new Uint8Array(n));
@@ -60,7 +60,7 @@ export function fromBase64(text) {
   return out;
 }
 
-/* ============================ Wiederherstellungsschlüssel ============================ */
+/* Wiederherstellungsschlüssel */
 
 /**
  * Der Notausgang, in Hex.
@@ -119,7 +119,7 @@ export async function recoveryVerifier(recovery, verifierSalt) {
   return toBase64(await subtle.digest('SHA-256', input));
 }
 
-/* ========================== Schlüssel und Einpacken ========================== */
+/* Schlüssel und Einpacken */
 
 /** Der Schlüssel, mit dem die Sicherung wirklich verschlüsselt ist. Exportierbar, damit er sich einpacken lässt. */
 export function generateDataKey() {
@@ -169,7 +169,7 @@ export async function unwrapDataKey(wrappingKey, { wrapped, iv }) {
   return subtle.importKey('raw', raw, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
 }
 
-/* =========================== Geräte verbinden =========================== */
+/* Geräte verbinden */
 
 /**
  * Ein Schlüsselpaar pro Gerät. Die private Hälfte bleibt als nicht exportierbarer
@@ -201,7 +201,7 @@ export async function sharedKey(privateKey, otherPublicJwk) {
   );
 }
 
-/* ============================ der Inhalt ============================ */
+/* der Inhalt */
 
 /**
  * Erst komprimieren, dann verschlüsseln. Immer in dieser Reihenfolge.
@@ -248,7 +248,7 @@ export async function open(dataKey, blob) {
   return JSON.parse(dec.decode(await inflate(packed)));
 }
 
-/* ============================ Kompression ============================ */
+/* Kompression */
 
 async function through(bytes, stream, maxBytes = Infinity) {
   const reader = new Blob([bytes]).stream().pipeThrough(stream).getReader();

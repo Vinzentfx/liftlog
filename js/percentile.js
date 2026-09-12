@@ -69,7 +69,7 @@ const ANCHORS = [
  * Umfragen bei etwa 30 %, und Selbstauskunft über Sport ist nur in eine Richtung
  * großzügig. Regelmäßiges Training mit Langhantel oder Maschine, also das, worüber
  * die Standards geschrieben sind, ist deutlich seltener. Ein Fünftel ist die
- * vorsichtige Lesart, und vorsichtig heißt hier, dass das Welt-Perzentil NIEDRIGER
+ * vorsichtige Lesart, und vorsichtig heißt hier, dass das Welt-Perzentil niedriger
  * herauskommt. Das ist die richtige Richtung für eine Zahl, die schmeichelt.
  */
 const TRAINING_SHARE = 0.20;

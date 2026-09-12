@@ -20,7 +20,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Muskel in free-exercise-db -> Regionsschlüssel der Körperkarte (js/standards.js REGIONS)
+# je Muskel in free-exercise-db: Regionsschlüssel der Körperkarte (js/standards.js REGIONS)
 REGION = {
     "abdominals": "abs",
     "abductors": "glutes",
@@ -41,7 +41,7 @@ REGION = {
     "triceps": "triceps",
 }
 
-# ... -> das grobe Feld `muscle`, nach dem die App schon gruppiert (models.MUSCLES)
+# ... und das grobe Feld `muscle`, nach dem die App schon gruppiert (models.MUSCLES)
 COARSE = {
     "chest": "Chest",
     "lats": "Back", "middle back": "Back", "lower back": "Back",
@@ -127,12 +127,12 @@ def main() -> None:
     out.sort(key=lambda x: x["n"])
 
     body = json.dumps(out, ensure_ascii=False, separators=(",", ":"))
-    js = f"""// ERZEUGT, bitte nicht von Hand ändern. Neu bauen mit tools/build_library.py
+    js = f"""// Erzeugt, bitte nicht von Hand ändern. Neu bauen mit tools/build_library.py
 //
 // Übungsdaten aus free-exercise-db (gemeinfrei).
 // https://github.com/yuhonas/free-exercise-db
 //
-// Die Bilder werden bewusst NICHT übernommen, die Lizenz der Bilder in diesem Repo
+// Die Bilder werden bewusst nicht übernommen, die Lizenz der Bilder in diesem Repo
 // wurde nie geklärt. Als Abbildung dient die Muskelkarte (js/bodymap.js).
 //
 // Kurze Schlüssel, damit die Datei klein bleibt:
@@ -142,7 +142,7 @@ export const LIBRARY = {body};
 """
     dest = ROOT / "js" / "exercise-library.js"
     dest.write_text(js)
-    print(f"{len(out)} exercises -> {dest.relative_to(ROOT)} ({dest.stat().st_size // 1024} KB)")
+    print(f"{len(out)} exercises in {dest.relative_to(ROOT)} ({dest.stat().st_size // 1024} KB)")
 
 
 if __name__ == "__main__":

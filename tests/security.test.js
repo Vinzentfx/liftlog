@@ -154,7 +154,7 @@ test('the invite gate verifies access before opening', async () => {
 test('the account invite repair path asks for consent before cloud setup', async () => {
   const account = await read('js/screens/account.js');
   const start = account.indexOf('function inviteSheet()');
-  const end = account.indexOf('/* ============================ the recovery key', start);
+  const end = account.indexOf('/* Wiederherstellungsschlüssel */', start);
   const inviteFlow = account.slice(start, end);
   assert.match(inviteFlow, /claimInvite[\s\S]*hasActiveAccess[\s\S]*finishSetupSheet/);
   assert.doesNotMatch(inviteFlow, /createAccount/);

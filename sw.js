@@ -12,7 +12,7 @@ const CACHE = 'liftlog-v150';
  * Sie behalten dieselbe Alles-oder-nichts-Garantie, nur gegen ihre eigene Version:
  * ein neuer Stand der Hülle lässt diesen Cache in Ruhe, geholt wird nur, was
  * wirklich fehlt. DATA_CACHE hochzählen, wenn sich eine dieser Dateien wirklich
- * ändert, also fast nie. strings.js steht absichtlich NICHT hier: 53 Commits und es
+ * ändert, also fast nie. strings.js steht absichtlich nicht hier: 53 Commits und es
  * werden mehr.
  */
 const DATA_CACHE = 'liftlog-data-v1';
@@ -25,7 +25,7 @@ const DATA = [
   './js/food-library.js',
 ];
 
-// assets/exercises/*.webp werden absichtlich NICHT vorab gecacht. Etwa 270 Übungen
+// assets/exercises/*.webp werden absichtlich nicht vorab gecacht. Etwa 270 Übungen
 // mal 2 Bilder würden die Installation aufblähen, und die meisten öffnet nie jemand.
 // Der Handler für den Laufzeit-Cache holt jedes Bild beim ersten Ansehen.
 const SHELL = [

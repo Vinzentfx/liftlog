@@ -43,7 +43,7 @@ DATASET = "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_sr_legacy_food
 # Grundnahrungsmittel, keine Marken. Eine Marke gehört auf den Barcode-Weg. Die Anfrage geht
 # an FDC, das Label zeigt die App.
 STAPLES = [
-    # --- Eiweiß: Fleisch, Fisch, Eier ---
+    # Eiweiß: Fleisch, Fisch, Eier
     ("Chicken breast, raw", "chicken breast boneless skinless raw"),
     ("Chicken thigh, raw", "chicken thigh meat only raw"),
     ("Turkey breast, raw", "turkey breast raw"),
@@ -58,7 +58,7 @@ STAPLES = [
     ("Prawns, raw", "shrimp raw"),
     ("Egg, whole, raw", "egg whole raw fresh"),
     ("Egg white, raw", "egg white raw fresh"),
-    # --- Eiweiß: Milchprodukte ---
+    # Eiweiß: Milchprodukte
     ("Cottage cheese, 1% fat", "cheese cottage lowfat 1% milkfat"),
     ("Greek yoghurt, plain, low fat", "yogurt greek plain lowfat"),
     ("Yoghurt, plain, whole", "yogurt plain whole milk"),
@@ -70,7 +70,7 @@ STAPLES = [
     ("Cheese, parmesan", "cheese parmesan grated"),
     ("Cream cheese", "cheese cream"),
     ("Butter", "butter salted"),
-    # --- Eiweiß: pflanzlich ---
+    # Eiweiß: pflanzlich
     ("Tofu, firm", "tofu firm prepared with calcium sulfate"),
     ("Tempeh", "tempeh"),
     ("Lentils, cooked", "lentils mature seeds cooked boiled without salt"),
@@ -79,7 +79,7 @@ STAPLES = [
     ("Kidney beans, cooked", "beans kidney red mature seeds cooked boiled"),
     ("Edamame, cooked", "edamame frozen prepared"),
     ("Whey protein powder", "whey protein powder isolate"),
-    # --- Kohlenhydrate: Getreide ---
+    # Kohlenhydrate: Getreide
     ("Oats, dry", "oats"),
     ("Rice, white, cooked", "rice white long grain regular cooked"),
     ("Rice, brown, cooked", "rice brown long grain cooked"),
@@ -93,11 +93,11 @@ STAPLES = [
     ("Bulgur, cooked", "bulgur cooked"),
     ("Cornflakes", "cereals ready-to-eat corn flakes"),
     ("Tortilla, wheat", "tortillas flour shelf stable"),
-    # --- Kohlenhydrate: stärkehaltiges Gemüse ---
+    # Kohlenhydrate: stärkehaltiges Gemüse
     ("Potato, boiled", "potatoes boiled cooked without skin flesh"),
     ("Sweet potato, baked", "sweet potato cooked baked in skin flesh"),
     ("Corn, sweet, cooked", "corn sweet yellow cooked boiled drained"),
-    # --- Gemüse ---
+    # Gemüse
     ("Broccoli, raw", "broccoli raw"),
     ("Spinach, raw", "spinach raw"),
     ("Kale, raw", "kale raw"),
@@ -113,7 +113,7 @@ STAPLES = [
     ("Peas, cooked", "peas green frozen cooked boiled drained"),
     ("Lettuce", "lettuce romaine raw"),
     ("Avocado", "avocados raw all commercial varieties"),
-    # --- Obst ---
+    # Obst
     ("Banana", "bananas raw"),
     ("Apple", "apples raw with skin"),
     ("Orange", "oranges raw all commercial varieties"),
@@ -126,7 +126,7 @@ STAPLES = [
     ("Kiwi", "kiwifruit green raw"),
     ("Dates, dried", "dates medjool"),
     ("Raisins", "raisins seedless"),
-    # --- Fette, Nüsse, Samen ---
+    # Fette, Nüsse, Samen
     ("Almonds", "nuts almonds"),
     ("Walnuts", "nuts walnuts english"),
     ("Cashews", "nuts cashew nuts raw"),
@@ -138,7 +138,7 @@ STAPLES = [
     ("Olive oil", "oil olive salad or cooking"),
     ("Rapeseed oil", "oil canola"),
     ("Coconut oil", "oil coconut"),
-    # --- Sonstiges ---
+    # Sonstiges
     ("Honey", "honey"),
     ("Sugar, white", "sugars granulated"),
     ("Dark chocolate, 70%", "chocolate dark 70-85% cacao"),
@@ -148,7 +148,7 @@ STAPLES = [
     ("Mayonnaise", "salad dressing mayonnaise regular"),
     ("Soy sauce", "soy sauce made from soy and wheat shoyu"),
 
-    # --- mehr Eiweiß ---
+    # mehr Eiweiß
     ("Chicken, whole, roasted", "chicken broilers or fryers meat only roasted"),
     ("Turkey mince, raw", "turkey ground raw"),
     ("Beef liver, raw", "beef variety meats liver raw"),
@@ -168,7 +168,7 @@ STAPLES = [
     ("Seitan / wheat gluten", "vital wheat gluten"),
     ("Soy mince, dry", "soy protein concentrate"),
 
-    # --- mehr Milchprodukte ---
+    # mehr Milchprodukte
     ("Cheese, gouda", "cheese gouda"),
     ("Cheese, emmental", "cheese swiss"),
     ("Cheese, feta", "cheese feta"),
@@ -181,7 +181,7 @@ STAPLES = [
     ("Milk, skimmed", "milk nonfat fluid with added vitamin"),
     ("Condensed milk", "milk canned condensed sweetened"),
 
-    # --- mehr Getreide und Stärke ---
+    # mehr Getreide und Stärke
     ("Rye flour", "rye flour dark"),
     ("Wheat flour, white", "wheat flour white all-purpose enriched bleached"),
     ("Wheat flour, wholemeal", "wheat flour whole-grain"),
@@ -201,7 +201,7 @@ STAPLES = [
     ("Potato crisps", "snacks potato chips plain salted"),
     ("Chips / fries, frozen", "potatoes french fried frozen"),
 
-    # --- mehr Gemüse ---
+    # mehr Gemüse
     ("Aubergine, raw", "eggplant raw"),
     ("Asparagus, raw", "asparagus raw"),
     ("Brussels sprouts, raw", "brussels sprouts raw"),
@@ -218,7 +218,7 @@ STAPLES = [
     ("Olives, green", "olives pickled canned or bottled green"),
     ("Peppers, chili, raw", "peppers hot chili red raw"),
 
-    # --- mehr Obst ---
+    # mehr Obst
     ("Pear", "pears raw"),
     ("Peach", "peaches raw"),
     ("Plum", "plums raw"),
@@ -232,7 +232,7 @@ STAPLES = [
     ("Fig, dried", "figs dried uncooked"),
     ("Prunes", "plums dried prunes uncooked"),
 
-    # --- mehr Fette, Nüsse, Samen ---
+    # mehr Fette, Nüsse, Samen
     ("Hazelnuts", "nuts hazelnuts or filberts"),
     ("Pistachios", "nuts pistachio nuts raw"),
     ("Pecans", "nuts pecans"),
@@ -246,7 +246,7 @@ STAPLES = [
     ("Butter, unsalted", "butter without salt"),
     ("Margarine", "margarine regular hard soybean"),
 
-    # --- mehr von allem anderen ---
+    # mehr von allem anderen
     ("Maple syrup", "syrups maple"),
     ("Jam, strawberry", "jams and preserves"),
     ("Mustard", "mustard prepared yellow"),
@@ -260,7 +260,7 @@ STAPLES = [
     ("Wine, red", "alcoholic beverage wine table red"),
     ("Coffee, brewed", "beverages coffee brewed prepared with tap water"),
     ("Ice cream, vanilla", "ice creams vanilla"),
-    # --- weitere häufige Lebensmittel und Zubereitungen ---
+    # weitere häufige Lebensmittel und Zubereitungen
     ("Chicken breast, roasted", "chicken breast meat only cooked roasted"),
     ("Beef steak, grilled", "beef top sirloin steak cooked grilled"),
     ("Salmon, cooked", "salmon atlantic farmed cooked dry heat"),
@@ -280,7 +280,7 @@ STAPLES = [
     ("Spinach, cooked", "spinach cooked boiled drained"),
 ]
 
-# Nährstoffnummern von FDC -> die Schlüssel, die die App speichert. Energie wird extra
+# Nährstoffnummern von FDC und die Schlüssel, unter denen die App sie speichert. Energie wird extra
 # behandelt: Foundation Foods haben manchmal die Atwater-Varianten statt 1008.
 NUTRIENTS = {
     "1003": "protein",
@@ -407,7 +407,7 @@ def main():
         "  " + json.dumps(r, ensure_ascii=False, sort_keys=True) for r in rows
     )
     OUT.write_text(
-        "// ERZEUGT von tools/build_foods.py, bitte nicht von Hand ändern.\n"
+        "// Erzeugt von tools/build_foods.py, bitte nicht von Hand ändern.\n"
         "//\n"
         "// Allgemeine Lebensmittel aus USDA FoodData Central (Foundation Foods und SR\n"
         "// Legacy). Das sind Werke der US-Bundesregierung und damit gemeinfrei. Werte pro\n"

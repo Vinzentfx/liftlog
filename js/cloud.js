@@ -23,7 +23,7 @@ import { SUPABASE_URL, SUPABASE_ANON } from './cloud-config.js';
 const AUTH = `${SUPABASE_URL}/auth/v1`;
 const REST = `${SUPABASE_URL}/rest/v1`;
 
-/* ============================== die Sitzung ============================== */
+/* die Sitzung */
 
 // Bewusst localStorage statt IndexedDB: das hier sind keine App-Daten, sondern ein
 // Zugangsnachweis, der beim Start synchron lesbar sein muss, bevor der Store offen
@@ -70,7 +70,7 @@ function keepSession(next, persistent = sessionPersistent) {
 export const currentUser = () => session?.user ?? null;
 export const isSignedIn = () => !!session?.access_token;
 
-/* ================================ Leitungen ================================ */
+/* Leitungen */
 
 function fail(code, message, extra = {}) {
   const err = new Error(message || code);
@@ -162,7 +162,7 @@ async function refresh() {
   keepSession(next, sessionPersistent);
 }
 
-/* ================================= Konto ================================= */
+/* Konto */
 
 export async function signUp(email, password, { persist = true } = {}) {
   const out = await raw(`${AUTH}/signup`, { method: 'POST', body: { email, password } });
@@ -203,7 +203,7 @@ export async function signOut() {
   keepSession(null);
 }
 
-/* ================================= Profil ================================= */
+/* Profil */
 
 /** Die Zeile, die es erst gibt, wenn eine Einladung eingelöst ist. Vorher null. */
 export async function getProfile() {
@@ -217,8 +217,8 @@ export async function hasActiveAccess() {
 }
 
 /**
- * Einen Status, den der Server ZURÜCKGEGEBEN hat, in den Fehler verwandeln, den er
- * früher GEWORFEN hat.
+ * Einen Status, den der Server zurückgegeben hat, in den Fehler verwandeln, den er
+ * früher geworfen hat.
  *
  * Diese RPCs werfen mit Absicht nicht mehr. Ein `raise exception` bricht die
  * Transaktion ab, in der die Funktion läuft, und hat damit die Zeile fürs Rate-Limit
@@ -249,7 +249,7 @@ export function configureBackup(deviceId, fields, ownerToken) {
   });
 }
 
-/* ================================= Geräte ================================= */
+/* Geräte */
 
 export function listDevices() {
   return authed(`${REST}/devices?select=*&order=created_at`);
@@ -296,7 +296,7 @@ export async function claimOwnership(verifier, deviceId, ownerToken) {
   statusOrThrow(status, 'RECOVERY_WRONG');
 }
 
-/* ================================= Sicherungen ================================= */
+/* Sicherungen */
 
 /** Nur Version und Größe. Reicht, um zu entscheiden, ob hochgeladen wird, ohne herunterzuladen. */
 export async function latestMeta() {
@@ -362,7 +362,7 @@ export function listVersions() {
   return authed(`${REST}/backups?select=version,bytes,created_at,device_id&order=version.desc`);
 }
 
-/* ================================ Soziales ================================= */
+/* Soziales */
 
 const socialRpc = (name, body = {}) => authed(`${REST}/rpc/${name}`, { method: 'POST', body });
 

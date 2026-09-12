@@ -152,7 +152,7 @@ export function enableCollapsibleSections(root, route) {
  * Ein Zahlenfeld, das das Trennzeichen annimmt, das die Tastatur wirklich anbietet.
  *
  * `<input type="number">` nimmt nur einen Punkt, egal welche Sprache. Auf einem
- * deutschen Handy IST die Dezimaltaste aber ein Komma. Wer "82,5" tippt, sieht die
+ * deutschen Handy ist die Dezimaltaste aber ein Komma. Wer "82,5" tippt, sieht die
  * Ziffern im Feld, `.value` ist aber leer, die App hat nichts gespeichert und nichts
  * gesagt. Mitten im Training ist das ein verlorener Satz.
  *
@@ -195,7 +195,7 @@ export function normaliseOnBlur(input, { integer = false } = {}) {
 
 export function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); return node; }
 
-// ---------- Formatierung ----------
+// Formatierung
 
 /**
  * Das Dezimalzeichen, das diese Sprache wirklich schreibt.
@@ -216,7 +216,7 @@ const localiseDecimal = (text) => text.replace('.', decimalMark());
  * eine Dezimalzahl auf den Bildschirm kommt: Raten pro Woche, Prozente, Liter,
  * Megabyte, Sterne-Durchschnitte und die Achsen der Diagramme formatieren alle
  * selbst, und jede davon hat auf Deutsch "+2.6 kg/Woche" gezeigt. Die Geometrie von
- * SVG-Pfaden geht bewusst NICHT hier durch, ein `d`-Attribut ist kein Text, und ein
+ * SVG-Pfaden geht bewusst nicht hier durch, ein `d`-Attribut ist kein Text, und ein
  * Komma darin ist ein Fehler.
  */
 export function fmtDecimal(value, digits = 1) {
@@ -296,7 +296,7 @@ export function setsSummary(sets, units) {
   return groups.map((g) => `${fmtWeight(g.w, units)} × ${g.reps.join(', ')}`).join('  ·  ');
 }
 
-// ---------- Sternebewertung ----------
+// Sternebewertung
 
 /** Text wie '★★★★☆', halbe Sterne als ½. */
 export function starString(stars) {
@@ -320,7 +320,7 @@ export function starBadge(stars, { size = '13px', dim = false } = {}) {
   });
 }
 
-// ---------- Rückmeldung ----------
+// Rückmeldung
 
 let toastTimer = null;
 export function toast(message, ms = 2000) {
@@ -349,7 +349,7 @@ export function haptic(pattern = 8) {
   if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch { /* nicht unterstützt */ } }
 }
 
-// ---------- Sheet von unten ----------
+// Sheet von unten
 
 let sheetOnClose = null;
 
@@ -396,7 +396,7 @@ export function confirmSheet(title, message, { danger = true, confirmLabel = nul
   });
 }
 
-// ---------- Sonstiges ----------
+// Sonstiges
 
 /**
  * Antippbare Zeile. Läuft über einen Helfer, damit jede einen Namen für
@@ -423,7 +423,7 @@ export function emptyState(title, hint, action) {
 }
 
 /**
- * `plural(1, 'Satz', 'Sätze')` -> "1 Satz". Nur eine Kopie, damit Anzahlen überall
+ * `plural(1, 'Satz', 'Sätze')` ergibt "1 Satz". Nur eine Kopie, damit Anzahlen überall
  * gleich klingen.
  *
  * Beide Wörter kommen vom Aufrufer, deshalb funktioniert es auch in Sprachen, deren

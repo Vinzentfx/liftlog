@@ -9,15 +9,15 @@
 // die aktuelle Literatur wirklich etwas sagt. Jeder Punkt wird angezeigt, mit Quelle.
 //
 // Was sich bei der Durchsicht im Juli 2026 geändert hat:
-//   - Das Gerät entscheidet nicht mehr den Großteil der Punkte. Maschinen und
+//   * Das Gerät entscheidet nicht mehr den Großteil der Punkte. Maschinen und
 //     freie Gewichte bauen bei gleichem Volumen und gleicher Anstrengung gleich
 //     viel Muskel auf (SOURCES.haugen2023). "Langhantel 2 Punkte, Maschine 1" hat
 //     also einen Unterschied bewertet, den es nicht gibt. Das Gerät zählt jetzt nur
 //     noch dafür, wie fein man die Last steigern kann. Das ist ein Argument fürs
 //     Mitschreiben, nicht fürs Wachstum.
-//   - Die Muskellänge unter Last ist jetzt das schwerste Kriterium. Das ist die
+//   * Die Muskellänge unter Last ist jetzt das schwerste Kriterium. Das ist die
 //     einzige Stellschraube bei der Übungswahl mit echten Belegen (SOURCES.wolf2025).
-//   - Grundübungen gelten nicht mehr automatisch als besser. Sie bekommen Punkte
+//   * Grundübungen gelten nicht mehr automatisch als besser. Sie bekommen Punkte
 //     dafür, dass sie pro Satz mehr Muskeln abdecken, also für Effizienz, nicht
 //     dafür, einen einzelnen Muskel stärker wachsen zu lassen.
 
@@ -31,7 +31,7 @@ export { starString };
 
 /**
  * Wie fein sich die Last steigern lässt, das macht Fortschritt messbar.
- * Ausdrücklich KEINE Aussage über Wachstum, siehe SOURCES.haugen2023.
+ * Ausdrücklich keine Aussage über Wachstum, siehe SOURCES.haugen2023.
  */
 const LOADABILITY = {
   Barbell: 2, Dumbbell: 2, Machine: 2, Cable: 2, Kettlebell: 1.5,
@@ -76,7 +76,7 @@ export function rateExercise(ex) {
   const reasons = [];
   const caveats = [];
 
-  // ---- 1. Muskellänge unter Last (0 bis 3), das schwerste Kriterium ----
+  // 1. Muskellänge unter Last (0 bis 3), das schwerste Kriterium
   const length = lengthBias(ex);
   const lengthPoints = { long: 3, mixed: 1.5, short: 0.5 }[length.bias];
   criteria.push({
@@ -93,7 +93,7 @@ export function rateExercise(ex) {
     caveats.push(t('exRating.pairStretched', { why: t(length.why) }));
   }
 
-  // ---- 2. Entscheidet der Zielmuskel, wann der Satz endet (0 bis 2) ----
+  // 2. Entscheidet der Zielmuskel, wann der Satz endet (0 bis 2)
   const limit = limiter(ex);
   const limitPoints = { target: 2, mixed: 1, other: 0.5 }[limit.level];
   criteria.push({
@@ -105,7 +105,7 @@ export function rateExercise(ex) {
   if (limit.level === 'target') reasons.push(t(limit.why));
   if (limit.level === 'other') caveats.push(t(limit.why));
 
-  // ---- 3. Stabilität für Anstrengung im Zielmuskel (0 bis 1,5) ----
+  // 3. Stabilität für Anstrengung im Zielmuskel (0 bis 1,5)
   const stable = stability(ex);
   criteria.push({
     label: 'exRating.stability',
@@ -116,7 +116,7 @@ export function rateExercise(ex) {
   if (stable.level === 'supported') reasons.push(t(stable.why));
   if (stable.level === 'unstable' || stable.level === 'demanding') caveats.push(t(stable.why));
 
-  // ---- 4. Messbarer Fortschritt (0 bis 2) ----
+  // 4. Messbarer Fortschritt (0 bis 2)
   const loadPoints = loadability(ex);
   criteria.push({
     label: 'exRating.progression',
@@ -132,7 +132,7 @@ export function rateExercise(ex) {
   });
   if (ex.equipment === 'Bands') caveats.push(t('exRating.bandCaveat'));
 
-  // ---- 5. Sinnvoll abgedeckte Muskeln pro Satz (0 bis 1) ----
+  // 5. Sinnvoll abgedeckte Muskeln pro Satz (0 bis 1)
   const regions = (ex.primary || []).length + (ex.secondary || []).length;
   // Stabilisatoren, die als Nebenregionen eingetragen sind, dürfen aus einer
   // Isolationsübung keine hocheffiziente Grundübung machen. Das war der zweite
@@ -148,7 +148,7 @@ export function rateExercise(ex) {
   });
   if (compound) reasons.push(t('exRating.compoundReason'));
 
-  // ---- 6. Veröffentlichte Kraftstandards (0 bis 0,5) ----
+  // 6. Veröffentlichte Kraftstandards (0 bis 0,5)
   const benchmark = isBenchmark(ex.name);
   criteria.push({
     label: 'exRating.standards',

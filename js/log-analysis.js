@@ -19,13 +19,13 @@ const INDIRECT = THRESHOLDS.indirectSetWeight.value;
  * Eine Woche abgeschlossener Einheiten.
  *
  * @param sessions  alle Einheiten, Reihenfolge egal
- * @param byId      Map Übungs-ID -> Übung
+ * @param byId      Map von Übungs-ID auf Übung
  * @param weekStart Zeitstempel (ms) des Montags, um den es geht
  */
 export function analyseWeek(sessions, byId, weekStart = startOfWeek(Date.now())) {
-  const volume = {};       // Region -> anteilige Sätze
-  const frequency = {};    // Region -> Einheiten, die sie treffen
-  const peakSession = {};  // Region -> meiste anteilige Sätze in einer Einheit
+  const volume = {};       // je Region:anteilige Sätze
+  const frequency = {};    // je Region:Einheiten, die sie treffen
+  const peakSession = {};  // je Region:meiste anteilige Sätze in einer Einheit
   let totalSets = 0;
   let longSets = 0;
   let workouts = 0;
@@ -151,7 +151,7 @@ function previousWeek(weekStart) {
 }
 
 /**
- * Liegt die Woche BIS JETZT im Plan?
+ * Liegt die Woche bis jetzt im Plan?
  *
  * Den Dienstag an einem ganzen Wochenziel zu messen würde jede Woche bis Sonntag
  * rot anzeigen, und so eine Anzeige schaut man sich kein zweites Mal an. Gemessen

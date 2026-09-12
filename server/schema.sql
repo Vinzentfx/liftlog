@@ -1,5 +1,5 @@
 -- LiftLog Cloud-Sicherung: die ganze Serverseite.
--- WICHTIG: nach diesem Grundschema auch server/patch-002-device-capabilities.sql
+-- Nach diesem Grundschema auch server/patch-002-device-capabilities.sql
 -- einspielen. Es ersetzt die offenen Start-Policies unten durch Schreib-RPCs, die
 -- an Gerätefähigkeiten hängen. Die zwei Dateien sind getrennt, damit bestehende
 -- Supabase-Projekte ohne Datenverlust umziehen können.
@@ -34,7 +34,7 @@
 -- E-Mail-Adressen und das Wissen, dass diese Leute eine Fitness-App sichern. Genau darum
 -- geht es bei diesem Aufbau.
 
--- ----------------------------------------------------------------- Profile --
+-- Profile
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users on delete cascade,
@@ -84,7 +84,7 @@ returns boolean language sql stable security definer set search_path = public as
   select exists (select 1 from public.profiles where id = auth.uid());
 $$;
 
--- ------------------------------------------------------------------ Geräte --
+-- Geräte
 
 create table if not exists public.devices (
   id         uuid primary key default gen_random_uuid(),
@@ -118,7 +118,7 @@ create policy "own devices" on public.devices
   using       (auth.uid() = user_id and public.has_profile())
   with check  (auth.uid() = user_id and public.has_profile());
 
--- -------------------------------------------------------------- Sicherungen --
+-- Sicherungen
 
 create table if not exists public.backups (
   user_id    uuid not null references auth.users on delete cascade,
@@ -166,7 +166,7 @@ create trigger trim_backups
   after insert on public.backups
   for each row execute function public.trim_backup_history();
 
--- --------------------------------------------------------------- Einladungen --
+-- Einladungen
 
 -- Registrieren kann sich jeder, ein Profil bekommen nicht, und jede Policy oben verlangt
 -- zusätzlich `has_profile()`. Ein Konto ohne Einladung kann sich also anmelden und genau
@@ -211,7 +211,7 @@ begin
 end;
 $$;
 
--- ---------------------------------------------------------------- Übernahme --
+-- Übernahme
 
 -- Der Notausgang auf der Serverseite. Der Client beweist, dass er den Wiederherstellungsschlüssel
 -- hat, indem er den Prüfwert schickt. Stimmt er, wird dieses Gerät zum Hauptgerät und jedes
@@ -262,7 +262,7 @@ begin
 end;
 $$;
 
--- ---------------------------------------------------------------- Aufräumen --
+-- Aufräumen
 
 -- Das Löschen des Auth-Nutzers läuft per Cascade durch jede Tabelle oben, und genau das muss
 -- eine Löschanfrage wirklich tun. Lohnt sich, einmal an einem Wegwerfkonto zu testen, bevor

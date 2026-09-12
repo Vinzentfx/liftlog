@@ -43,7 +43,7 @@ export const SOURCES = {
   haugen2023: {
     key: 'haugen2023',
     short: 'evidence.haugen2023.short',
-    cite: 'Haugen ME et al. Effect of free-weight vs. machine-based strength training on maximal strength, hypertrophy and jump performance — a systematic review and meta-analysis. BMC Sports Science, Medicine and Rehabilitation, 2023. Confirmed by a 2025 within-subject knee-extensor trial.',
+    cite: 'Haugen ME et al. Effect of free-weight vs. machine-based strength training on maximal strength, hypertrophy and jump performance: a systematic review and meta-analysis. BMC Sports Science, Medicine and Rehabilitation, 2023. Confirmed by a 2025 within-subject knee-extensor trial.',
     note: 'evidence.haugen2023.note',
     url: 'https://link.springer.com/article/10.1186/s13102-023-00713-4',
     says: 'evidence.haugen2023.says',
@@ -59,7 +59,7 @@ export const SOURCES = {
   robinson2024: {
     key: 'robinson2024',
     short: 'evidence.robinson2024.short',
-    cite: 'Robinson ZP et al. Exploring the Dose–Response Relationship Between Estimated Resistance Training Proximity to Failure, Strength Gain, and Muscle Hypertrophy: A Series of Meta-Regressions. Sports Medicine, 2024.',
+    cite: 'Robinson ZP et al. Exploring the Dose-Response Relationship Between Estimated Resistance Training Proximity to Failure, Strength Gain, and Muscle Hypertrophy: A Series of Meta-Regressions. Sports Medicine, 2024.',
     note: 'evidence.robinson2024.note',
     url: 'https://sportrxiv.org/index.php/server/preprint/view/295',
     says: 'evidence.robinson2024.says',
@@ -188,7 +188,7 @@ export const THRESHOLDS = {
    * größten, also genau bei der leichten Isolationsarbeit, aus der sonst ein
    * Maschinenrang gebaut wird). Zwölf statt zehn ist eine Wiederholung Kulanz,
    * damit normale Hypertrophie-Arbeit mit 8 bis 12 nicht dauerhaft als
-   * Hochrechnung markiert ist. Darüber IST es eine Hochrechnung, und die App sagt
+   * Hochrechnung markiert ist. Darüber ist es eine Hochrechnung, und die App sagt
    * das, statt jemanden still anhand eines Satzes mit zwanzig einzustufen.
    */
   e1rmWindow: { low: 1, high: 12, source: 'ribeiro1rm2024' },
@@ -218,7 +218,7 @@ export const THRESHOLDS = {
   /**
    * Trinkwasser in Litern pro Tag, nach Geschlecht. Auch das ist ein Richtwert für
    * gemäßigtes Klima und durchschnittliche Aktivität, und zwar ausdrücklich das
-   * GESAMTE Wasser minus die etwa 20 bis 30 %, die über das Essen kommen. Training,
+   * gesamte Wasser minus die etwa 20 bis 30 %, die über das Essen kommen. Training,
    * Hitze und Körpergewicht verschieben ihn, deshalb steht er als Bezugslinie da
    * und nie als Note.
    */

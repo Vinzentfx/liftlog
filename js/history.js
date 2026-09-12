@@ -3,7 +3,7 @@
 //
 // Eine einzelne Übung konnte die App schon gut zeichnen. Was sie nicht beantworten
 // konnte, war die Frage, die man sich nach ein paar Monaten wirklich stellt: "werde
-// ich stärker?". Die Stärkebewertung wurde nur für HEUTE berechnet, aus den besten
+// ich stärker?". Die Stärkebewertung wurde nur für heute berechnet, aus den besten
 // Werten aller Zeiten. Sie Woche für Woche neu zu rechnen macht aus einem
 // Schnappschuss eine Linie.
 //
@@ -86,14 +86,14 @@ export function tonnageHistory(sessions, weeks = 12, endTs = Date.now()) {
 }
 
 /**
- * Die Gesamtstärke, für jede Woche so neu berechnet, wie sie DAMALS stand.
+ * Die Gesamtstärke, für jede Woche so neu berechnet, wie sie damals stand.
  *
  * Zwei Details entscheiden, ob die Linie etwas bedeutet:
  *
- *  - Das beste e1RM bis dahin ist kumulativ. Eine Woche ohne Bankdrücken senkt
+ *  * Das beste e1RM bis dahin ist kumulativ. Eine Woche ohne Bankdrücken senkt
  *    den Wert fürs Bankdrücken nicht. Gezeigte Stärke verschwindet nicht, nur weil
  *    man eine Woche Pause gemacht hat.
- *  - Das Körpergewicht ist der Eintrag aus dieser Woche, nicht der von heute. Die
+ *  * Das Körpergewicht ist der Eintrag aus dieser Woche, nicht der von heute. Die
  *    Wertung hängt am Körpergewicht, und das heutige festzuhalten würde bei jeder
  *    Bewegung der Waage die Vergangenheit umschreiben. Ein Aufbau würde einen im
  *    Nachhinein im März schwächer aussehen lassen.
@@ -110,7 +110,7 @@ export function strengthHistory(sessions, bodyweightLog, profile, exerciseById, 
   if (!finished.length) return [];
 
   const bw = [...(bodyweightLog || [])].sort((a, b) => a.date - b.date);
-  const best = new Map();          // Übungsname -> bestes e1RM bis dahin, im Fenster
+  const best = new Map();          // je Übungsname: bestes e1RM bis dahin, im Fenster
   const outside = new Map();       // und der Rückfall für Übungen, die darin nie trainiert wurden
   const machineNames = ratedMachineNames([...exerciseById.values()]);
   const regionsByName = regionsFromExercises([...exerciseById.values()]);

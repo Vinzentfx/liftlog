@@ -52,7 +52,7 @@ export const FLAT_BAND = 0.3;
 export function regionProgress(sessions, exerciseById, { weeks = 12, now = Date.now() } = {}) {
   const since = now - weeks * WEEK;
 
-  // Übungs-ID -> [{t, e1rm}]
+  // je Übungs-ID: [{t, e1rm}]
   const series = new Map();
   for (const s of sessions) {
     if (!s.finishedAt || s.startedAt < since || s.startedAt > now) continue;
@@ -64,7 +64,7 @@ export function regionProgress(sessions, exerciseById, { weeks = 12, now = Date.
     }
   }
 
-  // Region -> Beiträge
+  // je Region: Beiträge
   const acc = {};
   const touch = (region) => (acc[region] = acc[region] || { weighted: 0, weight: 0, exercises: 0, sessions: 0, best: null, thin: 0 });
 
@@ -74,7 +74,7 @@ export function regionProgress(sessions, exerciseById, { weeks = 12, now = Date.
     const points = raw.sort((a, b) => a.t - b.t);
 
     // Eine Region gilt als "trainiert", sobald sie einmal eingetragen ist, das soll
-    // die Karte zeigen. Ob sie VORANKOMMT, braucht mehr als einen Datenpunkt.
+    // die Karte zeigen. Ob sie vorankommt, braucht mehr als einen Datenpunkt.
     const regions = [
       ...(ex.primary || []).map((r) => [r, 1]),
       ...(ex.secondary || []).map((r) => [r, 0.5]),

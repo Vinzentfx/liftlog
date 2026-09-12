@@ -6,8 +6,8 @@
 //
 // Kohlenhydrate und Fett bekommen inzwischen auch Ziele (macroTargets unten), und es
 // lohnt sich, genau zu sagen, warum das kein Widerspruch ist. Es gibt kein belegtes
-// VERHÄLTNIS der Makros, "40/30/30" ist Folklore mit Komma, und diese Datei gibt keins
-// aus. Was es gibt, ist eine belegte REIHENFOLGE: Kalorien, dann Eiweiß, dann eine
+// Verhältnis der Makros, "40/30/30" ist Folklore mit Komma, und diese Datei gibt keins
+// aus. Was es gibt, ist eine belegte Reihenfolge: Kalorien, dann Eiweiß, dann eine
 // Untergrenze für Fett, dann Kohlenhydrate als Rest. Diese Zahlen sind Rechnerei auf
 // der eigenen gemessenen Kalorienzahl und keine Regel über Anteile, und die Oberfläche
 // sagt das auch.
@@ -323,8 +323,8 @@ export function maintenanceEstimate(meals, bodyweightLog, { days = 28, endTs = D
 /**
  * Tagesziele für alles, abgeleitet in der Reihenfolge, die sie wirklich bestimmt.
  *
- * Ein belegtes VERHÄLTNIS der Makros gibt es nicht. "40/30/30" ist Folklore mit Komma,
- * und eine App, die so etwas ausgibt, erfindet Genauigkeit. Eine belegte REIHENFOLGE
+ * Ein belegtes Verhältnis der Makros gibt es nicht. "40/30/30" ist Folklore mit Komma,
+ * und eine App, die so etwas ausgibt, erfindet Genauigkeit. Eine belegte Reihenfolge
  * gibt es aber, und die nimmt jeder vernünftige Trainer:
  *
  *   1. Die Energie bestimmt die Richtung: zunehmen, halten oder abnehmen.

@@ -24,7 +24,7 @@ export default function renderCalendar({ param, actions }) {
   return monthView();
 }
 
-/* =========================== Monat =========================== */
+/* Monat */
 
 function monthView() {
   const root = el('div');
@@ -50,7 +50,7 @@ function monthView() {
     byDay.get(key).push(s);
   }
 
-  // ---- Kopf ----
+  // Kopf
   const canGoNext = (() => {
     const now = new Date(); now.setDate(1); now.setHours(0, 0, 0, 0);
     return view.getTime() < now.getTime();
@@ -73,7 +73,7 @@ function monthView() {
     ])
   );
 
-  // ---- Raster ----
+  // Raster
   const first = new Date(year, month, 1);
   const startPad = (first.getDay() + 6) % 7;             // Montag zuerst
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -146,7 +146,7 @@ function monthView() {
 
   root.append(el('div.card', {}, [grid]));
 
-  // ---- Monatsübersicht ----
+  // Monatsübersicht
   const monthSessions = [...byDay.values()].flat();
   const sets = monthSessions.reduce((n, s) => n + sessionStats(s).sets, 0);
   const volume = monthSessions.reduce((n, s) => n + sessionStats(s).volume, 0);
@@ -171,7 +171,7 @@ function monthView() {
       text: t('calendar.targetFrom', { plan: plan.name, days: tn(perWeek, 'unit.day') }) }));
   }
 
-  // ---- Verlauf ----
+  // Verlauf
   root.append(el('div.section-head', {}, [el('h2', { text: t('calendar.allWorkouts') })]));
 
   let currentMonth = null;
@@ -192,7 +192,7 @@ function monthView() {
   return root;
 }
 
-/* =========================== Detail =========================== */
+/* Detail */
 
 function detailView(id) {
   const session = store.state.sessions.find((s) => s.id === id);
@@ -314,7 +314,7 @@ function readEntry(entry, units) {
   ]);
 }
 
-/* ============================ Bearbeiten ============================ */
+/* Bearbeiten */
 
 /**
  * Ein Training im Nachhinein korrigieren.
@@ -443,13 +443,13 @@ function editRow(session, entry, set, index, ex) {
   );
 
   const weight = normaliseOnBlur(numberInput({
-    decimal: true, value: set.weight ?? '', placeholder: '–', 'aria-label': t('train.weight'),
+    decimal: true, value: set.weight ?? '', placeholder: '', 'aria-label': t('train.weight'),
   }));
   const reps = normaliseOnBlur(numberInput({
-    value: set.reps ?? '', placeholder: '–', 'aria-label': t('train.col.reps'),
+    value: set.reps ?? '', placeholder: '', 'aria-label': t('train.col.reps'),
   }), { integer: true });
   const rir = normaliseOnBlur(numberInput({
-    class: 'rir', value: set.rir ?? '', placeholder: '–', 'aria-label': t('train.rirTitle'),
+    class: 'rir', value: set.rir ?? '', placeholder: '', 'aria-label': t('train.rirTitle'),
   }), { integer: true });
 
   weight.addEventListener('input', () => {
@@ -503,7 +503,7 @@ function editRow(session, entry, set, index, ex) {
 function editUnilateralRow(session, entry, set, index) {
   const row = el('div.unilateral-set' + (set.type === 'warmup' ? '.warmup' : ''));
   const field = (key, label, decimal = false) => {
-    const input = normaliseOnBlur(numberInput({ decimal, value: set[key] ?? '', placeholder: '–', 'aria-label': label }),
+    const input = normaliseOnBlur(numberInput({ decimal, value: set[key] ?? '', placeholder: '', 'aria-label': label }),
       decimal ? {} : { integer: true });
     input.addEventListener('input', () => {
       const value = parseNumber(input.value);

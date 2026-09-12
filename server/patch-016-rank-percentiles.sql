@@ -6,7 +6,7 @@
 -- Rangsystem will und die ein gedruckter Standard nicht liefern kann: nicht "du bist Diamond
 -- II", sondern "von allen, die das eintragen, liegen 62 % unter dir".
 --
--- Was hier absichtlich NICHT steht:
+-- Was hier absichtlich nicht steht:
 --
 --   * Keine Rangliste, keine Reihenfolge, keine Identität. Die RPC gibt eine Anzahl, vier
 --     Perzentile und einen Anteil darunter zurück. Es gibt keinen Aufruf, der eine Zeile, eine
@@ -79,7 +79,7 @@ begin
     if not (k = any(keys)) then keys := keys || k; end if;
   end loop;
 
-  -- Alle ANDEREN, und nur so lange ihre Zahl frisch genug ist, um sie zu beschreiben. Ein
+  -- Alle anderen, und nur so lange ihre Zahl frisch genug ist, um sie zu beschreiben. Ein
   -- Perzentil mit der eigenen Zeile darin bewegt sich, wenn man als Einziger trainiert hat.
   foreach k in array keys loop
     -- Einmal gelesen statt pro Zeile: eine korrelierte Unterabfrage in der Aggregation würde für

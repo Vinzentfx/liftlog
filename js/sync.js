@@ -29,7 +29,7 @@ import * as cloud from './cloud.js';
 import * as crypto from './crypto.js';
 import { CONSENT_VERSION } from './cloud-config.js';
 
-/* ============================== Geräteschlüssel ============================== */
+/* Geräteschlüssel */
 
 const DEVICE_ROW = 'device';
 
@@ -96,7 +96,7 @@ async function requireOwnerToken() {
   return token;
 }
 
-/* ================================= Zustand ================================= */
+/* Zustand */
 
 /**
  * Alles, was die Screens brauchen, um die Lage zu beschreiben, und nichts, was sie
@@ -146,7 +146,7 @@ function set(patch) {
   if (changed) emit();
 }
 
-/* ============================== der Datenschlüssel ============================== */
+/* der Datenschlüssel */
 
 // Nur im Speicher, solange die App offen ist. Ihn ausgepackt auf die Platte zu
 // schreiben würde das Einpacken sinnlos machen, und ihn neu zu gewinnen kostet ein
@@ -202,7 +202,7 @@ async function loadDataKey(devices) {
   return dataKey;
 }
 
-/* ============================== Einrichten ============================== */
+/* Einrichten */
 
 /**
  * Erstes Gerät eines neuen Kontos: Datenschlüssel erzeugen, für den
@@ -367,7 +367,7 @@ export async function recoverWith(recoveryKey) {
   }
 }
 
-/* =============================== die Synchronisation =============================== */
+/* die Synchronisation */
 
 /** Lesen, wie es steht, ohne etwas zu ändern. */
 export async function load() {

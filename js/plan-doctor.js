@@ -31,7 +31,7 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
   const used = new Set();
   for (const d of plan.days || []) for (const i of d.items) used.add(i.exerciseId);
 
-  // ---- 1. Muskeln, die gar nichts bekommen ----
+  // 1. Muskeln, die gar nichts bekommen
   for (const region of analysis.untrained) {
     const pick = pickForRegion(region, exercises, { used, preferCompound: true });
     if (!pick) continue;
@@ -47,7 +47,7 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
     });
   }
 
-  // ---- 2. Muskeln unter der Wochenuntergrenze ----
+  // 2. Muskeln unter der Wochenuntergrenze
   const under = analysis.trained
     .filter((r) => analysis.volume[r] < FLOOR)
     .sort((a, b) => analysis.volume[a] - analysis.volume[b]);
@@ -67,7 +67,7 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
     });
   }
 
-  // ---- 3. ein Muskel in eine einzige Einheit gequetscht ----
+  // 3. ein Muskel in eine einzige Einheit gequetscht
   for (const region of analysis.trained) {
     const peak = analysis.peakSession[region] || 0;
     if (peak <= PER_SESSION) continue;
@@ -84,7 +84,7 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
     });
   }
 
-  // ---- 4. Übungen, die in der verkürzten Position belasten ----
+  // 4. Übungen, die in der verkürzten Position belasten
   for (const day of plan.days || []) {
     for (const item of day.items) {
       const ex = byId.get(item.exerciseId);
@@ -103,7 +103,7 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
     }
   }
 
-  // ---- 5. ein Muskel hängt an einer einzigen Übung ----
+  // 5. ein Muskel hängt an einer einzigen Übung
   for (const region of analysis.trained) {
     if ((analysis.exercisesPer[region] || 0) !== 1) continue;
     if (analysis.volume[region] < 8) continue;
@@ -124,7 +124,7 @@ export function diagnose(plan, analysis, exercises, byId, { sets = SETS_PER_EXER
   return fixes.sort((a, b) => b.severity - a.severity).slice(0, 8);
 }
 
-/* ---------------- Änderungen ---------------- */
+/* Änderungen */
 
 function addItem(plan, dayId, exerciseId, sets = SETS_PER_EXERCISE) {
   const day = plan.days.find((d) => d.id === dayId);
@@ -153,7 +153,7 @@ function moveItem(plan, fromId, toId, exerciseId) {
   to.items.push(item);
 }
 
-/* ---------------- Helfer ---------------- */
+/* Helfer */
 
 /**
  * Wohin eine zusätzliche Übung für einen Muskel gehört.

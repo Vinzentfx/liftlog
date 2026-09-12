@@ -3,7 +3,7 @@
 //
 // Was das knifflig macht: Übungs-IDs werden pro Installation erzeugt (`uid('ex_')`
 // mit Zufallsbytes), auf einem anderen Handy bedeutet eine ID also nichts. Ein
-// geteilter Plan enthält deshalb Übungs-NAMEN und genug Zusammenhang, um alles
+// geteilter Plan enthält deshalb Übungsnamen und genug Zusammenhang, um alles
 // nachzubauen, was dem Empfänger fehlt, und der Import löst sie gegen dessen
 // eigene Bibliothek auf. Die Namen werden genauso normalisiert wie beim Auffüllen
 // der Bibliothek, "Barbell Bench Press" und "barbell bench press" landen also in
@@ -17,11 +17,11 @@ import { t } from './i18n.js';
 
 const VERSION = 1;
 
-/* ============================ Kodieren ============================ */
+/* Kodieren */
 
 /**
  * @param plan  ein gespeicherter Plan
- * @param byId  Map Übungs-ID -> Übung, um die Namen aufzulösen
+ * @param byId  Map von Übungs-ID auf Übung, um die Namen aufzulösen
  */
 export function encodePlan(plan, byId) {
   const payload = {
@@ -52,7 +52,7 @@ export function encodePlan(plan, byId) {
   return payload;
 }
 
-/** Plan -> Link zum Teilen. Async, weil die Kompression eine Stream-API ist. */
+/** Macht aus einem Plan einen Link zum Teilen. Async, weil die Kompression eine Stream-API ist. */
 export async function planLink(plan, byId, baseUrl = defaultBase()) {
   const json = JSON.stringify(encodePlan(plan, byId));
   const code = await pack(json);
@@ -65,7 +65,7 @@ function defaultBase() {
   return `${location.origin}${location.pathname}`;
 }
 
-/* ============================ Dekodieren ============================ */
+/* Dekodieren */
 
 /**
  * @returns {Promise<{ok:true, plan:object} | {ok:false, detail:string}>}
@@ -127,7 +127,7 @@ export async function decodeLink(code) {
 export function resolveAgainstLibrary(shared, exercises) {
   const byName = new Map(exercises.map((e) => [normName(e.name), e]));
   const matched = [];
-  const missing = new Map();   // normalisierter Name -> {name, muscle, equipment}
+  const missing = new Map();   // je normalisiertem Namen: {name, muscle, equipment}
 
   for (const day of shared.days) {
     for (const item of day.items) {
@@ -140,7 +140,7 @@ export function resolveAgainstLibrary(shared, exercises) {
   return { matched, missing: [...missing.values()] };
 }
 
-/* ============================ Packen ============================ */
+/* Packen */
 
 /**
  * Deflate und base64url. CompressionStream ist eine normale Web-API (ab Safari
