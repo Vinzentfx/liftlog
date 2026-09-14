@@ -58,10 +58,10 @@ npm test
 python3 tools/devserver.py   # dann http://localhost:5173
 ```
 
-## Ehrlich gesagt
+## Sonstiges
 
-Nicht jede Zeile Code habe ich selbst geschrieben, ein großer Teil ist mit
-Hilfe von KI entstanden. Was die App können soll, wie sie sich beim Training
+Nicht jede Zeile Code habe ich selbst geschrieben. 
+Was die App können soll, wie Sachen umgesetzt werden, wie sie sich beim Training
 anfühlt und welche Zahl stimmt und welche nicht, musste ich trotzdem selbst
 herausfinden und immer wieder im echten Training ausprobieren.
 
