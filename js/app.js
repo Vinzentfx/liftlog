@@ -273,14 +273,35 @@ async function boot() {
   }
 
   // Die öffentliche Vorschau öffnet mit einem halben Jahr Beispieldaten statt einem
-  // leeren Log. Nur auf einem Gerät ohne Trainings, damit das, was ein Besucher einträgt,
-  // ein Neuladen übersteht und nicht wieder vom Beispiel überschrieben wird.
-  if (DEMO && !store.state.sessions.length) {
-    try {
-      const response = await fetch('./showcase-backup.json', { cache: 'no-store' });
-      await store.importData(await response.json());
-    } catch (err) {
-      console.error('[liftlog] preview data failed', err);
+  // leeren Log. Geladen wird auf einem Gerät ohne Trainings und wieder, sobald eine neuere
+  // Fassung veröffentlicht ist, solange das Gerät nichts als Beispieldaten hat. Vorher kam die
+  // Datei nur auf ein leeres Gerät, und wer die Vorschau einmal geöffnet hatte, sah für immer
+  // den alten Stand, auch nachdem die Beispieldaten repariert waren.
+  //
+  // Was ein Besucher selbst einträgt, bekommt eine ID aus db.uid, also Zeitstempel und Zufall.
+  // Die Einträge aus tools/build_showcase.mjs heißen "s_sc0a1b" und so weiter, und so eine ID
+  // vergibt die App nie. Ist etwas Eigenes dabei, bleibt alles, wie es ist, und übersteht ein
+  // Neuladen, statt vom Beispiel überschrieben zu werden.
+  if (DEMO) {
+    const SHOWCASE_KEY = 'liftlog.showcaseExportedAt';
+    const { sessions, bodyweight, meals, plans, foods, templates } = store.state;
+    const leer = !sessions.length;
+    const nurBeispiel = [...sessions, ...bodyweight, ...meals, ...plans, ...foods, ...templates]
+      .every((row) => /^[a-z]+_sc[0-9a-z]{4,}$/.test(String(row?.id)));
+    if (leer || nurBeispiel) {
+      try {
+        // no-cache fragt nur nach, ob sich die Datei geändert hat, statt sie jedes Mal ganz zu laden.
+        const response = await fetch('./showcase-backup.json', { cache: 'no-cache' });
+        const payload = await response.json();
+        let geladen = null;
+        try { geladen = localStorage.getItem(SHOWCASE_KEY); } catch { /* privater Modus */ }
+        if (leer || geladen !== payload.exportedAt) {
+          await store.importData(payload);
+          try { localStorage.setItem(SHOWCASE_KEY, payload.exportedAt); } catch { /* privater Modus */ }
+        }
+      } catch (err) {
+        console.error('[liftlog] preview data failed', err);
+      }
     }
   }
 
