@@ -2,7 +2,7 @@
 
 Ein Trainingstagebuch fürs Fitnessstudio, das man auf dem iPhone wie eine App
 auf den Homescreen legt. Kein Abo, keine Werbung, und die Daten bleiben auf
-dem Handy.
+dem Handy, solange man die Sicherung in der Cloud nicht selbst einschaltet.
 
 **Ausprobieren:** <https://vinzentfx.github.io/liftlog/> (eine Vorschau mit
 einem halben Jahr Beispieldaten, ohne Anmeldung. Am besten auf dem Handy
@@ -14,8 +14,10 @@ Ich gehe schon länger trainieren, hatte meine Gewichte und Wiederholungen aber
 nur in der Notizen App auf dem Handy aufgeschrieben. Also wollte ich mir eine
 richtige App herunterladen, aber alle, die ich gefunden habe, kosteten Geld.
 Deshalb wollte ich einfach selbst etwas bauen, für mich und für Freunde, zum
-Vergleichen und aus Spaß. Angefangen habe ich Ende Juli 2026, und inzwischen
-benutzen es ein paar Freunde mit Einladungscode.
+Vergleichen und aus Spaß. Angefangen habe ich im September 2025; die heutige
+Fassung habe ich ab Ende Juli 2026 von Grund auf neu gebaut, deshalb beginnt
+die Commit-Historie dort. Inzwischen benutzen es ein paar Freunde mit
+Einladungscode.
 
 ## Was drin ist
 
@@ -25,8 +27,8 @@ benutzen es ein paar Freunde mit Einladungscode.
 * eine Muskelkarte von vorne und hinten, jede Region nach Stärke eingefärbt,
   dazu Ränge von Bronze bis Radiant
 * über 700 Übungen mit Anleitung und den Muskeln, die sie treffen
-* ein Ernährungsteil mit über 700 mitgelieferten Lebensmitteln und
-  Barcodescanner
+* ein Ernährungsteil mit über 200 mitgelieferten Lebensmitteln, dazu ein
+  Barcodescanner für alles andere
 * Kalender, Verlauf, Körpergewicht und eine Wochenkarte als Bild zum Teilen
 * auf Deutsch und Englisch
 
@@ -46,8 +48,9 @@ ist, sagt aber nie "du solltest". Ein Test prüft das in beiden Sprachen.
 
 Wer will, kann eine Sicherung in der Cloud über Supabase einschalten. Die
 Daten werden vorher auf dem Handy verschlüsselt, der Server sieht nur
-verschlüsselten Text und hat keinen Schlüssel dafür. Käme die Datenbank weg,
-wären nur Mailadressen zu sehen.
+verschlüsselten Text und hat keinen Schlüssel dafür. Wer welche Zeile lesen
+darf, entscheidet die Datenbank selbst über Row Level Security, nicht der
+Client. Käme die Datenbank weg, wären nur Mailadressen zu sehen.
 
 Getestet wird mit dem eingebauten Testrunner von Node (266 Tests) und mit
 Playwright im Browser, beides läuft bei jedem Push über GitHub Actions.
