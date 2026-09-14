@@ -14,9 +14,9 @@ Ich gehe schon länger trainieren, hatte meine Gewichte und Wiederholungen aber
 nur in der Notizen App auf dem Handy aufgeschrieben. Also wollte ich mir eine
 richtige App herunterladen, aber alle, die ich gefunden habe, kosteten Geld.
 Deshalb wollte ich einfach selbst etwas bauen, für mich und für Freunde, zum
-Vergleichen und aus Spaß. Angefangen habe ich im September 2025; die heutige
+Vergleichen und aus Spaß. Angefangen habe ich im September 2025. Die heutige
 Fassung habe ich ab Ende Juli 2026 von Grund auf neu gebaut, deshalb beginnt
-die Commit-Historie dort. Inzwischen benutzen es ein paar Freunde mit
+die Versionsgeschichte erst dort. Inzwischen benutzen es ein paar Freunde mit
 Einladungscode.
 
 ## Was drin ist
