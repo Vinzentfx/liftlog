@@ -20,9 +20,12 @@
 
 import {
   seedExercises, newSession, newEntry, newSet, newFood, newMeal, newTemplate,
-  dayKey, DEFAULT_SETTINGS, normName,
+  dayKey, DEFAULT_SETTINGS, normName, bodyweightLoadMode,
 } from '../js/models.js';
 import { PLAN_BLUEPRINTS, buildPlanDays } from '../js/plan-builder.js';
+import {
+  BAND, DERIVED_FREE_WEIGHT, canonical, isBenchmark, isRateable, ratedMachineNames, weightForScore,
+} from '../js/standards.js';
 
 /* Wiederholbarkeit */
 
@@ -49,6 +52,8 @@ const uid = (prefix = '') => `${prefix}sc${(counter++).toString(36).padStart(4, 
 const WEEKS = 26;
 const START_BW = 78.5;
 const END_BW = 84.0;
+const SEX = 'male';
+const AGE = 28;
 
 // Mittags, damit nichts auf einer Tagesgrenze landet und nichts von der Uhrzeit abhängt.
 const today = new Date(); today.setHours(12, 0, 0, 0);
@@ -125,20 +130,67 @@ const START = {
   'Hip Thrust': [100, 1.8],
 };
 
-/** Glaubwürdige Startlast für alles, was oben nicht genannt ist. */
-function startWeight(ex) {
-  if (START[ex.name]) return START[ex.name];
-  switch (ex.equipment) {
-    case 'Barbell': return [between(35, 55), between(0.6, 0.9)];
-    case 'Machine': return [between(35, 70), between(0.7, 1.2)];
-    case 'Cable': return [between(20, 45), between(0.4, 0.8)];
-    case 'Dumbbell': return [between(10, 24), between(0.18, 0.32)];
-    // Körpergewicht und "Other" bekommen Zusatzgewicht. Das machen Leute wirklich, sobald sie
-    // können, und es hält sie aus dem Stillstandsbericht: ein geschätztes 1RM aus null Gewicht
-    // ist jede Woche null, und eine flache Linie bei null sieht genauso aus wie eine Übung, die
-    // nicht mehr vorankommt.
-    default: return [between(5, 14), between(0.2, 0.4)];
+const PROFIL = { sex: SEX, age: AGE, bodyweight: END_BW };
+const machineNames = ratedMachineNames(exercises);
+
+// Das beste geschätzte 1RM einer Woche kommt fast immer aus dem ersten Satz: bis zu neun
+// Wiederholungen und bis zu 2 % mehr Gewicht als geplant, beides aus der Schleife unten.
+const E1RM_JE_KG = 1.02 * (1 + 9 / 30);
+
+/**
+ * Startlast aus den Standards der App selbst, für jede Übung, die eine Wertung bekommt.
+ *
+ * Vorher bekam alles außerhalb von START eine Pauschale nach Gerät, 20 bis 45 kg für jedes
+ * Kabel. Der Bayesian Curl ist einarmig und wird gegen knapp ein Fünftel des Langhantelruderns
+ * gemessen, mit der Pauschale stand er am Ende auf Radiant. Das Kreuzheben im Sumostand lag mit
+ * derselben Pauschale für Langhanteln auf Silber. Jetzt fragt der Generator die Leiter, welche
+ * Last zu einem Rang zwischen Diamond und Master passt, also dorthin, wo auch die Übungen aus
+ * START landen, und rechnet von dort auf den Anfang zurück.
+ */
+function ausDemStandard(ex, mode) {
+  if (!isRateable(ex.name, machineNames)) return null;
+  const machine = !isBenchmark(ex.name)
+    && (machineNames.has(ex.name) || DERIVED_FREE_WEIGHT.has(canonical(ex.name)));
+  const need = weightForScore(ex.name, between(4.3, 5.6) * BAND, PROFIL, { machine });
+  if (need === null) return null;
+  const anteil = between(0.72, 0.8);
+  if (mode === 'bodyweight') {
+    // Klimmzug oder Dip ohne Gürtel: eingetragen wird das Körpergewicht, und die Stärke steckt in
+    // den Wiederholungen. Bei Körpergewicht plus `need` und Epley sind das 30 mal (Verhältnis minus 1).
+    const ende = Math.min(12, Math.max(4, Math.round(30 * ((END_BW + need) / END_BW - 1))));
+    return { mode, repsAnfang: Math.max(3, Math.round(ende * anteil)), repsEnde: ende };
   }
+  // Mit Gürtel liefert weightForScore die Scheibe am Gürtel, gerechnet wird aber mit dem ganzen System.
+  const ende = mode === 'added'
+    ? Math.max(2.5, (END_BW + need) / E1RM_JE_KG - END_BW)
+    : Math.max(ex.equipment === 'Dumbbell' ? 4 : 5, need / E1RM_JE_KG);
+  return { mode, base: ende * anteil, perWeek: (ende * (1 - anteil)) / (WEEKS - 1) };
+}
+
+/** Startlast und Steigerung je Übung. */
+function startWeight(ex) {
+  const mode = bodyweightLoadMode(ex);
+  if (START[ex.name] && mode === 'external') {
+    const [base, perWeek] = START[ex.name];
+    return { mode, base, perWeek };
+  }
+  const abgeleitet = ausDemStandard(ex, mode);
+  if (abgeleitet) return abgeleitet;
+  // Keine Wertung, also keine Leiter zum Fragen: eine glaubwürdige Pauschale nach Gerät.
+  const [base, perWeek] = (() => {
+    switch (ex.equipment) {
+      case 'Barbell': return [between(35, 55), between(0.6, 0.9)];
+      case 'Machine': return [between(35, 70), between(0.7, 1.2)];
+      case 'Cable': return [between(20, 45), between(0.4, 0.8)];
+      case 'Dumbbell': return [between(10, 24), between(0.18, 0.32)];
+      // Körpergewicht und "Other" bekommen Zusatzgewicht. Das machen Leute wirklich, sobald sie
+      // können, und es hält sie aus dem Stillstandsbericht: ein geschätztes 1RM aus null Gewicht
+      // ist jede Woche null, und eine flache Linie bei null sieht genauso aus wie eine Übung, die
+      // nicht mehr vorankommt.
+      default: return [between(5, 14), between(0.2, 0.4)];
+    }
+  })();
+  return { mode: 'external', base, perWeek };
 }
 
 const progress = new Map();
@@ -191,34 +243,44 @@ for (let week = WEEKS - 1; week >= 0; week--) {
     for (const item of day.items) {
       const ex = exercises.find((e) => e.id === item.exerciseId);
       if (!ex) continue;
-      const [base, perWeek] = progress.get(ex.id);
+      const p = progress.get(ex.id);
 
       const weeksIn = WEEKS - 1 - week;
       const capped = stallIds.has(ex.id) ? Math.min(weeksIn, STALL_WEEK) : weeksIn;
-      const target = base + capped * perWeek;
       const s = step(ex.equipment);
-      const working = roundTo(target * between(0.97, 1.02), s);
+      // Körpergewicht an diesem Tag, auf demselben Verlauf wie die Wiegungen weiter unten.
+      const bwHeute = Math.round((START_BW + (END_BW - START_BW) * (weeksIn / (WEEKS - 1))) * 10) / 10;
+      // RIR fehlt bei etwa einem Fünftel der Sätze, weil die App ein leeres Feld als unbekannt
+      // behandelt und dieser Weg sichtbar sein soll.
+      const rir = () => (chance(0.2) ? null : Math.max(0, Math.round(between(0, 3))));
 
       const sets = [];
 
-      // Aufwärmsätze bei den schweren Langhantelübungen, so wie die App sie selbst anbietet.
-      if (ex.equipment === 'Barbell' && working > 40) {
-        sets.push({ ...newSet(), weight: roundTo(working * 0.5, s), reps: 5, type: 'warmup', done: true });
-        sets.push({ ...newSet(), weight: roundTo(working * 0.75, s), reps: 3, type: 'warmup', done: true });
-      }
+      if (p.mode === 'bodyweight') {
+        // So wie der Trainieren-Screen speichert: das Körpergewicht als Last, und `loadMode`
+        // sagt der Wertung, dass hier kein Zusatzgewicht gemeint ist. Ohne das Feld wirft
+        // bestOneRepMaxByName den Satz weg, und die Übung hätte gar keine Wertung.
+        const zielReps = p.repsAnfang + (p.repsEnde - p.repsAnfang) * (capped / (WEEKS - 1));
+        for (let i = 0; i < item.targetSets; i++) {
+          const reps = Math.max(3, Math.round(zielReps - i * between(0, 1.4) + between(-1, 1)));
+          sets.push({ ...newSet(), weight: bwHeute, systemWeight: bwHeute, loadMode: 'bodyweight', reps, rir: rir(), done: true });
+        }
+      } else {
+        const working = roundTo((p.base + capped * p.perWeek) * between(0.97, 1.02), s);
 
-      const targetReps = 8;
-      for (let i = 0; i < item.targetSets; i++) {
-        const reps = Math.max(4, Math.round(targetReps - i * between(0, 1.4) + between(-1, 1)));
-        sets.push({
-          ...newSet(),
-          weight: working,
-          reps,
-          // RIR fehlt bei etwa einem Fünftel der Sätze, weil die App ein leeres Feld als
-          // unbekannt behandelt und dieser Weg sichtbar sein soll.
-          rir: chance(0.2) ? null : Math.max(0, Math.round(between(0, 3))),
-          done: true,
-        });
+        // Aufwärmsätze bei den schweren Langhantelübungen, so wie die App sie selbst anbietet.
+        if (ex.equipment === 'Barbell' && working > 40) {
+          sets.push({ ...newSet(), weight: roundTo(working * 0.5, s), reps: 5, type: 'warmup', done: true });
+          sets.push({ ...newSet(), weight: roundTo(working * 0.75, s), reps: 3, type: 'warmup', done: true });
+        }
+
+        // Mit Gürtel steht die Scheibe in `weight` und das ganze System in `systemWeight`.
+        const gurt = p.mode === 'added' ? { loadMode: 'added', systemWeight: bwHeute + working } : {};
+        const targetReps = 8;
+        for (let i = 0; i < item.targetSets; i++) {
+          const reps = Math.max(4, Math.round(targetReps - i * between(0, 1.4) + between(-1, 1)));
+          sets.push({ ...newSet(), weight: working, reps, rir: rir(), done: true, ...gurt });
+        }
       }
 
       const entry = newEntry(ex.id, sets);
@@ -413,8 +475,8 @@ const settings = {
   ...DEFAULT_SETTINGS,
   language: 'de',
   units: 'kg',
-  sex: 'male',
-  age: 28,
+  sex: SEX,
+  age: AGE,
   height: 181,
   bodyweight: bodyweight.length ? bodyweight[bodyweight.length - 1].weight : END_BW,
   goal: 'gain',
